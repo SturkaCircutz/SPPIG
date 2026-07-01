@@ -7,7 +7,7 @@ import sys
 from dataclasses import asdict
 
 from cartpole_env import CartpoleEnv
-from cartpole_synthesis import CartpoleSynthesisConfig, ProbabilisticCartpoleStudent, synthesize_cartpole_student
+from cartpole_synthesis import CartpoleSynthesisConfig, CartpoleTrace, ProbabilisticCartpoleStudent, synthesize_cartpole_student
 
 
 def summarize_rollouts(results):
@@ -54,6 +54,32 @@ def summarize_student(student: ProbabilisticCartpoleStudent):
     }
 
 
+def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
+    rewards = [trace.reward for trace in traces]
+    lengths = [len(trace.actions) for trace in traces]
+    return {
+        "count": len(traces),
+        "reward_mean": sum(rewards) / len(rewards) if rewards else 0.0,
+        "length_mean": sum(lengths) / len(lengths) if lengths else 0.0,
+        "examples": [
+            {
+                "reward": trace.reward,
+                "steps": len(trace.actions),
+                "switches": sum(
+                    int(left != right)
+                    for left, right in zip(trace.mode_labels, trace.mode_labels[1:])
+                ),
+                "theta_gain": trace.theta_gain,
+                "omega_gain": trace.omega_gain,
+                "first_observation": trace.observations[0] if trace.observations else None,
+                "last_observation": trace.observations[-1] if trace.observations else None,
+                "mode_prefix": trace.mode_labels[: min(8, len(trace.mode_labels))],
+            }
+            for trace in traces[:max_examples]
+        ],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Synthesize a Cartpole programmatic state machine.")
     parser.add_argument("--num-initial-states", type=int, default=32)
@@ -88,6 +114,7 @@ def main() -> None:
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
+        "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),
         "probabilistic_student": summarize_student(student),
         "train": train,

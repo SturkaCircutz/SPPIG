@@ -116,7 +116,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - Test evaluation defaults now use `15000` steps, matching the paper's 300-second test horizon.
 - Programmatic-state-machine synthesis can now write metrics JSON containing the synthesis config,
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
-  number of teacher traces, evaluation settings, and train/test metrics.
+  compact teacher-trace examples, number of teacher traces, evaluation settings, and train/test
+  metrics.
 - PPO training runs can now write metrics JSON containing the full evaluation history, selected
   result, config, and checkpoint-selection rule.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
@@ -145,7 +146,7 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_psm_cli.py::test_cli_writes_metrics_json` verifies that synthesized
   programmatic-policy metrics are persisted to JSON and that the file records the full paper test
   horizon even when a quick test cap is supplied. It also verifies that the fitted probabilistic
-  student summary is persisted.
+  student summary and bounded teacher-trace provenance are persisted.
 - `tests/test_cartpole_ppo_sweep.py::test_build_jobs_uses_paper_minibatch_rule_for_lstm` verifies
   that the sweep includes the paper's feed-forward minibatch grid while forcing PPO-LSTM to
   `nminibatches = 1`.
