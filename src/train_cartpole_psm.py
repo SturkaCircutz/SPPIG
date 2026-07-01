@@ -7,13 +7,50 @@ import sys
 from dataclasses import asdict
 
 from cartpole_env import CartpoleEnv
-from cartpole_synthesis import CartpoleSynthesisConfig, synthesize_cartpole_policy
+from cartpole_synthesis import CartpoleSynthesisConfig, ProbabilisticCartpoleStudent, synthesize_cartpole_student
 
 
 def summarize_rollouts(results):
     return {
         "success_rate": sum(result.success for result in results) / len(results),
         "reward_mean": sum(result.reward for result in results) / len(results),
+    }
+
+
+def summarize_student(student: ProbabilisticCartpoleStudent):
+    responsibilities = student.responsibilities
+    if responsibilities:
+        mean_left = sum(left for left, _ in responsibilities) / len(responsibilities)
+        mean_right = sum(right for _, right in responsibilities) / len(responsibilities)
+    else:
+        mean_left = 0.0
+        mean_right = 0.0
+    return {
+        "description": student.describe(),
+        "action_distributions": {
+            str(mode): {
+                "mean": distribution.mean,
+                "std": distribution.std,
+            }
+            for mode, distribution in sorted(student.action_distributions.items())
+        },
+        "switch": student.switch.describe(),
+        "switch_threshold_distribution": {
+            "mean": student.switch_threshold_distribution.mean,
+            "std": student.switch_threshold_distribution.std,
+        },
+        "switch_parameter_distributions": [
+            {
+                "mean": distribution.mean,
+                "std": distribution.std,
+            }
+            for distribution in student.switch_parameter_distributions
+        ],
+        "responsibility_summary": {
+            "segments": len(responsibilities),
+            "mean_mode_0": mean_left,
+            "mean_mode_1": mean_right,
+        },
     }
 
 
@@ -36,7 +73,8 @@ def main() -> None:
         segments_per_trace=args.segments_per_trace,
         seed=args.seed,
     )
-    policy, traces = synthesize_cartpole_policy(cfg)
+    student, traces = synthesize_cartpole_student(cfg)
+    policy = student.to_deterministic_policy()
     train_env = CartpoleEnv.train_env(seed=100)
     test_env = CartpoleEnv.test_env(seed=200)
     train_results = [train_env.rollout(policy) for _ in range(args.eval_rollouts)]
@@ -51,6 +89,7 @@ def main() -> None:
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
         "policy_description": policy.describe(),
+        "probabilistic_student": summarize_student(student),
         "train": train,
         "test": test,
     }

@@ -28,6 +28,7 @@ from cartpole_synthesis import (
     ProbabilisticCartpoleStudent,
     fit_probabilistic_cartpole_student,
     synthesize_cartpole_policy,
+    synthesize_cartpole_student,
     _eq12_switch_log_likelihood,
     _boolean_tree_candidates,
     _fit_switch_parameter_distributions,
@@ -87,6 +88,23 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(traces), 2)
         self.assertIn("m0", policy.describe())
         self.assertIn("m1", policy.describe())
+
+    def test_cartpole_synthesis_can_return_probabilistic_student(self):
+        student, traces = synthesize_cartpole_student(
+            CartpoleSynthesisConfig(
+                num_initial_states=2,
+                candidate_rollouts=4,
+                segment_steps=2,
+                segments_per_trace=4,
+                teacher_student_iters=1,
+                seed=5,
+            )
+        )
+
+        self.assertEqual(len(traces), 2)
+        self.assertIsInstance(student, ProbabilisticCartpoleStudent)
+        self.assertIn("N(", student.describe())
+        self.assertIn("m0", student.to_deterministic_policy().describe())
 
     def test_cartpole_probabilistic_student_uses_gaussian_modes(self):
         cfg = CartpoleSynthesisConfig(

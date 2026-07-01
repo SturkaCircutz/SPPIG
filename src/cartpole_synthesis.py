@@ -200,6 +200,11 @@ class SynthesizedCartpolePSM:
 
 
 def synthesize_cartpole_policy(cfg: CartpoleSynthesisConfig) -> tuple[SynthesizedCartpolePSM, List[CartpoleTrace]]:
+    student, traces = synthesize_cartpole_student(cfg)
+    return student.to_deterministic_policy(), traces
+
+
+def synthesize_cartpole_student(cfg: CartpoleSynthesisConfig) -> tuple[ProbabilisticCartpoleStudent, List[CartpoleTrace]]:
     rng = random.Random(cfg.seed)
     env = CartpoleEnv.train_env(seed=cfg.seed)
     initial_states = [env.reset() for _ in range(cfg.num_initial_states)]
@@ -215,7 +220,7 @@ def synthesize_cartpole_policy(cfg: CartpoleSynthesisConfig) -> tuple[Synthesize
         student = fit_probabilistic_cartpole_student(traces, cfg)
     if student is None:
         raise RuntimeError("Cartpole synthesis did not produce a student policy")
-    return student.to_deterministic_policy(), traces
+    return student, traces
 
 
 def fit_probabilistic_cartpole_student(

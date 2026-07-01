@@ -45,6 +45,10 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("policy_description", metrics)
+        self.assertIn("probabilistic_student", metrics)
+        self.assertIn("action_distributions", metrics["probabilistic_student"])
+        self.assertIn("switch_parameter_distributions", metrics["probabilistic_student"])
+        self.assertGreaterEqual(metrics["probabilistic_student"]["responsibility_summary"]["segments"], 1)
         self.assertIn("success_rate", metrics["train"])
         self.assertIn("reward_mean", metrics["test"])
 

@@ -40,7 +40,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   persist per-evaluation train/test metrics to JSON for checkpoint provenance.
 - `src/evaluate_cartpole_psm.py`: two-mode constant-action/depth-2-switch programmatic policy evaluator.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
-  machine; it can persist config, policy description, trace count, and train/test metrics to JSON.
+  machine; it can persist config, policy description, probabilistic-student parameters, trace count,
+  and train/test metrics to JSON.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
@@ -114,7 +115,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   during the update.
 - Test evaluation defaults now use `15000` steps, matching the paper's 300-second test horizon.
 - Programmatic-state-machine synthesis can now write metrics JSON containing the synthesis config,
-  policy description, number of teacher traces, evaluation settings, and train/test metrics.
+  policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
+  number of teacher traces, evaluation settings, and train/test metrics.
 - PPO training runs can now write metrics JSON containing the full evaluation history, selected
   result, config, and checkpoint-selection rule.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
@@ -142,7 +144,8 @@ paper-scale PPO2 runs.
   interval evaluations are persisted to JSON instead of existing only in stdout.
 - `tests/test_cartpole_psm_cli.py::test_cli_writes_metrics_json` verifies that synthesized
   programmatic-policy metrics are persisted to JSON and that the file records the full paper test
-  horizon even when a quick test cap is supplied.
+  horizon even when a quick test cap is supplied. It also verifies that the fitted probabilistic
+  student summary is persisted.
 - `tests/test_cartpole_ppo_sweep.py::test_build_jobs_uses_paper_minibatch_rule_for_lstm` verifies
   that the sweep includes the paper's feed-forward minibatch grid while forcing PPO-LSTM to
   `nminibatches = 1`.
@@ -161,6 +164,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   that Cartpole student fitting produces two Gaussian constant-action distributions, positive standard
   deviations, Gaussian switch-parameter distributions, and normalized latent mode responsibilities
   over loop-free teacher segments.
+- `tests/test_cartpole_paper.py::test_cartpole_synthesis_can_return_probabilistic_student` verifies
+  that synthesis can expose the fitted probabilistic student directly for metrics/provenance without
+  re-fitting from traces.
 - `tests/test_cartpole_paper.py::test_cartpole_probabilistic_student_projects_to_policy` verifies
   that the probabilistic student can be projected to a deterministic two-mode Cartpole policy for
   train/test evaluation.

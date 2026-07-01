@@ -73,6 +73,12 @@ Programmatic state machine:
   --metrics-output artifacts/cartpole_psm_metrics.json
 ```
 
+The PSM metrics JSON records the deterministic policy plus the fitted
+probabilistic student summary: Gaussian constant-action distributions, switch
+parameter distributions, and latent responsibility totals. This is provenance
+for the current partial student implementation, not evidence that the full
+probabilistic adaptive-teaching algorithm has been completed.
+
 PPO MLP:
 
 ```bash
