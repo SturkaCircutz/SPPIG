@@ -415,6 +415,46 @@ class CartpolePaperTest(unittest.TestCase):
             _teacher_objective(mismatched_trace, student, cfg),
         )
 
+    def test_cartpole_teacher_regularizer_uses_switch_timing_likelihood(self):
+        cfg = CartpoleSynthesisConfig(teacher_student_regularizer=1.0)
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        boundary_aligned = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0, 10.0],
+            mode_labels=[0, 0, 0, 1],
+            reward=1.0,
+        )
+        early_switching = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, 0.4, 0.0],
+                [0.0, 0.0, 0.5, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0, 10.0],
+            mode_labels=[0, 0, 0, 1],
+            reward=1.0,
+        )
+
+        self.assertGreater(
+            _teacher_objective(boundary_aligned, student, cfg),
+            _teacher_objective(early_switching, student, cfg),
+        )
+
     def test_cartpole_teacher_refinement_does_not_reduce_objective(self):
         env = CartpoleEnv.train_env(seed=0)
         cfg = CartpoleSynthesisConfig(

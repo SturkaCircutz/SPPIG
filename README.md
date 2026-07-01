@@ -82,9 +82,10 @@ probabilistic student summary: Gaussian constant-action distributions, switch
 parameter distributions, latent responsibility totals, and compact teacher
 trace examples with reward, length, gains, switches, and boundary observations.
 The switch threshold means are locally refined against the current discrete
-Eq. (12)-style timing likelihood. This is provenance for the current partial
-student implementation, not evidence that the full probabilistic
-adaptive-teaching algorithm has been completed.
+Eq. (12)-style timing likelihood, and the teacher regularizer scores both
+action likelihood and switch timing under the current student. This is
+provenance for the current partial student implementation, not evidence that
+the full probabilistic adaptive-teaching algorithm has been completed.
 
 PPO MLP:
 

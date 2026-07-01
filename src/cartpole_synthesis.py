@@ -410,10 +410,13 @@ def _teacher_objective(
 
 def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleStudent) -> float:
     total = 0.0
-    for segment in _segments_from_traces([trace])[0]:
+    trace_segments = _segments_from_traces([trace])[0]
+    responsibilities: List[Tuple[float, float]] = []
+    for segment in trace_segments:
         # Recompute responsibilities under the current student so the teacher
         # objective stays aligned with the latest fitted action primitives.
         resp = _mode_responsibilities(segment.action_parameter, student.action_distributions)
+        responsibilities.append(resp)
         mode_log_terms = []
         for mode in (0, 1):
             prior = max(resp[mode], 1e-12)
@@ -421,6 +424,13 @@ def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleS
                 math.log(prior) + student.action_distributions[mode].log_pdf(segment.action_parameter)
             )
         total += _logsumexp(mode_log_terms)
+    for current_index, current_segment in enumerate(trace_segments[:-1]):
+        total += _eq12_switch_log_likelihood(
+            student.switch,
+            current_segment,
+            responsibilities[current_index],
+            responsibilities[current_index + 1],
+        )
     return total
 
 

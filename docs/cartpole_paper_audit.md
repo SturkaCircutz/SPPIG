@@ -124,6 +124,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The Cartpole switch learner now locally refines Gaussian threshold means when doing so improves the
   discrete Eq. (12)-style timing likelihood without increasing hard segment-label mistakes. This is
   still a bounded approximation, not the paper's full continuous switch-parameter optimizer.
+- The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
+  and the student's discrete Eq. (12)-style switch timing likelihood.
 - PPO training runs can now write metrics JSON containing the full evaluation history, selected
   result, config, and checkpoint-selection rule.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
@@ -196,8 +198,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   exists.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_uses_student_regularizer` verifies
   that, once a previous student exists, the teacher objective can prefer a lower-reward loop-free trace
-  that has higher probability under the student's Gaussian action distributions. This is a partial
-  implementation of the probability regularizer in Eq. (8), not the paper's full CEM plus
+  that has higher probability under the student's Gaussian action distributions.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_regularizer_uses_switch_timing_likelihood`
+  verifies that the teacher regularizer also prefers traces with switch timing that the current
+  student explains better. These regularizer tests cover a partial implementation of the probability
+  regularizer in Eq. (8), not the paper's full CEM plus
   gradient-based trajectory optimizer.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_does_not_reduce_objective`
   verifies that local refinement of Cartpole loop-free teacher gains does not reduce the teacher
@@ -248,7 +253,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   does not yet solve the continuous Eq. (12) optimization for switch-condition means and standard
   deviations. The current
   Cartpole teacher samples candidate traces, keeps top candidates for local coordinate refinement of
-  teacher gains, and scores traces with reward plus a Gaussian action
-  log-probability regularizer from the previous student, but it does not yet perform the paper's
+  teacher gains, and scores traces with reward plus Gaussian action likelihood and discrete switch
+  timing likelihood under the previous student, but it does not yet perform the paper's
   continuous gradient-based optimization over loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.
