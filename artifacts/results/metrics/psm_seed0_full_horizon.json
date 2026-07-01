@@ -3,7 +3,9 @@
     "probabilistic_student": {
       "em_iters": 4,
       "log_probability_floor": 1e-12,
-      "min_gaussian_std": 0.001
+      "min_gaussian_std": 0.001,
+      "responsibility_evidence": "action_likelihood_then_switch_timing_forward_backward",
+      "switch_responsibility_passes": 1
     },
     "switch_search": {
       "boolean_tree_depth": 2,

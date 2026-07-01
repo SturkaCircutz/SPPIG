@@ -16,6 +16,7 @@ from cartpole_env import (
 
 MIN_GAUSSIAN_STD = 1e-3
 PROBABILISTIC_STUDENT_EM_ITERS = 4
+PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES = 1
 SWITCH_TIMING_STD_STEPS = 2.0
 LOG_PROBABILITY_FLOOR = 1e-12
 TEACHER_STUDENT_ITERS = 2
@@ -87,6 +88,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
     return {
         "probabilistic_student": {
             "em_iters": PROBABILISTIC_STUDENT_EM_ITERS,
+            "switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
+            "responsibility_evidence": "action_likelihood_then_switch_timing_forward_backward",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
             "log_probability_floor": LOG_PROBABILITY_FLOOR,
         },
@@ -469,9 +472,11 @@ def fit_probabilistic_cartpole_student(
     """Fit the Cartpole student using Gaussian action-parameter distributions.
 
     This implements the action-distribution part of the paper's EM-style
-    student step for Cartpole's constant-action grammar. Switch timing uses a
-    bounded Gaussian mean/std refinement against the local Eq. (12)-style
-    timing likelihood; it is still not the paper's full continuous M-step.
+    student step for Cartpole's constant-action grammar. The latent segment
+    responsibilities are first initialized from action likelihoods, then refined
+    with a bounded forward-backward pass using switch timing likelihoods.
+    Switch timing still uses local Gaussian mean/std refinement rather than the
+    paper's full continuous M-step.
     """
 
     segments_by_trace = _segments_from_traces(traces)
@@ -491,24 +496,38 @@ def fit_probabilistic_cartpole_student(
             _mode_responsibilities(segment.action_parameter, action_distributions)
             for segment in segments
         ]
-        action_distributions = {
-            mode: _weighted_gaussian(
-                [segment.action_parameter for segment in segments],
-                [resp[mode] for resp in responsibilities],
-                left_default if mode == 0 else right_default,
-            )
-            for mode in (0, 1)
-        }
+        action_distributions = _fit_action_distributions(
+            segments,
+            responsibilities,
+            left_default,
+            right_default,
+        )
 
     # Fit the discrete switch after action EM so switch costs can use the same
     # soft transition evidence instead of only the teacher's hard labels.
-    switch = _learn_depth2_switch(traces, segments_by_trace, responsibilities)
-    switch_parameter_distributions = _fit_switch_parameter_distributions(
-        switch,
+    switch, switch_parameter_distributions = _fit_student_switch(
+        traces,
         segments_by_trace,
         responsibilities,
     )
-    switch = _switch_with_distribution_means(switch, switch_parameter_distributions)
+    for _ in range(PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES):
+        responsibilities = _refine_responsibilities_with_switch_timing(
+            segments_by_trace,
+            action_distributions,
+            switch,
+            switch_parameter_distributions,
+        )
+        action_distributions = _fit_action_distributions(
+            segments,
+            responsibilities,
+            left_default,
+            right_default,
+        )
+        switch, switch_parameter_distributions = _fit_student_switch(
+            traces,
+            segments_by_trace,
+            responsibilities,
+        )
     threshold_distribution = (
         switch_parameter_distributions[0]
         if switch_parameter_distributions
@@ -870,12 +889,13 @@ def _teacher_objective(
 def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleStudent) -> float:
     total = 0.0
     trace_segments = _segments_from_traces([trace])[0]
-    responsibilities: List[Tuple[float, float]] = []
-    for segment in trace_segments:
-        # Recompute responsibilities under the current student so the teacher
-        # objective stays aligned with the latest fitted action primitives.
-        resp = _mode_responsibilities(segment.action_parameter, student.action_distributions)
-        responsibilities.append(resp)
+    responsibilities = _refine_responsibilities_with_switch_timing(
+        [trace_segments],
+        student.action_distributions,
+        student.switch,
+        student.switch_parameter_distributions,
+    )
+    for segment, resp in zip(trace_segments, responsibilities):
         mode_log_terms = []
         for mode in (0, 1):
             prior = max(resp[mode], LOG_PROBABILITY_FLOOR)
@@ -944,6 +964,141 @@ def _mode_responsibilities(
     weights = [math.exp(value - max_log) for value in log_weights]
     total = sum(weights)
     return weights[0] / total, weights[1] / total
+
+
+def _fit_action_distributions(
+    segments: List[CartpoleSegment],
+    responsibilities: List[Tuple[float, float]],
+    left_default: float,
+    right_default: float,
+) -> Dict[int, GaussianScalar]:
+    return {
+        mode: _weighted_gaussian(
+            [segment.action_parameter for segment in segments],
+            [resp[mode] for resp in responsibilities],
+            left_default if mode == 0 else right_default,
+        )
+        for mode in (0, 1)
+    }
+
+
+def _fit_student_switch(
+    traces: List[CartpoleTrace],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> Tuple[SwitchProgram, List[GaussianScalar]]:
+    # Refit both switch structure and Gaussian threshold parameters after each
+    # responsibility update so action and timing evidence stay in sync.
+    switch = _learn_depth2_switch(traces, segments_by_trace, responsibilities)
+    distributions = _fit_switch_parameter_distributions(
+        switch,
+        segments_by_trace,
+        responsibilities,
+    )
+    return _switch_with_distribution_means(switch, distributions), distributions
+
+
+def _refine_responsibilities_with_switch_timing(
+    segments_by_trace: List[List[CartpoleSegment]],
+    action_distributions: Dict[int, GaussianScalar],
+    switch: SwitchProgram,
+    switch_parameter_distributions: List[GaussianScalar],
+) -> List[Tuple[float, float]]:
+    responsibilities: List[Tuple[float, float]] = []
+    for trace_segments in segments_by_trace:
+        if not trace_segments:
+            continue
+        # Emissions are the action-function likelihood term from Eq. (10).
+        emissions = [
+            [
+                action_distributions[mode].log_pdf(segment.action_parameter)
+                for mode in (0, 1)
+            ]
+            for segment in trace_segments
+        ]
+        # Pair potentials encode whether the learned switch prefers a mode
+        # transition or a same-mode continuation at each observed boundary.
+        pair_potentials = [
+            _switch_responsibility_pair_log_potentials(
+                switch,
+                switch_parameter_distributions,
+                segment,
+            )
+            for segment in trace_segments[:-1]
+        ]
+
+        # Forward scores accumulate prefix evidence for the two latent modes.
+        forward: List[List[float]] = [[emissions[0][0], emissions[0][1]]]
+        for index in range(1, len(trace_segments)):
+            previous = forward[-1]
+            pair = pair_potentials[index - 1]
+            forward.append(
+                [
+                    emissions[index][mode]
+                    + _logsumexp(
+                        [
+                            previous[previous_mode] + pair[previous_mode][mode]
+                            for previous_mode in (0, 1)
+                        ]
+                    )
+                    for mode in (0, 1)
+                ]
+            )
+
+        # Backward scores accumulate suffix evidence without changing ordering.
+        backward: List[List[float]] = [[0.0, 0.0] for _ in trace_segments]
+        for index in range(len(trace_segments) - 2, -1, -1):
+            pair = pair_potentials[index]
+            backward[index] = [
+                _logsumexp(
+                    [
+                        pair[mode][next_mode]
+                        + emissions[index + 1][next_mode]
+                        + backward[index + 1][next_mode]
+                        for next_mode in (0, 1)
+                    ]
+                )
+                for mode in (0, 1)
+            ]
+
+        # Posterior marginals are flattened in segment order for later M-steps.
+        norm = _logsumexp(forward[-1])
+        for index in range(len(trace_segments)):
+            posterior_logs = [
+                forward[index][mode] + backward[index][mode] - norm
+                for mode in (0, 1)
+            ]
+            weights = [math.exp(value) for value in posterior_logs]
+            total = sum(weights)
+            responsibilities.append((weights[0] / total, weights[1] / total))
+    return responsibilities
+
+
+def _switch_responsibility_pair_log_potentials(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    segment: CartpoleSegment,
+) -> List[List[float]]:
+    transition_probability = _switch_transition_probability_at_duration(
+        switch,
+        distributions,
+        segment.observations,
+        segment.duration,
+    )
+    stay_probability = _switch_no_transition_probability_before_duration(
+        switch,
+        distributions,
+        segment.observations,
+        segment.duration,
+    )
+    # Different adjacent modes consume transition likelihood; equal modes
+    # consume survival likelihood before the observed boundary.
+    transition_log = math.log(max(transition_probability, LOG_PROBABILITY_FLOOR))
+    stay_log = math.log(max(stay_probability, LOG_PROBABILITY_FLOOR))
+    return [
+        [stay_log, transition_log],
+        [transition_log, stay_log],
+    ]
 
 
 def _weighted_gaussian(

@@ -64,6 +64,11 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["config"]["teacher_refinement_steps"], 1)
         provenance = metrics["algorithm_provenance"]
         self.assertEqual(provenance["probabilistic_student"]["em_iters"], 4)
+        self.assertEqual(provenance["probabilistic_student"]["switch_responsibility_passes"], 1)
+        self.assertEqual(
+            provenance["probabilistic_student"]["responsibility_evidence"],
+            "action_likelihood_then_switch_timing_forward_backward",
+        )
         self.assertEqual(provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
         self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
         self.assertTrue(provenance["switch_timing"]["scalar_threshold_uses_shared_sample"])

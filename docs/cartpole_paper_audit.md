@@ -77,12 +77,14 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   Cartpole programmatic policy synthesis.
 - Partially complete against the paper: the Cartpole programmatic policy is synthesized from
   model-based teacher traces into a two-mode constant-action/depth-2-switch policy. The student now
-  fits Gaussian distributions over constant action parameters and latent mode responsibilities, but it
-  still approximates switch timing and does not implement the full probabilistic adaptive-teaching
-  objective from the paper. The switch grammar now includes decision stumps and depth-2 conjunction
-  candidates over observation inequalities via a depth-2 greedy leaf-expansion step. Switch threshold
-  Gaussian means and standard deviations are locally refined against the Eq. (12)-style timing
-  likelihood, but the learner still uses a bounded grid search instead of fully optimizing Eq. (12).
+  fits Gaussian distributions over constant action parameters and latent mode responsibilities. Those
+  responsibilities now use one bounded forward-backward refinement over the learned switch-timing
+  likelihood, but the learner still approximates switch timing and does not implement the full
+  probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
+  stumps and depth-2 conjunction candidates over observation inequalities via a depth-2 greedy
+  leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
+  against the Eq. (12)-style timing likelihood, but the learner still uses a bounded grid search
+  instead of fully optimizing Eq. (12).
 - Complete as a local diagnostic baseline: feed-forward PPO reaches 100% success on the paper's
   5-second training split.
 - Not complete against the paper: PPO/PPO-LSTM have not been run for `10^7` timesteps or selected
@@ -160,6 +162,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   and the student's discrete Eq. (12)-style switch timing likelihood. For scalar-threshold switches,
   that timing likelihood uses the learned Gaussian switch-parameter distribution with one sampled
   threshold shared across a segment, matching the paper's probabilistic-state-machine sampling model.
+- The Cartpole student now refines action-only latent segment responsibilities with a bounded
+  forward-backward pass over adjacent segment switch-timing probabilities before refitting the action
+  distributions and switch. This moves Eq. (10) closer to the paper by using both `H` and `G` evidence,
+  but it remains a local bounded approximation rather than the paper's full EM/M-step optimizer.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
   corresponding constant-action sequence, duration-only refinement preserves that action sequence
@@ -238,6 +244,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   that Cartpole student fitting produces two Gaussian constant-action distributions, positive standard
   deviations, Gaussian switch-parameter distributions, and normalized latent mode responsibilities
   over loop-free teacher segments.
+- `tests/test_cartpole_paper.py::test_cartpole_responsibility_refinement_uses_switch_timing` verifies
+  that switch-timing likelihood can shift ambiguous latent segment responsibilities away from the
+  action-only posterior while preserving normalization.
 - `tests/test_cartpole_paper.py::test_cartpole_synthesis_can_return_probabilistic_student` verifies
   that synthesis can expose the fitted probabilistic student directly for metrics/provenance without
   re-fitting from traces.

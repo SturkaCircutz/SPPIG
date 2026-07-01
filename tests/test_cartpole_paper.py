@@ -39,9 +39,11 @@ from cartpole_synthesis import (
     _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
     _duration_refinement_candidates,
+    _mode_responsibilities,
     _mode_run_lengths,
     _mode_run_actions,
     _optimize_loop_free_trace,
+    _refine_responsibilities_with_switch_timing,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
     _switch_distribution_std_candidates,
@@ -170,6 +172,44 @@ class CartpolePaperTest(unittest.TestCase):
             self.assertAlmostEqual(left_weight + right_weight, 1.0)
             self.assertGreaterEqual(left_weight, 0.0)
             self.assertGreaterEqual(right_weight, 0.0)
+
+    def test_cartpole_responsibility_refinement_uses_switch_timing(self):
+        first_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, -0.3, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+            ],
+            action_parameter=-0.9,
+            duration=3,
+            hard_mode=0,
+        )
+        second_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.2, 0.0]],
+            action_parameter=0.1,
+            duration=1,
+            hard_mode=1,
+        )
+        action_distributions = {
+            0: GaussianScalar(-1.0, 1.0),
+            1: GaussianScalar(1.0, 1.0),
+        }
+        action_only_second = _mode_responsibilities(
+            second_segment.action_parameter,
+            action_distributions,
+        )
+
+        responsibilities = _refine_responsibilities_with_switch_timing(
+            [[first_segment, second_segment]],
+            action_distributions,
+            Depth2Switch(1.0, 0.0, 0.0),
+            [GaussianScalar(0.0, 0.05)],
+        )
+
+        self.assertGreater(action_only_second[1], action_only_second[0])
+        self.assertGreater(responsibilities[1][0], action_only_second[0])
+        for left_weight, right_weight in responsibilities:
+            self.assertAlmostEqual(left_weight + right_weight, 1.0)
 
     def test_cartpole_probabilistic_student_projects_to_policy(self):
         cfg = CartpoleSynthesisConfig(

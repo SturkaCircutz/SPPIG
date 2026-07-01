@@ -166,6 +166,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(config["teacher_top_rho"], 1)
             self.assertEqual(config["teacher_refinement_steps"], 1)
             row_provenance = manifest["rows"][0]["algorithm_provenance"]
+            self.assertEqual(row_provenance["probabilistic_student"]["switch_responsibility_passes"], 1)
+            self.assertEqual(
+                row_provenance["probabilistic_student"]["responsibility_evidence"],
+                "action_likelihood_then_switch_timing_forward_backward",
+            )
             self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
             self.assertEqual(row_provenance["switch_search"]["max_threshold_candidates"], 64)
             self.assertEqual(row_provenance["teacher_search"]["gain_sample_std_fraction"], 0.10)
