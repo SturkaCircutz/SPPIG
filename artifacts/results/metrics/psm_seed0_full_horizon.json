@@ -83,7 +83,7 @@
       "gain_sample_std_fraction": 0.1,
       "omega_refinement_min_delta": 0.05,
       "refinement_delta_decay": 0.5,
-      "student_sample_fraction_after_first_iteration": 0.5,
+      "student_sample_fraction_after_first_iteration": 1.0,
       "student_sample_local_refinement": "duration_and_action_coordinate_search",
       "student_sample_probability": "trace_log_probability_approximation",
       "theta_refinement_min_delta": 0.1
@@ -111,34 +111,34 @@
   "eval_rollouts": 20,
   "num_traces": 64,
   "paper_test_horizon_steps": 15000,
-  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0",
+  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0",
   "probabilistic_student": {
     "action_distributions": {
       "0": {
-        "mean": -9.999994020428375,
+        "mean": -10.000016559195329,
         "std": 0.001
       },
       "1": {
-        "mean": 10.000012514831003,
+        "mean": 9.999996226555519,
         "std": 0.001
       }
     },
-    "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(0.068, 0.123); G=[N(0.068, 0.123)]",
+    "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(0.116, 0.216); G=[N(0.116, 0.216)]",
     "responsibility_summary": {
       "mean_mode_0": 0.5,
       "mean_mode_1": 0.5,
       "segments": 128
     },
-    "switch": "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0",
+    "switch": "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0",
     "switch_parameter_distributions": [
       {
-        "mean": 0.06820212294722099,
-        "std": 0.12265797883100649
+        "mean": 0.11586239665411026,
+        "std": 0.21569372899597306
       }
     ],
     "switch_threshold_distribution": {
-      "mean": 0.06820212294722099,
-      "std": 0.12265797883100649
+      "mean": 0.11586239665411026,
+      "std": 0.21569372899597306
     }
   },
   "switch_fit_diagnostics": {
@@ -148,110 +148,110 @@
           "at_boundary_count": 0,
           "early_switch_count": 64,
           "enabled_boundary_count": 64,
-          "first_enabled_minus_duration_max": -3,
-          "first_enabled_minus_duration_mean": -5.3125,
-          "first_enabled_minus_duration_min": -7,
+          "first_enabled_minus_duration_max": -4,
+          "first_enabled_minus_duration_mean": -6.125,
+          "first_enabled_minus_duration_min": -8,
           "late_switch_count": 0,
           "never_enabled_count": 0,
           "num_boundaries": 64
         },
-        "bounded_eq12_style_distribution_loss": 1145.2415320315072,
+        "bounded_eq12_style_distribution_loss": 1107.3463030623575,
         "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
-        "deterministic_eq12_style_timing_loss": 235.75,
-        "deterministic_hard_label_mistakes": 344,
-        "deterministic_label_error_rate": 0.4387755102040816,
+        "deterministic_eq12_style_timing_loss": 305.25,
+        "deterministic_hard_label_mistakes": 397,
+        "deterministic_label_error_rate": 0.5907738095238095,
         "deterministic_objective_tuple": [
-          344,
-          235.75,
+          397,
+          305.25,
           1,
           "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
         ],
-        "eq12_style_timing_loss": 235.75,
-        "hard_label_mistake_rate": 0.3877551020408163,
-        "hard_label_mistakes": 304,
-        "label_error_rate": 0.3877551020408163,
-        "label_mistakes": 304,
+        "eq12_style_timing_loss": 305.25,
+        "hard_label_mistake_rate": 0.46875,
+        "hard_label_mistakes": 315,
+        "label_error_rate": 0.46875,
+        "label_mistakes": 315,
         "objective_boundary_alignment": {
-          "at_boundary_count": 2,
-          "early_switch_count": 12,
-          "enabled_boundary_count": 14,
+          "at_boundary_count": 12,
+          "early_switch_count": 6,
+          "enabled_boundary_count": 18,
           "first_enabled_minus_duration_max": 0,
-          "first_enabled_minus_duration_mean": -1.0,
-          "first_enabled_minus_duration_min": -2,
+          "first_enabled_minus_duration_mean": -0.3333333333333333,
+          "first_enabled_minus_duration_min": -1,
           "late_switch_count": 0,
-          "never_enabled_count": 50,
+          "never_enabled_count": 46,
           "num_boundaries": 64
         },
-        "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= 2.025, else mode=0",
+        "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= 2.656, else mode=0",
         "objective_tuple": [
-          304,
-          1145.2415320315072,
+          315,
+          1107.3463030623575,
           1,
-          "mode=1 if 10.000*theta + 1.000*omega >= 2.025, else mode=0"
+          "mode=1 if 10.000*theta + 1.000*omega >= 2.656, else mode=0"
         ],
         "program_complexity": 1,
-        "timing_loss_per_boundary": 17.8943989379923,
-        "timing_loss_total": 1145.2415320315072
+        "timing_loss_per_boundary": 17.302285985349336,
+        "timing_loss_total": 1107.3463030623575
       },
       "selected_student_switch": {
         "boundary_alignment": {
-          "at_boundary_count": 7,
-          "early_switch_count": 40,
-          "enabled_boundary_count": 47,
+          "at_boundary_count": 2,
+          "early_switch_count": 39,
+          "enabled_boundary_count": 41,
           "first_enabled_minus_duration_max": 0,
-          "first_enabled_minus_duration_mean": -4.74468085106383,
-          "first_enabled_minus_duration_min": -7,
+          "first_enabled_minus_duration_mean": -6.024390243902439,
+          "first_enabled_minus_duration_min": -8,
           "late_switch_count": 0,
-          "never_enabled_count": 17,
+          "never_enabled_count": 23,
           "num_boundaries": 64
         },
-        "bounded_eq12_style_distribution_loss": 1449.5138974282113,
-        "description": "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0",
-        "deterministic_eq12_style_timing_loss": 161.0,
-        "deterministic_hard_label_mistakes": 58,
-        "deterministic_label_error_rate": 0.07397959183673469,
+        "bounded_eq12_style_distribution_loss": 1251.828991503433,
+        "description": "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0",
+        "deterministic_eq12_style_timing_loss": 202.75,
+        "deterministic_hard_label_mistakes": 22,
+        "deterministic_label_error_rate": 0.03273809523809524,
         "deterministic_objective_tuple": [
-          58,
-          161.0,
+          22,
+          202.75,
           1,
-          "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0"
+          "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0"
         ],
-        "eq12_style_timing_loss": 161.0,
-        "hard_label_mistake_rate": 0.07397959183673469,
-        "hard_label_mistakes": 58,
-        "label_error_rate": 0.07397959183673469,
-        "label_mistakes": 58,
+        "eq12_style_timing_loss": 202.75,
+        "hard_label_mistake_rate": 0.03273809523809524,
+        "hard_label_mistakes": 22,
+        "label_error_rate": 0.03273809523809524,
+        "label_mistakes": 22,
         "objective_boundary_alignment": {
-          "at_boundary_count": 7,
-          "early_switch_count": 40,
-          "enabled_boundary_count": 47,
+          "at_boundary_count": 2,
+          "early_switch_count": 39,
+          "enabled_boundary_count": 41,
           "first_enabled_minus_duration_max": 0,
-          "first_enabled_minus_duration_mean": -4.74468085106383,
-          "first_enabled_minus_duration_min": -7,
+          "first_enabled_minus_duration_mean": -6.024390243902439,
+          "first_enabled_minus_duration_min": -8,
           "late_switch_count": 0,
-          "never_enabled_count": 17,
+          "never_enabled_count": 23,
           "num_boundaries": 64
         },
-        "objective_description": "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0",
+        "objective_description": "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0",
         "objective_tuple": [
-          58,
-          1449.5138974282113,
+          22,
+          1251.828991503433,
           1,
-          "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0"
+          "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0"
         ],
         "program_complexity": 1,
-        "timing_loss_per_boundary": 22.6486546473158,
-        "timing_loss_total": 1449.5138974282113
+        "timing_loss_per_boundary": 19.55982799224114,
+        "timing_loss_total": 1251.828991503433
       }
     },
     "diagnostic_scope": "local_teacher_trace_fit",
     "distribution_rescore_top_k": 128,
-    "example_count": 784,
+    "example_count": 672,
     "not_paper_reproduction": true,
     "note": "Trace-fit diagnostics for the current local synthesizer. These costs are not paper-scale reproduction results or closed-loop evaluations.",
     "num_boundaries": 64,
     "num_segments": 128,
-    "num_trace_steps": 784,
+    "num_trace_steps": 672,
     "prefilter_objective_order": [
       "hard_label_mistakes",
       "eq12_style_timing_loss",
@@ -481,30 +481,30 @@
       "probabilistic_student": {
         "action_distributions": {
           "0": {
-            "mean": -9.999994020428375,
+            "mean": -10.000016559195329,
             "std": 0.001
           },
           "1": {
-            "mean": 10.000012514831003,
+            "mean": 9.999996226555519,
             "std": 0.001
           }
         },
-        "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(0.068, 0.123); G=[N(0.068, 0.123)]",
+        "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(0.116, 0.216); G=[N(0.116, 0.216)]",
         "responsibility_summary": {
           "mean_mode_0": 0.5,
           "mean_mode_1": 0.5,
           "segments": 128
         },
-        "switch": "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0",
+        "switch": "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0",
         "switch_parameter_distributions": [
           {
-            "mean": 0.06820212294722099,
-            "std": 0.12265797883100649
+            "mean": 0.11586239665411026,
+            "std": 0.21569372899597306
           }
         ],
         "switch_threshold_distribution": {
-          "mean": 0.06820212294722099,
-          "std": 0.12265797883100649
+          "mean": 0.11586239665411026,
+          "std": 0.21569372899597306
         }
       },
       "switch_fit_diagnostics": {
@@ -514,110 +514,110 @@
               "at_boundary_count": 0,
               "early_switch_count": 64,
               "enabled_boundary_count": 64,
-              "first_enabled_minus_duration_max": -3,
-              "first_enabled_minus_duration_mean": -5.3125,
-              "first_enabled_minus_duration_min": -7,
+              "first_enabled_minus_duration_max": -4,
+              "first_enabled_minus_duration_mean": -6.125,
+              "first_enabled_minus_duration_min": -8,
               "late_switch_count": 0,
               "never_enabled_count": 0,
               "num_boundaries": 64
             },
-            "bounded_eq12_style_distribution_loss": 1145.2415320315072,
+            "bounded_eq12_style_distribution_loss": 1107.3463030623575,
             "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
-            "deterministic_eq12_style_timing_loss": 235.75,
-            "deterministic_hard_label_mistakes": 344,
-            "deterministic_label_error_rate": 0.4387755102040816,
+            "deterministic_eq12_style_timing_loss": 305.25,
+            "deterministic_hard_label_mistakes": 397,
+            "deterministic_label_error_rate": 0.5907738095238095,
             "deterministic_objective_tuple": [
-              344,
-              235.75,
+              397,
+              305.25,
               1,
               "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
             ],
-            "eq12_style_timing_loss": 235.75,
-            "hard_label_mistake_rate": 0.3877551020408163,
-            "hard_label_mistakes": 304,
-            "label_error_rate": 0.3877551020408163,
-            "label_mistakes": 304,
+            "eq12_style_timing_loss": 305.25,
+            "hard_label_mistake_rate": 0.46875,
+            "hard_label_mistakes": 315,
+            "label_error_rate": 0.46875,
+            "label_mistakes": 315,
             "objective_boundary_alignment": {
-              "at_boundary_count": 2,
-              "early_switch_count": 12,
-              "enabled_boundary_count": 14,
+              "at_boundary_count": 12,
+              "early_switch_count": 6,
+              "enabled_boundary_count": 18,
               "first_enabled_minus_duration_max": 0,
-              "first_enabled_minus_duration_mean": -1.0,
-              "first_enabled_minus_duration_min": -2,
+              "first_enabled_minus_duration_mean": -0.3333333333333333,
+              "first_enabled_minus_duration_min": -1,
               "late_switch_count": 0,
-              "never_enabled_count": 50,
+              "never_enabled_count": 46,
               "num_boundaries": 64
             },
-            "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= 2.025, else mode=0",
+            "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= 2.656, else mode=0",
             "objective_tuple": [
-              304,
-              1145.2415320315072,
+              315,
+              1107.3463030623575,
               1,
-              "mode=1 if 10.000*theta + 1.000*omega >= 2.025, else mode=0"
+              "mode=1 if 10.000*theta + 1.000*omega >= 2.656, else mode=0"
             ],
             "program_complexity": 1,
-            "timing_loss_per_boundary": 17.8943989379923,
-            "timing_loss_total": 1145.2415320315072
+            "timing_loss_per_boundary": 17.302285985349336,
+            "timing_loss_total": 1107.3463030623575
           },
           "selected_student_switch": {
             "boundary_alignment": {
-              "at_boundary_count": 7,
-              "early_switch_count": 40,
-              "enabled_boundary_count": 47,
+              "at_boundary_count": 2,
+              "early_switch_count": 39,
+              "enabled_boundary_count": 41,
               "first_enabled_minus_duration_max": 0,
-              "first_enabled_minus_duration_mean": -4.74468085106383,
-              "first_enabled_minus_duration_min": -7,
+              "first_enabled_minus_duration_mean": -6.024390243902439,
+              "first_enabled_minus_duration_min": -8,
               "late_switch_count": 0,
-              "never_enabled_count": 17,
+              "never_enabled_count": 23,
               "num_boundaries": 64
             },
-            "bounded_eq12_style_distribution_loss": 1449.5138974282113,
-            "description": "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0",
-            "deterministic_eq12_style_timing_loss": 161.0,
-            "deterministic_hard_label_mistakes": 58,
-            "deterministic_label_error_rate": 0.07397959183673469,
+            "bounded_eq12_style_distribution_loss": 1251.828991503433,
+            "description": "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0",
+            "deterministic_eq12_style_timing_loss": 202.75,
+            "deterministic_hard_label_mistakes": 22,
+            "deterministic_label_error_rate": 0.03273809523809524,
             "deterministic_objective_tuple": [
-              58,
-              161.0,
+              22,
+              202.75,
               1,
-              "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0"
+              "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0"
             ],
-            "eq12_style_timing_loss": 161.0,
-            "hard_label_mistake_rate": 0.07397959183673469,
-            "hard_label_mistakes": 58,
-            "label_error_rate": 0.07397959183673469,
-            "label_mistakes": 58,
+            "eq12_style_timing_loss": 202.75,
+            "hard_label_mistake_rate": 0.03273809523809524,
+            "hard_label_mistakes": 22,
+            "label_error_rate": 0.03273809523809524,
+            "label_mistakes": 22,
             "objective_boundary_alignment": {
-              "at_boundary_count": 7,
-              "early_switch_count": 40,
-              "enabled_boundary_count": 47,
+              "at_boundary_count": 2,
+              "early_switch_count": 39,
+              "enabled_boundary_count": 41,
               "first_enabled_minus_duration_max": 0,
-              "first_enabled_minus_duration_mean": -4.74468085106383,
-              "first_enabled_minus_duration_min": -7,
+              "first_enabled_minus_duration_mean": -6.024390243902439,
+              "first_enabled_minus_duration_min": -8,
               "late_switch_count": 0,
-              "never_enabled_count": 17,
+              "never_enabled_count": 23,
               "num_boundaries": 64
             },
-            "objective_description": "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0",
+            "objective_description": "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0",
             "objective_tuple": [
-              58,
-              1449.5138974282113,
+              22,
+              1251.828991503433,
               1,
-              "mode=1 if 10.000*theta + -0.500*omega >= 0.068, else mode=0"
+              "mode=1 if 10.000*theta + -0.500*omega >= 0.116, else mode=0"
             ],
             "program_complexity": 1,
-            "timing_loss_per_boundary": 22.6486546473158,
-            "timing_loss_total": 1449.5138974282113
+            "timing_loss_per_boundary": 19.55982799224114,
+            "timing_loss_total": 1251.828991503433
           }
         },
         "diagnostic_scope": "local_teacher_trace_fit",
         "distribution_rescore_top_k": 128,
-        "example_count": 784,
+        "example_count": 672,
         "not_paper_reproduction": true,
         "note": "Trace-fit diagnostics for the current local synthesizer. These costs are not paper-scale reproduction results or closed-loop evaluations.",
         "num_boundaries": 64,
         "num_segments": 128,
-        "num_trace_steps": 784,
+        "num_trace_steps": 672,
         "prefilter_objective_order": [
           "hard_label_mistakes",
           "eq12_style_timing_loss",
@@ -645,9 +645,9 @@
             ],
             "last_observation": [
               -0.1014815985272219,
-              -1.3441270990167609,
+              -1.3441335171269828,
               0.20085856026205196,
-              2.1491635532979885
+              2.1491730679504717
             ],
             "mode_prefix": [
               0,
@@ -659,36 +659,34 @@
               0,
               0
             ],
-            "omega_gain": 1.6600233948562777,
+            "omega_gain": 0.0,
             "reward": 10.0,
             "segment_actions": [
-              -10.0,
-              10.0
+              -10.00085329838424,
+              9.99967051257423
             ],
             "segment_durations": [
               8,
-              8
+              2
             ],
             "steps": 10,
-            "student_log_probability": null,
+            "student_log_probability": 11.434349768206951,
             "switches": 1,
-            "teacher_source": "gain_sample",
-            "theta_gain": 18.81851401757281
+            "teacher_source": "student_sample",
+            "theta_gain": 0.0
           }
         ],
-        "length_mean": 12.25,
-        "reward_mean": 12.25,
+        "length_mean": 10.5,
+        "reward_mean": 10.5,
         "teacher_source_counts": {
-          "gain_refined": 34,
-          "gain_sample": 19,
-          "student_sample": 5,
-          "student_sample_refined": 6
+          "student_sample": 40,
+          "student_sample_refined": 24
         }
       }
     }
   ],
   "test": {
-    "reward_mean": 24.5,
+    "reward_mean": 22.8,
     "success_rate": 0.0
   },
   "test_max_steps": 15000,
@@ -704,9 +702,9 @@
         ],
         "last_observation": [
           -0.1014815985272219,
-          -1.3441270990167609,
+          -1.3441335171269828,
           0.20085856026205196,
-          2.1491635532979885
+          2.1491730679504717
         ],
         "mode_prefix": [
           0,
@@ -718,21 +716,21 @@
           0,
           0
         ],
-        "omega_gain": 1.6600233948562777,
+        "omega_gain": 0.0,
         "reward": 10.0,
         "segment_actions": [
-          -10.0,
-          10.0
+          -10.00085329838424,
+          9.99967051257423
         ],
         "segment_durations": [
           8,
-          8
+          2
         ],
         "steps": 10,
-        "student_log_probability": null,
+        "student_log_probability": 11.434349768206951,
         "switches": 1,
-        "teacher_source": "gain_sample",
-        "theta_gain": 18.81851401757281
+        "teacher_source": "student_sample",
+        "theta_gain": 0.0
       },
       {
         "first_observation": [
@@ -742,10 +740,10 @@
           -0.019668727392107257
         ],
         "last_observation": [
-          0.13959320887672616,
-          -0.19049881294131832,
-          -0.19830409977411562,
-          -0.03911819171162512
+          0.15137382195905516,
+          0.7760491778458576,
+          -0.20360334487657566,
+          -1.3261329620111615
         ],
         "mode_prefix": [
           1,
@@ -754,24 +752,24 @@
           1,
           1,
           1,
-          0,
+          1,
           0
         ],
-        "omega_gain": 2.2953049612815586,
-        "reward": 14.0,
+        "omega_gain": 0.0,
+        "reward": 11.0,
         "segment_actions": [
-          10.0,
-          -10.0
+          10.000297885760988,
+          -10.000126586260404
         ],
         "segment_durations": [
-          6,
-          8
+          7,
+          4
         ],
-        "steps": 14,
-        "student_log_probability": -15.653387624373618,
+        "steps": 11,
+        "student_log_probability": -15.70576762833477,
         "switches": 1,
-        "teacher_source": "gain_refined",
-        "theta_gain": 19.408390390720932
+        "teacher_source": "student_sample",
+        "theta_gain": 0.0
       },
       {
         "first_observation": [
@@ -781,10 +779,10 @@
           0.0004686855817390284
         ],
         "last_observation": [
-          0.14043778298072565,
-          -0.1759588760363838,
-          -0.1731156925209465,
-          0.055431967470266214
+          0.16690098287547245,
+          1.18154806921752,
+          -0.2064636979679195,
+          -1.84281139670612
         ],
         "mode_prefix": [
           1,
@@ -793,37 +791,35 @@
           1,
           1,
           1,
-          0,
-          0
+          1,
+          1
         ],
-        "omega_gain": 2.4751460790079753,
-        "reward": 14.0,
+        "omega_gain": 0.0,
+        "reward": 11.0,
         "segment_actions": [
           10.0,
-          -10.0
+          -9.999875499381254
         ],
         "segment_durations": [
-          6,
-          8
+          8,
+          3
         ],
-        "steps": 14,
-        "student_log_probability": -15.653387624373618,
+        "steps": 11,
+        "student_log_probability": -15.66113782640769,
         "switches": 1,
-        "teacher_source": "gain_refined",
-        "theta_gain": 19.992123613841663
+        "teacher_source": "student_sample_refined",
+        "theta_gain": 0.0
       }
     ],
-    "length_mean": 12.25,
-    "reward_mean": 12.25,
+    "length_mean": 10.5,
+    "reward_mean": 10.5,
     "teacher_source_counts": {
-      "gain_refined": 34,
-      "gain_sample": 19,
-      "student_sample": 5,
-      "student_sample_refined": 6
+      "student_sample": 40,
+      "student_sample_refined": 24
     }
   },
   "train": {
-    "reward_mean": 10.1,
+    "reward_mean": 10.2,
     "success_rate": 0.0
   }
 }

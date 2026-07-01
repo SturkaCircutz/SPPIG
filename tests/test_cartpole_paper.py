@@ -1087,7 +1087,7 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
         self.assertTrue(set(trace.mode_labels).issubset({0, 1}))
 
-    def test_cartpole_teacher_candidate_pool_includes_student_samples_after_first_iteration(self):
+    def test_cartpole_teacher_candidate_pool_uses_student_samples_after_first_iteration(self):
         cfg = CartpoleSynthesisConfig(
             candidate_rollouts=4,
             segment_steps=2,
@@ -1113,8 +1113,7 @@ class CartpolePaperTest(unittest.TestCase):
         )
 
         self.assertEqual(len(candidates), 4)
-        self.assertTrue(any(trace.teacher_source == "student_sample" for trace in candidates))
-        self.assertTrue(any(trace.teacher_source == "gain_sample" for trace in candidates))
+        self.assertTrue(all(trace.teacher_source == "student_sample" for trace in candidates))
 
     def test_cartpole_teacher_can_refine_student_sampled_trace(self):
         env = CartpoleEnv.train_env(seed=0)

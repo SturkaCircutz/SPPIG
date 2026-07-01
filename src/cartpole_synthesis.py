@@ -32,7 +32,7 @@ TEACHER_OMEGA_REFINEMENT_MIN_DELTA = 0.05
 TEACHER_REFINEMENT_DELTA_DECAY = 0.5
 TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
 TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT = 1
-TEACHER_STUDENT_SAMPLE_FRACTION = 0.5
+TEACHER_STUDENT_SAMPLE_FRACTION = 1.0
 TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR = 1.0
 SWITCH_OBLIQUE_THETA_WEIGHTS = (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
 SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
@@ -598,19 +598,11 @@ def _teacher_candidate_traces(
         ]
 
     # Paper Section 4.2 samples teacher candidates from the current student
-    # before optimizing them. This bounded local version keeps random gain
-    # samples too, so a bad early student cannot fully determine exploration.
-    student_count = max(1, int(candidate_count * TEACHER_STUDENT_SAMPLE_FRACTION))
-    gain_count = max(0, candidate_count - student_count)
-    candidates = [
+    # before keeping the top-rho elite set for local optimization.
+    return [
         _rollout_student_sampled_trace(initial_state, env_cfg, cfg, student, rng)
-        for _ in range(student_count)
+        for _ in range(candidate_count)
     ]
-    candidates.extend(
-        _rollout_loop_free_candidate(initial_state, env_cfg, cfg, rng)
-        for _ in range(gain_count)
-    )
-    return candidates
 
 
 def _rollout_loop_free_candidate(

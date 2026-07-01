@@ -160,6 +160,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "duration_and_action_coordinate_search",
             )
             self.assertEqual(
+                provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
+                1.0,
+            )
+            self.assertEqual(
                 provenance["teacher_search"]["elite_refinement_objective"],
                 "reward_plus_top_rho_log_probability_distance_kernel",
             )
@@ -197,6 +201,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_local_refinement"],
                 "duration_and_action_coordinate_search",
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
+                1.0,
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_refinement_objective"],

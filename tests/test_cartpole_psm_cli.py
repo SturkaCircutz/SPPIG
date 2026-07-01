@@ -104,7 +104,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
-            0.5,
+            1.0,
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_local_refinement"],
