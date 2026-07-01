@@ -75,6 +75,7 @@
       "omega_refinement_min_delta": 0.05,
       "refinement_delta_decay": 0.5,
       "student_sample_fraction_after_first_iteration": 0.5,
+      "student_sample_local_refinement": "duration_and_action_coordinate_search",
       "student_sample_probability": "trace_log_probability_approximation",
       "theta_refinement_min_delta": 0.1
     }
@@ -105,11 +106,11 @@
   "probabilistic_student": {
     "action_distributions": {
       "0": {
-        "mean": -9.999963047953582,
+        "mean": -10.0,
         "std": 0.001
       },
       "1": {
-        "mean": 10.000023738394614,
+        "mean": 10.0,
         "std": 0.001
       }
     },
@@ -123,12 +124,12 @@
     "switch_parameter_distributions": [
       {
         "mean": 0.0,
-        "std": 1.2982953348794875
+        "std": 1.2982939681471728
       }
     ],
     "switch_threshold_distribution": {
       "mean": 0.0,
-      "std": 1.2982953348794875
+      "std": 1.2982939681471728
     }
   },
   "switch_fit_diagnostics": {
@@ -145,7 +146,7 @@
           "never_enabled_count": 0,
           "num_boundaries": 56
         },
-        "bounded_eq12_style_distribution_loss": 900.2236271939177,
+        "bounded_eq12_style_distribution_loss": 900.2228497181408,
         "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
         "deterministic_eq12_style_timing_loss": 191.5,
         "deterministic_hard_label_mistakes": 402,
@@ -175,13 +176,13 @@
         "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= 2.007, else mode=0",
         "objective_tuple": [
           361,
-          900.2236271939177,
+          900.2228497181408,
           1,
           "mode=1 if 10.000*theta + 1.000*omega >= 2.007, else mode=0"
         ],
         "program_complexity": 1,
-        "timing_loss_per_boundary": 16.075421914177102,
-        "timing_loss_total": 900.2236271939177
+        "timing_loss_per_boundary": 16.075408030681086,
+        "timing_loss_total": 900.2228497181408
       },
       "selected_student_switch": {
         "boundary_alignment": {
@@ -195,7 +196,7 @@
           "never_enabled_count": 18,
           "num_boundaries": 56
         },
-        "bounded_eq12_style_distribution_loss": 940.7599715582762,
+        "bounded_eq12_style_distribution_loss": 940.7598668283263,
         "description": "mode=1 if 50.000*theta + -2.000*omega >= 0.000, else mode=0",
         "deterministic_eq12_style_timing_loss": 125.75,
         "deterministic_hard_label_mistakes": 73,
@@ -225,13 +226,13 @@
         "objective_description": "mode=1 if 50.000*theta + -2.000*omega >= 0.000, else mode=0",
         "objective_tuple": [
           73,
-          940.7599715582762,
+          940.7598668283263,
           1,
           "mode=1 if 50.000*theta + -2.000*omega >= 0.000, else mode=0"
         ],
         "program_complexity": 1,
-        "timing_loss_per_boundary": 16.79928520639779,
-        "timing_loss_total": 940.7599715582762
+        "timing_loss_per_boundary": 16.79928333622011,
+        "timing_loss_total": 940.7598668283263
       }
     },
     "diagnostic_scope": "local_teacher_trace_fit",
@@ -471,11 +472,11 @@
       "probabilistic_student": {
         "action_distributions": {
           "0": {
-            "mean": -9.999963047953582,
+            "mean": -10.0,
             "std": 0.001
           },
           "1": {
-            "mean": 10.000023738394614,
+            "mean": 10.0,
             "std": 0.001
           }
         },
@@ -489,12 +490,12 @@
         "switch_parameter_distributions": [
           {
             "mean": 0.0,
-            "std": 1.2982953348794875
+            "std": 1.2982939681471728
           }
         ],
         "switch_threshold_distribution": {
           "mean": 0.0,
-          "std": 1.2982953348794875
+          "std": 1.2982939681471728
         }
       },
       "switch_fit_diagnostics": {
@@ -511,7 +512,7 @@
               "never_enabled_count": 0,
               "num_boundaries": 56
             },
-            "bounded_eq12_style_distribution_loss": 900.2236271939177,
+            "bounded_eq12_style_distribution_loss": 900.2228497181408,
             "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
             "deterministic_eq12_style_timing_loss": 191.5,
             "deterministic_hard_label_mistakes": 402,
@@ -541,13 +542,13 @@
             "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= 2.007, else mode=0",
             "objective_tuple": [
               361,
-              900.2236271939177,
+              900.2228497181408,
               1,
               "mode=1 if 10.000*theta + 1.000*omega >= 2.007, else mode=0"
             ],
             "program_complexity": 1,
-            "timing_loss_per_boundary": 16.075421914177102,
-            "timing_loss_total": 900.2236271939177
+            "timing_loss_per_boundary": 16.075408030681086,
+            "timing_loss_total": 900.2228497181408
           },
           "selected_student_switch": {
             "boundary_alignment": {
@@ -561,7 +562,7 @@
               "never_enabled_count": 18,
               "num_boundaries": 56
             },
-            "bounded_eq12_style_distribution_loss": 940.7599715582762,
+            "bounded_eq12_style_distribution_loss": 940.7598668283263,
             "description": "mode=1 if 50.000*theta + -2.000*omega >= 0.000, else mode=0",
             "deterministic_eq12_style_timing_loss": 125.75,
             "deterministic_hard_label_mistakes": 73,
@@ -591,13 +592,13 @@
             "objective_description": "mode=1 if 50.000*theta + -2.000*omega >= 0.000, else mode=0",
             "objective_tuple": [
               73,
-              940.7599715582762,
+              940.7598668283263,
               1,
               "mode=1 if 50.000*theta + -2.000*omega >= 0.000, else mode=0"
             ],
             "program_complexity": 1,
-            "timing_loss_per_boundary": 16.79928520639779,
-            "timing_loss_total": 940.7599715582762
+            "timing_loss_per_boundary": 16.79928333622011,
+            "timing_loss_total": 940.7598668283263
           }
         },
         "diagnostic_scope": "local_teacher_trace_fit",
@@ -660,7 +661,7 @@
               8
             ],
             "steps": 10,
-            "student_log_probability": null,
+            "student_log_probability": 10.82795626979851,
             "switches": 1,
             "teacher_source": "gain_refined",
             "theta_gain": 18.81851401757281
@@ -669,9 +670,9 @@
         "length_mean": 12.671875,
         "reward_mean": 12.671875,
         "teacher_source_counts": {
-          "gain_refined": 23,
+          "gain_refined": 22,
           "gain_sample": 3,
-          "student_sample": 38
+          "student_sample_refined": 39
         }
       }
     }
@@ -718,7 +719,7 @@
           8
         ],
         "steps": 10,
-        "student_log_probability": null,
+        "student_log_probability": 10.82795626979851,
         "switches": 1,
         "teacher_source": "gain_refined",
         "theta_gain": 18.81851401757281
@@ -749,17 +750,17 @@
         "omega_gain": 0.0,
         "reward": 11.0,
         "segment_actions": [
-          10.000187089685822,
-          -10.000228934432037
+          10.0,
+          -10.0
         ],
         "segment_durations": [
           7,
           4
         ],
         "steps": 11,
-        "student_log_probability": -15.69709438673022,
+        "student_log_probability": -15.653387624373618,
         "switches": 1,
-        "teacher_source": "student_sample",
+        "teacher_source": "student_sample_refined",
         "theta_gain": 0.0
       },
       {
@@ -796,7 +797,7 @@
           8
         ],
         "steps": 14,
-        "student_log_probability": null,
+        "student_log_probability": -15.653387624373618,
         "switches": 1,
         "teacher_source": "gain_refined",
         "theta_gain": 19.992123613841663
@@ -805,9 +806,9 @@
     "length_mean": 12.671875,
     "reward_mean": 12.671875,
     "teacher_source_counts": {
-      "gain_refined": 23,
+      "gain_refined": 22,
       "gain_sample": 3,
-      "student_sample": 38
+      "student_sample_refined": 39
     }
   },
   "train": {

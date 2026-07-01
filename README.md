@@ -113,7 +113,9 @@ refinement. Trace summaries record the selected source and sampled-trace
 log-probability when available.
 Local refinement can vary teacher gains, one segment duration, or one
 constant-action segment at a time, accepting only improvements under the current
-teacher objective.
+teacher objective. Student-sampled traces can also be locally refined through
+duration/action coordinate search, approximating the paper's second teacher
+optimization phase without implementing its full gradient optimizer.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood. Switch structures are
 prefiltered by a cheaper hard-label/timing objective, then the top 128 are

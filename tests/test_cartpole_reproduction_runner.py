@@ -149,6 +149,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 provenance["teacher_search"]["action_refinement_candidates_per_segment"],
                 1,
             )
+            self.assertEqual(
+                provenance["teacher_search"]["student_sample_local_refinement"],
+                "duration_and_action_coordinate_search",
+            )
             self.assertIn("rows", manifest)
             self.assertIn("summary", manifest)
             self.assertIn("summary_note", manifest)
@@ -168,6 +172,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 row_provenance["teacher_search"]["action_refinement_candidates_per_segment"],
                 1,
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["student_sample_local_refinement"],
+                "duration_and_action_coordinate_search",
             )
             self.assertTrue(os.path.exists(manifest["rows"][0]["metrics_output"]))
 

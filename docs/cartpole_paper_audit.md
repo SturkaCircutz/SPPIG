@@ -106,7 +106,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
   train reward mean `11.2`, test reward mean `29.7`. This documents a current synthesis gap rather
   than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
-  of `{"gain_refined": 23, "gain_sample": 3, "student_sample": 38}` for the selected traces in this
+  of `{"gain_refined": 22, "gain_sample": 3, "student_sample_refined": 39}` for the selected traces in this
   seed, per-iteration `synthesis_history`, plus `switch_fit_diagnostics`, which shows the selected
   switch was chosen by prefiltering candidates with a cheaper hard-label/timing objective, then
   rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style distribution-timing objective
@@ -152,9 +152,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   independence approximation, and this is not the paper's continuous switch-parameter optimizer.
 - After the first teacher/student iteration, the Cartpole teacher candidate pool now includes bounded
   rollouts sampled from the current probabilistic student as well as gain-sampled loop-free traces,
-  and records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
-  toward the sampled-teacher phase in Section 4.2, but it is not the paper's full CEM plus
-  gradient-based trajectory optimizer.
+  locally refines top sampled loop-free traces by duration/action coordinate search, and records
+  selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves toward the
+  sampled-teacher and local-optimization phases in Section 4.2, but it is not the paper's full CEM
+  plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
   and the student's discrete Eq. (12)-style switch timing likelihood. For scalar-threshold switches,
   that timing likelihood uses the learned Gaussian switch-parameter distribution with one sampled
@@ -295,6 +296,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_candidate_pool_includes_student_samples_after_first_iteration`
   verifies that sampled-student traces and gain-sampled traces both remain in the bounded teacher
   candidate pool.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_can_refine_student_sampled_trace` verifies
+  that a sampled-student loop-free trace can be locally refined without reducing the teacher objective.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_does_not_reduce_objective`
   verifies that local refinement of Cartpole loop-free teacher gains does not reduce the teacher
   objective after top-candidate sampling. This is a bounded coordinate refinement over the diagnostic
@@ -358,10 +361,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   deviations. For depth-2 conjunctions, switch-enable probability still uses an independence
   approximation over predicate thresholds. The current
   Cartpole teacher samples some candidate traces from the current probabilistic student after the
-  first iteration, also keeps gain-sampled candidate traces for exploration, refines only gain-sampled
-  top candidates with bounded coordinate search over teacher gains, integer segment durations, and
-  one-segment constant-action changes, and scores traces with reward plus Gaussian action likelihood
-  and discrete switch timing likelihood under the previous student, but it does not yet perform the
-  paper's full CEM procedure or continuous gradient-based optimization over loop-free action
-  functions and durations.
+  first iteration, also keeps gain-sampled candidate traces for exploration, refines top loop-free
+  candidates with bounded coordinate search over teacher gains when available, integer segment
+  durations, and one-segment constant-action changes, and scores traces with reward plus Gaussian
+  action likelihood and discrete switch timing likelihood under the previous student, but it does not
+  yet perform the paper's full CEM procedure or continuous gradient-based optimization over
+  loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.

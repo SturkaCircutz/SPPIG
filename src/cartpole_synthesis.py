@@ -118,6 +118,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "action_refinement_candidates_per_segment": TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT,
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "trace_log_probability_approximation",
+            "student_sample_local_refinement": "duration_and_action_coordinate_search",
         },
     }
 
@@ -538,11 +539,11 @@ def _optimize_loop_free_trace(
         reverse=True,
     )
     # Refine only the top candidates to keep synthesis cheap while still
-    # improving the gain parameters that generated promising traces.
+    # optimizing around promising sampled loop-free traces.
     refined = [
         _refine_loop_free_trace(candidate, initial_state, env_cfg, cfg, student)
         for candidate in ranked[: max(1, cfg.teacher_top_rho)]
-        if candidate.teacher_source in {"gain_sample", "gain_refined"}
+        if candidate.segment_actions and candidate.segment_durations
     ]
     return max(
         ranked + refined,
@@ -733,6 +734,7 @@ def _refine_loop_free_trace(
     student: ProbabilisticCartpoleStudent | None,
 ) -> CartpoleTrace:
     best = trace
+    refine_gains = trace.teacher_source in {"gain_sample", "gain_refined"}
     theta_delta = max(
         abs(trace.theta_gain) * TEACHER_GAIN_REFINEMENT_DELTA_FRACTION,
         TEACHER_THETA_REFINEMENT_MIN_DELTA,
@@ -745,23 +747,24 @@ def _refine_loop_free_trace(
         improved = False
         # Coordinate-search the teacher gains because each rollout is cheap and
         # the objective includes a non-smooth student-likelihood term.
-        for theta_step, omega_step in (
-            (theta_delta, 0.0),
-            (-theta_delta, 0.0),
-            (0.0, omega_delta),
-            (0.0, -omega_delta),
-        ):
-            candidate = _rollout_with_teacher_gains(
-                initial_state,
-                env_cfg,
-                cfg,
-                best.theta_gain + theta_step,
-                best.omega_gain + omega_step,
-                best.segment_durations,
-            )
-            if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
-                best = candidate
-                improved = True
+        if refine_gains:
+            for theta_step, omega_step in (
+                (theta_delta, 0.0),
+                (-theta_delta, 0.0),
+                (0.0, omega_delta),
+                (0.0, -omega_delta),
+            ):
+                candidate = _rollout_with_teacher_gains(
+                    initial_state,
+                    env_cfg,
+                    cfg,
+                    best.theta_gain + theta_step,
+                    best.omega_gain + omega_step,
+                    best.segment_durations,
+                )
+                if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
+                    best = candidate
+                    improved = True
         for candidate in _duration_refinement_candidates(best, initial_state, env_cfg, cfg):
             if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
                 best = candidate
@@ -773,7 +776,19 @@ def _refine_loop_free_trace(
         if not improved:
             theta_delta *= TEACHER_REFINEMENT_DELTA_DECAY
             omega_delta *= TEACHER_REFINEMENT_DELTA_DECAY
-    best.teacher_source = "gain_refined" if best is not trace else trace.teacher_source
+    if best is not trace:
+        best.teacher_source = (
+            "student_sample_refined"
+            if trace.teacher_source.startswith("student_sample")
+            else "gain_refined"
+        )
+        best.student_log_probability = (
+            _trace_log_probability(best, student)
+            if student is not None
+            else best.student_log_probability
+        )
+    else:
+        best.teacher_source = trace.teacher_source
     return best
 
 

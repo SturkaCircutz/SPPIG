@@ -93,6 +93,10 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
             0.5,
         )
+        self.assertEqual(
+            provenance["teacher_search"]["student_sample_local_refinement"],
+            "duration_and_action_coordinate_search",
+        )
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)

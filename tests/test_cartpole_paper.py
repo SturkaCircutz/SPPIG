@@ -41,6 +41,7 @@ from cartpole_synthesis import (
     _duration_refinement_candidates,
     _mode_run_lengths,
     _mode_run_actions,
+    _optimize_loop_free_trace,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
     _switch_distribution_std_candidates,
@@ -955,6 +956,71 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(candidates), 4)
         self.assertTrue(any(trace.teacher_source == "student_sample" for trace in candidates))
         self.assertTrue(any(trace.teacher_source == "gain_sample" for trace in candidates))
+
+    def test_cartpole_teacher_can_refine_student_sampled_trace(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=3, teacher_refinement_steps=1)
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        trace = _rollout_student_sampled_trace(
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            student,
+            random.Random(0),
+        )
+
+        refined = _refine_loop_free_trace(trace, [0.0, 0.0, 0.05, 0.0], env.cfg, cfg, student)
+
+        self.assertGreaterEqual(
+            _teacher_objective(refined, student, cfg),
+            _teacher_objective(trace, student, cfg),
+        )
+        self.assertIsNotNone(refined.student_log_probability)
+        self.assertIn(refined.teacher_source, {"student_sample", "student_sample_refined"})
+
+    def test_cartpole_teacher_optimization_can_return_refined_student_sample(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=4,
+            segment_steps=2,
+            segments_per_trace=3,
+            teacher_top_rho=4,
+            teacher_refinement_steps=1,
+            teacher_reward_lambda=100.0,
+        )
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+
+        trace = _optimize_loop_free_trace(
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            random.Random(0),
+            student,
+        )
+
+        self.assertIn(
+            trace.teacher_source,
+            {"gain_sample", "gain_refined", "student_sample", "student_sample_refined"},
+        )
+        self.assertGreaterEqual(trace.reward, 1.0)
 
     def test_cartpole_teacher_refinement_does_not_reduce_objective(self):
         env = CartpoleEnv.train_env(seed=0)
