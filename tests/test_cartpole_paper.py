@@ -32,10 +32,12 @@ from cartpole_synthesis import (
     _eq12_switch_log_likelihood,
     _boolean_tree_candidates,
     _fit_switch_parameter_distributions,
+    _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
     _sample_switch,
+    _single_threshold_transition_probability,
     _switch_cost,
     _switch_timing_loss,
     _teacher_objective,
@@ -374,6 +376,27 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(policy.right_force, 9.0)
         self.assertEqual(policy.switch.first.threshold, 0.1)
 
+    def test_cartpole_switch_probability_uses_gaussian_threshold_distribution(self):
+        distribution = GaussianScalar(0.0, 0.1)
+
+        self.assertGreater(
+            _gaussian_threshold_pass_probability(0.2, distribution, ">="),
+            _gaussian_threshold_pass_probability(-0.2, distribution, ">="),
+        )
+        self.assertGreater(
+            _gaussian_threshold_pass_probability(-0.2, distribution, "<="),
+            _gaussian_threshold_pass_probability(0.2, distribution, "<="),
+        )
+
+    def test_cartpole_switch_transition_probability_uses_shared_threshold_sample(self):
+        distribution = GaussianScalar(0.0, 0.1)
+        values = [-0.3, -0.2, 0.2]
+
+        self.assertGreater(
+            _single_threshold_transition_probability(values, distribution, ">=", 3),
+            _single_threshold_transition_probability(values, distribution, ">=", 1),
+        )
+
     def test_cartpole_teacher_objective_defaults_to_reward(self):
         cfg = CartpoleSynthesisConfig()
         trace = CartpoleTrace(
@@ -453,6 +476,42 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(
             _teacher_objective(boundary_aligned, student, cfg),
             _teacher_objective(early_switching, student, cfg),
+        )
+
+    def test_cartpole_teacher_regularizer_uses_switch_distribution_uncertainty(self):
+        cfg = CartpoleSynthesisConfig(teacher_student_regularizer=1.0)
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0, 10.0],
+            mode_labels=[0, 0, 0, 1],
+            reward=1.0,
+        )
+        precise_student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.05),
+            switch_parameter_distributions=[GaussianScalar(0.0, 0.05)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        diffuse_student = ProbabilisticCartpoleStudent(
+            action_distributions=precise_student.action_distributions,
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+
+        self.assertGreater(
+            _teacher_objective(trace, precise_student, cfg),
+            _teacher_objective(trace, diffuse_student, cfg),
         )
 
     def test_cartpole_teacher_refinement_does_not_reduce_objective(self):

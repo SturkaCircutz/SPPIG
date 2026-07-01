@@ -125,7 +125,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   discrete Eq. (12)-style timing likelihood without increasing hard segment-label mistakes. This is
   still a bounded approximation, not the paper's full continuous switch-parameter optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
-  and the student's discrete Eq. (12)-style switch timing likelihood.
+  and the student's discrete Eq. (12)-style switch timing likelihood. For scalar-threshold switches,
+  that timing likelihood uses the learned Gaussian switch-parameter distribution with one sampled
+  threshold shared across a segment, matching the paper's probabilistic-state-machine sampling model.
 - PPO training runs can now write metrics JSON containing the full evaluation history, selected
   result, config, and checkpoint-selection rule.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
@@ -193,6 +195,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_improves_timing_likelihood`
   verifies that the bounded switch-threshold mean refinement can improve the current timing
   likelihood without increasing hard segment-label mistakes.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_probability_uses_gaussian_threshold_distribution`
+  verifies that switch-enable probabilities are computed from Gaussian threshold distributions.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_transition_probability_uses_shared_threshold_sample`
+  verifies that scalar switch timing probability treats the same sampled threshold as shared over the
+  segment rather than resampling independently at each simulator step.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_defaults_to_reward` verifies that
   the Cartpole teacher objective reduces to reward-only candidate selection when no previous student
   exists.
@@ -204,6 +211,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   student explains better. These regularizer tests cover a partial implementation of the probability
   regularizer in Eq. (8), not the paper's full CEM plus
   gradient-based trajectory optimizer.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_regularizer_uses_switch_distribution_uncertainty`
+  verifies that the teacher regularizer uses switch-distribution uncertainty when scoring a trace.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_does_not_reduce_objective`
   verifies that local refinement of Cartpole loop-free teacher gains does not reduce the teacher
   objective after top-candidate sampling. This is a bounded coordinate refinement over the diagnostic
@@ -251,7 +260,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
   no-transition-before-duration terms. It now performs a bounded local threshold-mean refinement, but
   does not yet solve the continuous Eq. (12) optimization for switch-condition means and standard
-  deviations. The current
+  deviations. For depth-2 conjunctions, switch-enable probability still uses an independence
+  approximation over predicate thresholds. The current
   Cartpole teacher samples candidate traces, keeps top candidates for local coordinate refinement of
   teacher gains, and scores traces with reward plus Gaussian action likelihood and discrete switch
   timing likelihood under the previous student, but it does not yet perform the paper's
