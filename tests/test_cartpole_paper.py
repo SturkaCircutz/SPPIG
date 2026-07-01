@@ -36,12 +36,15 @@ from cartpole_synthesis import (
     _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
     _duration_refinement_candidates,
+    _mode_run_lengths,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
+    _rollout_student_sampled_trace,
     _rollout_with_teacher_gains,
     _sample_switch,
     _single_threshold_transition_probability,
     _switch_cost,
+    _teacher_candidate_traces,
     _switch_timing_loss,
     _teacher_objective,
 )
@@ -599,6 +602,69 @@ class CartpolePaperTest(unittest.TestCase):
             _teacher_objective(trace, precise_student, cfg),
             _teacher_objective(trace, diffuse_student, cfg),
         )
+
+    def test_cartpole_mode_run_lengths_records_sampled_trace_segments(self):
+        self.assertEqual(_mode_run_lengths([0, 0, 1, 1, 1, 0]), (2, 3, 1))
+        self.assertEqual(_mode_run_lengths([]), ())
+
+    def test_cartpole_teacher_can_sample_candidates_from_probabilistic_student(self):
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=4,
+            segment_steps=2,
+            segments_per_trace=4,
+        )
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.0),
+                1: GaussianScalar(10.0, 0.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 0.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+
+        trace = _rollout_student_sampled_trace(
+            [0.0, 0.0, 0.05, 0.0],
+            CartpoleEnv.train_env(seed=0).cfg,
+            cfg,
+            student,
+            random.Random(0),
+        )
+
+        self.assertEqual(trace.teacher_source, "student_sample")
+        self.assertIsNotNone(trace.student_log_probability)
+        self.assertEqual(sum(trace.segment_durations), len(trace.actions))
+        self.assertTrue(set(trace.mode_labels).issubset({0, 1}))
+
+    def test_cartpole_teacher_candidate_pool_includes_student_samples_after_first_iteration(self):
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=4,
+            segment_steps=2,
+            segments_per_trace=4,
+        )
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.0),
+                1: GaussianScalar(10.0, 0.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 0.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+
+        candidates = _teacher_candidate_traces(
+            [0.0, 0.0, 0.05, 0.0],
+            CartpoleEnv.train_env(seed=0).cfg,
+            cfg,
+            random.Random(1),
+            student,
+        )
+
+        self.assertEqual(len(candidates), 4)
+        self.assertTrue(any(trace.teacher_source == "student_sample" for trace in candidates))
+        self.assertTrue(any(trace.teacher_source == "gain_sample" for trace in candidates))
 
     def test_cartpole_teacher_refinement_does_not_reduce_objective(self):
         env = CartpoleEnv.train_env(seed=0)

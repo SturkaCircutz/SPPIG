@@ -61,6 +61,8 @@
       "gain_sample_std_fraction": 0.1,
       "omega_refinement_min_delta": 0.05,
       "refinement_delta_decay": 0.5,
+      "student_sample_fraction_after_first_iteration": 0.5,
+      "student_sample_probability": "trace_log_probability_approximation",
       "theta_refinement_min_delta": 0.1
     }
   },
@@ -86,104 +88,104 @@
   "eval_rollouts": 20,
   "num_traces": 64,
   "paper_test_horizon_steps": 15000,
-  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + -0.250*omega >= 0.000, else mode=0",
+  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 50.000*theta + -1.000*omega >= -0.778, else mode=0",
   "probabilistic_student": {
     "action_distributions": {
       "0": {
-        "mean": -10.0,
+        "mean": -10.000060520892662,
         "std": 0.001
       },
       "1": {
-        "mean": 10.0,
+        "mean": 9.999838168660224,
         "std": 0.001
       }
     },
-    "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(0.000, 0.768); G=[N(0.000, 0.768)]",
+    "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(-0.778, 2.189); G=[N(-0.778, 2.189)]",
     "responsibility_summary": {
-      "mean_mode_0": 0.4730290456431535,
-      "mean_mode_1": 0.5269709543568465,
-      "segments": 241
+      "mean_mode_0": 0.48372093023255813,
+      "mean_mode_1": 0.5162790697674419,
+      "segments": 215
     },
-    "switch": "mode=1 if 10.000*theta + -0.250*omega >= 0.000, else mode=0",
+    "switch": "mode=1 if 50.000*theta + -1.000*omega >= -0.778, else mode=0",
     "switch_parameter_distributions": [
       {
-        "mean": 0.0,
-        "std": 0.7676625225313415
+        "mean": -0.7775778052669673,
+        "std": 2.1890493790945773
       }
     ],
     "switch_threshold_distribution": {
-      "mean": 0.0,
-      "std": 0.7676625225313415
+      "mean": -0.7775778052669673,
+      "std": 2.1890493790945773
     }
   },
   "switch_fit_diagnostics": {
     "candidates": {
       "fixed_local_reference_switch": {
         "boundary_alignment": {
-          "at_boundary_count": 6,
-          "early_switch_count": 169,
-          "enabled_boundary_count": 175,
-          "first_enabled_minus_duration_max": 0,
-          "first_enabled_minus_duration_mean": -6.44,
-          "first_enabled_minus_duration_min": -15,
+          "at_boundary_count": 0,
+          "early_switch_count": 132,
+          "enabled_boundary_count": 132,
+          "first_enabled_minus_duration_max": -2,
+          "first_enabled_minus_duration_mean": -7.0606060606060606,
+          "first_enabled_minus_duration_min": -20,
           "late_switch_count": 0,
-          "never_enabled_count": 2,
-          "num_boundaries": 177
+          "never_enabled_count": 19,
+          "num_boundaries": 151
         },
         "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
-        "eq12_style_timing_loss": 1423.125,
-        "hard_label_mistake_rate": 0.29882044560943644,
-        "hard_label_mistakes": 684,
-        "label_error_rate": 0.29882044560943644,
-        "label_mistakes": 684,
+        "eq12_style_timing_loss": 1300.625,
+        "hard_label_mistake_rate": 0.3355229914098029,
+        "hard_label_mistakes": 664,
+        "label_error_rate": 0.3355229914098029,
+        "label_mistakes": 664,
         "objective_tuple": [
-          684,
-          1423.125,
+          664,
+          1300.625,
           1,
           "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
         ],
         "program_complexity": 1,
-        "timing_loss_per_boundary": 8.040254237288135,
-        "timing_loss_total": 1423.125
+        "timing_loss_per_boundary": 8.61341059602649,
+        "timing_loss_total": 1300.625
       },
       "selected_student_switch": {
         "boundary_alignment": {
-          "at_boundary_count": 5,
-          "early_switch_count": 136,
-          "enabled_boundary_count": 141,
+          "at_boundary_count": 2,
+          "early_switch_count": 109,
+          "enabled_boundary_count": 111,
           "first_enabled_minus_duration_max": 0,
-          "first_enabled_minus_duration_mean": -9.28368794326241,
-          "first_enabled_minus_duration_min": -15,
+          "first_enabled_minus_duration_mean": -9.666666666666666,
+          "first_enabled_minus_duration_min": -21,
           "late_switch_count": 0,
-          "never_enabled_count": 36,
-          "num_boundaries": 177
+          "never_enabled_count": 40,
+          "num_boundaries": 151
         },
-        "description": "mode=1 if 10.000*theta + -0.250*omega >= 0.000, else mode=0",
-        "eq12_style_timing_loss": 1969.125,
-        "hard_label_mistake_rate": 0.13936216688510267,
-        "hard_label_mistakes": 319,
-        "label_error_rate": 0.13936216688510267,
-        "label_mistakes": 319,
+        "description": "mode=1 if 50.000*theta + -1.000*omega >= -0.778, else mode=0",
+        "eq12_style_timing_loss": 1888.375,
+        "hard_label_mistake_rate": 0.12935826174835777,
+        "hard_label_mistakes": 256,
+        "label_error_rate": 0.12935826174835777,
+        "label_mistakes": 256,
         "objective_tuple": [
-          319,
-          1969.125,
+          256,
+          1888.375,
           1,
-          "mode=1 if 10.000*theta + -0.250*omega >= 0.000, else mode=0"
+          "mode=1 if 50.000*theta + -1.000*omega >= -0.778, else mode=0"
         ],
         "program_complexity": 1,
-        "timing_loss_per_boundary": 11.125,
-        "timing_loss_total": 1969.125
+        "timing_loss_per_boundary": 12.505794701986755,
+        "timing_loss_total": 1888.375
       }
     },
     "diagnostic_scope": "local_teacher_trace_fit",
-    "example_count": 2289,
+    "example_count": 1979,
     "not_paper_reproduction": true,
     "note": "Trace-fit diagnostics for the current local synthesizer. These costs are not paper-scale reproduction results or closed-loop evaluations.",
-    "num_boundaries": 177,
-    "num_segments": 241,
-    "num_trace_steps": 2289,
+    "num_boundaries": 151,
+    "num_segments": 215,
+    "num_trace_steps": 1979,
     "responsibility_segment_count_match": true,
-    "segment_count": 241,
+    "segment_count": 215,
     "selection_objective_order": [
       "hard_label_mistakes",
       "eq12_style_timing_loss",
@@ -192,7 +194,7 @@
     ]
   },
   "test": {
-    "reward_mean": 37.55,
+    "reward_mean": 41.05,
     "success_rate": 0.0
   },
   "test_max_steps": 15000,
@@ -207,60 +209,33 @@
           -0.024108324970703667
         ],
         "last_observation": [
-          -0.1014815985272219,
-          -1.3441270990167609,
-          0.20085856026205196,
-          2.1491635532979885
+          -0.2101227885101222,
+          -1.3137953796215496,
+          0.20525316780504915,
+          1.4723321184515545
         ],
         "mode_prefix": [
-          0,
-          0,
-          0,
-          0,
-          0,
+          1,
+          1,
+          1,
+          1,
+          1,
           0,
           0,
           0
         ],
-        "omega_gain": 1.5383452279174608,
-        "reward": 10.0,
+        "omega_gain": 0.0,
+        "reward": 26.0,
         "segment_durations": [
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8
+          5,
+          16,
+          5
         ],
-        "steps": 10,
-        "switches": 1,
-        "theta_gain": 20.01968649004055
+        "steps": 26,
+        "student_log_probability": -37.302641547281404,
+        "switches": 2,
+        "teacher_source": "student_sample",
+        "theta_gain": 0.0
       },
       {
         "first_observation": [
@@ -270,10 +245,10 @@
           -0.019668727392107257
         ],
         "last_observation": [
-          -1.264023992288441,
-          -1.726711906270252,
-          0.1964504447294339,
-          1.7863544528879478
+          -0.24108104106577424,
+          -1.7319847571014453,
+          0.19428514535308716,
+          1.9020549927340547
         ],
         "mode_prefix": [
           1,
@@ -285,45 +260,18 @@
           0,
           0
         ],
-        "omega_gain": 2.351652495348436,
-        "reward": 120.0,
+        "omega_gain": 0.0,
+        "reward": 28.0,
         "segment_durations": [
           6,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8
+          18,
+          4
         ],
-        "steps": 120,
-        "switches": 10,
-        "theta_gain": 17.908976908695575
+        "steps": 28,
+        "student_log_probability": -37.36147599488035,
+        "switches": 2,
+        "teacher_source": "student_sample",
+        "theta_gain": 0.0
       },
       {
         "first_observation": [
@@ -333,67 +281,44 @@
           0.0004686855817390284
         ],
         "last_observation": [
-          -0.2014767148694138,
-          -0.7533117319278579,
-          0.20613037075679685,
-          0.7712155794471653
+          -0.006818044916037998,
+          -1.9378143829493775,
+          0.19998775540147937,
+          2.857749275850756
         ],
         "mode_prefix": [
-          1,
-          1,
-          1,
-          1,
-          1,
-          1,
           0,
-          0
+          0,
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
         ],
-        "omega_gain": 2.2953049612815586,
-        "reward": 29.0,
+        "omega_gain": 0.0,
+        "reward": 39.0,
         "segment_durations": [
-          6,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8,
-          8
+          4,
+          13,
+          20,
+          2
         ],
-        "steps": 29,
-        "switches": 2,
-        "theta_gain": 19.408390390720932
+        "steps": 39,
+        "student_log_probability": -58.972257628771544,
+        "switches": 3,
+        "teacher_source": "student_sample",
+        "theta_gain": 0.0
       }
     ],
-    "length_mean": 35.765625,
-    "reward_mean": 35.765625
+    "length_mean": 30.921875,
+    "reward_mean": 30.921875,
+    "teacher_source_counts": {
+      "student_sample": 64
+    }
   },
   "train": {
-    "reward_mean": 23.8,
+    "reward_mean": 23.3,
     "success_rate": 0.0
   }
 }

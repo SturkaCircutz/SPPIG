@@ -30,6 +30,7 @@ TEACHER_THETA_REFINEMENT_MIN_DELTA = 0.1
 TEACHER_OMEGA_REFINEMENT_MIN_DELTA = 0.05
 TEACHER_REFINEMENT_DELTA_DECAY = 0.5
 TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
+TEACHER_STUDENT_SAMPLE_FRACTION = 0.5
 SWITCH_OBLIQUE_THETA_WEIGHTS = (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
 SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
 MAX_SWITCH_THRESHOLD_CANDIDATES = 64
@@ -68,6 +69,8 @@ class CartpoleTrace:
     theta_gain: float = 0.0
     omega_gain: float = 0.0
     segment_durations: Tuple[int, ...] = ()
+    teacher_source: str = "gain_sample"
+    student_log_probability: float | None = None
 
 
 def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
@@ -99,6 +102,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "omega_refinement_min_delta": TEACHER_OMEGA_REFINEMENT_MIN_DELTA,
             "refinement_delta_decay": TEACHER_REFINEMENT_DELTA_DECAY,
             "duration_refinement_deltas": list(TEACHER_DURATION_REFINEMENT_DELTAS),
+            "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
+            "student_sample_probability": "trace_log_probability_approximation",
         },
     }
 
@@ -474,10 +479,7 @@ def _optimize_loop_free_trace(
 ) -> CartpoleTrace:
     # The "teacher" is restricted to loop-free bang-bang traces; ranking by the
     # student likelihood is the local adaptive-teaching approximation.
-    candidates = [
-        _rollout_loop_free_candidate(initial_state, env_cfg, cfg, rng)
-        for _ in range(max(1, cfg.candidate_rollouts))
-    ]
+    candidates = _teacher_candidate_traces(initial_state, env_cfg, cfg, rng, student)
     ranked = sorted(
         candidates,
         key=lambda trace: _teacher_objective(trace, student, cfg),
@@ -488,11 +490,42 @@ def _optimize_loop_free_trace(
     refined = [
         _refine_loop_free_trace(candidate, initial_state, env_cfg, cfg, student)
         for candidate in ranked[: max(1, cfg.teacher_top_rho)]
+        if candidate.teacher_source in {"gain_sample", "gain_refined"}
     ]
     return max(
         ranked + refined,
         key=lambda trace: _teacher_objective(trace, student, cfg),
     )
+
+
+def _teacher_candidate_traces(
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    rng: random.Random,
+    student: ProbabilisticCartpoleStudent | None,
+) -> List[CartpoleTrace]:
+    candidate_count = max(1, cfg.candidate_rollouts)
+    if student is None:
+        return [
+            _rollout_loop_free_candidate(initial_state, env_cfg, cfg, rng)
+            for _ in range(candidate_count)
+        ]
+
+    # Paper Section 4.2 samples teacher candidates from the current student
+    # before optimizing them. This bounded local version keeps random gain
+    # samples too, so a bad early student cannot fully determine exploration.
+    student_count = max(1, int(candidate_count * TEACHER_STUDENT_SAMPLE_FRACTION))
+    gain_count = max(0, candidate_count - student_count)
+    candidates = [
+        _rollout_student_sampled_trace(initial_state, env_cfg, cfg, student, rng)
+        for _ in range(student_count)
+    ]
+    candidates.extend(
+        _rollout_loop_free_candidate(initial_state, env_cfg, cfg, rng)
+        for _ in range(gain_count)
+    )
+    return candidates
 
 
 def _rollout_loop_free_candidate(
@@ -549,7 +582,70 @@ def _rollout_with_teacher_gains(
             mode_labels.append(label)
             state = cartpole_next_state(state, action, env_cfg)
             alive += 1
-    return CartpoleTrace(observations, actions, mode_labels, float(alive), theta_gain, omega_gain, tuple(durations))
+    return CartpoleTrace(
+        observations,
+        actions,
+        mode_labels,
+        float(alive),
+        theta_gain,
+        omega_gain,
+        tuple(durations),
+        teacher_source="gain_sample",
+    )
+
+
+def _rollout_student_sampled_trace(
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    student: ProbabilisticCartpoleStudent,
+    rng: random.Random,
+) -> CartpoleTrace:
+    # Sample one deterministic PSM from the student's Gaussian parameters and
+    # record the induced trace probability for Eq. (8)-style ranking.
+    policy = student.sample_policy(rng)
+    policy.reset()
+    observations: List[Observation] = []
+    actions: List[float] = []
+    mode_labels: List[int] = []
+    state = list(initial_state)
+    alive = 0
+    for _ in range(cfg.segment_steps * cfg.segments_per_trace):
+        if cartpole_done(state, env_cfg):
+            break
+        observation = list(state)
+        action = policy.act(observation)
+        observations.append(observation)
+        actions.append(action)
+        mode_labels.append(policy.mode)
+        state = cartpole_next_state(state, action, env_cfg)
+        alive += 1
+    trace = CartpoleTrace(
+        observations,
+        actions,
+        mode_labels,
+        float(alive),
+        segment_durations=_mode_run_lengths(mode_labels),
+        teacher_source="student_sample",
+    )
+    trace.student_log_probability = _trace_log_probability(trace, student)
+    return trace
+
+
+def _mode_run_lengths(mode_labels: List[int]) -> Tuple[int, ...]:
+    if not mode_labels:
+        return ()
+    durations: List[int] = []
+    current = mode_labels[0]
+    count = 0
+    for label in mode_labels:
+        if label != current:
+            durations.append(count)
+            current = label
+            count = 0
+        count += 1
+    durations.append(count)
+    return tuple(durations)
 
 
 def _refine_loop_free_trace(
@@ -596,6 +692,7 @@ def _refine_loop_free_trace(
         if not improved:
             theta_delta *= TEACHER_REFINEMENT_DELTA_DECAY
             omega_delta *= TEACHER_REFINEMENT_DELTA_DECAY
+    best.teacher_source = "gain_refined" if best is not trace else trace.teacher_source
     return best
 
 
@@ -633,7 +730,12 @@ def _teacher_objective(
         return cfg.teacher_reward_lambda * trace.reward
     # The regularizer rewards traces that the current student can already
     # encode, which is the adaptive-teaching pressure in this local diagnostic.
-    return cfg.teacher_reward_lambda * trace.reward + cfg.teacher_student_regularizer * _trace_log_probability(trace, student)
+    log_probability = (
+        trace.student_log_probability
+        if trace.student_log_probability is not None
+        else _trace_log_probability(trace, student)
+    )
+    return cfg.teacher_reward_lambda * trace.reward + cfg.teacher_student_regularizer * log_probability
 
 
 def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleStudent) -> float:

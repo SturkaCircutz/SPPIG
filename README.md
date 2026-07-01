@@ -102,6 +102,11 @@ JSON records their exact values under `config`.
 It also records fixed local synthesis constants, including EM count, minimum
 Gaussian standard deviation, switch-timing scale, switch-search grids, and
 teacher-search refinement schedule, under `algorithm_provenance`.
+After the first teacher/student iteration, the teacher candidate pool includes
+bounded samples from the current probabilistic student alongside gain-sampled
+loop-free traces, approximating the paper's sampled-teacher phase before local
+refinement. Trace summaries record the selected source and sampled-trace
+log-probability when available.
 The switch threshold means are locally refined against the current discrete
 Eq. (12)-style timing likelihood, and the teacher regularizer scores both
 action likelihood and switch timing under the current student's Gaussian switch

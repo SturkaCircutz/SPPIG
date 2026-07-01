@@ -64,10 +64,14 @@ def summarize_student(student: ProbabilisticCartpoleStudent):
 def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
     rewards = [trace.reward for trace in traces]
     lengths = [len(trace.actions) for trace in traces]
+    source_counts: dict[str, int] = {}
+    for trace in traces:
+        source_counts[trace.teacher_source] = source_counts.get(trace.teacher_source, 0) + 1
     return {
         "count": len(traces),
         "reward_mean": sum(rewards) / len(rewards) if rewards else 0.0,
         "length_mean": sum(lengths) / len(lengths) if lengths else 0.0,
+        "teacher_source_counts": source_counts,
         "examples": [
             {
                 "reward": trace.reward,
@@ -79,6 +83,8 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
                 "theta_gain": trace.theta_gain,
                 "omega_gain": trace.omega_gain,
                 "segment_durations": list(trace.segment_durations),
+                "teacher_source": trace.teacher_source,
+                "student_log_probability": trace.student_log_probability,
                 "first_observation": trace.observations[0] if trace.observations else None,
                 "last_observation": trace.observations[-1] if trace.observations else None,
                 "mode_prefix": trace.mode_labels[: min(8, len(trace.mode_labels))],

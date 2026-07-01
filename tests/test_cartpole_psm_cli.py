@@ -75,16 +75,23 @@ class CartpolePSMCliTest(unittest.TestCase):
             "hard_label_mistakes",
         )
         self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
+        self.assertEqual(
+            provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
+            0.5,
+        )
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("policy_description", metrics)
         self.assertEqual(metrics["trace_summary"]["count"], metrics["num_traces"])
         self.assertGreaterEqual(metrics["trace_summary"]["reward_mean"], 0.0)
+        self.assertIn("teacher_source_counts", metrics["trace_summary"])
         self.assertLessEqual(len(metrics["trace_summary"]["examples"]), 3)
         self.assertIn("mode_prefix", metrics["trace_summary"]["examples"][0])
         self.assertIn("theta_gain", metrics["trace_summary"]["examples"][0])
         self.assertIn("segment_durations", metrics["trace_summary"]["examples"][0])
+        self.assertIn("teacher_source", metrics["trace_summary"]["examples"][0])
+        self.assertIn("student_log_probability", metrics["trace_summary"]["examples"][0])
         self.assertIn("probabilistic_student", metrics)
         self.assertIn("action_distributions", metrics["probabilistic_student"])
         self.assertIn("switch_parameter_distributions", metrics["probabilistic_student"])

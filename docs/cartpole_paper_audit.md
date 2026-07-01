@@ -44,9 +44,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
   fixed local synthesis constants, probabilistic-student parameters, trace count, and train/test
-  metrics to JSON. It also persists switch-fit diagnostics comparing the selected switch objective
-  tuple to a fixed local reference switch; this is failure-analysis provenance, not a controller
-  selection rule.
+  metrics to JSON. It also persists teacher candidate-source counts, sampled-trace log-probability
+  provenance, and switch-fit diagnostics comparing the selected switch objective tuple to a fixed
+  local reference switch; this is failure-analysis provenance, not a controller selection rule.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
@@ -103,10 +103,11 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `23.8`, test reward mean `37.5`. This documents a current synthesis gap rather
-  than a paper-level programmatic-policy result. The metrics artifact now also records
-  `switch_fit_diagnostics`, which shows the selected switch was chosen by the current hard-label-first
-  trace objective and compares that objective tuple against the fixed local reference switch.
+  train reward mean `23.3`, test reward mean `41.1`. This documents a current synthesis gap rather
+  than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
+  of `{"student_sample": 64}` for the selected traces in this seed, plus `switch_fit_diagnostics`,
+  which shows the selected switch was chosen by the current hard-label-first trace objective and
+  compares that objective tuple against the fixed local reference switch.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -142,6 +143,11 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The Cartpole switch learner now locally refines Gaussian threshold means when doing so improves the
   discrete Eq. (12)-style timing likelihood without increasing hard segment-label mistakes. This is
   still a bounded approximation, not the paper's full continuous switch-parameter optimizer.
+- After the first teacher/student iteration, the Cartpole teacher candidate pool now includes bounded
+  rollouts sampled from the current probabilistic student as well as gain-sampled loop-free traces,
+  and records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
+  toward the sampled-teacher phase in Section 4.2, but it is not the paper's full CEM plus
+  gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
   and the student's discrete Eq. (12)-style switch timing likelihood. For scalar-threshold switches,
   that timing likelihood uses the learned Gaussian switch-parameter distribution with one sampled
@@ -258,6 +264,12 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   gradient-based trajectory optimizer.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_regularizer_uses_switch_distribution_uncertainty`
   verifies that the teacher regularizer uses switch-distribution uncertainty when scoring a trace.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_can_sample_candidates_from_probabilistic_student`
+  verifies that the bounded teacher candidate pool can include rollouts sampled from the current
+  probabilistic student after the first student fit.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_candidate_pool_includes_student_samples_after_first_iteration`
+  verifies that sampled-student traces and gain-sampled traces both remain in the bounded teacher
+  candidate pool.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_does_not_reduce_objective`
   verifies that local refinement of Cartpole loop-free teacher gains does not reduce the teacher
   objective after top-candidate sampling. This is a bounded coordinate refinement over the diagnostic
@@ -315,9 +327,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   does not yet solve the continuous Eq. (12) optimization for switch-condition means and standard
   deviations. For depth-2 conjunctions, switch-enable probability still uses an independence
   approximation over predicate thresholds. The current
-  Cartpole teacher samples candidate traces, keeps top candidates for local coordinate refinement of
-  teacher gains and integer segment durations, and scores traces with reward plus Gaussian action
-  likelihood and discrete switch timing likelihood under the previous student, but it does not yet
-  perform the paper's continuous gradient-based optimization over loop-free action functions and
-  durations.
+  Cartpole teacher samples some candidate traces from the current probabilistic student after the
+  first iteration, also keeps gain-sampled candidate traces for exploration, refines only gain-sampled
+  top candidates with bounded coordinate search over teacher gains and integer segment durations, and
+  scores traces with reward plus Gaussian action likelihood and discrete switch timing likelihood
+  under the previous student, but it does not yet perform the paper's full CEM procedure or
+  continuous gradient-based optimization over loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.
