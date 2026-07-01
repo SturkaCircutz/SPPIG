@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+from adaptive_teaching_sim import distill_student
+
 
 @dataclass
 class StudentConfig:
@@ -11,12 +13,11 @@ class StudentConfig:
 
 
 def fit_student_from_traces(traces: Iterable[Any], grammar, student_cfg: StudentConfig):
-    """
-    Placeholder for fitting a compact programmatic state machine to teacher traces.
+    """Fit a compact student state machine from teacher traces.
 
-    A faithful implementation will need:
-    - latent mode assignment inference,
-    - an EM-style fitting procedure,
-    - separate optimization of action functions and switching predicates.
+    The backend uses a lightweight EM-style loop: assign loop-free teacher
+    segments to student modes, then update action-program parameters and
+    switching thresholds from the weighted segment data.
     """
-    raise NotImplementedError("Implement latent mode inference and grammar fitting.")
+
+    return distill_student(list(traces))
