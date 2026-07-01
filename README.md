@@ -17,7 +17,7 @@ protocol.
 
 ## Current Verified Results
 
-Twenty-rollout evaluation:
+Local diagnostic evaluation backed by `artifacts/results/cartpole_results.csv`:
 
 | Policy | Train success | Test success | Train reward | Test reward |
 | --- | ---: | ---: | ---: | ---: |
@@ -167,15 +167,16 @@ the manifest.
 ## Paper and Audit
 
 - Paper draft: `essay/project.tex`
+- Generated abstract result fragment: `essay/cartpole_abstract_results.tex`
 - Generated result table fragment: `essay/cartpole_results_table.tex`
 - Generated PSM policy fragment: `essay/cartpole_policy_fragment.tex`
 - arXiv source manifest: `essay/00README.json`
 - Figures: `essay/figures/`
 - Figure generation script: `scripts/make_paper_figures.py` (uses
   `cartpole_summary.csv` when present, otherwise raw result rows, and rewrites
-  the LaTeX table and PSM policy fragments; if PSM metrics with a linear switch
-  exist, it writes the switch-boundary figure from that artifact, and if PPO
-  metrics JSON files exist, it also writes a training-curve figure)
+  the abstract result, table, and PSM policy fragments; if PSM metrics with a
+  linear switch exist, it writes the switch-boundary figure from that artifact,
+  and if PPO metrics JSON files exist, it also writes a training-curve figure)
 - Paper fidelity audit: `docs/cartpole_paper_audit.md`
 - Result table: `artifacts/results/cartpole_results.csv`
 - Result summary: `artifacts/results/cartpole_summary.csv`

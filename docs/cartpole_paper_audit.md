@@ -62,9 +62,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
-  generated LaTeX table and PSM policy fragments consumed by `essay/project.tex`, plots the PSM
-  switch-boundary figure from a linear-switch PSM metrics artifact when available, and plots PPO
-  training curves when metrics JSON artifacts with `eval_history` are present.
+  generated abstract-result, LaTeX table, and PSM policy fragments consumed by `essay/project.tex`,
+  plots the PSM switch-boundary figure from a linear-switch PSM metrics artifact when available, and
+  plots PPO training curves when metrics JSON artifacts with `eval_history` are present.
 
 ## Current Status
 
@@ -157,8 +157,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
   not paper-scale learning curves. It discovers standalone PPO metrics, reproduction-runner metrics
   under `artifacts/results/metrics/`, and PPO sweep metrics.
-- `scripts/make_paper_figures.py` now parses linear Cartpole PSM switch boundaries from PSM metrics
-  artifacts before writing `essay/cartpole_policy_fragment.tex` and plotting
+- `scripts/make_paper_figures.py` now writes abstract result claims from result artifacts, and parses
+  linear Cartpole PSM switch boundaries from PSM metrics artifacts before writing
+  `essay/cartpole_policy_fragment.tex` and plotting
   `programmatic_switch_boundary.png`; it writes an explicit fallback fragment and skips that figure
   when only non-linear/Boolean-tree switch descriptions are available instead of drawing a hard-coded
   boundary.
@@ -277,10 +278,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_reproduction_runner.py::test_summary_rows_report_mean_std_and_best_train_seed`
   verifies the runner's per-policy mean/std summary and deterministic best-training-seed selection.
 - `tests/test_make_paper_figures.py` verifies that figure/table generation reads grouped summary rows
-  when present, falls back to raw result rows otherwise, and writes the generated LaTeX result table
-  fragment. It also verifies PSM policy-fragment generation, switch-boundary parsing/plotting from
-  synthetic metrics, fallback/skip behavior for non-linear switches, PPO metrics-file discovery, and
-  training-curve PNG generation.
+  when present, falls back to raw result rows otherwise, and writes generated abstract-result and
+  LaTeX result-table fragments. It also verifies PSM policy-fragment generation,
+  switch-boundary parsing/plotting from synthetic metrics, fallback/skip behavior for non-linear
+  switches, PPO metrics-file discovery, and training-curve PNG generation.
 
 ## Completion Criteria Still Required For Full Paper Claim
 

@@ -40,12 +40,11 @@ continuous-force CartPole environment, PyTorch PPO with feed-forward and LSTM
 policies, and a compact two-mode programmatic state-machine learner.  The
 implementation follows the paper's CartPole split: training uses a 5-second
 horizon with pole length 0.5, and testing uses a 300-second horizon with pole
-length 1.0.  In local diagnostics over 20 rollouts, feed-forward PPO and the
-programmatic state machine both reach 100\% training success, but PPO obtains
-0\% success on the full 300-second test horizon with mean test reward 910.6.
-The programmatic state machine obtains 20\% full-horizon test success and mean
-test reward 6275.4.  We also document three implementation bugs that materially
-changed reinforcement-learning behavior: missing 5-second episode truncation,
+length 1.0.  Local diagnostic result claims are generated from repository
+artifacts.
+\input{cartpole_abstract_results.tex}
+We also document three implementation bugs that materially changed
+reinforcement-learning behavior: missing 5-second episode truncation,
 inconsistent continuous-action log probabilities after clipping, and recurrent
 state mismatch in PPO-LSTM updates.
 \end{abstract}
@@ -214,7 +213,8 @@ survives much longer and has nonzero full-horizon success.
 
 \begin{table}[t]
 \centering
-\caption{Twenty-rollout local evaluation.  Test success uses the full
+\caption{Local diagnostic evaluation generated from repository result
+artifacts.  Test success uses the full
 300-second horizon.}
 \label{tab:results}
 \input{cartpole_results_table.tex}

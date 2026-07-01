@@ -107,6 +107,50 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertIn("Programmatic PSM & 1.00 & 0.20 & 250.0 & 6275.4", table)
         self.assertIn("\\bottomrule", table)
 
+    def test_write_abstract_results_uses_result_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "abstract.tex")
+            wrote = make_paper_figures.write_abstract_results(
+                [
+                    {
+                        "policy": "PPO MLP",
+                        "train_success_mean": "1.0",
+                        "test_success_mean": "0.0",
+                        "test_reward_mean": "910.6",
+                    },
+                    {
+                        "policy": "Programmatic state machine",
+                        "train_success_mean": "1.0",
+                        "test_success_mean": "0.2",
+                        "test_reward_mean": "6275.4",
+                    },
+                ],
+                outpath,
+            )
+            with open(outpath, encoding="utf-8") as handle:
+                fragment = handle.read()
+
+        self.assertTrue(wrote)
+        self.assertIn("feed-forward PPO reaches 100\\% training success", fragment)
+        self.assertNotIn("20 rollouts", fragment)
+        self.assertIn("obtains 0\\% success", fragment)
+        self.assertIn("mean test reward 910.6", fragment)
+        self.assertIn("obtains 20\\% full-horizon test success", fragment)
+        self.assertIn("mean test reward 6275.4", fragment)
+
+    def test_write_abstract_results_records_missing_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "abstract.tex")
+            wrote = make_paper_figures.write_abstract_results(
+                [{"policy": "PPO MLP", "train_success": "1.0", "test_success": "0.0", "test_reward": "10.0"}],
+                outpath,
+            )
+            with open(outpath, encoding="utf-8") as handle:
+                fragment = handle.read()
+
+        self.assertFalse(wrote)
+        self.assertIn("required result rows were unavailable", fragment)
+
     def test_read_ppo_metric_files_skips_empty_history(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             good_path = os.path.join(tmpdir, "good_metrics.json")
