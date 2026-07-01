@@ -64,6 +64,20 @@ def result_to_metrics(result: PPOResult) -> Dict[str, object]:
     }
 
 
+def rollout_to_update_metrics(rollout: "Rollout", update: int, timesteps: int) -> Dict[str, object]:
+    horizon_truncations = int(rollout.horizon_truncations.sum().item())
+    failure_terminations = int(rollout.failure_terminations.sum().item())
+    return {
+        "update": update,
+        "timesteps": timesteps,
+        "rollout_steps": int(rollout.rewards.numel()),
+        "reward_mean": float(rollout.rewards.mean().item()),
+        "horizon_truncations": horizon_truncations,
+        "failure_terminations": failure_terminations,
+        "episode_terminations": horizon_truncations + failure_terminations,
+    }
+
+
 class MLPActorCritic(nn.Module):
     def __init__(self, hidden_size: int, initial_log_std: float = 0.0, action_scale: float = 10.0) -> None:
         super().__init__()
@@ -240,6 +254,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
     best_score = float("-inf")
     best_result: Optional[PPOResult] = None
     eval_history: List[Dict[str, object]] = []
+    update_history: List[Dict[str, object]] = []
     while timesteps < cfg.total_timesteps:
         rollout = _collect_rollout(envs, model, obs, episode_steps, lstm_state, cfg)
         # Rollouts are fixed-size chunks of longer vectorized environment
@@ -248,6 +263,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
         episode_steps = rollout.next_episode_steps
         lstm_state = rollout.next_lstm_state
         timesteps += rollout.rewards.numel()
+        update_history.append(rollout_to_update_metrics(rollout, len(update_history) + 1, timesteps))
         if cfg.policy_type == "mlp":
             _update_mlp(model, optimizer, rollout, cfg)
         else:
@@ -303,6 +319,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
                 {
                     "config": cfg.__dict__,
                     "eval_history": eval_history,
+                    "update_history": update_history,
                     "selected_result": final_metrics,
                     "selection_rule": "max train_success_rate, then train_reward_mean when eval_interval > 0 and keep_best is true",
                 },
@@ -320,6 +337,8 @@ class Rollout:
     log_probs: torch.Tensor
     rewards: torch.Tensor
     dones: torch.Tensor
+    horizon_truncations: torch.Tensor
+    failure_terminations: torch.Tensor
     values: torch.Tensor
     advantages: torch.Tensor
     returns: torch.Tensor
@@ -343,6 +362,8 @@ def _collect_rollout(
     log_probs: List[torch.Tensor] = []
     rewards: List[torch.Tensor] = []
     dones: List[torch.Tensor] = []
+    horizon_truncations: List[torch.Tensor] = []
+    failure_terminations: List[torch.Tensor] = []
     values: List[torch.Tensor] = []
 
     num_envs = len(envs)
@@ -377,6 +398,8 @@ def _collect_rollout(
         next_episode_steps = episode_steps.clone()
         step_rewards: List[float] = []
         step_dones: List[float] = []
+        step_horizon_truncations: List[float] = []
+        step_failure_terminations: List[float] = []
         for env_idx, env in enumerate(envs):
             clipped_action = torch.clamp(action[env_idx], -10.0, 10.0)
             next_obs, reward, done = env.step(float(clipped_action.item()))
@@ -389,6 +412,8 @@ def _collect_rollout(
             next_observations.append(next_obs)
             step_rewards.append(reward)
             step_dones.append(float(episode_done))
+            step_horizon_truncations.append(float(truncated and not done))
+            step_failure_terminations.append(float(done))
         done_tensor = torch.tensor(step_dones, dtype=torch.float32)
         if state is not None:
             # Reset recurrent memory for envs that terminated or hit the
@@ -399,6 +424,8 @@ def _collect_rollout(
         log_probs.append(log_prob)
         rewards.append(torch.tensor(step_rewards, dtype=torch.float32))
         dones.append(done_tensor)
+        horizon_truncations.append(torch.tensor(step_horizon_truncations, dtype=torch.float32))
+        failure_terminations.append(torch.tensor(step_failure_terminations, dtype=torch.float32))
         values.append(value.view(num_envs))
         obs = torch.tensor(next_observations, dtype=torch.float32)
         episode_steps = next_episode_steps
@@ -408,6 +435,8 @@ def _collect_rollout(
     log_prob_batch = torch.stack(log_probs)
     reward_batch = torch.stack(rewards)
     done_batch = torch.stack(dones)
+    horizon_truncation_batch = torch.stack(horizon_truncations)
+    failure_termination_batch = torch.stack(failure_terminations)
     value_batch = torch.stack(values)
     with torch.no_grad():
         next_obs_tensor = obs
@@ -429,6 +458,8 @@ def _collect_rollout(
         log_prob_batch,
         reward_batch,
         done_batch,
+        horizon_truncation_batch,
+        failure_termination_batch,
         value_batch,
         advantages,
         returns,

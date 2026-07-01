@@ -62,6 +62,8 @@ class CartpolePPOCliTest(unittest.TestCase):
 
         self.assertEqual(metrics["config"]["hidden_size"], 8)
         self.assertGreaterEqual(len(metrics["eval_history"]), 1)
+        self.assertEqual(len(metrics["update_history"]), 2)
+        self.assertEqual(metrics["update_history"][0]["rollout_steps"], 32)
         self.assertIn("selected_result", metrics)
 
 

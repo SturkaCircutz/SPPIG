@@ -185,6 +185,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 self.assertEqual(metrics["config"]["eval_test_max_steps"], 20)
                 self.assertEqual(metrics["config"]["eval_interval"], 32)
                 self.assertGreaterEqual(len(metrics["eval_history"]), 1)
+                self.assertGreaterEqual(len(metrics["update_history"]), 1)
+                self.assertIn("horizon_truncations", metrics["update_history"][0])
                 self.assertIn("selected_result", metrics)
 
             with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:

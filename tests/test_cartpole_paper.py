@@ -632,6 +632,13 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(metrics["config"]["policy_type"], "mlp")
         self.assertGreaterEqual(len(metrics["eval_history"]), 1)
+        self.assertEqual(len(metrics["update_history"]), 2)
+        self.assertEqual(metrics["update_history"][0]["update"], 1)
+        self.assertEqual(metrics["update_history"][0]["timesteps"], 32)
+        self.assertEqual(metrics["update_history"][0]["rollout_steps"], 32)
+        self.assertIn("reward_mean", metrics["update_history"][0])
+        self.assertIn("horizon_truncations", metrics["update_history"][0])
+        self.assertIn("failure_terminations", metrics["update_history"][0])
         self.assertEqual(metrics["selected_result"]["timesteps"], result.timesteps)
         self.assertIn("selection_rule", metrics)
 
@@ -656,7 +663,32 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(env.cfg.max_steps, 250)
         self.assertEqual(rollout.dones[-1, 0].item(), 1.0)
+        self.assertEqual(rollout.horizon_truncations[-1, 0].item(), 1.0)
+        self.assertEqual(rollout.failure_terminations.sum().item(), 0.0)
         self.assertEqual(rollout.next_episode_steps[0].item(), 0)
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_rollout_counts_failures_separately_from_horizon_truncations(self):
+        env = CartpoleEnv.train_env(seed=0)
+        model = MLPActorCritic(hidden_size=8, initial_log_std=-20.0)
+        with torch.no_grad():
+            for parameter in model.actor.parameters():
+                parameter.zero_()
+        obs = torch.tensor([env.reset([0.0, 0.0, 0.3, 0.0])], dtype=torch.float32)
+        cfg = PPOConfig(rollout_steps=1, num_envs=1)
+
+        rollout = _collect_rollout(
+            [env],
+            model,
+            obs,
+            torch.zeros(1, dtype=torch.long),
+            None,
+            cfg,
+        )
+
+        self.assertEqual(rollout.dones[0, 0].item(), 1.0)
+        self.assertEqual(rollout.failure_terminations[0, 0].item(), 1.0)
+        self.assertEqual(rollout.horizon_truncations.sum().item(), 0.0)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_stores_raw_continuous_actions_for_log_probs(self):
