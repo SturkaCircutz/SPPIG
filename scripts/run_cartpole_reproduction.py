@@ -68,17 +68,25 @@ def _summarize_results(results: Iterable[Any]) -> Dict[str, float]:
     }
 
 
-def run_psm(seed: int, eval_rollouts: int, test_max_steps: int, quick: bool) -> Dict[str, Any]:
+def run_psm(
+    seed: int,
+    eval_rollouts: int,
+    test_max_steps: int,
+    quick: bool,
+    teacher_overrides: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
     # The quick path is a CI/local smoke test; the non-quick path preserves the
     # larger candidate pool and trace count expected for reproduction runs.
-    cfg = CartpoleSynthesisConfig(
-        num_initial_states=4 if quick else 64,
-        candidate_rollouts=4 if quick else 128,
-        segment_steps=2 if quick else 8,
-        segments_per_trace=8 if quick else 32,
-        teacher_student_iters=1 if quick else 2,
-        seed=seed,
-    )
+    cfg_kwargs = {
+        "num_initial_states": 4 if quick else 64,
+        "candidate_rollouts": 4 if quick else 128,
+        "segment_steps": 2 if quick else 8,
+        "segments_per_trace": 8 if quick else 32,
+        "teacher_student_iters": 1 if quick else 2,
+        "seed": seed,
+    }
+    cfg_kwargs.update(teacher_overrides or {})
+    cfg = CartpoleSynthesisConfig(**cfg_kwargs)
     policy, traces = synthesize_cartpole_policy(cfg)
     train_env = CartpoleEnv.train_env(seed=100 + seed)
     test_env = CartpoleEnv.test_env(seed=200 + seed)
@@ -232,11 +240,24 @@ def write_results(rows: List[Dict[str, Any]], outdir: Path, manifest: Dict[str, 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run CartPole reproduction experiments and write artifacts.")
+    default_psm = CartpoleSynthesisConfig()
     parser.add_argument("--outdir", type=Path, default=ROOT / "artifacts" / "results")
     parser.add_argument("--seeds", default="0,1,2,3,4")
     parser.add_argument("--eval-rollouts", type=int, default=20)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--include-ppo", action="store_true")
+    parser.add_argument("--psm-teacher-theta-gain", type=float, default=default_psm.teacher_theta_gain)
+    parser.add_argument("--psm-teacher-omega-gain", type=float, default=default_psm.teacher_omega_gain)
+    parser.add_argument(
+        "--psm-teacher-student-iters",
+        type=int,
+        default=None,
+        help="Teacher/student alternations for PSM; defaults to 1 for --quick and 2 otherwise.",
+    )
+    parser.add_argument("--psm-teacher-student-regularizer", type=float, default=default_psm.teacher_student_regularizer)
+    parser.add_argument("--psm-teacher-reward-lambda", type=float, default=default_psm.teacher_reward_lambda)
+    parser.add_argument("--psm-teacher-top-rho", type=int, default=default_psm.teacher_top_rho)
+    parser.add_argument("--psm-teacher-refinement-steps", type=int, default=default_psm.teacher_refinement_steps)
     parser.add_argument(
         "--ppo-eval-interval",
         type=int,
@@ -250,15 +271,30 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.ppo_eval_interval is None:
         args.ppo_eval_interval = 32 if args.quick else 0
+    if args.psm_teacher_student_iters is None:
+        args.psm_teacher_student_iters = 1 if args.quick else default_psm.teacher_student_iters
     return args
+
+
+def psm_teacher_overrides_from_args(args: argparse.Namespace) -> Dict[str, Any]:
+    return {
+        "teacher_theta_gain": args.psm_teacher_theta_gain,
+        "teacher_omega_gain": args.psm_teacher_omega_gain,
+        "teacher_student_iters": args.psm_teacher_student_iters,
+        "teacher_student_regularizer": args.psm_teacher_student_regularizer,
+        "teacher_reward_lambda": args.psm_teacher_reward_lambda,
+        "teacher_top_rho": args.psm_teacher_top_rho,
+        "teacher_refinement_steps": args.psm_teacher_refinement_steps,
+    }
 
 
 def main() -> None:
     args = parse_args()
     seeds = [int(value) for value in args.seeds.split(",") if value]
+    psm_teacher_overrides = psm_teacher_overrides_from_args(args)
     rows: List[Dict[str, Any]] = []
     for seed in seeds:
-        rows.append(run_psm(seed, args.eval_rollouts, args.test_max_steps, args.quick))
+        rows.append(run_psm(seed, args.eval_rollouts, args.test_max_steps, args.quick, psm_teacher_overrides))
         if args.include_ppo:
             # Baselines share the same seed list and evaluation budget so their
             # raw rows remain comparable under one reproduction manifest.
@@ -292,6 +328,7 @@ def main() -> None:
         "seeds": seeds,
         "eval_rollouts": args.eval_rollouts,
         "test_max_steps": args.test_max_steps,
+        "psm_teacher_overrides": psm_teacher_overrides,
         "ppo_eval_interval": args.ppo_eval_interval,
         "paper_scale_note": (
             "Without --quick, PPO uses 10^7 timesteps per seed. "

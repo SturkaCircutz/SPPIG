@@ -72,6 +72,8 @@ Programmatic state machine:
   --num-initial-states 64 \
   --segment-steps 8 \
   --segments-per-trace 32 \
+  --teacher-reward-lambda 100 \
+  --teacher-top-rho 10 \
   --eval-rollouts 20 \
   --test-max-steps 15000 \
   --metrics-output artifacts/cartpole_psm_metrics.json
@@ -82,6 +84,9 @@ probabilistic student summary: Gaussian constant-action distributions, switch
 parameter distributions, latent responsibility totals, and compact teacher
 trace examples with reward, length, gains, segment durations, switches, and
 boundary observations.
+The CLI exposes the current teacher gain, teacher/student iteration, reward
+scale, regularization, top-rho, and local-refinement settings, and the metrics
+JSON records their exact values under `config`.
 The switch threshold means are locally refined against the current discrete
 Eq. (12)-style timing likelihood, and the teacher regularizer scores both
 action likelihood and switch timing under the current student's Gaussian switch

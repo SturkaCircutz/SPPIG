@@ -26,6 +26,20 @@ class CartpolePSMCliTest(unittest.TestCase):
                     "2",
                     "--segments-per-trace",
                     "4",
+                    "--teacher-theta-gain",
+                    "12.5",
+                    "--teacher-omega-gain",
+                    "0.75",
+                    "--teacher-student-iters",
+                    "1",
+                    "--teacher-student-regularizer",
+                    "0.5",
+                    "--teacher-reward-lambda",
+                    "100",
+                    "--teacher-top-rho",
+                    "1",
+                    "--teacher-refinement-steps",
+                    "1",
                     "--eval-rollouts",
                     "1",
                     "--test-max-steps",
@@ -41,6 +55,13 @@ class CartpolePSMCliTest(unittest.TestCase):
                 metrics = json.load(handle)
 
         self.assertEqual(metrics["config"]["num_initial_states"], 2)
+        self.assertEqual(metrics["config"]["teacher_theta_gain"], 12.5)
+        self.assertEqual(metrics["config"]["teacher_omega_gain"], 0.75)
+        self.assertEqual(metrics["config"]["teacher_student_iters"], 1)
+        self.assertEqual(metrics["config"]["teacher_student_regularizer"], 0.5)
+        self.assertEqual(metrics["config"]["teacher_reward_lambda"], 100.0)
+        self.assertEqual(metrics["config"]["teacher_top_rho"], 1)
+        self.assertEqual(metrics["config"]["teacher_refinement_steps"], 1)
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)

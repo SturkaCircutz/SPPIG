@@ -83,10 +83,18 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Synthesize a Cartpole programmatic state machine.")
+    default_cfg = CartpoleSynthesisConfig()
     parser.add_argument("--num-initial-states", type=int, default=32)
     parser.add_argument("--candidate-rollouts", type=int, default=128)
     parser.add_argument("--segment-steps", type=int, default=8)
     parser.add_argument("--segments-per-trace", type=int, default=32)
+    parser.add_argument("--teacher-theta-gain", type=float, default=default_cfg.teacher_theta_gain)
+    parser.add_argument("--teacher-omega-gain", type=float, default=default_cfg.teacher_omega_gain)
+    parser.add_argument("--teacher-student-iters", type=int, default=default_cfg.teacher_student_iters)
+    parser.add_argument("--teacher-student-regularizer", type=float, default=default_cfg.teacher_student_regularizer)
+    parser.add_argument("--teacher-reward-lambda", type=float, default=default_cfg.teacher_reward_lambda)
+    parser.add_argument("--teacher-top-rho", type=int, default=default_cfg.teacher_top_rho)
+    parser.add_argument("--teacher-refinement-steps", type=int, default=default_cfg.teacher_refinement_steps)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--eval-rollouts", type=int, default=20)
     parser.add_argument("--test-max-steps", type=int, default=15000)
@@ -98,6 +106,13 @@ def main() -> None:
         candidate_rollouts=args.candidate_rollouts,
         segment_steps=args.segment_steps,
         segments_per_trace=args.segments_per_trace,
+        teacher_theta_gain=args.teacher_theta_gain,
+        teacher_omega_gain=args.teacher_omega_gain,
+        teacher_student_iters=args.teacher_student_iters,
+        teacher_student_regularizer=args.teacher_student_regularizer,
+        teacher_reward_lambda=args.teacher_reward_lambda,
+        teacher_top_rho=args.teacher_top_rho,
+        teacher_refinement_steps=args.teacher_refinement_steps,
         seed=args.seed,
     )
     student, traces = synthesize_cartpole_student(cfg)

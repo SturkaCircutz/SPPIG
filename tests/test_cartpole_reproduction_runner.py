@@ -62,6 +62,20 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "1",
                     "--test-max-steps",
                     "20",
+                    "--psm-teacher-theta-gain",
+                    "12.5",
+                    "--psm-teacher-omega-gain",
+                    "0.75",
+                    "--psm-teacher-student-iters",
+                    "1",
+                    "--psm-teacher-student-regularizer",
+                    "0.5",
+                    "--psm-teacher-reward-lambda",
+                    "100",
+                    "--psm-teacher-top-rho",
+                    "1",
+                    "--psm-teacher-refinement-steps",
+                    "1",
                     "--outdir",
                     tmpdir,
                 ],
@@ -95,9 +109,24 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(manifest["quick"])
             self.assertEqual(manifest["seeds"], [0])
             self.assertEqual(manifest["test_max_steps"], 20)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_theta_gain"], 12.5)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_omega_gain"], 0.75)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_student_iters"], 1)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_student_regularizer"], 0.5)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_reward_lambda"], 100.0)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_top_rho"], 1)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_refinement_steps"], 1)
             self.assertIn("rows", manifest)
             self.assertIn("summary", manifest)
             self.assertIn("summary_note", manifest)
+            config = manifest["rows"][0]["config"]
+            self.assertEqual(config["teacher_theta_gain"], 12.5)
+            self.assertEqual(config["teacher_omega_gain"], 0.75)
+            self.assertEqual(config["teacher_student_iters"], 1)
+            self.assertEqual(config["teacher_student_regularizer"], 0.5)
+            self.assertEqual(config["teacher_reward_lambda"], 100.0)
+            self.assertEqual(config["teacher_top_rho"], 1)
+            self.assertEqual(config["teacher_refinement_steps"], 1)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO artifact checks")
     def test_quick_runner_with_ppo_writes_checkpoints_and_metrics(self):
