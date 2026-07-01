@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import subprocess
 import sys
@@ -73,6 +74,13 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
         self.assertTrue(provenance["switch_timing"]["scalar_threshold_uses_shared_sample"])
         self.assertEqual(provenance["switch_timing"]["std_refinement_multipliers"], [0.5, 1.0, 2.0])
+        self.assertEqual(provenance["switch_timing"]["coordinate_refinement_steps"], 3)
+        self.assertEqual(provenance["switch_timing"]["coordinate_mean_step_fraction"], 0.25)
+        self.assertAlmostEqual(
+            provenance["switch_timing"]["coordinate_log_std_initial_step"],
+            math.log(2.0),
+        )
+        self.assertEqual(provenance["switch_timing"]["coordinate_step_decay"], 0.5)
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
         self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
         self.assertEqual(provenance["switch_search"]["max_threshold_candidates"], 64)

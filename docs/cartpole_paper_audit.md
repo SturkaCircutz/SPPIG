@@ -83,8 +83,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
   stumps and depth-2 conjunction candidates over observation inequalities via a depth-2 greedy
   leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
-  against the Eq. (12)-style timing likelihood, but the learner still uses a bounded grid search
-  instead of fully optimizing Eq. (12).
+  against the Eq. (12)-style timing likelihood with a bounded grid initializer plus coordinate
+  refinement, but the learner still does not fully optimize Eq. (12).
 - Complete as a local diagnostic baseline: feed-forward PPO reaches 100% success on the paper's
   5-second training split.
 - Not complete against the paper: PPO/PPO-LSTM have not been run for `10^7` timesteps or selected
@@ -106,9 +106,9 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `11.2`, test reward mean `29.7`. This documents a current synthesis gap rather
+  train reward mean `10.1`, test reward mean `24.5`. This documents a current synthesis gap rather
   than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
-  of `{"gain_refined": 22, "gain_sample": 3, "student_sample_refined": 39}` for the selected traces in this
+  of `{"gain_refined": 46, "gain_sample": 7, "student_sample_refined": 11}` for the selected traces in this
   seed, per-iteration `synthesis_history`, plus `switch_fit_diagnostics`, which shows the selected
   switch was chosen by prefiltering candidates with a cheaper hard-label/timing objective, then
   rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style distribution-timing objective
@@ -146,12 +146,13 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   compact teacher-trace examples with segment-duration schedules, per-teacher/student-iteration
   `synthesis_history`, number of teacher traces, evaluation settings, switch-fit diagnostics, and
   train/test metrics.
-- The Cartpole switch learner now performs bounded local grid refinement of selected
+- The Cartpole switch learner now performs bounded local grid plus coordinate refinement of selected
   switch-threshold Gaussian means and standard deviations against a discrete Eq. (12)-style
-  likelihood, while rejecting candidate means that increase hard segment-label mistakes. This remains
-  a diagnostic approximation: switch structure is prefiltered by a cheaper hard-label/timing
-  objective before bounded distribution rescoring, depth-2 conjunction probabilities use an
-  independence approximation, and this is not the paper's continuous switch-parameter optimizer.
+  likelihood, while rejecting candidate means that increase hard segment-label mistakes. This moves
+  the switch-parameter M-step closer to the paper's numerical optimization, but remains a diagnostic
+  approximation: switch structure is prefiltered by a cheaper hard-label/timing objective before
+  bounded distribution rescoring, depth-2 conjunction probabilities use an independence
+  approximation, and this is not the paper's full continuous switch-parameter optimizer.
 - After the first teacher/student iteration, the Cartpole teacher candidate pool now includes bounded
   rollouts sampled from the current probabilistic student as well as gain-sampled loop-free traces,
   locally refines top sampled loop-free traces by duration/action coordinate search, and records
@@ -267,6 +268,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_can_improve_probabilistic_std`
   verifies that bounded Gaussian standard-deviation refinement can improve the current
   probabilistic timing objective.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_coordinate_refinement_polishes_grid_solution`
+  verifies that the bounded coordinate pass can improve beyond the discrete std-candidate grid.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_keeps_std_finite`
   verifies that refined switch Gaussian standard deviations remain finite and above the local
   Gaussian floor.
@@ -365,11 +368,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   learner performs a depth-2 greedy Boolean-tree expansion, stores Gaussian threshold distributions
   for each selected switch predicate, can sample deterministic policies from those distributions, and
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
-  no-transition-before-duration terms. It now performs bounded local mean/std refinement, but does
-  not yet solve the continuous Eq. (12) optimization for switch-condition means and standard
-  deviations. For depth-2 conjunctions, switch-enable probability still uses an independence
-  approximation over predicate thresholds. The current
-  Cartpole teacher samples some candidate traces from the current probabilistic student after the
+  no-transition-before-duration terms. It now performs bounded local mean/std grid plus coordinate
+  refinement, but does not yet solve the full continuous Eq. (12) optimization for switch-condition
+  means and standard deviations. For depth-2 conjunctions, switch-enable probability still uses an
+  independence approximation over predicate thresholds. The current Cartpole teacher samples some
+  candidate traces from the current probabilistic student after the
   first iteration, also keeps gain-sampled candidate traces for exploration, refines top loop-free
   candidates with bounded coordinate search over teacher gains when available, integer segment
   durations, and one-segment constant-action changes, and scores traces with reward plus Gaussian

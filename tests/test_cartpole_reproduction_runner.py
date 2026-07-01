@@ -1,5 +1,6 @@
 import csv
 import json
+import math
 import os
 import subprocess
 import sys
@@ -142,6 +143,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             provenance = manifest["psm_algorithm_provenance"]
             self.assertEqual(provenance["probabilistic_student"]["em_iters"], 4)
             self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
+            self.assertEqual(provenance["switch_timing"]["coordinate_refinement_steps"], 3)
+            self.assertAlmostEqual(
+                provenance["switch_timing"]["coordinate_log_std_initial_step"],
+                math.log(2.0),
+            )
             self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
             self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
             self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
@@ -172,6 +178,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "action_likelihood_then_switch_timing_forward_backward",
             )
             self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
+            self.assertEqual(row_provenance["switch_timing"]["coordinate_refinement_steps"], 3)
+            self.assertEqual(row_provenance["switch_timing"]["coordinate_step_decay"], 0.5)
             self.assertEqual(row_provenance["switch_search"]["max_threshold_candidates"], 64)
             self.assertEqual(row_provenance["teacher_search"]["gain_sample_std_fraction"], 0.10)
             self.assertEqual(

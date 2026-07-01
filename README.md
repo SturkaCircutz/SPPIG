@@ -105,8 +105,9 @@ scale, regularization, top-rho, and local-refinement settings, and the metrics
 JSON records their exact values under `config`.
 It also records fixed local synthesis constants, including EM count, one
 switch-timing responsibility-refinement pass, minimum Gaussian standard
-deviation, switch-timing scale, switch-search grids, and teacher-search
-refinement schedule, under `algorithm_provenance`.
+deviation, switch-timing scale, switch-search grids, bounded switch-parameter
+coordinate refinement, and teacher-search refinement schedule, under
+`algorithm_provenance`.
 After the first teacher/student iteration, the teacher candidate pool includes
 bounded samples from the current probabilistic student alongside gain-sampled
 loop-free traces, approximating the paper's sampled-teacher phase before local
@@ -120,7 +121,8 @@ optimization phase without implementing its full gradient optimizer.
 The student starts with action-likelihood responsibilities, then performs one
 bounded forward-backward refinement using the learned switch-timing likelihood.
 The switch threshold Gaussian means and standard deviations are locally refined
-against the current Eq. (12)-style timing likelihood. Switch structures are
+against the current Eq. (12)-style timing likelihood using a grid initializer
+plus bounded coordinate steps. Switch structures are
 prefiltered by a cheaper hard-label/timing objective, then the top 128 are
 ranked first by hard trace-label mistakes and then by this bounded
 distribution-timing objective. The teacher regularizer scores both action

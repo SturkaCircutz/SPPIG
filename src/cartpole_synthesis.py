@@ -38,6 +38,10 @@ SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25,
 MAX_SWITCH_THRESHOLD_CANDIDATES = 64
 DEFAULT_SWITCH_THRESHOLD_CANDIDATE = 0.0
 SWITCH_STD_REFINEMENT_MULTIPLIERS = (0.5, 1.0, 2.0)
+SWITCH_PARAMETER_COORDINATE_REFINEMENT_STEPS = 3
+SWITCH_PARAMETER_COORDINATE_MEAN_STEP_FRACTION = 0.25
+SWITCH_PARAMETER_COORDINATE_LOG_STD_STEP = 0.6931471805599453
+SWITCH_PARAMETER_COORDINATE_STEP_DECAY = 0.5
 SWITCH_SELECTION_OBJECTIVE_ORDER = (
     "hard_label_mistakes",
     "bounded_eq12_style_distribution_loss",
@@ -98,6 +102,10 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "scalar_threshold_uses_shared_sample": True,
             "depth2_conjunction_probability": "independence_approximation",
             "std_refinement_multipliers": list(SWITCH_STD_REFINEMENT_MULTIPLIERS),
+            "coordinate_refinement_steps": SWITCH_PARAMETER_COORDINATE_REFINEMENT_STEPS,
+            "coordinate_mean_step_fraction": SWITCH_PARAMETER_COORDINATE_MEAN_STEP_FRACTION,
+            "coordinate_log_std_initial_step": SWITCH_PARAMETER_COORDINATE_LOG_STD_STEP,
+            "coordinate_step_decay": SWITCH_PARAMETER_COORDINATE_STEP_DECAY,
         },
         "switch_search": {
             "boolean_tree_depth": 2,
@@ -1225,6 +1233,73 @@ def _refine_switch_parameter_distributions(
                     best_switch = candidate_switch
                     best_mistakes = candidate_mistakes
                     best_loss = candidate_loss
+    return _coordinate_refine_switch_parameter_distributions(
+        switch,
+        best_distributions,
+        best_switch,
+        best_mistakes,
+        best_loss,
+        examples,
+        segments_by_trace,
+        responsibilities,
+    )
+
+
+def _coordinate_refine_switch_parameter_distributions(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    current_switch: SwitchProgram,
+    current_mistakes: int,
+    current_loss: float,
+    examples: List[Tuple[Observation, int]],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> Tuple[SwitchProgram, List[GaussianScalar]]:
+    # Start from the grid-refined solution; this is a bounded local polish, not
+    # a replacement for the discrete grammar search.
+    best_distributions = list(distributions)
+    best_switch = current_switch
+    best_mistakes = current_mistakes
+    best_loss = current_loss
+    mean_steps = _switch_distribution_coordinate_mean_steps(switch, segments_by_trace, best_distributions)
+    log_std_step = SWITCH_PARAMETER_COORDINATE_LOG_STD_STEP
+
+    for _ in range(SWITCH_PARAMETER_COORDINATE_REFINEMENT_STEPS):
+        improved = False
+        for param_index, mean_step in enumerate(mean_steps):
+            # Try one mean coordinate and one log-std coordinate at a time so
+            # accepted moves remain easy to audit against Eq. (12)-style loss.
+            for delta_mean, delta_log_std in (
+                (mean_step, 0.0),
+                (-mean_step, 0.0),
+                (0.0, log_std_step),
+                (0.0, -log_std_step),
+            ):
+                candidate_distributions = list(best_distributions)
+                current = candidate_distributions[param_index]
+                candidate_std = max(MIN_GAUSSIAN_STD, current.std * math.exp(delta_log_std))
+                candidate_distributions[param_index] = GaussianScalar(current.mean + delta_mean, candidate_std)
+                candidate_switch = _switch_with_distribution_means(switch, candidate_distributions)
+                candidate_mistakes = _switch_label_mistakes(candidate_switch, examples)
+                if candidate_mistakes > best_mistakes:
+                    continue
+                candidate_loss = _switch_distribution_timing_loss(
+                    candidate_switch,
+                    candidate_distributions,
+                    segments_by_trace,
+                    responsibilities,
+                )
+                if candidate_loss < best_loss:
+                    best_distributions = candidate_distributions
+                    best_switch = candidate_switch
+                    best_mistakes = candidate_mistakes
+                    best_loss = candidate_loss
+                    improved = True
+        if not improved:
+            # When no coordinate helps, shrink the local neighborhood instead
+            # of widening the search beyond the fitted switch structure.
+            mean_steps = [step * SWITCH_PARAMETER_COORDINATE_STEP_DECAY for step in mean_steps]
+            log_std_step *= SWITCH_PARAMETER_COORDINATE_STEP_DECAY
     return best_switch, best_distributions
 
 
@@ -1282,6 +1357,23 @@ def _switch_distribution_std_candidates(
         variance = sum((value - mean) ** 2 for value in boundary_values) / len(boundary_values)
         candidates.add(max(MIN_GAUSSIAN_STD, math.sqrt(max(variance, 0.0))))
     return sorted(candidates)
+
+
+def _switch_distribution_coordinate_mean_steps(
+    switch: SwitchProgram,
+    segments_by_trace: List[List[CartpoleSegment]],
+    distributions: List[GaussianScalar],
+) -> List[float]:
+    steps: List[float] = []
+    for param_index, distribution in enumerate(distributions):
+        boundary_values = _switch_distribution_boundary_values(switch, param_index, segments_by_trace)
+        if len(boundary_values) > 1:
+            span = max(boundary_values) - min(boundary_values)
+        else:
+            span = abs(distribution.mean) + max(distribution.std, MIN_GAUSSIAN_STD)
+        step = max(MIN_GAUSSIAN_STD, span * SWITCH_PARAMETER_COORDINATE_MEAN_STEP_FRACTION)
+        steps.append(step)
+    return steps
 
 
 def _switch_distribution_boundary_values(

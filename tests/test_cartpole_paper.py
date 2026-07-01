@@ -461,6 +461,45 @@ class CartpolePaperTest(unittest.TestCase):
         )
         self.assertLess(refined[0].std, initial[0].std)
 
+    def test_cartpole_switch_coordinate_refinement_polishes_grid_solution(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.3, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.15, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.25, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0)]
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+        initial = [GaussianScalar(0.0, 1.0)]
+        grid_best_std = min(
+            _switch_distribution_std_candidates(
+                initial[0],
+                switch,
+                0,
+                segments_by_trace,
+            )
+        )
+
+        _, refined = _refine_switch_distribution_means(
+            switch,
+            initial,
+            segments_by_trace,
+            responsibilities,
+        )
+
+        self.assertLess(refined[0].std, grid_best_std)
+
     def test_cartpole_switch_distribution_refinement_keeps_std_finite(self):
         segment = CartpoleSegment(
             observations=[
