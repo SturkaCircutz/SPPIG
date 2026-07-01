@@ -19,8 +19,9 @@ from cartpole_env import CartpoleEnv  # noqa: E402
 from cartpole_synthesis import (  # noqa: E402
     CartpoleSynthesisConfig,
     cartpole_synthesis_algorithm_provenance,
-    synthesize_cartpole_policy,
+    synthesize_cartpole_student,
 )
+from train_cartpole_psm import summarize_student, summarize_traces  # noqa: E402
 
 try:
     from ppo_cartpole import PPOConfig, train_ppo_cartpole  # noqa: E402
@@ -77,6 +78,7 @@ def run_psm(
     eval_rollouts: int,
     test_max_steps: int,
     quick: bool,
+    outdir: Path,
     teacher_overrides: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     # The quick path is a CI/local smoke test; the non-quick path preserves the
@@ -91,13 +93,32 @@ def run_psm(
     }
     cfg_kwargs.update(teacher_overrides or {})
     cfg = CartpoleSynthesisConfig(**cfg_kwargs)
-    policy, traces = synthesize_cartpole_policy(cfg)
+    student, traces = synthesize_cartpole_student(cfg)
+    policy = student.to_deterministic_policy()
     train_env = CartpoleEnv.train_env(seed=100 + seed)
     test_env = CartpoleEnv.test_env(seed=200 + seed)
-    train = _summarize_results(train_env.rollout(policy) for _ in range(eval_rollouts))
+    train_results = [train_env.rollout(policy) for _ in range(eval_rollouts)]
     # The paper's test horizon is 300s; test_max_steps is only exposed so tests
     # can cap runtime without changing the environment definition itself.
-    test = _summarize_results(test_env.rollout(policy, max_steps=test_max_steps) for _ in range(eval_rollouts))
+    test_results = [test_env.rollout(policy, max_steps=test_max_steps) for _ in range(eval_rollouts)]
+    train = _summarize_results(train_results)
+    test = _summarize_results(test_results)
+    metrics_path = outdir / "metrics" / f"psm_seed{seed}.json"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics = {
+        "config": asdict(cfg),
+        "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
+        "eval_rollouts": eval_rollouts,
+        "test_max_steps": test_max_steps,
+        "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
+        "num_traces": len(traces),
+        "trace_summary": summarize_traces(traces),
+        "policy_description": policy.describe(),
+        "probabilistic_student": summarize_student(student),
+        "train": {"success_rate": train["success"], "reward_mean": train["reward"]},
+        "test": {"success_rate": test["success"], "reward_mean": test["reward"]},
+    }
+    metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True), encoding="utf-8")
     return {
         "policy": "Programmatic state machine",
         "seed": seed,
@@ -106,6 +127,7 @@ def run_psm(
         "train_reward": train["reward"],
         "test_reward": test["reward"],
         "timesteps": 0,
+        "metrics_output": str(metrics_path),
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
         "policy_description": policy.describe(),
@@ -299,7 +321,7 @@ def main() -> None:
     psm_teacher_overrides = psm_teacher_overrides_from_args(args)
     rows: List[Dict[str, Any]] = []
     for seed in seeds:
-        rows.append(run_psm(seed, args.eval_rollouts, args.test_max_steps, args.quick, psm_teacher_overrides))
+        rows.append(run_psm(seed, args.eval_rollouts, args.test_max_steps, args.quick, args.outdir, psm_teacher_overrides))
         if args.include_ppo:
             # Baselines share the same seed list and evaluation budget so their
             # raw rows remain comparable under one reproduction manifest.
@@ -344,6 +366,11 @@ def main() -> None:
             "cartpole_summary.csv reports per-policy means and sample standard deviations over "
             "the requested seeds; with one seed, std is reported as 0. Best seed is selected by "
             "train_success, then train_reward, then lower seed."
+        ),
+        "psm_artifact_note": (
+            "Programmatic-state-machine rows include metrics_output paths under the requested "
+            "output directory. PSM metrics contain the fitted probabilistic student, compact "
+            "teacher-trace examples, exact config, and fixed local synthesis constants."
         ),
         "ppo_artifact_note": (
             "When --include-ppo is set, PPO rows include checkpoint and metrics_output paths "

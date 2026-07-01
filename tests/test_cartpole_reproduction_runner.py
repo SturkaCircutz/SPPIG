@@ -95,6 +95,14 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["policy"], "Programmatic state machine")
             self.assertEqual(rows[0]["seed"], "0")
+            self.assertTrue(os.path.exists(rows[0]["metrics_output"]))
+            with open(rows[0]["metrics_output"], encoding="utf-8") as handle:
+                psm_metrics = json.load(handle)
+            self.assertEqual(psm_metrics["config"]["teacher_theta_gain"], 12.5)
+            self.assertEqual(psm_metrics["algorithm_provenance"]["switch_timing"]["std_steps"], 2.0)
+            self.assertEqual(psm_metrics["paper_test_horizon_steps"], 15000)
+            self.assertIn("probabilistic_student", psm_metrics)
+            self.assertEqual(psm_metrics["trace_summary"]["count"], psm_metrics["num_traces"])
 
             with open(summary_path, newline="", encoding="utf-8") as handle:
                 summary = list(csv.DictReader(handle))
@@ -125,6 +133,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("rows", manifest)
             self.assertIn("summary", manifest)
             self.assertIn("summary_note", manifest)
+            self.assertIn("psm_artifact_note", manifest)
             config = manifest["rows"][0]["config"]
             self.assertEqual(config["teacher_theta_gain"], 12.5)
             self.assertEqual(config["teacher_omega_gain"], 0.75)
@@ -137,6 +146,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
             self.assertEqual(row_provenance["switch_search"]["max_threshold_candidates"], 64)
             self.assertEqual(row_provenance["teacher_search"]["gain_sample_std_fraction"], 0.10)
+            self.assertTrue(os.path.exists(manifest["rows"][0]["metrics_output"]))
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO artifact checks")
     def test_quick_runner_with_ppo_writes_checkpoints_and_metrics(self):

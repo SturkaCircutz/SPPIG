@@ -50,10 +50,11 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   switch candidates.
 - `scripts/run_cartpole_reproduction.py`: orchestrated Cartpole runner that writes
   `cartpole_results.csv`, `cartpole_summary.csv`, and `cartpole_manifest.json` for selected seeds
-  and settings. Its manifest records the PSM teacher overrides and fixed local synthesis constants.
-  When PPO is included, it also writes per-row PPO checkpoints and metrics JSON under the requested
-  output directory; `--ppo-eval-interval` controls whether those metrics contain intermediate
-  train/test `eval_history` entries or only the selected final result.
+  and settings. Its manifest records the PSM teacher overrides and fixed local synthesis constants,
+  and each PSM row links to a per-seed metrics JSON with the fitted probabilistic student and
+  teacher-trace provenance. When PPO is included, it also writes per-row PPO checkpoints and metrics
+  JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
+  contain intermediate train/test `eval_history` entries or only the selected final result.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that enumerates the
   paper-reported search ranges, writes a plan/manifest, and can execute jobs with per-config
   checkpoints and metrics JSON. It also writes a per-policy summary selecting the best completed
@@ -148,6 +149,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   result, config, and checkpoint-selection rule.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
   `--include-ppo` rows, tying those local diagnostic results to concrete artifacts.
+- The orchestrated reproduction runner now also writes per-seed PSM metrics JSON and links it from
+  `cartpole_results.csv` and `cartpole_manifest.json`, so reported PSM rows are tied to concrete
+  student/teacher-trace provenance artifacts.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
   not paper-scale learning curves. It discovers standalone PPO metrics, reproduction-runner metrics
@@ -259,7 +263,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   action and switch parameters.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_writes_results_and_manifest`
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
-  with the exact quick-run command settings, PSM teacher overrides, and fixed PSM synthesis constants.
+  with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
+  a per-seed PSM metrics JSON artifact.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_with_ppo_writes_checkpoints_and_metrics`
   verifies that the reproduction runner writes PPO/PPO-LSTM checkpoints and metrics JSON and that the
   configured PPO evaluation interval produces `eval_history` entries.
