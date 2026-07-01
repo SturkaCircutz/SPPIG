@@ -16,7 +16,11 @@ SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 from cartpole_env import CartpoleEnv  # noqa: E402
-from cartpole_synthesis import CartpoleSynthesisConfig, synthesize_cartpole_policy  # noqa: E402
+from cartpole_synthesis import (  # noqa: E402
+    CartpoleSynthesisConfig,
+    cartpole_synthesis_algorithm_provenance,
+    synthesize_cartpole_policy,
+)
 
 try:
     from ppo_cartpole import PPOConfig, train_ppo_cartpole  # noqa: E402
@@ -103,6 +107,7 @@ def run_psm(
         "test_reward": test["reward"],
         "timesteps": 0,
         "config": asdict(cfg),
+        "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
         "policy_description": policy.describe(),
         "num_traces": len(traces),
     }
@@ -329,6 +334,7 @@ def main() -> None:
         "eval_rollouts": args.eval_rollouts,
         "test_max_steps": args.test_max_steps,
         "psm_teacher_overrides": psm_teacher_overrides,
+        "psm_algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
         "ppo_eval_interval": args.ppo_eval_interval,
         "paper_scale_note": (
             "Without --quick, PPO uses 10^7 timesteps per seed. "

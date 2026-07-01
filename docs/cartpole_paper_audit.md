@@ -43,15 +43,17 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
-  probabilistic-student parameters, trace count, and train/test metrics to JSON.
+  fixed local synthesis constants, probabilistic-student parameters, trace count, and train/test
+  metrics to JSON.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
 - `scripts/run_cartpole_reproduction.py`: orchestrated Cartpole runner that writes
   `cartpole_results.csv`, `cartpole_summary.csv`, and `cartpole_manifest.json` for selected seeds
-  and settings. When PPO is included, it also writes per-row PPO checkpoints and metrics JSON under
-  the requested output directory; `--ppo-eval-interval` controls whether those metrics contain
-  intermediate train/test `eval_history` entries or only the selected final result.
+  and settings. Its manifest records the PSM teacher overrides and fixed local synthesis constants.
+  When PPO is included, it also writes per-row PPO checkpoints and metrics JSON under the requested
+  output directory; `--ppo-eval-interval` controls whether those metrics contain intermediate
+  train/test `eval_history` entries or only the selected final result.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that enumerates the
   paper-reported search ranges, writes a plan/manifest, and can execute jobs with per-config
   checkpoints and metrics JSON. It also writes a per-policy summary selecting the best completed
@@ -138,6 +140,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   when trading off reward against student likelihood.
 - The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings and
   records their exact values in metrics JSON.
+- PSM metrics and reproduction-runner manifests now record fixed local synthesis constants such as
+  EM iterations, Gaussian floors, switch-timing scale, switch-search grids, and teacher-search
+  refinement schedule. These values document the current partial implementation; they are not claimed
+  as paper-specified constants.
 - PPO training runs can now write metrics JSON containing the full evaluation history, selected
   result, config, and checkpoint-selection rule.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
@@ -169,8 +175,8 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_psm_cli.py::test_cli_writes_metrics_json` verifies that synthesized
   programmatic-policy metrics are persisted to JSON and that the file records the full paper test
   horizon even when a quick test cap is supplied. It also verifies that exposed teacher
-  hyperparameters, the fitted probabilistic student summary, and bounded teacher-trace provenance are
-  persisted.
+  hyperparameters, fixed local synthesis constants, the fitted probabilistic student summary, and
+  bounded teacher-trace provenance are persisted.
 - `tests/test_cartpole_ppo_sweep.py::test_build_jobs_uses_paper_minibatch_rule_for_lstm` verifies
   that the sweep includes the paper's feed-forward minibatch grid while forcing PPO-LSTM to
   `nminibatches = 1`.
@@ -253,7 +259,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   action and switch parameters.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_writes_results_and_manifest`
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
-  with the exact quick-run command settings.
+  with the exact quick-run command settings, PSM teacher overrides, and fixed PSM synthesis constants.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_with_ppo_writes_checkpoints_and_metrics`
   verifies that the reproduction runner writes PPO/PPO-LSTM checkpoints and metrics JSON and that the
   configured PPO evaluation interval produces `eval_history` entries.

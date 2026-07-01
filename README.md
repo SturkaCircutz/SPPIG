@@ -87,6 +87,9 @@ boundary observations.
 The CLI exposes the current teacher gain, teacher/student iteration, reward
 scale, regularization, top-rho, and local-refinement settings, and the metrics
 JSON records their exact values under `config`.
+It also records fixed local synthesis constants, including EM count, minimum
+Gaussian standard deviation, switch-timing scale, switch-search grids, and
+teacher-search refinement schedule, under `algorithm_provenance`.
 The switch threshold means are locally refined against the current discrete
 Eq. (12)-style timing likelihood, and the teacher regularizer scores both
 action likelihood and switch timing under the current student's Gaussian switch

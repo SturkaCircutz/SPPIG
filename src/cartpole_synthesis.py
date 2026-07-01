@@ -17,11 +17,23 @@ from cartpole_env import (
 MIN_GAUSSIAN_STD = 1e-3
 PROBABILISTIC_STUDENT_EM_ITERS = 4
 SWITCH_TIMING_STD_STEPS = 2.0
+LOG_PROBABILITY_FLOOR = 1e-12
 TEACHER_STUDENT_ITERS = 2
 TEACHER_STUDENT_REGULARIZER = 1.0
 TEACHER_REWARD_LAMBDA = 100.0
 TEACHER_TOP_RHO = 10
 TEACHER_REFINEMENT_STEPS = 2
+TEACHER_GAIN_SAMPLE_STD_FRACTION = 0.10
+TEACHER_GAIN_SAMPLE_MIN_STD = 1e-6
+TEACHER_GAIN_REFINEMENT_DELTA_FRACTION = 0.05
+TEACHER_THETA_REFINEMENT_MIN_DELTA = 0.1
+TEACHER_OMEGA_REFINEMENT_MIN_DELTA = 0.05
+TEACHER_REFINEMENT_DELTA_DECAY = 0.5
+TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
+SWITCH_OBLIQUE_THETA_WEIGHTS = (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
+SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
+MAX_SWITCH_THRESHOLD_CANDIDATES = 64
+DEFAULT_SWITCH_THRESHOLD_CANDIDATE = 0.0
 
 
 @dataclass
@@ -50,6 +62,38 @@ class CartpoleTrace:
     theta_gain: float = 0.0
     omega_gain: float = 0.0
     segment_durations: Tuple[int, ...] = ()
+
+
+def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
+    return {
+        "probabilistic_student": {
+            "em_iters": PROBABILISTIC_STUDENT_EM_ITERS,
+            "min_gaussian_std": MIN_GAUSSIAN_STD,
+            "log_probability_floor": LOG_PROBABILITY_FLOOR,
+        },
+        "switch_timing": {
+            "std_steps": SWITCH_TIMING_STD_STEPS,
+            "scalar_threshold_uses_shared_sample": True,
+            "depth2_conjunction_probability": "independence_approximation",
+        },
+        "switch_search": {
+            "boolean_tree_depth": 2,
+            "greedy_second_predicate_only_refines_mode1": True,
+            "oblique_theta_weights": list(SWITCH_OBLIQUE_THETA_WEIGHTS),
+            "oblique_omega_weights": list(SWITCH_OBLIQUE_OMEGA_WEIGHTS),
+            "max_threshold_candidates": MAX_SWITCH_THRESHOLD_CANDIDATES,
+            "default_threshold_candidate": DEFAULT_SWITCH_THRESHOLD_CANDIDATE,
+        },
+        "teacher_search": {
+            "gain_sample_std_fraction": TEACHER_GAIN_SAMPLE_STD_FRACTION,
+            "gain_sample_min_std": TEACHER_GAIN_SAMPLE_MIN_STD,
+            "gain_refinement_delta_fraction": TEACHER_GAIN_REFINEMENT_DELTA_FRACTION,
+            "theta_refinement_min_delta": TEACHER_THETA_REFINEMENT_MIN_DELTA,
+            "omega_refinement_min_delta": TEACHER_OMEGA_REFINEMENT_MIN_DELTA,
+            "refinement_delta_decay": TEACHER_REFINEMENT_DELTA_DECAY,
+            "duration_refinement_deltas": list(TEACHER_DURATION_REFINEMENT_DELTAS),
+        },
+    }
 
 
 @dataclass
@@ -329,8 +373,14 @@ def _rollout_loop_free_candidate(
     state = list(initial_state)
     alive = 0
     max_steps = cfg.segment_steps * cfg.segments_per_trace
-    theta_gain = rng.gauss(cfg.teacher_theta_gain, max(1e-6, abs(cfg.teacher_theta_gain) * 0.10))
-    omega_gain = rng.gauss(cfg.teacher_omega_gain, max(1e-6, abs(cfg.teacher_omega_gain) * 0.10))
+    theta_gain = rng.gauss(
+        cfg.teacher_theta_gain,
+        max(TEACHER_GAIN_SAMPLE_MIN_STD, abs(cfg.teacher_theta_gain) * TEACHER_GAIN_SAMPLE_STD_FRACTION),
+    )
+    omega_gain = rng.gauss(
+        cfg.teacher_omega_gain,
+        max(TEACHER_GAIN_SAMPLE_MIN_STD, abs(cfg.teacher_omega_gain) * TEACHER_GAIN_SAMPLE_STD_FRACTION),
+    )
     return _rollout_with_teacher_gains(initial_state, env_cfg, cfg, theta_gain, omega_gain)
 
 
@@ -376,8 +426,14 @@ def _refine_loop_free_trace(
     student: ProbabilisticCartpoleStudent | None,
 ) -> CartpoleTrace:
     best = trace
-    theta_delta = max(abs(trace.theta_gain) * 0.05, 0.1)
-    omega_delta = max(abs(trace.omega_gain) * 0.05, 0.05)
+    theta_delta = max(
+        abs(trace.theta_gain) * TEACHER_GAIN_REFINEMENT_DELTA_FRACTION,
+        TEACHER_THETA_REFINEMENT_MIN_DELTA,
+    )
+    omega_delta = max(
+        abs(trace.omega_gain) * TEACHER_GAIN_REFINEMENT_DELTA_FRACTION,
+        TEACHER_OMEGA_REFINEMENT_MIN_DELTA,
+    )
     for _ in range(max(0, cfg.teacher_refinement_steps)):
         improved = False
         # Coordinate-search the teacher gains because each rollout is cheap and
@@ -404,8 +460,8 @@ def _refine_loop_free_trace(
                 best = candidate
                 improved = True
         if not improved:
-            theta_delta *= 0.5
-            omega_delta *= 0.5
+            theta_delta *= TEACHER_REFINEMENT_DELTA_DECAY
+            omega_delta *= TEACHER_REFINEMENT_DELTA_DECAY
     return best
 
 
@@ -418,7 +474,7 @@ def _duration_refinement_candidates(
     durations = trace.segment_durations or tuple(cfg.segment_steps for _ in range(cfg.segments_per_trace))
     candidates: List[CartpoleTrace] = []
     for index, duration in enumerate(durations):
-        for delta in (-1, 1):
+        for delta in TEACHER_DURATION_REFINEMENT_DELTAS:
             updated = list(durations)
             updated[index] = max(1, duration + delta)
             candidates.append(
@@ -457,7 +513,7 @@ def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleS
         responsibilities.append(resp)
         mode_log_terms = []
         for mode in (0, 1):
-            prior = max(resp[mode], 1e-12)
+            prior = max(resp[mode], LOG_PROBABILITY_FLOOR)
             mode_log_terms.append(
                 math.log(prior) + student.action_distributions[mode].log_pdf(segment.action_parameter)
             )
@@ -852,8 +908,8 @@ def _learn_depth2_switch(
     candidate_switches: List[SwitchProgram] = []
     # Search a compact oblique threshold family over CartPole angle and angular
     # velocity before considering predicate-tree alternatives.
-    for theta_weight in (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0):
-        for omega_weight in (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0):
+    for theta_weight in SWITCH_OBLIQUE_THETA_WEIGHTS:
+        for omega_weight in SWITCH_OBLIQUE_OMEGA_WEIGHTS:
             scores = [theta_weight * obs[2] + omega_weight * obs[3] for obs, _ in examples]
             thresholds = _candidate_thresholds(scores)
             for threshold in thresholds:
@@ -1004,8 +1060,8 @@ def _student_switch_log_likelihood(
         segment.duration,
     )
     return (
-        transition_weight * math.log(max(transition_probability, 1e-12))
-        + stay_weight * math.log(max(stay_probability, 1e-12))
+        transition_weight * math.log(max(transition_probability, LOG_PROBABILITY_FLOOR))
+        + stay_weight * math.log(max(stay_probability, LOG_PROBABILITY_FLOOR))
     )
 
 
@@ -1131,9 +1187,9 @@ def _candidate_thresholds(values: List[float]) -> List[float]:
     unique = sorted(set(values))
     if len(unique) <= 1:
         return unique or [0.0]
-    if len(unique) > 64:
-        step = max(1, len(unique) // 64)
+    if len(unique) > MAX_SWITCH_THRESHOLD_CANDIDATES:
+        step = max(1, len(unique) // MAX_SWITCH_THRESHOLD_CANDIDATES)
         unique = unique[::step]
     candidates = [(left + right) / 2.0 for left, right in zip(unique, unique[1:])]
-    candidates.append(0.0)
+    candidates.append(DEFAULT_SWITCH_THRESHOLD_CANDIDATE)
     return candidates

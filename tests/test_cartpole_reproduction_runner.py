@@ -116,6 +116,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_reward_lambda"], 100.0)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_top_rho"], 1)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_refinement_steps"], 1)
+            provenance = manifest["psm_algorithm_provenance"]
+            self.assertEqual(provenance["probabilistic_student"]["em_iters"], 4)
+            self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
+            self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
+            self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
+            self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
             self.assertIn("rows", manifest)
             self.assertIn("summary", manifest)
             self.assertIn("summary_note", manifest)
@@ -127,6 +133,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(config["teacher_reward_lambda"], 100.0)
             self.assertEqual(config["teacher_top_rho"], 1)
             self.assertEqual(config["teacher_refinement_steps"], 1)
+            row_provenance = manifest["rows"][0]["algorithm_provenance"]
+            self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
+            self.assertEqual(row_provenance["switch_search"]["max_threshold_candidates"], 64)
+            self.assertEqual(row_provenance["teacher_search"]["gain_sample_std_fraction"], 0.10)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO artifact checks")
     def test_quick_runner_with_ppo_writes_checkpoints_and_metrics(self):

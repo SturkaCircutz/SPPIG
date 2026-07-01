@@ -7,7 +7,13 @@ import sys
 from dataclasses import asdict
 
 from cartpole_env import CartpoleEnv
-from cartpole_synthesis import CartpoleSynthesisConfig, CartpoleTrace, ProbabilisticCartpoleStudent, synthesize_cartpole_student
+from cartpole_synthesis import (
+    CartpoleSynthesisConfig,
+    CartpoleTrace,
+    ProbabilisticCartpoleStudent,
+    cartpole_synthesis_algorithm_provenance,
+    synthesize_cartpole_student,
+)
 
 
 def summarize_rollouts(results):
@@ -126,6 +132,7 @@ def main() -> None:
     metrics = {
         "command": " ".join(sys.argv),
         "config": asdict(cfg),
+        "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
         "eval_rollouts": args.eval_rollouts,
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
