@@ -44,9 +44,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
   fixed local synthesis constants, probabilistic-student parameters, trace count, and train/test
-  metrics to JSON. It also persists teacher candidate-source counts, sampled-trace log-probability
-  provenance, and switch-fit diagnostics comparing the selected switch objective tuple to a fixed
-  local reference switch; this is failure-analysis provenance, not a controller selection rule.
+  metrics to JSON. It also persists teacher candidate-source counts, loop-free segment action and
+  duration schedules, sampled-trace log-probability provenance, and switch-fit diagnostics comparing
+  the selected switch objective tuple to a fixed local reference switch; this is failure-analysis
+  provenance, not a controller selection rule.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
@@ -103,13 +104,13 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `20.6`, test reward mean `35.3`. This documents a current synthesis gap rather
+  train reward mean `11.2`, test reward mean `29.7`. This documents a current synthesis gap rather
   than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
-  of `{"student_sample": 64}` for the selected traces in this seed, per-iteration
-  `synthesis_history`, plus `switch_fit_diagnostics`, which shows the selected switch was chosen by
-  prefiltering candidates with a cheaper hard-label/timing objective, then rescoring the top 128 by a
-  hard-label-first, bounded Eq. (12)-style distribution-timing objective and comparing that objective
-  tuple against the fixed local reference switch.
+  of `{"gain_refined": 15, "gain_sample": 11, "student_sample": 38}` for the selected traces in this
+  seed, per-iteration `synthesis_history`, plus `switch_fit_diagnostics`, which shows the selected
+  switch was chosen by prefiltering candidates with a cheaper hard-label/timing objective, then
+  rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style distribution-timing objective
+  and comparing that objective tuple against the fixed local reference switch.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -159,9 +160,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   that timing likelihood uses the learned Gaussian switch-parameter distribution with one sampled
   threshold shared across a segment, matching the paper's probabilistic-state-machine sampling model.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
-  integer segment duration at a time during bounded coordinate search. This moves toward the paper's
-  loop-free action-function-plus-duration teacher parameterization, but is not the continuous duration
-  optimization from Section 4.2.
+  integer segment duration at a time during bounded coordinate search. It also records the
+  corresponding constant-action sequence, and duration-only refinement preserves that action sequence
+  while varying durations. This moves toward the paper's loop-free action-function-plus-duration
+  teacher parameterization, but is not the continuous duration optimization from Section 4.2.
 - The Cartpole teacher objective now uses the paper-reported reward scale `lambda = 100` by default
   when trading off reward against student likelihood.
 - The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings and
@@ -297,7 +299,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   objective after top-candidate sampling. This is a bounded coordinate refinement over the diagnostic
   teacher gains, not the paper's continuous gradient-based trajectory optimizer.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_rollout_records_segment_durations` verifies
-  that loop-free teacher traces persist the segment-duration schedule used to generate them.
+  that loop-free teacher traces persist the segment-action and segment-duration schedules used to
+  generate them.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_preserves_action_sequence`
+  verifies that duration-only refinement preserves the loop-free teacher's constant-action sequence.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_does_not_reduce_objective`
   verifies that bounded local segment-duration refinement can be searched without reducing the
   teacher objective.

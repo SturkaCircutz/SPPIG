@@ -83,6 +83,7 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
                 ),
                 "theta_gain": trace.theta_gain,
                 "omega_gain": trace.omega_gain,
+                "segment_actions": list(trace.segment_actions),
                 "segment_durations": list(trace.segment_durations),
                 "teacher_source": trace.teacher_source,
                 "student_log_probability": trace.student_log_probability,

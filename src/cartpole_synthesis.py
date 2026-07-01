@@ -76,6 +76,7 @@ class CartpoleTrace:
     reward: float
     theta_gain: float = 0.0
     omega_gain: float = 0.0
+    segment_actions: Tuple[float, ...] = ()
     segment_durations: Tuple[int, ...] = ()
     teacher_source: str = "gain_sample"
     student_log_probability: float | None = None
@@ -607,6 +608,7 @@ def _rollout_with_teacher_gains(
     theta_gain: float,
     omega_gain: float,
     segment_durations: Tuple[int, ...] | None = None,
+    segment_actions: Tuple[float, ...] | None = None,
 ) -> CartpoleTrace:
     observations: List[Observation] = []
     actions: List[float] = []
@@ -614,16 +616,24 @@ def _rollout_with_teacher_gains(
     state = list(initial_state)
     alive = 0
     durations = segment_durations or tuple(cfg.segment_steps for _ in range(cfg.segments_per_trace))
-    for duration in durations:
+    chosen_actions: List[float] = []
+    started_durations: List[int] = []
+    for segment_index, duration in enumerate(durations):
         if cartpole_done(state, env_cfg):
             break
-        _, _, theta, omega = state
-        # Random gains produce a loop-free switching trace; the final policy is
-        # learned from the trace rather than using these gains directly.
-        raw_force = theta_gain * theta + omega_gain * omega
-        action = max(cfg.force_values) if raw_force >= 0.0 else min(cfg.force_values)
+        duration_steps = max(1, duration)
+        if segment_actions is not None and segment_index < len(segment_actions):
+            action = segment_actions[segment_index]
+        else:
+            _, _, theta, omega = state
+            # Random gains choose the next loop-free action function; the final
+            # policy is learned from the trace rather than using these gains.
+            raw_force = theta_gain * theta + omega_gain * omega
+            action = max(cfg.force_values) if raw_force >= 0.0 else min(cfg.force_values)
+        chosen_actions.append(action)
+        started_durations.append(duration_steps)
         label = 1 if action > 0.0 else 0
-        for _ in range(max(1, duration)):
+        for _ in range(duration_steps):
             if cartpole_done(state, env_cfg):
                 break
             observations.append(list(state))
@@ -632,13 +642,14 @@ def _rollout_with_teacher_gains(
             state = cartpole_next_state(state, action, env_cfg)
             alive += 1
     return CartpoleTrace(
-        observations,
-        actions,
-        mode_labels,
-        float(alive),
-        theta_gain,
-        omega_gain,
-        tuple(durations),
+        observations=observations,
+        actions=actions,
+        mode_labels=mode_labels,
+        reward=float(alive),
+        theta_gain=theta_gain,
+        omega_gain=omega_gain,
+        segment_actions=tuple(chosen_actions),
+        segment_durations=tuple(started_durations),
         teacher_source="gain_sample",
     )
 
@@ -670,10 +681,11 @@ def _rollout_student_sampled_trace(
         state = cartpole_next_state(state, action, env_cfg)
         alive += 1
     trace = CartpoleTrace(
-        observations,
-        actions,
-        mode_labels,
-        float(alive),
+        observations=observations,
+        actions=actions,
+        mode_labels=mode_labels,
+        reward=float(alive),
+        segment_actions=_mode_run_actions(actions, mode_labels),
         segment_durations=_mode_run_lengths(mode_labels),
         teacher_source="student_sample",
     )
@@ -695,6 +707,20 @@ def _mode_run_lengths(mode_labels: List[int]) -> Tuple[int, ...]:
         count += 1
     durations.append(count)
     return tuple(durations)
+
+
+def _mode_run_actions(actions: List[float], mode_labels: List[int]) -> Tuple[float, ...]:
+    if not actions or not mode_labels:
+        return ()
+    if len(actions) != len(mode_labels):
+        raise ValueError("action count must match mode label count")
+    run_actions = [actions[0]]
+    current = mode_labels[0]
+    for action, label in zip(actions[1:], mode_labels[1:]):
+        if label != current:
+            run_actions.append(action)
+            current = label
+    return tuple(run_actions)
 
 
 def _refine_loop_free_trace(
@@ -765,6 +791,7 @@ def _duration_refinement_candidates(
                     trace.theta_gain,
                     trace.omega_gain,
                     tuple(updated),
+                    trace.segment_actions or None,
                 )
             )
     return candidates

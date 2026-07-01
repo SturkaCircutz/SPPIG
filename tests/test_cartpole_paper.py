@@ -39,6 +39,7 @@ from cartpole_synthesis import (
     _greedy_boolean_tree_candidates,
     _duration_refinement_candidates,
     _mode_run_lengths,
+    _mode_run_actions,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
     _switch_distribution_std_candidates,
@@ -885,6 +886,15 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(_mode_run_lengths([0, 0, 1, 1, 1, 0]), (2, 3, 1))
         self.assertEqual(_mode_run_lengths([]), ())
 
+    def test_cartpole_mode_run_actions_records_sampled_trace_action_sequence(self):
+        self.assertEqual(
+            _mode_run_actions([-10.0, -10.0, 10.0, 10.0, -10.0], [0, 0, 1, 1, 0]),
+            (-10.0, 10.0, -10.0),
+        )
+        self.assertEqual(_mode_run_actions([], []), ())
+        with self.assertRaises(ValueError):
+            _mode_run_actions([10.0], [1, 0])
+
     def test_cartpole_teacher_can_sample_candidates_from_probabilistic_student(self):
         cfg = CartpoleSynthesisConfig(
             candidate_rollouts=4,
@@ -913,6 +923,7 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(trace.teacher_source, "student_sample")
         self.assertIsNotNone(trace.student_log_probability)
         self.assertEqual(sum(trace.segment_durations), len(trace.actions))
+        self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
         self.assertTrue(set(trace.mode_labels).issubset({0, 1}))
 
     def test_cartpole_teacher_candidate_pool_includes_student_samples_after_first_iteration(self):
@@ -981,6 +992,46 @@ class CartpolePaperTest(unittest.TestCase):
         )
 
         self.assertEqual(trace.segment_durations, (2, 2, 2))
+        self.assertEqual(trace.segment_actions, (10.0, 10.0, 10.0))
+        self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
+
+    def test_cartpole_teacher_rollout_records_only_started_loop_free_segments(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=3)
+
+        trace = _rollout_with_teacher_gains(
+            [3.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+        )
+
+        self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
+        self.assertLessEqual(len(trace.segment_actions), cfg.segments_per_trace)
+
+    def test_cartpole_teacher_duration_refinement_preserves_action_sequence(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=3)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, -10.0, 10.0),
+        )
+
+        candidates = _duration_refinement_candidates(trace, initial_state, env.cfg, cfg)
+
+        self.assertTrue(candidates)
+        self.assertTrue(
+            all(candidate.segment_actions == trace.segment_actions for candidate in candidates)
+        )
+        self.assertTrue(
+            all(len(candidate.segment_actions) == len(candidate.segment_durations) for candidate in candidates)
+        )
 
     def test_cartpole_teacher_duration_refinement_does_not_reduce_objective(self):
         env = CartpoleEnv.train_env(seed=0)
