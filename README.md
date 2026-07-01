@@ -24,6 +24,7 @@ and per-row metrics artifacts:
 | --- | ---: | ---: | ---: | ---: |
 | PPO MLP | 1.00 | 0.00 | 250.0 | 910.6 |
 | PPO-LSTM, warm started | 1.00 | 0.00 | 250.0 | 912.2 |
+| Direct-Opt diagnostic | 1.00 | 0.10 | 250.0 | 4220.1 |
 | Programmatic state machine | 1.00 | 0.20 | 250.0 | 6275.4 |
 
 The test split is the full paper horizon: 300 seconds, or 15,000 simulator
@@ -57,14 +58,17 @@ Regenerate the CartPole result table, summary, and manifest:
   --outdir artifacts/results
 ```
 
-Use `--quick` for a small diagnostic run, and add `--include-ppo` to include
-PPO/PPO-LSTM. Without `--quick`, PPO uses the paper-scale `10^7` timestep
-budget per seed; the runner still does not perform the paper's hyperparameter
-search. The runner writes raw per-seed rows to `cartpole_results.csv`, grouped
-mean/std plus the best training seed to `cartpole_summary.csv`, and full
-configs/provenance to `cartpole_manifest.json`. Each PSM row records a metrics
-JSON path with the fitted probabilistic student and per-iteration teacher-trace
-provenance.
+Use `--quick` for a small diagnostic run, add `--include-ppo` to include
+PPO/PPO-LSTM, and add `--include-direct-opt` to include the bounded Direct-Opt
+diagnostic baseline. Without `--quick`, PPO uses the paper-scale `10^7`
+timestep budget per seed; the runner still does not perform the paper's
+hyperparameter search. The Direct-Opt path is a local bounded search over the
+two-mode CartPole PSM grammar, not the paper's full two-hour parallel direct
+optimization protocol. The runner writes raw per-seed rows to
+`cartpole_results.csv`, grouped mean/std plus the best training seed to
+`cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
+Each PSM row records a metrics JSON path with the fitted probabilistic student
+and per-iteration teacher-trace provenance.
 When PPO is included, each PPO row also records its checkpoint path and metrics
 JSON path under the output directory. Use `--ppo-eval-interval N` to record
 intermediate train/test evaluations in each PPO metrics JSON; quick runs default
@@ -133,6 +137,22 @@ distributions. The teacher objective uses the
 paper-reported reward scale `lambda = 100` by default. This is provenance for
 the current partial student implementation, not evidence that the full
 probabilistic adaptive-teaching algorithm has been completed.
+
+Direct-Opt diagnostic:
+
+```bash
+.venv/bin/python src/train_cartpole_direct_opt.py \
+  --num-train-states 10 \
+  --random-candidates 256 \
+  --eval-rollouts 20 \
+  --test-max-steps 15000 \
+  --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json
+```
+
+This baseline searches a bounded two-mode constant-action/depth-2 linear-switch
+CartPole PSM directly on the 5-second training split and reevaluates the
+selected program on the full paper test horizon. Its metrics JSON records the
+exact grid, candidate count, selected program, and limitation note.
 
 PPO MLP:
 

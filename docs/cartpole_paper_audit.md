@@ -13,7 +13,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - Programmatic state-machine modes: `2`.
 - Action grammar: `Constant`.
 - Switch grammar: `Boolean tree (depth 2)`.
-- RL baselines: PPO feed-forward neural policy and PPO-LSTM.
+- Baselines: PPO feed-forward neural policy, PPO-LSTM, and Direct-Opt.
 - RL implementation in paper: PPO2 from OpenAI Baselines.
 - RL training budget in paper: `10^7` timesteps.
 - PPO hyperparameter search in paper:
@@ -40,6 +40,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `src/train_cartpole_ppo.py`: CLI for PPO and PPO-LSTM experiments; with `--eval-interval`, it can
   persist per-evaluation train/test metrics to JSON for checkpoint provenance.
 - `src/evaluate_cartpole_psm.py`: two-mode constant-action/depth-2-switch programmatic policy evaluator.
+- `src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py`: bounded diagnostic Direct-Opt
+  baseline over a two-mode constant-action/depth-2 linear-switch Cartpole PSM. This records exact
+  search grids and selected program provenance, but is not the paper's full two-hour parallel direct
+  optimization protocol.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
@@ -73,8 +77,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 
 ## Current Status
 
-- Implemented and tested: Cartpole dynamics, train/test split, PPO MLP, PPO-LSTM, and
-  Cartpole programmatic policy synthesis.
+- Implemented and tested: Cartpole dynamics, train/test split, PPO MLP, PPO-LSTM, a bounded
+  Direct-Opt diagnostic baseline, and Cartpole programmatic policy synthesis.
 - Partially complete against the paper: the Cartpole programmatic policy is synthesized from
   model-based teacher traces into a two-mode constant-action/depth-2-switch policy. The student now
   fits Gaussian distributions over constant action parameters and latent mode responsibilities. Those
@@ -113,6 +117,13 @@ These are implementation diagnostics, not paper-scale reproduced results.
   switch was chosen by prefiltering candidates with a cheaper hard-label/timing objective, then
   rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style distribution-timing objective
   and comparing that objective tuple against the fixed local reference switch.
+- Direct-Opt diagnostic command:
+  `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
+- Direct-Opt diagnostic output:
+  train success `1.000`, test success over the full 15000-step/300-second horizon `0.100`,
+  train reward mean `250.0`, test reward mean `4220.1`. The selected bounded two-mode policy is
+  `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
+  This is an executable local baseline artifact, not the paper's full Direct-Opt protocol.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -185,6 +196,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   per-update rollout diagnostics, selected result, config, and checkpoint-selection rule.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
   `--include-ppo` rows, tying those local diagnostic results to concrete artifacts.
+- The orchestrated reproduction runner can include a bounded Direct-Opt diagnostic row through
+  `--include-direct-opt`, writing a per-seed metrics JSON with the selected program, searched
+  candidate count, exact search grids, and limitation note.
 - The orchestrated reproduction runner now also writes per-seed PSM metrics JSON and links it from
   `cartpole_results.csv` and `cartpole_manifest.json`, so synthesized PSM rows are tied to concrete
   student/teacher-trace provenance artifacts, including per-teacher/student-iteration
@@ -236,6 +250,11 @@ paper-scale PPO2 runs.
   the sweep summary selection rule.
 - `tests/test_cartpole_ppo_sweep.py::test_quick_execution_writes_results_summary_and_manifest`
   verifies that quick sweep execution writes results, summary, and manifest artifacts.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
+  the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
+  non-paper-scale provenance.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_cli_writes_metrics_json` verifies that the
+  Direct-Opt CLI writes config, selected candidate, train/test metrics, and provenance JSON.
 
 ## Verified Programmatic-Student Invariants
 
@@ -350,6 +369,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
   a per-seed PSM metrics JSON artifact.
+- `tests/test_cartpole_reproduction_runner.py::test_quick_runner_can_include_direct_opt_diagnostic`
+  verifies that `--include-direct-opt` adds the bounded Direct-Opt diagnostic row and links its
+  metrics artifact from the manifest.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_with_ppo_writes_checkpoints_and_metrics`
   verifies that the reproduction runner writes PPO/PPO-LSTM checkpoints and metrics JSON, that the
   configured PPO evaluation interval produces `eval_history` entries, and that PPO update diagnostics
@@ -369,6 +391,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   warm-starting.
 - Run 5 random seeds and choose best training performer.
 - Run hyperparameter search over the paper's specified ranges.
+- Replace the bounded Direct-Opt diagnostic with the paper's full direct optimization protocol:
+  optimize the combined reward over all initial states using batch optimization, random restarts when
+  stalled, and the reported two-hour/parallel budget.
 - Complete the probabilistic adaptive-teaching implementation: continuous optimization of switch
   Gaussian parameters and the paper's full teacher optimization procedure. The current Cartpole switch
   learner performs a depth-2 greedy Boolean-tree expansion, stores Gaussian threshold distributions

@@ -1,4 +1,5 @@
 policy,seed,train_success,test_success,train_reward,test_reward,timesteps,checkpoint,metrics_output,test_horizon_steps,notes
 PPO MLP,0,1.00,0.00,250.0,910.6,81920,artifacts/progress_mlp_128k_seed0.pt,artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json,15000,best local diagnostic checkpoint reevaluated on full paper test horizon
 PPO-LSTM warm started,0,1.00,0.00,250.0,912.25,16384,artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt,artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json,15000,supervised warm-start checkpoint reevaluated on full paper test horizon
+Direct-Opt diagnostic,0,1.00,0.10,250.0,4220.05,0,,artifacts/results/metrics/direct_opt_seed0_full_horizon.json,15000,bounded direct optimization diagnostic over two-mode CartPole PSM; not paper full Direct-Opt protocol
 Programmatic state machine,0,1.00,0.20,250.0,6275.4,0,,artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json,15000,fixed two-mode program reevaluated on full paper test horizon

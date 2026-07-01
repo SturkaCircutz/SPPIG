@@ -216,6 +216,46 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertTrue(os.path.exists(manifest["rows"][0]["metrics_output"]))
 
+    def test_quick_runner_can_include_direct_opt_diagnostic(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--quick",
+                    "--include-direct-opt",
+                    "--seeds",
+                    "0",
+                    "--eval-rollouts",
+                    "1",
+                    "--test-max-steps",
+                    "20",
+                    "--outdir",
+                    tmpdir,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            with open(os.path.join(tmpdir, "cartpole_results.csv"), newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual([row["policy"] for row in rows], ["Programmatic state machine", "Direct-Opt diagnostic"])
+            direct_row = rows[1]
+            self.assertTrue(os.path.exists(direct_row["metrics_output"]))
+
+            with open(direct_row["metrics_output"], encoding="utf-8") as handle:
+                direct_metrics = json.load(handle)
+            self.assertEqual(direct_metrics["algorithm_provenance"]["paper_baseline"], "Direct-Opt")
+            self.assertTrue(direct_metrics["algorithm_provenance"]["not_paper_scale"])
+            self.assertEqual(direct_metrics["config"]["quick"], True)
+
+            with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:
+                manifest = json.load(handle)
+            self.assertTrue(manifest["include_direct_opt"])
+            direct_manifest_row = manifest["rows"][1]
+            self.assertEqual(direct_manifest_row["algorithm_provenance"]["baseline"], "direct_opt")
+            self.assertIn("direct_opt_artifact_note", manifest)
+
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO artifact checks")
     def test_quick_runner_with_ppo_writes_checkpoints_and_metrics(self):
         with tempfile.TemporaryDirectory() as tmpdir:

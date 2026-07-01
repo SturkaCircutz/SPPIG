@@ -16,6 +16,11 @@ SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 from cartpole_env import CartpoleEnv  # noqa: E402
+from cartpole_direct_opt import (  # noqa: E402
+    DirectOptConfig,
+    direct_opt_metrics,
+    run_cartpole_direct_opt,
+)
 from cartpole_synthesis import (  # noqa: E402
     CartpoleSynthesisConfig,
     cartpole_synthesis_algorithm_provenance,
@@ -185,6 +190,44 @@ def run_ppo(
     }
 
 
+def run_direct_opt(
+    seed: int,
+    eval_rollouts: int,
+    test_max_steps: int,
+    quick: bool,
+    outdir: Path,
+) -> Dict[str, Any]:
+    cfg = DirectOptConfig(
+        seed=seed,
+        num_train_states=2 if quick else 10,
+        random_candidates=8 if quick else 256,
+        eval_rollouts=eval_rollouts,
+        test_max_steps=test_max_steps,
+        quick=quick,
+    )
+    result = run_cartpole_direct_opt(cfg)
+    metrics_path = outdir / "metrics" / f"direct_opt_seed{seed}.json"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text(
+        json.dumps(direct_opt_metrics(result), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return {
+        "policy": "Direct-Opt diagnostic",
+        "seed": seed,
+        "train_success": result.train_success_rate,
+        "test_success": result.test_success_rate,
+        "train_reward": result.train_reward_mean,
+        "test_reward": result.test_reward_mean,
+        "timesteps": 0,
+        "metrics_output": str(metrics_path),
+        "config": asdict(cfg),
+        "algorithm_provenance": result.algorithm_provenance,
+        "policy_description": result.policy.describe(),
+        "searched_candidates": result.searched_candidates,
+    }
+
+
 def _mean(values: List[float]) -> float:
     return sum(values) / len(values)
 
@@ -276,6 +319,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-rollouts", type=int, default=20)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--include-ppo", action="store_true")
+    parser.add_argument("--include-direct-opt", action="store_true")
     parser.add_argument("--psm-teacher-theta-gain", type=float, default=default_psm.teacher_theta_gain)
     parser.add_argument("--psm-teacher-omega-gain", type=float, default=default_psm.teacher_omega_gain)
     parser.add_argument(
@@ -350,11 +394,22 @@ def main() -> None:
                     args.quick,
                 )
             )
+        if args.include_direct_opt:
+            rows.append(
+                run_direct_opt(
+                    seed,
+                    args.eval_rollouts,
+                    args.test_max_steps,
+                    args.quick,
+                    args.outdir,
+                )
+            )
 
     manifest = {
         "command": " ".join(sys.argv),
         "quick": args.quick,
         "include_ppo": args.include_ppo,
+        "include_direct_opt": args.include_direct_opt,
         "seeds": seeds,
         "eval_rollouts": args.eval_rollouts,
         "test_max_steps": args.test_max_steps,
@@ -379,6 +434,11 @@ def main() -> None:
             "When --include-ppo is set, PPO rows include checkpoint and metrics_output paths "
             "under the requested output directory. PPO metrics contain eval_history entries only "
             "when ppo_eval_interval is greater than zero."
+        ),
+        "direct_opt_artifact_note": (
+            "When --include-direct-opt is set, Direct-Opt diagnostic rows include metrics_output "
+            "paths under the requested output directory. This is a bounded diagnostic baseline, "
+            "not the paper's full direct optimization protocol."
         ),
     }
     write_results(rows, args.outdir, manifest)

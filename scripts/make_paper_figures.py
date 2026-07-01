@@ -156,7 +156,8 @@ def plot_success_bars(rows: list[dict[str, str]]) -> None:
 def plot_survival_rewards(rows: list[dict[str, str]]) -> None:
     labels = [row["policy"].replace("Programmatic state machine", "Programmatic PSM") for row in rows]
     rewards = [metric(row, "test_reward") for row in rows]
-    colors = ["#6f8fb8", "#8aa777", "#c58b47"]
+    palette = ["#6f8fb8", "#8aa777", "#c58b47", "#9b6fa8", "#c76f5b"]
+    colors = [palette[index % len(palette)] for index in range(len(labels))]
 
     fig, ax = plt.subplots(figsize=(7.2, 3.2))
     ax.bar(np.arange(len(labels)), rewards, color=colors)
