@@ -172,8 +172,9 @@ the manifest.
 - Figures: `essay/figures/`
 - Figure generation script: `scripts/make_paper_figures.py` (uses
   `cartpole_summary.csv` when present, otherwise raw result rows, and rewrites
-  the LaTeX table fragment; if PPO metrics JSON files exist, it also writes a
-  training-curve figure)
+  the LaTeX table fragment; if PSM metrics with a linear switch exist, it writes
+  the switch-boundary figure from that artifact, and if PPO metrics JSON files
+  exist, it also writes a training-curve figure)
 - Paper fidelity audit: `docs/cartpole_paper_audit.md`
 - Result table: `artifacts/results/cartpole_results.csv`
 - Result summary: `artifacts/results/cartpole_summary.csv`

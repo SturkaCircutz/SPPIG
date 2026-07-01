@@ -140,6 +140,72 @@ class MakePaperFiguresTest(unittest.TestCase):
             any(pattern.endswith(runner_metrics_pattern) for pattern in make_paper_figures.PPO_METRICS_GLOBS)
         )
 
+    def test_default_psm_metric_globs_include_runner_metrics_dir(self):
+        runner_metrics_pattern = os.path.join("artifacts", "results", "metrics", "psm_seed*.json")
+
+        self.assertTrue(
+            any(pattern.endswith(runner_metrics_pattern) for pattern in make_paper_figures.PSM_METRICS_GLOBS)
+        )
+
+    def test_parse_linear_switch_from_policy_description(self):
+        parsed = make_paper_figures.parse_linear_switch(
+            "m0 action=-10.000; m1 action=10.000; mode=1 if 12.500*theta + 0.750*omega >= 0.250, else mode=0"
+        )
+
+        self.assertEqual(parsed, (12.5, 0.75, 0.25))
+
+    def test_read_psm_metric_files_requires_policy_description(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            good_path = os.path.join(tmpdir, "psm_seed0.json")
+            empty_path = os.path.join(tmpdir, "psm_seed1.json")
+            with open(good_path, "w", encoding="utf-8") as handle:
+                json.dump({"policy_description": "mode=1 if 5.000*theta + 0.500*omega >= 0.000"}, handle)
+            with open(empty_path, "w", encoding="utf-8") as handle:
+                json.dump({"config": {}}, handle)
+
+            metric_files = make_paper_figures.read_psm_metric_files([os.path.join(tmpdir, "psm_seed*.json")])
+
+        self.assertEqual(len(metric_files), 1)
+        self.assertEqual(metric_files[0]["path"], good_path)
+
+    def test_plot_switch_boundary_uses_psm_metrics(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "switch.png")
+            wrote = make_paper_figures.plot_switch_boundary(
+                [
+                    {
+                        "path": "synthetic.json",
+                        "payload": {
+                            "policy_description": (
+                                "m0 action=-10.000; m1 action=10.000; "
+                                "mode=1 if 12.500*theta + 0.750*omega >= 0.250, else mode=0"
+                            )
+                        },
+                    }
+                ],
+                outpath,
+            )
+
+            self.assertTrue(wrote)
+            self.assertTrue(os.path.exists(outpath))
+            self.assertGreater(os.path.getsize(outpath), 0)
+
+    def test_plot_switch_boundary_skips_non_linear_switch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "switch.png")
+            wrote = make_paper_figures.plot_switch_boundary(
+                [
+                    {
+                        "path": "synthetic.json",
+                        "payload": {"policy_description": "mode=1 if o[2] >= 0.000, else mode=0"},
+                    }
+                ],
+                outpath,
+            )
+
+            self.assertFalse(wrote)
+            self.assertFalse(os.path.exists(outpath))
+
     def test_plot_ppo_training_curves_writes_png(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             outpath = os.path.join(tmpdir, "curve.png")

@@ -4,6 +4,7 @@ import csv
 import glob
 import json
 import os
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,6 +20,15 @@ PPO_METRICS_GLOBS = [
     os.path.join(ROOT, "artifacts", "results", "metrics", "*.json"),
     os.path.join(ROOT, "artifacts", "ppo_sweep", "metrics", "*.json"),
 ]
+PSM_METRICS_GLOBS = [
+    os.path.join(ROOT, "artifacts", "cartpole_psm*_metrics.json"),
+    os.path.join(ROOT, "artifacts", "results", "metrics", "psm_seed*.json"),
+]
+LINEAR_SWITCH_RE = re.compile(
+    r"mode=1 if (?P<theta>[-+]?\d+(?:\.\d+)?)\*theta \+ "
+    r"(?P<omega>[-+]?\d+(?:\.\d+)?)\*omega >= "
+    r"(?P<threshold>[-+]?\d+(?:\.\d+)?)"
+)
 
 
 def read_results() -> list[dict[str, str]]:
@@ -95,9 +105,41 @@ def plot_survival_rewards(rows: list[dict[str, str]]) -> None:
     plt.close(fig)
 
 
-def plot_switch_boundary() -> None:
+def read_psm_metric_files(patterns: list[str] | None = None) -> list[dict[str, object]]:
+    metric_files: list[dict[str, object]] = []
+    for pattern in patterns or PSM_METRICS_GLOBS:
+        for path in sorted(glob.glob(pattern)):
+            with open(path, encoding="utf-8") as handle:
+                payload = json.load(handle)
+            if payload.get("policy_description"):
+                metric_files.append({"path": path, "payload": payload})
+    return metric_files
+
+
+def parse_linear_switch(description: str) -> tuple[float, float, float] | None:
+    match = LINEAR_SWITCH_RE.search(description)
+    if match is None:
+        return None
+    theta_weight = float(match.group("theta"))
+    omega_weight = float(match.group("omega"))
+    threshold = float(match.group("threshold"))
+    if omega_weight == 0.0:
+        return None
+    return theta_weight, omega_weight, threshold
+
+
+def plot_switch_boundary(metric_files: list[dict[str, object]], outpath: str | None = None) -> bool:
+    linear_switch = None
+    for metric_file in metric_files:
+        description = str(metric_file["payload"].get("policy_description", ""))
+        linear_switch = parse_linear_switch(description)
+        if linear_switch is not None:
+            break
+    if linear_switch is None:
+        return False
+    theta_weight, omega_weight, threshold = linear_switch
     theta = np.linspace(-0.22, 0.22, 200)
-    omega = -10.0 * theta
+    omega = (threshold - theta_weight * theta) / omega_weight
 
     fig, ax = plt.subplots(figsize=(5.2, 3.6))
     ax.plot(theta, omega, color="#2f2f2f", linewidth=2.0)
@@ -107,12 +149,15 @@ def plot_switch_boundary() -> None:
     ax.set_ylim(-2.5, 2.5)
     ax.set_xlabel(r"pole angle $\theta$")
     ax.set_ylabel(r"angular velocity $\dot{\theta}$")
-    ax.set_title(r"Programmatic switch: $5\theta + 0.5\dot{\theta}=0$")
+    ax.set_title(
+        rf"Programmatic switch: ${theta_weight:g}\theta + {omega_weight:g}\dot{{\theta}}={threshold:g}$"
+    )
     ax.grid(alpha=0.25)
     ax.legend(frameon=False, loc="upper right")
     fig.tight_layout()
-    fig.savefig(os.path.join(OUT_DIR, "programmatic_switch_boundary.png"), dpi=220)
+    fig.savefig(outpath or os.path.join(OUT_DIR, "programmatic_switch_boundary.png"), dpi=220)
     plt.close(fig)
+    return True
 
 
 def read_ppo_metric_files(patterns: list[str] | None = None) -> list[dict[str, object]]:
@@ -165,7 +210,7 @@ def main() -> None:
     write_results_table(rows)
     plot_success_bars(rows)
     plot_survival_rewards(rows)
-    plot_switch_boundary()
+    plot_switch_boundary(read_psm_metric_files())
     plot_ppo_training_curves(read_ppo_metric_files())
 
 

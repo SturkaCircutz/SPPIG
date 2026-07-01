@@ -62,7 +62,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
-  generated LaTeX table fragment consumed by `essay/project.tex`, and plots PPO training curves when
+  generated LaTeX table fragment consumed by `essay/project.tex`, plots the PSM switch-boundary
+  figure from a linear-switch PSM metrics artifact when available, and plots PPO training curves when
   metrics JSON artifacts with `eval_history` are present.
 
 ## Current Status
@@ -156,6 +157,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
   not paper-scale learning curves. It discovers standalone PPO metrics, reproduction-runner metrics
   under `artifacts/results/metrics/`, and PPO sweep metrics.
+- `scripts/make_paper_figures.py` now parses linear Cartpole PSM switch boundaries from PSM metrics
+  artifacts before plotting `programmatic_switch_boundary.png`; it skips that figure when only
+  non-linear/Boolean-tree switch descriptions are available instead of drawing a hard-coded boundary.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges and the chosen
   learning-rate samples in a manifest, and writes a best-config summary for completed jobs.
@@ -272,8 +276,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies the runner's per-policy mean/std summary and deterministic best-training-seed selection.
 - `tests/test_make_paper_figures.py` verifies that figure/table generation reads grouped summary rows
   when present, falls back to raw result rows otherwise, and writes the generated LaTeX result table
-  fragment. It also verifies PPO metrics-file discovery and training-curve PNG generation from
-  synthetic metrics.
+  fragment. It also verifies PSM switch-boundary parsing/plotting from synthetic metrics, skip
+  behavior for non-linear switches, PPO metrics-file discovery, and training-curve PNG generation.
 
 ## Completion Criteria Still Required For Full Paper Claim
 
