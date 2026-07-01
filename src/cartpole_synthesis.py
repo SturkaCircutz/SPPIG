@@ -418,28 +418,44 @@ class SynthesizedCartpolePSM:
         )
 
 
+@dataclass
+class CartpoleSynthesisIteration:
+    iteration: int
+    traces: List[CartpoleTrace]
+    student: ProbabilisticCartpoleStudent
+
+
 def synthesize_cartpole_policy(cfg: CartpoleSynthesisConfig) -> tuple[SynthesizedCartpolePSM, List[CartpoleTrace]]:
     student, traces = synthesize_cartpole_student(cfg)
     return student.to_deterministic_policy(), traces
 
 
 def synthesize_cartpole_student(cfg: CartpoleSynthesisConfig) -> tuple[ProbabilisticCartpoleStudent, List[CartpoleTrace]]:
+    student, traces, _ = synthesize_cartpole_student_with_history(cfg)
+    return student, traces
+
+
+def synthesize_cartpole_student_with_history(
+    cfg: CartpoleSynthesisConfig,
+) -> tuple[ProbabilisticCartpoleStudent, List[CartpoleTrace], List[CartpoleSynthesisIteration]]:
     rng = random.Random(cfg.seed)
     env = CartpoleEnv.train_env(seed=cfg.seed)
     initial_states = [env.reset() for _ in range(cfg.num_initial_states)]
     student: ProbabilisticCartpoleStudent | None = None
     traces: List[CartpoleTrace] = []
+    history: List[CartpoleSynthesisIteration] = []
     # Alternate between a teacher that searches for high-reward traces and a
     # student fit that makes later teacher traces easier to explain with the PSM.
-    for _ in range(max(1, cfg.teacher_student_iters)):
+    for iteration in range(max(1, cfg.teacher_student_iters)):
         traces = [
             _optimize_loop_free_trace(initial_state, env.cfg, cfg, rng, student)
             for initial_state in initial_states
         ]
         student = fit_probabilistic_cartpole_student(traces, cfg)
+        history.append(CartpoleSynthesisIteration(iteration + 1, traces, student))
     if student is None:
         raise RuntimeError("Cartpole synthesis did not produce a student policy")
-    return student, traces
+    return student, traces, history
 
 
 def fit_probabilistic_cartpole_student(

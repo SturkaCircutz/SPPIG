@@ -8,12 +8,13 @@ from dataclasses import asdict
 
 from cartpole_env import CartpoleEnv
 from cartpole_synthesis import (
+    CartpoleSynthesisIteration,
     CartpoleSynthesisConfig,
     CartpoleTrace,
     ProbabilisticCartpoleStudent,
     cartpole_synthesis_algorithm_provenance,
     cartpole_switch_fit_diagnostics,
-    synthesize_cartpole_student,
+    synthesize_cartpole_student_with_history,
 )
 
 
@@ -94,6 +95,18 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
     }
 
 
+def summarize_synthesis_history(history: list[CartpoleSynthesisIteration]):
+    return [
+        {
+            "iteration": entry.iteration,
+            "trace_summary": summarize_traces(entry.traces, max_examples=1),
+            "probabilistic_student": summarize_student(entry.student),
+            "switch_fit_diagnostics": cartpole_switch_fit_diagnostics(entry.traces, entry.student),
+        }
+        for entry in history
+    ]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Synthesize a Cartpole programmatic state machine.")
     default_cfg = CartpoleSynthesisConfig()
@@ -128,7 +141,7 @@ def main() -> None:
         teacher_refinement_steps=args.teacher_refinement_steps,
         seed=args.seed,
     )
-    student, traces = synthesize_cartpole_student(cfg)
+    student, traces, synthesis_history = synthesize_cartpole_student_with_history(cfg)
     policy = student.to_deterministic_policy()
     train_env = CartpoleEnv.train_env(seed=100)
     test_env = CartpoleEnv.test_env(seed=200)
@@ -144,6 +157,7 @@ def main() -> None:
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
+        "synthesis_history": summarize_synthesis_history(synthesis_history),
         "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),
         "probabilistic_student": summarize_student(student),

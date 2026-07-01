@@ -31,6 +31,7 @@ from cartpole_synthesis import (
     fit_probabilistic_cartpole_student,
     synthesize_cartpole_policy,
     synthesize_cartpole_student,
+    synthesize_cartpole_student_with_history,
     _eq12_switch_log_likelihood,
     _boolean_tree_candidates,
     _fit_switch_parameter_distributions,
@@ -119,6 +120,25 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIsInstance(student, ProbabilisticCartpoleStudent)
         self.assertIn("N(", student.describe())
         self.assertIn("m0", student.to_deterministic_policy().describe())
+
+    def test_cartpole_synthesis_history_records_each_teacher_student_iteration(self):
+        student, traces, history = synthesize_cartpole_student_with_history(
+            CartpoleSynthesisConfig(
+                num_initial_states=2,
+                candidate_rollouts=4,
+                segment_steps=2,
+                segments_per_trace=4,
+                teacher_student_iters=2,
+                seed=5,
+            )
+        )
+
+        self.assertEqual(len(history), 2)
+        self.assertEqual([entry.iteration for entry in history], [1, 2])
+        self.assertEqual(history[-1].student.describe(), student.describe())
+        self.assertEqual(history[-1].traces, traces)
+        self.assertEqual(len(history[0].traces), 2)
+        self.assertGreaterEqual(len(history[0].student.responsibilities), 1)
 
     def test_cartpole_probabilistic_student_uses_gaussian_modes(self):
         cfg = CartpoleSynthesisConfig(

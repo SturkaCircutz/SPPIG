@@ -105,11 +105,11 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
   train reward mean `20.6`, test reward mean `35.3`. This documents a current synthesis gap rather
   than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
-  of `{"student_sample": 64}` for the selected traces in this seed, plus `switch_fit_diagnostics`,
-  which shows the selected switch was chosen by prefiltering candidates with a cheaper
-  hard-label/timing objective, then rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style
-  distribution-timing objective and comparing that objective tuple against the fixed local reference
-  switch.
+  of `{"student_sample": 64}` for the selected traces in this seed, per-iteration
+  `synthesis_history`, plus `switch_fit_diagnostics`, which shows the selected switch was chosen by
+  prefiltering candidates with a cheaper hard-label/timing objective, then rescoring the top 128 by a
+  hard-label-first, bounded Eq. (12)-style distribution-timing objective and comparing that objective
+  tuple against the fixed local reference switch.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -140,14 +140,15 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - Test evaluation defaults now use `15000` steps, matching the paper's 300-second test horizon.
 - Programmatic-state-machine synthesis can now write metrics JSON containing the synthesis config,
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
-  compact teacher-trace examples with segment-duration schedules, number of teacher traces,
-  evaluation settings, switch-fit diagnostics, and train/test metrics.
+  compact teacher-trace examples with segment-duration schedules, per-teacher/student-iteration
+  `synthesis_history`, number of teacher traces, evaluation settings, switch-fit diagnostics, and
+  train/test metrics.
 - The Cartpole switch learner now performs bounded local grid refinement of selected
   switch-threshold Gaussian means and standard deviations against a discrete Eq. (12)-style
   likelihood, while rejecting candidate means that increase hard segment-label mistakes. This remains
-  a diagnostic approximation: switch structure is selected by a hard-label-first objective,
-  depth-2 conjunction probabilities use an independence approximation, and this is not the paper's
-  continuous switch-parameter optimizer.
+  a diagnostic approximation: switch structure is prefiltered by a cheaper hard-label/timing
+  objective before bounded distribution rescoring, depth-2 conjunction probabilities use an
+  independence approximation, and this is not the paper's continuous switch-parameter optimizer.
 - After the first teacher/student iteration, the Cartpole teacher candidate pool now includes bounded
   rollouts sampled from the current probabilistic student as well as gain-sampled loop-free traces,
   and records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
@@ -213,7 +214,7 @@ paper-scale PPO2 runs.
   programmatic-policy metrics are persisted to JSON and that the file records the full paper test
   horizon even when a quick test cap is supplied. It also verifies that exposed teacher
   hyperparameters, fixed local synthesis constants, the fitted probabilistic student summary, and
-  bounded teacher-trace provenance are persisted.
+  per-iteration bounded teacher-trace provenance are persisted.
 - `tests/test_cartpole_ppo_sweep.py::test_build_jobs_uses_paper_minibatch_rule_for_lstm` verifies
   that the sweep includes the paper's feed-forward minibatch grid while forcing PPO-LSTM to
   `nminibatches = 1`.

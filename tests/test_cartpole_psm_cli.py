@@ -93,6 +93,17 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("policy_description", metrics)
+        self.assertEqual(len(metrics["synthesis_history"]), 1)
+        history_entry = metrics["synthesis_history"][0]
+        self.assertEqual(history_entry["iteration"], 1)
+        self.assertEqual(history_entry["trace_summary"]["count"], metrics["num_traces"])
+        self.assertIn("teacher_source_counts", history_entry["trace_summary"])
+        self.assertIn("probabilistic_student", history_entry)
+        self.assertIn("switch_fit_diagnostics", history_entry)
+        self.assertEqual(
+            history_entry["switch_fit_diagnostics"]["diagnostic_scope"],
+            "local_teacher_trace_fit",
+        )
         self.assertEqual(metrics["trace_summary"]["count"], metrics["num_traces"])
         self.assertGreaterEqual(metrics["trace_summary"]["reward_mean"], 0.0)
         self.assertIn("teacher_source_counts", metrics["trace_summary"])
