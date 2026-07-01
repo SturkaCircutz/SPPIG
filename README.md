@@ -80,7 +80,8 @@ Programmatic state machine:
 The PSM metrics JSON records the deterministic policy plus the fitted
 probabilistic student summary: Gaussian constant-action distributions, switch
 parameter distributions, latent responsibility totals, and compact teacher
-trace examples with reward, length, gains, switches, and boundary observations.
+trace examples with reward, length, gains, segment durations, switches, and
+boundary observations.
 The switch threshold means are locally refined against the current discrete
 Eq. (12)-style timing likelihood, and the teacher regularizer scores both
 action likelihood and switch timing under the current student's Gaussian switch

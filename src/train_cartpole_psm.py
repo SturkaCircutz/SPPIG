@@ -71,6 +71,7 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
                 ),
                 "theta_gain": trace.theta_gain,
                 "omega_gain": trace.omega_gain,
+                "segment_durations": list(trace.segment_durations),
                 "first_observation": trace.observations[0] if trace.observations else None,
                 "last_observation": trace.observations[-1] if trace.observations else None,
                 "mode_prefix": trace.mode_labels[: min(8, len(trace.mode_labels))],

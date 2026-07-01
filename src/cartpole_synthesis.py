@@ -47,6 +47,7 @@ class CartpoleTrace:
     reward: float
     theta_gain: float = 0.0
     omega_gain: float = 0.0
+    segment_durations: Tuple[int, ...] = ()
 
 
 @dataclass
@@ -337,14 +338,15 @@ def _rollout_with_teacher_gains(
     cfg: CartpoleSynthesisConfig,
     theta_gain: float,
     omega_gain: float,
+    segment_durations: Tuple[int, ...] | None = None,
 ) -> CartpoleTrace:
     observations: List[Observation] = []
     actions: List[float] = []
     mode_labels: List[int] = []
     state = list(initial_state)
     alive = 0
-    max_steps = cfg.segment_steps * cfg.segments_per_trace
-    for _ in range(max_steps):
+    durations = segment_durations or tuple(cfg.segment_steps for _ in range(cfg.segments_per_trace))
+    for duration in durations:
         if cartpole_done(state, env_cfg):
             break
         _, _, theta, omega = state
@@ -352,12 +354,16 @@ def _rollout_with_teacher_gains(
         # learned from the trace rather than using these gains directly.
         raw_force = theta_gain * theta + omega_gain * omega
         action = max(cfg.force_values) if raw_force >= 0.0 else min(cfg.force_values)
-        observations.append(list(state))
-        actions.append(action)
-        mode_labels.append(1 if action > 0.0 else 0)
-        state = cartpole_next_state(state, action, env_cfg)
-        alive += 1
-    return CartpoleTrace(observations, actions, mode_labels, float(alive), theta_gain, omega_gain)
+        label = 1 if action > 0.0 else 0
+        for _ in range(max(1, duration)):
+            if cartpole_done(state, env_cfg):
+                break
+            observations.append(list(state))
+            actions.append(action)
+            mode_labels.append(label)
+            state = cartpole_next_state(state, action, env_cfg)
+            alive += 1
+    return CartpoleTrace(observations, actions, mode_labels, float(alive), theta_gain, omega_gain, tuple(durations))
 
 
 def _refine_loop_free_trace(
@@ -386,7 +392,12 @@ def _refine_loop_free_trace(
                 cfg,
                 best.theta_gain + theta_step,
                 best.omega_gain + omega_step,
+                best.segment_durations,
             )
+            if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
+                best = candidate
+                improved = True
+        for candidate in _duration_refinement_candidates(best, initial_state, env_cfg, cfg):
             if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
                 best = candidate
                 improved = True
@@ -394,6 +405,31 @@ def _refine_loop_free_trace(
             theta_delta *= 0.5
             omega_delta *= 0.5
     return best
+
+
+def _duration_refinement_candidates(
+    trace: CartpoleTrace,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+) -> List[CartpoleTrace]:
+    durations = trace.segment_durations or tuple(cfg.segment_steps for _ in range(cfg.segments_per_trace))
+    candidates: List[CartpoleTrace] = []
+    for index, duration in enumerate(durations):
+        for delta in (-1, 1):
+            updated = list(durations)
+            updated[index] = max(1, duration + delta)
+            candidates.append(
+                _rollout_with_teacher_gains(
+                    initial_state,
+                    env_cfg,
+                    cfg,
+                    trace.theta_gain,
+                    trace.omega_gain,
+                    tuple(updated),
+                )
+            )
+    return candidates
 
 
 def _teacher_objective(

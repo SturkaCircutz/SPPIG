@@ -34,8 +34,10 @@ from cartpole_synthesis import (
     _fit_switch_parameter_distributions,
     _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
+    _duration_refinement_candidates,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
+    _rollout_with_teacher_gains,
     _sample_switch,
     _single_threshold_transition_probability,
     _switch_cost,
@@ -535,6 +537,42 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertGreaterEqual(
             _teacher_objective(refined, None, cfg),
+            _teacher_objective(trace, None, cfg),
+        )
+
+    def test_cartpole_teacher_rollout_records_segment_durations(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=3)
+
+        trace = _rollout_with_teacher_gains(
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+        )
+
+        self.assertEqual(trace.segment_durations, (2, 2, 2))
+
+    def test_cartpole_teacher_duration_refinement_does_not_reduce_objective(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=3)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+        )
+
+        best = max(
+            [trace, *_duration_refinement_candidates(trace, initial_state, env.cfg, cfg)],
+            key=lambda candidate: _teacher_objective(candidate, None, cfg),
+        )
+
+        self.assertGreaterEqual(
+            _teacher_objective(best, None, cfg),
             _teacher_objective(trace, None, cfg),
         )
 

@@ -50,6 +50,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertLessEqual(len(metrics["trace_summary"]["examples"]), 3)
         self.assertIn("mode_prefix", metrics["trace_summary"]["examples"][0])
         self.assertIn("theta_gain", metrics["trace_summary"]["examples"][0])
+        self.assertIn("segment_durations", metrics["trace_summary"]["examples"][0])
         self.assertIn("probabilistic_student", metrics)
         self.assertIn("action_distributions", metrics["probabilistic_student"])
         self.assertIn("switch_parameter_distributions", metrics["probabilistic_student"])
