@@ -80,8 +80,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   still approximates switch timing and does not implement the full probabilistic adaptive-teaching
   objective from the paper. The switch grammar now includes decision stumps and depth-2 conjunction
   candidates over observation inequalities via a depth-2 greedy leaf-expansion step. Switch threshold
-  means are locally refined against the discrete Eq. (12)-style timing likelihood, but the learner
-  still uses an approximate cost instead of fully optimizing Eq. (12).
+  Gaussian means and standard deviations are locally refined against the Eq. (12)-style timing
+  likelihood, but the learner still uses a bounded grid search instead of fully optimizing Eq. (12).
 - Complete as a local diagnostic baseline: feed-forward PPO reaches 100% success on the paper's
   5-second training split.
 - Not complete against the paper: PPO/PPO-LSTM have not been run for `10^7` timesteps or selected
@@ -103,7 +103,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `23.3`, test reward mean `41.1`. This documents a current synthesis gap rather
+  train reward mean `21.3`, test reward mean `41.6`. This documents a current synthesis gap rather
   than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
   of `{"student_sample": 64}` for the selected traces in this seed, plus `switch_fit_diagnostics`,
   which shows the selected switch was chosen by the current hard-label-first trace objective and
@@ -140,9 +140,12 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
   compact teacher-trace examples with segment-duration schedules, number of teacher traces,
   evaluation settings, switch-fit diagnostics, and train/test metrics.
-- The Cartpole switch learner now locally refines Gaussian threshold means when doing so improves the
-  discrete Eq. (12)-style timing likelihood without increasing hard segment-label mistakes. This is
-  still a bounded approximation, not the paper's full continuous switch-parameter optimizer.
+- The Cartpole switch learner now performs bounded local grid refinement of selected
+  switch-threshold Gaussian means and standard deviations against a discrete Eq. (12)-style
+  likelihood, while rejecting candidate means that increase hard segment-label mistakes. This remains
+  a diagnostic approximation: switch structure is selected by a hard-label-first objective,
+  depth-2 conjunction probabilities use an independence approximation, and this is not the paper's
+  continuous switch-parameter optimizer.
 - After the first teacher/student iteration, the Cartpole teacher candidate pool now includes bounded
   rollouts sampled from the current probabilistic student as well as gain-sampled loop-free traces,
   and records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
@@ -242,13 +245,28 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_penalizes_early_transition_when_staying`
   verifies the no-transition-before-duration term in the discrete Eq. (12)-style switch likelihood.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_improves_timing_likelihood`
-  verifies that the bounded switch-threshold mean refinement can improve the current timing
-  likelihood without increasing hard segment-label mistakes.
+  verifies that bounded switch-threshold refinement can improve the current timing likelihood
+  without increasing hard segment-label mistakes.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_can_improve_probabilistic_std`
+  verifies that bounded Gaussian standard-deviation refinement can improve the current
+  probabilistic timing objective.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_keeps_std_finite`
+  verifies that refined switch Gaussian standard deviations remain finite and above the local
+  Gaussian floor.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_std_refinement_uses_boundary_variance_candidate`
+  verifies that the bounded std grid includes transition-boundary variance evidence.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_parameter_refinement_rejects_more_label_mistakes`
+  verifies that probabilistic timing refinement does not accept a switch mean that increases hard
+  segment-label mistakes.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_timing_loss_rejects_responsibility_mismatch`
+  verifies that malformed segment/responsibility inputs do not silently produce a zero timing loss.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_probability_uses_gaussian_threshold_distribution`
   verifies that switch-enable probabilities are computed from Gaussian threshold distributions.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_transition_probability_uses_shared_threshold_sample`
   verifies that scalar switch timing probability treats the same sampled threshold as shared over the
   segment rather than resampling independently at each simulator step.
+- `tests/test_cartpole_paper.py::test_cartpole_sampled_depth2_switch_preserves_predicate_count`
+  verifies that sampling a depth-2 Boolean-tree switch preserves both learned predicates.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_defaults_to_reward` verifies that
   the Cartpole teacher objective uses the paper-reported `lambda = 100` reward scale and reduces to
   reward-only candidate selection when no previous student exists.
@@ -323,8 +341,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   learner performs a depth-2 greedy Boolean-tree expansion, stores Gaussian threshold distributions
   for each selected switch predicate, can sample deterministic policies from those distributions, and
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
-  no-transition-before-duration terms. It now performs a bounded local threshold-mean refinement, but
-  does not yet solve the continuous Eq. (12) optimization for switch-condition means and standard
+  no-transition-before-duration terms. It now performs bounded local mean/std refinement, but does
+  not yet solve the continuous Eq. (12) optimization for switch-condition means and standard
   deviations. For depth-2 conjunctions, switch-enable probability still uses an independence
   approximation over predicate thresholds. The current
   Cartpole teacher samples some candidate traces from the current probabilistic student after the

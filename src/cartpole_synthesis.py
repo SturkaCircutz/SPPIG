@@ -35,6 +35,7 @@ SWITCH_OBLIQUE_THETA_WEIGHTS = (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0,
 SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
 MAX_SWITCH_THRESHOLD_CANDIDATES = 64
 DEFAULT_SWITCH_THRESHOLD_CANDIDATE = 0.0
+SWITCH_STD_REFINEMENT_MULTIPLIERS = (0.5, 1.0, 2.0)
 SWITCH_SELECTION_OBJECTIVE_ORDER = (
     "hard_label_mistakes",
     "eq12_style_timing_loss",
@@ -84,6 +85,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "std_steps": SWITCH_TIMING_STD_STEPS,
             "scalar_threshold_uses_shared_sample": True,
             "depth2_conjunction_probability": "independence_approximation",
+            "std_refinement_multipliers": list(SWITCH_STD_REFINEMENT_MULTIPLIERS),
         },
         "switch_search": {
             "boolean_tree_depth": 2,
@@ -416,9 +418,9 @@ def fit_probabilistic_cartpole_student(
     """Fit the Cartpole student using Gaussian action-parameter distributions.
 
     This implements the action-distribution part of the paper's EM-style
-    student step for Cartpole's constant-action grammar.  Switch timing uses a
-    bounded threshold-mean refinement against the local Eq. (12)-style timing
-    likelihood; it is still not the paper's full continuous M-step.
+    student step for Cartpole's constant-action grammar. Switch timing uses a
+    bounded Gaussian mean/std refinement against the local Eq. (12)-style
+    timing likelihood; it is still not the paper's full continuous M-step.
     """
 
     segments_by_trace = _segments_from_traces(traces)
@@ -838,7 +840,7 @@ def _fit_switch_parameter_distributions(
     predicates = _switch_predicates(switch)
     if not predicates:
         distribution = _legacy_switch_threshold_distribution(switch, segments_by_trace, responsibilities)
-        _, refined = _refine_switch_distribution_means(
+        _, refined = _refine_switch_parameter_distributions(
             switch,
             [distribution],
             segments_by_trace,
@@ -849,7 +851,7 @@ def _fit_switch_parameter_distributions(
         _predicate_threshold_distribution(predicate, segments_by_trace, responsibilities)
         for predicate in predicates
     ]
-    _, refined = _refine_switch_distribution_means(
+    _, refined = _refine_switch_parameter_distributions(
         switch,
         distributions,
         segments_by_trace,
@@ -888,6 +890,20 @@ def _refine_switch_distribution_means(
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
+    return _refine_switch_parameter_distributions(
+        switch,
+        distributions,
+        segments_by_trace,
+        responsibilities,
+    )
+
+
+def _refine_switch_parameter_distributions(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> Tuple[SwitchProgram, List[GaussianScalar]]:
     if not distributions or not segments_by_trace:
         return switch, distributions
 
@@ -900,27 +916,111 @@ def _refine_switch_distribution_means(
     best_distributions = _distributions_with_switch_means(switch, distributions)
     best_switch = _switch_with_distribution_means(switch, best_distributions)
     best_mistakes = _switch_label_mistakes(best_switch, examples)
-    best_loss = _switch_timing_loss(best_switch, segments_by_trace, responsibilities)
+    best_loss = _switch_distribution_timing_loss(best_switch, best_distributions, segments_by_trace, responsibilities)
 
     for param_index, distribution in enumerate(distributions):
-        candidates = [
+        mean_candidates = [
             distribution.mean,
             *_switch_distribution_mean_candidates(switch, param_index, segments_by_trace),
         ]
-        for candidate_mean in candidates:
-            candidate_distributions = list(best_distributions)
-            candidate_distributions[param_index] = GaussianScalar(candidate_mean, distribution.std)
-            candidate_switch = _switch_with_distribution_means(switch, candidate_distributions)
-            candidate_mistakes = _switch_label_mistakes(candidate_switch, examples)
-            if candidate_mistakes > best_mistakes:
-                continue
-            candidate_loss = _switch_timing_loss(candidate_switch, segments_by_trace, responsibilities)
-            if candidate_loss < best_loss:
-                best_distributions = candidate_distributions
-                best_switch = candidate_switch
-                best_mistakes = candidate_mistakes
-                best_loss = candidate_loss
+        std_candidates = _switch_distribution_std_candidates(distribution, switch, param_index, segments_by_trace)
+        for candidate_mean in mean_candidates:
+            for candidate_std in std_candidates:
+                candidate_distributions = list(best_distributions)
+                candidate_distributions[param_index] = GaussianScalar(candidate_mean, candidate_std)
+                candidate_switch = _switch_with_distribution_means(switch, candidate_distributions)
+                candidate_mistakes = _switch_label_mistakes(candidate_switch, examples)
+                if candidate_mistakes > best_mistakes:
+                    continue
+                candidate_loss = _switch_distribution_timing_loss(
+                    candidate_switch,
+                    candidate_distributions,
+                    segments_by_trace,
+                    responsibilities,
+                )
+                if candidate_loss < best_loss:
+                    best_distributions = candidate_distributions
+                    best_switch = candidate_switch
+                    best_mistakes = candidate_mistakes
+                    best_loss = candidate_loss
     return best_switch, best_distributions
+
+
+def _switch_distribution_timing_loss(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> float:
+    flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
+    if len(flat_segments) != len(responsibilities):
+        raise ValueError("responsibility count must match switch timing segments")
+    responsibility_by_id = {
+        id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
+    }
+    loss = 0.0
+    for trace_segments in segments_by_trace:
+        for current_segment, next_segment in zip(trace_segments, trace_segments[1:]):
+            current_resp = responsibility_by_id.get(id(current_segment), (0.5, 0.5))
+            next_resp = responsibility_by_id.get(id(next_segment), (0.5, 0.5))
+            transition_weight = current_resp[0] * next_resp[1] + current_resp[1] * next_resp[0]
+            stay_weight = current_resp[0] * next_resp[0] + current_resp[1] * next_resp[1]
+            transition_probability = _switch_transition_probability_at_duration(
+                switch,
+                distributions,
+                current_segment.observations,
+                current_segment.duration,
+            )
+            stay_probability = _switch_no_transition_probability_before_duration(
+                switch,
+                distributions,
+                current_segment.observations,
+                current_segment.duration,
+            )
+            loss -= (
+                transition_weight * math.log(max(transition_probability, LOG_PROBABILITY_FLOOR))
+                + stay_weight * math.log(max(stay_probability, LOG_PROBABILITY_FLOOR))
+            )
+    return loss
+
+
+def _switch_distribution_std_candidates(
+    distribution: GaussianScalar,
+    switch: SwitchProgram,
+    param_index: int,
+    segments_by_trace: List[List[CartpoleSegment]],
+) -> List[float]:
+    candidates = {
+        max(MIN_GAUSSIAN_STD, distribution.std * multiplier)
+        for multiplier in SWITCH_STD_REFINEMENT_MULTIPLIERS
+    }
+    boundary_values = _switch_distribution_boundary_values(switch, param_index, segments_by_trace)
+    if len(boundary_values) > 1:
+        mean = sum(boundary_values) / len(boundary_values)
+        variance = sum((value - mean) ** 2 for value in boundary_values) / len(boundary_values)
+        candidates.add(max(MIN_GAUSSIAN_STD, math.sqrt(max(variance, 0.0))))
+    return sorted(candidates)
+
+
+def _switch_distribution_boundary_values(
+    switch: SwitchProgram,
+    param_index: int,
+    segments_by_trace: List[List[CartpoleSegment]],
+) -> List[float]:
+    values: List[float] = []
+    if isinstance(switch, BooleanTreeSwitch):
+        predicates = _switch_predicates(switch)
+        if param_index >= len(predicates):
+            return values
+        feature_index = predicates[param_index].feature_index
+        for trace_segments in segments_by_trace:
+            for current_segment, _ in zip(trace_segments, trace_segments[1:]):
+                values.append(current_segment.end_observation[feature_index])
+        return values
+    for trace_segments in segments_by_trace:
+        for current_segment, _ in zip(trace_segments, trace_segments[1:]):
+            values.append(_switch_margin(switch, current_segment.end_observation))
+    return values
 
 
 def _distributions_with_switch_means(
@@ -930,12 +1030,12 @@ def _distributions_with_switch_means(
     if isinstance(switch, BooleanTreeSwitch):
         predicates = _switch_predicates(switch)
         return [
-            GaussianScalar(predicate.threshold, distribution.std)
+            GaussianScalar(predicate.threshold, max(MIN_GAUSSIAN_STD, distribution.std))
             for predicate, distribution in zip(predicates, distributions)
         ]
     if not distributions:
         return []
-    return [GaussianScalar(_switch_default_threshold(switch), distributions[0].std)]
+    return [GaussianScalar(_switch_default_threshold(switch), max(MIN_GAUSSIAN_STD, distributions[0].std))]
 
 
 def _switch_distribution_mean_candidates(

@@ -107,13 +107,13 @@ bounded samples from the current probabilistic student alongside gain-sampled
 loop-free traces, approximating the paper's sampled-teacher phase before local
 refinement. Trace summaries record the selected source and sampled-trace
 log-probability when available.
-The switch threshold means are locally refined against the current discrete
-Eq. (12)-style timing likelihood, and the teacher regularizer scores both
-action likelihood and switch timing under the current student's Gaussian switch
-distributions. The teacher objective uses the paper-reported reward scale
-`lambda = 100` by default. This is provenance for the current partial student
-implementation, not evidence that the full probabilistic adaptive-teaching
-algorithm has been completed.
+The switch threshold Gaussian means and standard deviations are locally refined
+against the current Eq. (12)-style timing likelihood, and the teacher
+regularizer scores both action likelihood and switch timing under the current
+student's Gaussian switch distributions. The teacher objective uses the
+paper-reported reward scale `lambda = 100` by default. This is provenance for
+the current partial student implementation, not evidence that the full
+probabilistic adaptive-teaching algorithm has been completed.
 
 PPO MLP:
 

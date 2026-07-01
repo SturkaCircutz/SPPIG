@@ -67,6 +67,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
         self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
         self.assertTrue(provenance["switch_timing"]["scalar_threshold_uses_shared_sample"])
+        self.assertEqual(provenance["switch_timing"]["std_refinement_multipliers"], [0.5, 1.0, 2.0])
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
         self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
         self.assertEqual(provenance["switch_search"]["max_threshold_candidates"], 64)

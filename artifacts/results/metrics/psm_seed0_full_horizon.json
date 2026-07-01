@@ -49,6 +49,11 @@
     "switch_timing": {
       "depth2_conjunction_probability": "independence_approximation",
       "scalar_threshold_uses_shared_sample": true,
+      "std_refinement_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
       "std_steps": 2.0
     },
     "teacher_search": {
@@ -88,34 +93,34 @@
   "eval_rollouts": 20,
   "num_traces": 64,
   "paper_test_horizon_steps": 15000,
-  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 50.000*theta + -1.000*omega >= -0.778, else mode=0",
+  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 50.000*theta + -1.000*omega >= 0.887, else mode=0",
   "probabilistic_student": {
     "action_distributions": {
       "0": {
-        "mean": -10.000060520892662,
+        "mean": -10.0000472814186,
         "std": 0.001
       },
       "1": {
-        "mean": 9.999838168660224,
+        "mean": 10.000045602382725,
         "std": 0.001
       }
     },
-    "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(-0.778, 2.189); G=[N(-0.778, 2.189)]",
+    "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(0.887, 1.051); G=[N(0.887, 1.051)]",
     "responsibility_summary": {
-      "mean_mode_0": 0.48372093023255813,
-      "mean_mode_1": 0.5162790697674419,
-      "segments": 215
+      "mean_mode_0": 0.48598130841121495,
+      "mean_mode_1": 0.514018691588785,
+      "segments": 214
     },
-    "switch": "mode=1 if 50.000*theta + -1.000*omega >= -0.778, else mode=0",
+    "switch": "mode=1 if 50.000*theta + -1.000*omega >= 0.887, else mode=0",
     "switch_parameter_distributions": [
       {
-        "mean": -0.7775778052669673,
-        "std": 2.1890493790945773
+        "mean": 0.886989338387141,
+        "std": 1.0507786979727152
       }
     ],
     "switch_threshold_distribution": {
-      "mean": -0.7775778052669673,
-      "std": 2.1890493790945773
+      "mean": 0.886989338387141,
+      "std": 1.0507786979727152
     }
   },
   "switch_fit_diagnostics": {
@@ -123,69 +128,69 @@
       "fixed_local_reference_switch": {
         "boundary_alignment": {
           "at_boundary_count": 0,
-          "early_switch_count": 132,
-          "enabled_boundary_count": 132,
+          "early_switch_count": 133,
+          "enabled_boundary_count": 133,
           "first_enabled_minus_duration_max": -2,
-          "first_enabled_minus_duration_mean": -7.0606060606060606,
-          "first_enabled_minus_duration_min": -20,
+          "first_enabled_minus_duration_mean": -6.902255639097745,
+          "first_enabled_minus_duration_min": -21,
           "late_switch_count": 0,
-          "never_enabled_count": 19,
-          "num_boundaries": 151
+          "never_enabled_count": 17,
+          "num_boundaries": 150
         },
         "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
-        "eq12_style_timing_loss": 1300.625,
-        "hard_label_mistake_rate": 0.3355229914098029,
-        "hard_label_mistakes": 664,
-        "label_error_rate": 0.3355229914098029,
-        "label_mistakes": 664,
+        "eq12_style_timing_loss": 1250.625,
+        "hard_label_mistake_rate": 0.3343542623787647,
+        "hard_label_mistakes": 655,
+        "label_error_rate": 0.3343542623787647,
+        "label_mistakes": 655,
         "objective_tuple": [
-          664,
-          1300.625,
+          655,
+          1250.625,
           1,
           "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
         ],
         "program_complexity": 1,
-        "timing_loss_per_boundary": 8.61341059602649,
-        "timing_loss_total": 1300.625
+        "timing_loss_per_boundary": 8.3375,
+        "timing_loss_total": 1250.625
       },
       "selected_student_switch": {
         "boundary_alignment": {
-          "at_boundary_count": 2,
-          "early_switch_count": 109,
-          "enabled_boundary_count": 111,
+          "at_boundary_count": 4,
+          "early_switch_count": 76,
+          "enabled_boundary_count": 80,
           "first_enabled_minus_duration_max": 0,
-          "first_enabled_minus_duration_mean": -9.666666666666666,
+          "first_enabled_minus_duration_mean": -10.375,
           "first_enabled_minus_duration_min": -21,
           "late_switch_count": 0,
-          "never_enabled_count": 40,
-          "num_boundaries": 151
+          "never_enabled_count": 70,
+          "num_boundaries": 150
         },
-        "description": "mode=1 if 50.000*theta + -1.000*omega >= -0.778, else mode=0",
-        "eq12_style_timing_loss": 1888.375,
-        "hard_label_mistake_rate": 0.12935826174835777,
-        "hard_label_mistakes": 256,
-        "label_error_rate": 0.12935826174835777,
-        "label_mistakes": 256,
+        "description": "mode=1 if 50.000*theta + -1.000*omega >= 0.887, else mode=0",
+        "eq12_style_timing_loss": 1466.25,
+        "hard_label_mistake_rate": 0.1138335885655947,
+        "hard_label_mistakes": 223,
+        "label_error_rate": 0.1138335885655947,
+        "label_mistakes": 223,
         "objective_tuple": [
-          256,
-          1888.375,
+          223,
+          1466.25,
           1,
-          "mode=1 if 50.000*theta + -1.000*omega >= -0.778, else mode=0"
+          "mode=1 if 50.000*theta + -1.000*omega >= 0.887, else mode=0"
         ],
         "program_complexity": 1,
-        "timing_loss_per_boundary": 12.505794701986755,
-        "timing_loss_total": 1888.375
+        "timing_loss_per_boundary": 9.775,
+        "timing_loss_total": 1466.25
       }
     },
     "diagnostic_scope": "local_teacher_trace_fit",
-    "example_count": 1979,
+    "example_count": 1959,
     "not_paper_reproduction": true,
     "note": "Trace-fit diagnostics for the current local synthesizer. These costs are not paper-scale reproduction results or closed-loop evaluations.",
-    "num_boundaries": 151,
-    "num_segments": 215,
-    "num_trace_steps": 1979,
+    "num_boundaries": 150,
+    "num_segments": 214,
+    "num_trace_steps": 1959,
     "responsibility_segment_count_match": true,
-    "segment_count": 215,
+    "segment_count": 214,
     "selection_objective_order": [
       "hard_label_mistakes",
       "eq12_style_timing_loss",
@@ -194,7 +199,7 @@
     ]
   },
   "test": {
-    "reward_mean": 41.05,
+    "reward_mean": 41.6,
     "success_rate": 0.0
   },
   "test_max_steps": 15000,
@@ -209,10 +214,10 @@
           -0.024108324970703667
         ],
         "last_observation": [
-          -0.2101227885101222,
-          -1.3137953796215496,
-          0.20525316780504915,
-          1.4723321184515545
+          -0.2100864756700476,
+          -1.3136362215249173,
+          0.20518809684479816,
+          1.471970220915553
         ],
         "mode_prefix": [
           1,
@@ -232,7 +237,7 @@
           5
         ],
         "steps": 26,
-        "student_log_probability": -37.302641547281404,
+        "student_log_probability": -37.42239723914425,
         "switches": 2,
         "teacher_source": "student_sample",
         "theta_gain": 0.0
@@ -281,44 +286,43 @@
           0.0004686855817390284
         ],
         "last_observation": [
-          -0.006818044916037998,
-          -1.9378143829493775,
-          0.19998775540147937,
-          2.857749275850756
+          -0.1831932321571918,
+          -1.5282341005545292,
+          0.19652054202234373,
+          1.8347015098177863
         ],
         "mode_prefix": [
-          0,
-          0,
-          0,
-          0,
           1,
           1,
           1,
-          1
+          1,
+          1,
+          1,
+          0,
+          0
         ],
         "omega_gain": 0.0,
-        "reward": 39.0,
+        "reward": 27.0,
         "segment_durations": [
-          4,
-          13,
-          20,
-          2
+          6,
+          17,
+          4
         ],
-        "steps": 39,
-        "student_log_probability": -58.972257628771544,
-        "switches": 3,
+        "steps": 27,
+        "student_log_probability": -37.316067833142775,
+        "switches": 2,
         "teacher_source": "student_sample",
         "theta_gain": 0.0
       }
     ],
-    "length_mean": 30.921875,
-    "reward_mean": 30.921875,
+    "length_mean": 30.609375,
+    "reward_mean": 30.609375,
     "teacher_source_counts": {
       "student_sample": 64
     }
   },
   "train": {
-    "reward_mean": 23.3,
+    "reward_mean": 21.3,
     "success_rate": 0.0
   }
 }

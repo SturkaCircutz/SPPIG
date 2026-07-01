@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import random
 import sys
@@ -39,6 +40,8 @@ from cartpole_synthesis import (
     _mode_run_lengths,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
+    _switch_distribution_std_candidates,
+    _switch_distribution_timing_loss,
     _rollout_student_sampled_trace,
     _rollout_with_teacher_gains,
     _sample_switch,
@@ -346,6 +349,166 @@ class CartpolePaperTest(unittest.TestCase):
         )
         self.assertLessEqual(mistakes(refined_switch), mistakes(initial_switch))
 
+    def test_cartpole_switch_distribution_refinement_can_improve_probabilistic_std(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.3, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.15, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.25, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0)]
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+        initial = [GaussianScalar(0.0, 1.0)]
+
+        refined_switch, refined = _refine_switch_distribution_means(
+            switch,
+            initial,
+            segments_by_trace,
+            responsibilities,
+        )
+
+        self.assertLess(
+            _switch_distribution_timing_loss(refined_switch, refined, segments_by_trace, responsibilities),
+            _switch_distribution_timing_loss(switch, initial, segments_by_trace, responsibilities),
+        )
+        self.assertLess(refined[0].std, initial[0].std)
+
+    def test_cartpole_switch_distribution_refinement_keeps_std_finite(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=2,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.3, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+
+        _, refined = _refine_switch_distribution_means(
+            Depth2Switch(1.0, 0.0, 0.0),
+            [GaussianScalar(0.0, 0.0)],
+            [[segment, next_segment]],
+            [(1.0, 0.0), (0.0, 1.0)],
+        )
+
+        self.assertTrue(math.isfinite(refined[0].std))
+        self.assertGreaterEqual(refined[0].std, 1e-3)
+
+    def test_cartpole_switch_std_refinement_uses_boundary_variance_candidate(self):
+        segments_by_trace = [
+            [
+                CartpoleSegment(
+                    observations=[[0.0, 0.0, -0.4, 0.0]],
+                    action_parameter=-10.0,
+                    duration=1,
+                    hard_mode=0,
+                ),
+                CartpoleSegment(
+                    observations=[[0.0, 0.0, 0.2, 0.0]],
+                    action_parameter=10.0,
+                    duration=1,
+                    hard_mode=1,
+                ),
+            ],
+            [
+                CartpoleSegment(
+                    observations=[[0.0, 0.0, 0.4, 0.0]],
+                    action_parameter=-10.0,
+                    duration=1,
+                    hard_mode=0,
+                ),
+                CartpoleSegment(
+                    observations=[[0.0, 0.0, 0.5, 0.0]],
+                    action_parameter=10.0,
+                    duration=1,
+                    hard_mode=1,
+                ),
+            ],
+        ]
+
+        candidates = _switch_distribution_std_candidates(
+            GaussianScalar(0.0, 1.0),
+            Depth2Switch(1.0, 0.0, 0.0),
+            0,
+            segments_by_trace,
+        )
+
+        self.assertIn(0.4, candidates)
+        self.assertIn(0.5, candidates)
+        self.assertIn(2.0, candidates)
+
+    def test_cartpole_switch_parameter_refinement_rejects_more_label_mistakes(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.3, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0)]
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+
+        refined_switch, _ = _refine_switch_distribution_means(
+            switch,
+            [GaussianScalar(0.0, 1.0)],
+            segments_by_trace,
+            responsibilities,
+        )
+
+        examples = [
+            (observation, trace_segment.hard_mode)
+            for trace_segments in segments_by_trace
+            for trace_segment in trace_segments
+            for observation in trace_segment.observations
+        ]
+        self.assertLessEqual(
+            _switch_cost(refined_switch, examples)[0],
+            _switch_cost(switch, examples)[0],
+        )
+
+    def test_cartpole_switch_distribution_timing_loss_rejects_responsibility_mismatch(self):
+        segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.0, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+
+        with self.assertRaises(ValueError):
+            _switch_distribution_timing_loss(
+                Depth2Switch(1.0, 0.0, 0.0),
+                [GaussianScalar(0.0, 1.0)],
+                [[segment]],
+                [],
+            )
+
     def test_cartpole_boolean_tree_switch_supports_depth_two_conjunction(self):
         switch = BooleanTreeSwitch(
             ObservationPredicate(2, ">=", 0.0),
@@ -434,6 +597,20 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIsInstance(sampled, BooleanTreeSwitch)
         self.assertEqual(sampled.first.threshold, 0.25)
         self.assertEqual(sampled.second.threshold, 0.75)
+
+    def test_cartpole_sampled_depth2_switch_preserves_predicate_count(self):
+        switch = BooleanTreeSwitch(
+            ObservationPredicate(2, ">=", 0.0),
+            ObservationPredicate(3, "<=", 1.0),
+        )
+
+        sampled = _sample_switch(
+            switch,
+            [GaussianScalar(0.25, 0.0), GaussianScalar(0.75, 0.0)],
+            random.Random(0),
+        )
+
+        self.assertIsNotNone(sampled.second)
 
     def test_cartpole_probabilistic_student_samples_policy_parameters(self):
         student = ProbabilisticCartpoleStudent(
