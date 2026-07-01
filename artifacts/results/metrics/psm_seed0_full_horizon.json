@@ -1,0 +1,318 @@
+{
+  "algorithm_provenance": {
+    "probabilistic_student": {
+      "em_iters": 4,
+      "log_probability_floor": 1e-12,
+      "min_gaussian_std": 0.001
+    },
+    "switch_search": {
+      "boolean_tree_depth": 2,
+      "default_threshold_candidate": 0.0,
+      "greedy_second_predicate_only_refines_mode1": true,
+      "max_threshold_candidates": 64,
+      "oblique_omega_weights": [
+        -10.0,
+        -5.0,
+        -2.0,
+        -1.0,
+        -0.5,
+        -0.25,
+        0.0,
+        0.25,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "oblique_theta_weights": [
+        -50.0,
+        -20.0,
+        -10.0,
+        -5.0,
+        -2.0,
+        -1.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0,
+        50.0
+      ]
+    },
+    "switch_timing": {
+      "depth2_conjunction_probability": "independence_approximation",
+      "scalar_threshold_uses_shared_sample": true,
+      "std_steps": 2.0
+    },
+    "teacher_search": {
+      "duration_refinement_deltas": [
+        -1,
+        1
+      ],
+      "gain_refinement_delta_fraction": 0.05,
+      "gain_sample_min_std": 1e-06,
+      "gain_sample_std_fraction": 0.1,
+      "omega_refinement_min_delta": 0.05,
+      "refinement_delta_decay": 0.5,
+      "theta_refinement_min_delta": 0.1
+    }
+  },
+  "command": "src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json",
+  "config": {
+    "candidate_rollouts": 128,
+    "force_values": [
+      -10.0,
+      10.0
+    ],
+    "num_initial_states": 64,
+    "seed": 0,
+    "segment_steps": 8,
+    "segments_per_trace": 32,
+    "teacher_omega_gain": 2.0,
+    "teacher_refinement_steps": 2,
+    "teacher_reward_lambda": 100.0,
+    "teacher_student_iters": 2,
+    "teacher_student_regularizer": 1.0,
+    "teacher_theta_gain": 20.0,
+    "teacher_top_rho": 10
+  },
+  "eval_rollouts": 20,
+  "num_traces": 64,
+  "paper_test_horizon_steps": 15000,
+  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + -0.250*omega >= 0.000, else mode=0",
+  "probabilistic_student": {
+    "action_distributions": {
+      "0": {
+        "mean": -10.0,
+        "std": 0.001
+      },
+      "1": {
+        "mean": 10.0,
+        "std": 0.001
+      }
+    },
+    "description": "H0=N(-10.000, 0.001); H1=N(10.000, 0.001); threshold=N(0.000, 0.768); G=[N(0.000, 0.768)]",
+    "responsibility_summary": {
+      "mean_mode_0": 0.4730290456431535,
+      "mean_mode_1": 0.5269709543568465,
+      "segments": 241
+    },
+    "switch": "mode=1 if 10.000*theta + -0.250*omega >= 0.000, else mode=0",
+    "switch_parameter_distributions": [
+      {
+        "mean": 0.0,
+        "std": 0.7676625225313415
+      }
+    ],
+    "switch_threshold_distribution": {
+      "mean": 0.0,
+      "std": 0.7676625225313415
+    }
+  },
+  "test": {
+    "reward_mean": 37.55,
+    "success_rate": 0.0
+  },
+  "test_max_steps": 15000,
+  "trace_summary": {
+    "count": 64,
+    "examples": [
+      {
+        "first_observation": [
+          0.034442185152504814,
+          0.025795440294030247,
+          -0.007942841916915501,
+          -0.024108324970703667
+        ],
+        "last_observation": [
+          -0.1014815985272219,
+          -1.3441270990167609,
+          0.20085856026205196,
+          2.1491635532979885
+        ],
+        "mode_prefix": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "omega_gain": 1.5383452279174608,
+        "reward": 10.0,
+        "segment_durations": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "steps": 10,
+        "switches": 1,
+        "theta_gain": 20.01968649004055
+      },
+      {
+        "first_observation": [
+          0.0011274721368608534,
+          -0.009506586254958573,
+          0.02837985890347726,
+          -0.019668727392107257
+        ],
+        "last_observation": [
+          -1.264023992288441,
+          -1.726711906270252,
+          0.1964504447294339,
+          1.7863544528879478
+        ],
+        "mode_prefix": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        "omega_gain": 2.351652495348436,
+        "reward": 120.0,
+        "segment_durations": [
+          6,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "steps": 120,
+        "switches": 10,
+        "theta_gain": 17.908976908695575
+      },
+      {
+        "first_observation": [
+          -0.002340304584764419,
+          0.008338203945503123,
+          0.040811288519533515,
+          0.0004686855817390284
+        ],
+        "last_observation": [
+          -0.2014767148694138,
+          -0.7533117319278579,
+          0.20613037075679685,
+          0.7712155794471653
+        ],
+        "mode_prefix": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        "omega_gain": 2.2953049612815586,
+        "reward": 29.0,
+        "segment_durations": [
+          6,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "steps": 29,
+        "switches": 2,
+        "theta_gain": 19.408390390720932
+      }
+    ],
+    "length_mean": 35.765625,
+    "reward_mean": 35.765625
+  },
+  "train": {
+    "reward_mean": 23.8,
+    "success_rate": 0.0
+  }
+}

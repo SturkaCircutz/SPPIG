@@ -90,13 +90,19 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 
 These are implementation diagnostics, not paper-scale reproduced results.
 
-- Synthesized PSM command:
-  `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000`
-- Synthesized PSM policy:
-  `m0 action=-10.000; m1 action=10.000; mode=1 if 5.000*theta + 0.500*omega >= 0.000, else mode=0`
-- Synthesized PSM output:
+- Fixed PSM reevaluation command:
+  `python scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json`
+- Fixed PSM policy:
+  `m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0`
+- Fixed PSM output:
   train success `1.000`, test success over the full 15000-step/300-second horizon `0.200`,
   train reward mean `250.0`, test reward mean `6275.4`.
+- Current synthesizer diagnostic command:
+  `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
+- Current synthesizer diagnostic output:
+  train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
+  train reward mean `23.8`, test reward mean `37.5`. This documents a current synthesis gap rather
+  than a paper-level programmatic-policy result.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -153,8 +159,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
   `--include-ppo` rows, tying those local diagnostic results to concrete artifacts.
 - The orchestrated reproduction runner now also writes per-seed PSM metrics JSON and links it from
-  `cartpole_results.csv` and `cartpole_manifest.json`, so reported PSM rows are tied to concrete
-  student/teacher-trace provenance artifacts.
+  `cartpole_results.csv` and `cartpole_manifest.json`, so synthesized PSM rows are tied to concrete
+  student/teacher-trace provenance artifacts. The checked-in result table currently separates the
+  fixed two-mode programmatic diagnostic from the current synthesized-student diagnostic because the
+  current synthesizer does not reproduce the fixed-program row.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
   not paper-scale learning curves. It discovers standalone PPO metrics, reproduction-runner metrics

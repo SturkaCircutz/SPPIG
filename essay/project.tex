@@ -77,9 +77,10 @@ Our contributions are:
   \item \textbf{Executable PyTorch baselines.} We implement PPO with both
   feed-forward and LSTM actor-critic policies, generalized advantage
   estimation, vectorized rollouts, and best-checkpoint selection.
-  \item \textbf{A compact programmatic controller.} We synthesize a two-mode
-  constant-action state machine with an explicit switch over pole angle and
-  angular velocity.
+  \item \textbf{A compact programmatic controller.} We evaluate a two-mode
+  constant-action diagnostic state machine with an explicit switch over pole
+  angle and angular velocity, and separately track the current incomplete
+  synthesis path in the audit.
   \item \textbf{A debugging audit.} We identify and fix implementation errors
   that caused PPO to optimize the wrong objective or update recurrent policies
   under the wrong hidden state.
@@ -137,9 +138,10 @@ state changes the policy context used in the PPO ratio.
 
 \subsection{Programmatic State Machine}
 
-The programmatic learner constructs teacher traces and fits a two-mode
-constant-action state machine in the CartPole grammar class.  The resulting
-controller is:
+The repository contains both a partial trace-based learner and a fixed
+two-mode diagnostic controller in the CartPole grammar class.  The local result
+table uses the fixed controller below, while current synthesized-student
+metrics are tracked separately in the audit:
 \input{cartpole_policy_fragment.tex}
 This is intentionally compact: two constant actions and one interpretable
 switching boundary.  It is not the full probabilistic adaptive-teaching
@@ -152,7 +154,8 @@ algorithm from \citet{inala2020sppig}.
 \includegraphics[width=0.31\textwidth]{figures/programmatic_switch_boundary.png}
 \caption{Local CartPole reproduction diagnostics.  Left: train and full-horizon
 test success rates.  Middle: mean survival reward on the 300-second test split.
-Right: the learned programmatic switch boundary in $(\theta,\dot\theta)$ space.}
+Right: the fixed diagnostic programmatic switch boundary in
+$(\theta,\dot\theta)$ space.}
 \label{fig:diagnostics}
 \end{figure*}
 
@@ -207,9 +210,10 @@ the rollout's initial recurrent state.
 \section{Experimental Results}
 
 Table~\ref{tab:results} reports the verified local comparison.  The
-feed-forward PPO and programmatic policies both solve the 250-step training
-split.  On the full 15,000-step test split, the programmatic controller
-survives much longer and has nonzero full-horizon success.
+feed-forward PPO and fixed programmatic diagnostic policy both solve the
+250-step training split.  On the full 15,000-step test split, the fixed
+programmatic controller survives much longer and has nonzero full-horizon
+success.
 
 \begin{table}[t]
 \centering
@@ -274,9 +278,9 @@ The main lesson is that programmatic-policy comparisons are sensitive to
 baseline implementation details.  Missing horizon truncation made PPO appear
 much weaker because it optimized a different task.  After the audit,
 feed-forward PPO solved the short training horizon, but still failed the full
-300-second generalization test.  The programmatic state machine generalized
-better in survival time because its switching boundary encodes a repeatable
-balancing rule rather than a short-horizon neural behavior.
+300-second generalization test.  The fixed diagnostic programmatic state
+machine generalized better in survival time because its switching boundary
+encodes a repeatable balancing rule rather than a short-horizon neural behavior.
 
 Before a strong arXiv submission, future work should run the paper-scale PPO
 protocol: five seeds, hyperparameter search, and $10^7$ timesteps for both PPO
@@ -287,11 +291,11 @@ exact algorithmic fidelity is required.
 \section{Conclusion}
 
 This reproduction study implements continuous-force CartPole, PPO, PPO-LSTM,
-and a compact programmatic state machine under the SPPIG train/test split.  The
-result supports the qualitative claim that explicit programmatic structure can
-improve long-horizon generalization, while also showing that careful
-reinforcement-learning engineering is necessary before such comparisons are
-credible.
+and a compact fixed programmatic state machine under the SPPIG train/test split.
+The result supports the qualitative claim that explicit programmatic structure
+can improve long-horizon generalization, while also showing that careful
+reinforcement-learning engineering and program-synthesis provenance are
+necessary before such comparisons are credible.
 
 \section*{Acknowledgments}
 

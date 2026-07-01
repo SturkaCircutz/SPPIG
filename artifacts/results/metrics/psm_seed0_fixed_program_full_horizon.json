@@ -1,0 +1,22 @@
+{
+  "command": "scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
+  "eval_rollouts": 20,
+  "paper_test_horizon_steps": 15000,
+  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
+  "program_parameters": {
+    "left_force": -10.0,
+    "omega_weight": 1.0,
+    "right_force": 10.0,
+    "theta_weight": 10.0,
+    "threshold": 0.0
+  },
+  "test": {
+    "reward_mean": 6275.35,
+    "success_rate": 0.2
+  },
+  "test_max_steps": 15000,
+  "train": {
+    "reward_mean": 250.0,
+    "success_rate": 1.0
+  }
+}

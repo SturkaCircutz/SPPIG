@@ -1,0 +1,48 @@
+{
+  "checkpoint": "artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt",
+  "checkpoint_config": {
+    "action_scale": 10.0,
+    "clip_range": 0.2,
+    "entropy_coef": 0.0,
+    "eval_interval": 16384,
+    "eval_rollouts": 20,
+    "eval_test_max_steps": 1000,
+    "gae_lambda": 0.95,
+    "gamma": 0.99,
+    "hidden_size": 64,
+    "initial_log_std": -2.0,
+    "keep_best": true,
+    "learning_rate": 1e-05,
+    "max_grad_norm": 0.5,
+    "minibatches": 1,
+    "num_envs": 8,
+    "policy_type": "lstm",
+    "pretrain_batch_size": 256,
+    "pretrain_learning_rate": 0.001,
+    "pretrain_steps": 500,
+    "rollout_steps": 128,
+    "seed": 0,
+    "total_timesteps": 65536,
+    "update_epochs": 4,
+    "value_coef": 0.5,
+    "verbose": true
+  },
+  "checkpoint_result": {
+    "test_reward_mean": 801.65,
+    "test_success_rate": 0.35,
+    "timesteps": 16384,
+    "train_reward_mean": 250.0,
+    "train_success_rate": 1.0
+  },
+  "command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
+  "eval_rollouts": 20,
+  "paper_test_horizon_steps": 15000,
+  "selected_result": {
+    "test_reward_mean": 912.25,
+    "test_success_rate": 0.0,
+    "timesteps": 16384,
+    "train_reward_mean": 250.0,
+    "train_success_rate": 1.0
+  },
+  "test_max_steps": 15000
+}

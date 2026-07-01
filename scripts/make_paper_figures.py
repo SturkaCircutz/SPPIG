@@ -43,6 +43,24 @@ def metric(row: dict[str, str], name: str) -> float:
     return float(row.get(f"{name}_mean") or row[name])
 
 
+def artifact_path(path: str) -> str:
+    return path if os.path.isabs(path) else os.path.join(ROOT, path)
+
+
+def row_has_result_artifact(row: dict[str, str]) -> bool:
+    path = row.get("best_metrics_output") or row.get("metrics_output") or row.get("checkpoint")
+    return bool(path and os.path.exists(artifact_path(path)))
+
+
+def require_result_artifacts(rows: list[dict[str, str]]) -> None:
+    missing = [row["policy"] for row in rows if not row_has_result_artifact(row)]
+    if missing:
+        raise FileNotFoundError(
+            "missing result artifacts for generated paper claims: "
+            + ", ".join(missing)
+        )
+
+
 def display_policy(name: str) -> str:
     return name.replace("Programmatic state machine", "Programmatic PSM").replace("PPO-LSTM", "PPO-LSTM")
 
@@ -103,7 +121,7 @@ def write_abstract_results(rows: list[dict[str, str]], outpath: str = ABSTRACT_R
         (
             f"In local diagnostics, feed-forward PPO reaches {percent(ppo_train)} training success "
             f"and obtains {percent(ppo_test)} success on the full 300-second test horizon with "
-            f"mean test reward {ppo_test_reward:.1f}. The programmatic state machine reaches "
+            f"mean test reward {ppo_test_reward:.1f}. The fixed programmatic state machine reaches "
             f"{percent(psm_train)} training success, obtains {percent(psm_test)} full-horizon "
             f"test success, and has mean test reward {psm_test_reward:.1f}."
         ),
@@ -304,6 +322,7 @@ def plot_ppo_training_curves(metric_files: list[dict[str, object]], outpath: str
 def main() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
     rows = read_results()
+    require_result_artifacts(rows)
     psm_metric_files = read_psm_metric_files()
     write_results_table(rows)
     write_abstract_results(rows)

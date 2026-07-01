@@ -17,17 +17,20 @@ protocol.
 
 ## Current Verified Results
 
-Local diagnostic evaluation backed by `artifacts/results/cartpole_results.csv`:
+Local diagnostic evaluation backed by `artifacts/results/cartpole_results.csv`
+and per-row metrics artifacts:
 
 | Policy | Train success | Test success | Train reward | Test reward |
 | --- | ---: | ---: | ---: | ---: |
 | PPO MLP | 1.00 | 0.00 | 250.0 | 910.6 |
-| PPO-LSTM, warm started | 1.00 | 0.00 | 250.0 | 912.3 |
+| PPO-LSTM, warm started | 1.00 | 0.00 | 250.0 | 912.2 |
 | Programmatic state machine | 1.00 | 0.20 | 250.0 | 6275.4 |
 
 The test split is the full paper horizon: 300 seconds, or 15,000 simulator
 steps. Pure PPO-LSTM is implemented, but it did not solve the training split
-within the local diagnostic budget.
+within the local diagnostic budget. The displayed programmatic row is a fixed
+two-mode policy reevaluation; current synthesis metrics are tracked separately
+and should not be read as a completed probabilistic adaptive-teaching result.
 
 ## Setup
 
@@ -182,6 +185,7 @@ the manifest.
   and if PPO metrics JSON files exist, it also writes a training-curve figure)
 - Paper fidelity audit: `docs/cartpole_paper_audit.md`
 - Result table: `artifacts/results/cartpole_results.csv`
+- Result metrics: `artifacts/results/metrics/`
 - Result summary: `artifacts/results/cartpole_summary.csv`
 - Programmatic policy metrics: `artifacts/cartpole_psm*_metrics.json`
 - PPO training metrics: `artifacts/cartpole_ppo_*_metrics.json`,

@@ -13,6 +13,12 @@ import make_paper_figures  # noqa: E402
 
 
 class MakePaperFiguresTest(unittest.TestCase):
+    def test_checked_in_results_reference_existing_artifacts(self):
+        rows = make_paper_figures.read_results()
+
+        make_paper_figures.require_result_artifacts(rows)
+        self.assertTrue(all(row.get("metrics_output") for row in rows))
+
     def test_read_results_prefers_summary_csv(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             results_path = os.path.join(tmpdir, "cartpole_results.csv")
@@ -85,6 +91,22 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertEqual(rows[0]["policy"], "raw")
         self.assertEqual(make_paper_figures.metric(rows[0], "train_success"), 0.25)
 
+    def test_require_result_artifacts_accepts_metrics_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump({"selected_result": {}}, handle)
+
+            make_paper_figures.require_result_artifacts(
+                [{"policy": "PPO MLP", "metrics_output": metrics_path}]
+            )
+
+    def test_require_result_artifacts_rejects_missing_outputs(self):
+        with self.assertRaises(FileNotFoundError):
+            make_paper_figures.require_result_artifacts(
+                [{"policy": "PPO MLP", "metrics_output": "missing.json"}]
+            )
+
     def test_write_results_table_uses_summary_metrics(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             table_path = os.path.join(tmpdir, "table.tex")
@@ -135,6 +157,7 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertNotIn("20 rollouts", fragment)
         self.assertIn("obtains 0\\% success", fragment)
         self.assertIn("mean test reward 910.6", fragment)
+        self.assertIn("fixed programmatic state machine reaches 100\\% training success", fragment)
         self.assertIn("obtains 20\\% full-horizon test success", fragment)
         self.assertIn("mean test reward 6275.4", fragment)
 

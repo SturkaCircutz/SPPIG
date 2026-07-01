@@ -1,0 +1,48 @@
+{
+  "checkpoint": "artifacts/progress_mlp_128k_seed0.pt",
+  "checkpoint_config": {
+    "action_scale": 10.0,
+    "clip_range": 0.2,
+    "entropy_coef": 0.01,
+    "eval_interval": 16384,
+    "eval_rollouts": 20,
+    "eval_test_max_steps": 1000,
+    "gae_lambda": 0.95,
+    "gamma": 0.99,
+    "hidden_size": 64,
+    "initial_log_std": -1.0,
+    "keep_best": true,
+    "learning_rate": 0.0003,
+    "max_grad_norm": 0.5,
+    "minibatches": 8,
+    "num_envs": 8,
+    "policy_type": "mlp",
+    "pretrain_batch_size": 256,
+    "pretrain_learning_rate": 0.001,
+    "pretrain_steps": 0,
+    "rollout_steps": 128,
+    "seed": 0,
+    "total_timesteps": 131072,
+    "update_epochs": 8,
+    "value_coef": 0.5,
+    "verbose": true
+  },
+  "checkpoint_result": {
+    "test_reward_mean": 860.95,
+    "test_success_rate": 0.35,
+    "timesteps": 81920,
+    "train_reward_mean": 250.0,
+    "train_success_rate": 1.0
+  },
+  "command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/progress_mlp_128k_seed0.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
+  "eval_rollouts": 20,
+  "paper_test_horizon_steps": 15000,
+  "selected_result": {
+    "test_reward_mean": 910.6,
+    "test_success_rate": 0.0,
+    "timesteps": 81920,
+    "train_reward_mean": 250.0,
+    "train_success_rate": 1.0
+  },
+  "test_max_steps": 15000
+}
