@@ -26,6 +26,7 @@ from cartpole_synthesis import (
     GaussianScalar,
     ObservationPredicate,
     ProbabilisticCartpoleStudent,
+    cartpole_switch_fit_diagnostics,
     fit_probabilistic_cartpole_student,
     synthesize_cartpole_policy,
     synthesize_cartpole_student,
@@ -188,6 +189,77 @@ class CartpolePaperTest(unittest.TestCase):
             _switch_timing_loss(boundary_switch, [[segment, next_segment]], responsibilities),
             _switch_timing_loss(early_switch, [[segment, next_segment]], responsibilities),
         )
+
+    def test_cartpole_switch_fit_diagnostics_reports_boundary_alignment(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0, 10.0],
+            mode_labels=[0, 0, 0, 1],
+            reward=4.0,
+        )
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.1),
+            switch_parameter_distributions=[GaussianScalar(0.0, 0.1)],
+            responsibilities=[(1.0, 0.0), (0.0, 1.0)],
+        )
+
+        diagnostics = cartpole_switch_fit_diagnostics([trace], student)
+
+        self.assertTrue(diagnostics["not_paper_reproduction"])
+        self.assertEqual(diagnostics["diagnostic_scope"], "local_teacher_trace_fit")
+        self.assertTrue(diagnostics["responsibility_segment_count_match"])
+        self.assertEqual(diagnostics["num_trace_steps"], 4)
+        self.assertEqual(diagnostics["num_segments"], 2)
+        self.assertEqual(diagnostics["num_boundaries"], 1)
+        selected = diagnostics["candidates"]["selected_student_switch"]
+        alignment = selected["boundary_alignment"]
+        self.assertEqual(alignment["num_boundaries"], 1)
+        self.assertEqual(alignment["at_boundary_count"], 1)
+        self.assertEqual(alignment["early_switch_count"], 0)
+        self.assertEqual(selected["timing_loss_per_boundary"], selected["timing_loss_total"])
+
+    def test_cartpole_switch_fit_diagnostics_excludes_never_enabled_delta_sentinel(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0, 10.0],
+            mode_labels=[0, 0, 0, 1],
+            reward=4.0,
+        )
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 1.0),
+            switch_threshold_distribution=GaussianScalar(1.0, 0.1),
+            switch_parameter_distributions=[GaussianScalar(1.0, 0.1)],
+            responsibilities=[(1.0, 0.0), (0.0, 1.0)],
+        )
+
+        diagnostics = cartpole_switch_fit_diagnostics([trace], student)
+
+        alignment = diagnostics["candidates"]["selected_student_switch"]["boundary_alignment"]
+        self.assertEqual(alignment["num_boundaries"], 1)
+        self.assertEqual(alignment["enabled_boundary_count"], 0)
+        self.assertEqual(alignment["never_enabled_count"], 1)
+        self.assertIsNone(alignment["first_enabled_minus_duration_mean"])
+        self.assertIsNone(alignment["first_enabled_minus_duration_min"])
+        self.assertIsNone(alignment["first_enabled_minus_duration_max"])
 
     def test_cartpole_eq12_likelihood_rewards_transition_at_duration(self):
         segment = CartpoleSegment(

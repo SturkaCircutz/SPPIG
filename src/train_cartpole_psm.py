@@ -12,6 +12,7 @@ from cartpole_synthesis import (
     CartpoleTrace,
     ProbabilisticCartpoleStudent,
     cartpole_synthesis_algorithm_provenance,
+    cartpole_switch_fit_diagnostics,
     synthesize_cartpole_student,
 )
 
@@ -140,6 +141,7 @@ def main() -> None:
         "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),
         "probabilistic_student": summarize_student(student),
+        "switch_fit_diagnostics": cartpole_switch_fit_diagnostics(traces, student),
         "train": train,
         "test": test,
     }

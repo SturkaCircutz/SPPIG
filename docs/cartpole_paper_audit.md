@@ -44,7 +44,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
   fixed local synthesis constants, probabilistic-student parameters, trace count, and train/test
-  metrics to JSON.
+  metrics to JSON. It also persists switch-fit diagnostics comparing the selected switch objective
+  tuple to a fixed local reference switch; this is failure-analysis provenance, not a controller
+  selection rule.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
@@ -102,7 +104,9 @@ These are implementation diagnostics, not paper-scale reproduced results.
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
   train reward mean `23.8`, test reward mean `37.5`. This documents a current synthesis gap rather
-  than a paper-level programmatic-policy result.
+  than a paper-level programmatic-policy result. The metrics artifact now also records
+  `switch_fit_diagnostics`, which shows the selected switch was chosen by the current hard-label-first
+  trace objective and compares that objective tuple against the fixed local reference switch.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -134,7 +138,7 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - Programmatic-state-machine synthesis can now write metrics JSON containing the synthesis config,
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
   compact teacher-trace examples with segment-duration schedules, number of teacher traces,
-  evaluation settings, and train/test metrics.
+  evaluation settings, switch-fit diagnostics, and train/test metrics.
 - The Cartpole switch learner now locally refines Gaussian threshold means when doing so improves the
   discrete Eq. (12)-style timing likelihood without increasing hard segment-label mistakes. This is
   still a bounded approximation, not the paper's full continuous switch-parameter optimizer.

@@ -70,6 +70,10 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
         self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
         self.assertEqual(provenance["switch_search"]["max_threshold_candidates"], 64)
+        self.assertEqual(
+            provenance["switch_search"]["selection_objective_order"][0],
+            "hard_label_mistakes",
+        )
         self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
@@ -85,6 +89,28 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("action_distributions", metrics["probabilistic_student"])
         self.assertIn("switch_parameter_distributions", metrics["probabilistic_student"])
         self.assertGreaterEqual(metrics["probabilistic_student"]["responsibility_summary"]["segments"], 1)
+        diagnostics = metrics["switch_fit_diagnostics"]
+        self.assertEqual(diagnostics["diagnostic_scope"], "local_teacher_trace_fit")
+        self.assertTrue(diagnostics["not_paper_reproduction"])
+        self.assertEqual(diagnostics["selection_objective_order"][0], "hard_label_mistakes")
+        self.assertTrue(diagnostics["responsibility_segment_count_match"])
+        self.assertEqual(diagnostics["num_trace_steps"], diagnostics["example_count"])
+        self.assertEqual(diagnostics["num_segments"], diagnostics["segment_count"])
+        self.assertEqual(diagnostics["segment_count"], metrics["probabilistic_student"]["responsibility_summary"]["segments"])
+        self.assertGreater(diagnostics["example_count"], 0)
+        self.assertIn("selected_student_switch", diagnostics["candidates"])
+        self.assertIn("fixed_local_reference_switch", diagnostics["candidates"])
+        selected = diagnostics["candidates"]["selected_student_switch"]
+        self.assertIn("hard_label_mistakes", selected)
+        self.assertIn("eq12_style_timing_loss", selected)
+        self.assertIn("boundary_alignment", selected)
+        self.assertEqual(selected["boundary_alignment"]["num_boundaries"], diagnostics["num_boundaries"])
+        self.assertLessEqual(
+            selected["boundary_alignment"]["enabled_boundary_count"],
+            selected["boundary_alignment"]["num_boundaries"],
+        )
+        self.assertEqual(selected["objective_tuple"][0], selected["hard_label_mistakes"])
+        self.assertIn("not paper-scale reproduction results", diagnostics["note"])
         self.assertIn("success_rate", metrics["train"])
         self.assertIn("reward_mean", metrics["test"])
 

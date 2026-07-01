@@ -34,6 +34,12 @@ SWITCH_OBLIQUE_THETA_WEIGHTS = (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0,
 SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
 MAX_SWITCH_THRESHOLD_CANDIDATES = 64
 DEFAULT_SWITCH_THRESHOLD_CANDIDATE = 0.0
+SWITCH_SELECTION_OBJECTIVE_ORDER = (
+    "hard_label_mistakes",
+    "eq12_style_timing_loss",
+    "program_complexity",
+    "description",
+)
 
 
 @dataclass
@@ -83,6 +89,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "oblique_omega_weights": list(SWITCH_OBLIQUE_OMEGA_WEIGHTS),
             "max_threshold_candidates": MAX_SWITCH_THRESHOLD_CANDIDATES,
             "default_threshold_candidate": DEFAULT_SWITCH_THRESHOLD_CANDIDATE,
+            "selection_objective_order": list(SWITCH_SELECTION_OBJECTIVE_ORDER),
         },
         "teacher_search": {
             "gain_sample_std_fraction": TEACHER_GAIN_SAMPLE_STD_FRACTION,
@@ -221,6 +228,133 @@ class ProbabilisticCartpoleStudent:
             f"threshold=N({threshold.mean:.3f}, {threshold.std:.3f}); "
             f"G=[{switch_params}]"
         )
+
+
+def cartpole_switch_fit_diagnostics(
+    traces: List[CartpoleTrace],
+    student: ProbabilisticCartpoleStudent,
+) -> Dict[str, object]:
+    """Summarize trace-fit terms for metrics provenance, not policy selection."""
+
+    segments_by_trace = _segments_from_traces(traces)
+    flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
+    responsibilities = student.responsibilities
+    responsibility_segment_count_match = len(responsibilities) == len(flat_segments)
+    if len(responsibilities) != len(flat_segments):
+        responsibilities = [
+            _mode_responsibilities(segment.action_parameter, student.action_distributions)
+            for segment in flat_segments
+        ]
+    examples = [
+        (observation, label)
+        for trace in traces
+        for observation, label in zip(trace.observations, trace.mode_labels)
+    ]
+    selected_switch = _switch_with_distribution_means(
+        student.switch,
+        student.switch_parameter_distributions,
+    )
+    fixed_reference_switch = Depth2Switch(10.0, 1.0, 0.0)
+    num_boundaries = _trace_boundary_count(segments_by_trace)
+    return {
+        "diagnostic_scope": "local_teacher_trace_fit",
+        "not_paper_reproduction": True,
+        "note": (
+            "Trace-fit diagnostics for the current local synthesizer. These costs "
+            "are not paper-scale reproduction results or closed-loop evaluations."
+        ),
+        "selection_objective_order": list(SWITCH_SELECTION_OBJECTIVE_ORDER),
+        "example_count": len(examples),
+        "num_trace_steps": len(examples),
+        "segment_count": len(flat_segments),
+        "num_segments": len(flat_segments),
+        "num_boundaries": num_boundaries,
+        "responsibility_segment_count_match": responsibility_segment_count_match,
+        "candidates": {
+            "selected_student_switch": _switch_fit_summary(
+                selected_switch,
+                examples,
+                segments_by_trace,
+                responsibilities,
+            ),
+            "fixed_local_reference_switch": _switch_fit_summary(
+                fixed_reference_switch,
+                examples,
+                segments_by_trace,
+                responsibilities,
+            ),
+        },
+    }
+
+
+def _switch_fit_summary(
+    switch: SwitchProgram,
+    examples: List[Tuple[Observation, int]],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> Dict[str, object]:
+    mistakes, timing_loss, complexity, description = _switch_cost(
+        switch,
+        examples,
+        segments_by_trace,
+        responsibilities,
+    )
+    example_count = len(examples)
+    num_boundaries = _trace_boundary_count(segments_by_trace)
+    label_error_rate = mistakes / example_count if example_count else 0.0
+    return {
+        "description": description,
+        "label_mistakes": mistakes,
+        "label_error_rate": label_error_rate,
+        "hard_label_mistakes": mistakes,
+        "hard_label_mistake_rate": label_error_rate,
+        "timing_loss_total": timing_loss,
+        "timing_loss_per_boundary": timing_loss / num_boundaries if num_boundaries else 0.0,
+        "eq12_style_timing_loss": timing_loss,
+        "program_complexity": complexity,
+        "boundary_alignment": _switch_boundary_alignment(switch, segments_by_trace),
+        "objective_tuple": [mistakes, timing_loss, complexity, description],
+    }
+
+
+def _trace_boundary_count(segments_by_trace: List[List[CartpoleSegment]]) -> int:
+    return sum(max(len(trace_segments) - 1, 0) for trace_segments in segments_by_trace)
+
+
+def _switch_boundary_alignment(
+    switch: SwitchProgram,
+    segments_by_trace: List[List[CartpoleSegment]],
+) -> Dict[str, object]:
+    early = 0
+    at_boundary = 0
+    late = 0
+    never = 0
+    deltas: List[int] = []
+    for trace_segments in segments_by_trace:
+        for segment in trace_segments[:-1]:
+            first_enabled = _first_enabled_step(switch, segment.observations)
+            if first_enabled > len(segment.observations):
+                never += 1
+                continue
+            delta = first_enabled - segment.duration
+            deltas.append(delta)
+            if first_enabled < segment.duration:
+                early += 1
+            elif first_enabled == segment.duration:
+                at_boundary += 1
+            else:
+                late += 1
+    return {
+        "num_boundaries": _trace_boundary_count(segments_by_trace),
+        "enabled_boundary_count": len(deltas),
+        "early_switch_count": early,
+        "at_boundary_count": at_boundary,
+        "late_switch_count": late,
+        "never_enabled_count": never,
+        "first_enabled_minus_duration_mean": sum(deltas) / len(deltas) if deltas else None,
+        "first_enabled_minus_duration_min": min(deltas) if deltas else None,
+        "first_enabled_minus_duration_max": max(deltas) if deltas else None,
+    }
 
 
 class SynthesizedCartpolePSM:

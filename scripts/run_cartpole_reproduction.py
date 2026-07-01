@@ -19,6 +19,7 @@ from cartpole_env import CartpoleEnv  # noqa: E402
 from cartpole_synthesis import (  # noqa: E402
     CartpoleSynthesisConfig,
     cartpole_synthesis_algorithm_provenance,
+    cartpole_switch_fit_diagnostics,
     synthesize_cartpole_student,
 )
 from train_cartpole_psm import summarize_student, summarize_traces  # noqa: E402
@@ -115,6 +116,7 @@ def run_psm(
         "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),
         "probabilistic_student": summarize_student(student),
+        "switch_fit_diagnostics": cartpole_switch_fit_diagnostics(traces, student),
         "train": {"success_rate": train["success"], "reward_mean": train["reward"]},
         "test": {"success_rate": test["success"], "reward_mean": test["reward"]},
     }

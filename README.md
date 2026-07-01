@@ -91,6 +91,11 @@ probabilistic student summary: Gaussian constant-action distributions, switch
 parameter distributions, latent responsibility totals, and compact teacher
 trace examples with reward, length, gains, segment durations, switches, and
 boundary observations.
+It also records `switch_fit_diagnostics`, which compares the selected switch's
+hard trace-label mistakes and local Eq. (12)-style timing loss against a fixed
+local reference switch. That block is intended to explain current synthesis
+failures; it is not a closed-loop controller selection rule or a paper-result
+claim.
 The CLI exposes the current teacher gain, teacher/student iteration, reward
 scale, regularization, top-rho, and local-refinement settings, and the metrics
 JSON records their exact values under `config`.

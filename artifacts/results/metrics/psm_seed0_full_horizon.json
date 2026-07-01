@@ -38,6 +38,12 @@
         10.0,
         20.0,
         50.0
+      ],
+      "selection_objective_order": [
+        "hard_label_mistakes",
+        "eq12_style_timing_loss",
+        "program_complexity",
+        "description"
       ]
     },
     "switch_timing": {
@@ -109,6 +115,81 @@
       "mean": 0.0,
       "std": 0.7676625225313415
     }
+  },
+  "switch_fit_diagnostics": {
+    "candidates": {
+      "fixed_local_reference_switch": {
+        "boundary_alignment": {
+          "at_boundary_count": 6,
+          "early_switch_count": 169,
+          "enabled_boundary_count": 175,
+          "first_enabled_minus_duration_max": 0,
+          "first_enabled_minus_duration_mean": -6.44,
+          "first_enabled_minus_duration_min": -15,
+          "late_switch_count": 0,
+          "never_enabled_count": 2,
+          "num_boundaries": 177
+        },
+        "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
+        "eq12_style_timing_loss": 1423.125,
+        "hard_label_mistake_rate": 0.29882044560943644,
+        "hard_label_mistakes": 684,
+        "label_error_rate": 0.29882044560943644,
+        "label_mistakes": 684,
+        "objective_tuple": [
+          684,
+          1423.125,
+          1,
+          "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
+        ],
+        "program_complexity": 1,
+        "timing_loss_per_boundary": 8.040254237288135,
+        "timing_loss_total": 1423.125
+      },
+      "selected_student_switch": {
+        "boundary_alignment": {
+          "at_boundary_count": 5,
+          "early_switch_count": 136,
+          "enabled_boundary_count": 141,
+          "first_enabled_minus_duration_max": 0,
+          "first_enabled_minus_duration_mean": -9.28368794326241,
+          "first_enabled_minus_duration_min": -15,
+          "late_switch_count": 0,
+          "never_enabled_count": 36,
+          "num_boundaries": 177
+        },
+        "description": "mode=1 if 10.000*theta + -0.250*omega >= 0.000, else mode=0",
+        "eq12_style_timing_loss": 1969.125,
+        "hard_label_mistake_rate": 0.13936216688510267,
+        "hard_label_mistakes": 319,
+        "label_error_rate": 0.13936216688510267,
+        "label_mistakes": 319,
+        "objective_tuple": [
+          319,
+          1969.125,
+          1,
+          "mode=1 if 10.000*theta + -0.250*omega >= 0.000, else mode=0"
+        ],
+        "program_complexity": 1,
+        "timing_loss_per_boundary": 11.125,
+        "timing_loss_total": 1969.125
+      }
+    },
+    "diagnostic_scope": "local_teacher_trace_fit",
+    "example_count": 2289,
+    "not_paper_reproduction": true,
+    "note": "Trace-fit diagnostics for the current local synthesizer. These costs are not paper-scale reproduction results or closed-loop evaluations.",
+    "num_boundaries": 177,
+    "num_segments": 241,
+    "num_trace_steps": 2289,
+    "responsibility_segment_count_match": true,
+    "segment_count": 241,
+    "selection_objective_order": [
+      "hard_label_mistakes",
+      "eq12_style_timing_loss",
+      "program_complexity",
+      "description"
+    ]
   },
   "test": {
     "reward_mean": 37.55,
