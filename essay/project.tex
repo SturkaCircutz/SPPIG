@@ -141,13 +141,7 @@ state changes the policy context used in the PPO ratio.
 The programmatic learner constructs teacher traces and fits a two-mode
 constant-action state machine in the CartPole grammar class.  The resulting
 controller is:
-\[
-  a(x_t) =
-  \begin{cases}
-    +10, & 5\theta_t + 0.5\dot{\theta}_t \ge 0,\\
-    -10, & \text{otherwise}.
-  \end{cases}
-\]
+\input{cartpole_policy_fragment.tex}
 This is intentionally compact: two constant actions and one interpretable
 switching boundary.  It is not the full probabilistic adaptive-teaching
 algorithm from \citet{inala2020sppig}.
