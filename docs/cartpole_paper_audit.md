@@ -48,7 +48,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `scripts/run_cartpole_reproduction.py`: orchestrated Cartpole runner that writes
   `cartpole_results.csv`, `cartpole_summary.csv`, and `cartpole_manifest.json` for selected seeds
   and settings. When PPO is included, it also writes per-row PPO checkpoints and metrics JSON under
-  the requested output directory.
+  the requested output directory; `--ppo-eval-interval` controls whether those metrics contain
+  intermediate train/test `eval_history` entries or only the selected final result.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that enumerates the
   paper-reported search ranges, writes a plan/manifest, and can execute jobs with per-config
   checkpoints and metrics JSON. It also writes a per-policy summary selecting the best completed
@@ -125,7 +126,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `--include-ppo` rows, tying those local diagnostic results to concrete artifacts.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
-  not paper-scale learning curves.
+  not paper-scale learning curves. It discovers standalone PPO metrics, reproduction-runner metrics
+  under `artifacts/results/metrics/`, and PPO sweep metrics.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges and the chosen
   learning-rate samples in a manifest, and writes a best-config summary for completed jobs.
@@ -213,6 +215,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_writes_results_and_manifest`
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings.
+- `tests/test_cartpole_reproduction_runner.py::test_quick_runner_with_ppo_writes_checkpoints_and_metrics`
+  verifies that the reproduction runner writes PPO/PPO-LSTM checkpoints and metrics JSON and that the
+  configured PPO evaluation interval produces `eval_history` entries.
 - `tests/test_cartpole_reproduction_runner.py::test_summary_rows_report_mean_std_and_best_train_seed`
   verifies the runner's per-policy mean/std summary and deterministic best-training-seed selection.
 - `tests/test_make_paper_figures.py` verifies that figure/table generation reads grouped summary rows

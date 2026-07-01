@@ -114,6 +114,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "1",
                     "--test-max-steps",
                     "20",
+                    "--ppo-eval-interval",
+                    "32",
                     "--outdir",
                     tmpdir,
                 ],
@@ -132,11 +134,14 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 with open(row["metrics_output"], encoding="utf-8") as handle:
                     metrics = json.load(handle)
                 self.assertEqual(metrics["config"]["eval_test_max_steps"], 20)
+                self.assertEqual(metrics["config"]["eval_interval"], 32)
+                self.assertGreaterEqual(len(metrics["eval_history"]), 1)
                 self.assertIn("selected_result", metrics)
 
             with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:
                 manifest = json.load(handle)
             self.assertIn("ppo_artifact_note", manifest)
+            self.assertEqual(manifest["ppo_eval_interval"], 32)
             manifest_ppo_rows = [row for row in manifest["rows"] if row["policy"] in {"PPO MLP", "PPO-LSTM"}]
             self.assertEqual(len(manifest_ppo_rows), 2)
             for row in manifest_ppo_rows:

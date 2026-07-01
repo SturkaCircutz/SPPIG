@@ -133,6 +133,13 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertEqual(len(metric_files), 1)
         self.assertEqual(make_paper_figures.metric_label(metric_files[0]), "MLP seed 0")
 
+    def test_default_ppo_metric_globs_include_runner_metrics_dir(self):
+        runner_metrics_pattern = os.path.join("artifacts", "results", "metrics", "*.json")
+
+        self.assertTrue(
+            any(pattern.endswith(runner_metrics_pattern) for pattern in make_paper_figures.PPO_METRICS_GLOBS)
+        )
+
     def test_plot_ppo_training_curves_writes_png(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             outpath = os.path.join(tmpdir, "curve.png")

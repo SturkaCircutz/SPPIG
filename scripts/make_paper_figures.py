@@ -16,6 +16,7 @@ OUT_DIR = os.path.join(ROOT, "essay", "figures")
 TABLE_TEX = os.path.join(ROOT, "essay", "cartpole_results_table.tex")
 PPO_METRICS_GLOBS = [
     os.path.join(ROOT, "artifacts", "cartpole_ppo_*_metrics.json"),
+    os.path.join(ROOT, "artifacts", "results", "metrics", "*.json"),
     os.path.join(ROOT, "artifacts", "ppo_sweep", "metrics", "*.json"),
 ]
 

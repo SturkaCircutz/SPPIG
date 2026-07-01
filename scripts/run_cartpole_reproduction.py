@@ -106,6 +106,7 @@ def run_ppo(
     eval_rollouts: int,
     test_max_steps: int,
     outdir: Path,
+    eval_interval: int,
     quick: bool,
 ) -> Dict[str, Any]:
     if not HAS_TORCH:
@@ -126,6 +127,7 @@ def run_ppo(
         num_envs=1 if quick else 8,
         eval_rollouts=eval_rollouts,
         eval_test_max_steps=test_max_steps,
+        eval_interval=eval_interval,
         seed=seed,
         initial_log_std=-1.0,
         metrics_output=str(metrics_path),
@@ -235,8 +237,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-rollouts", type=int, default=20)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--include-ppo", action="store_true")
+    parser.add_argument(
+        "--ppo-eval-interval",
+        type=int,
+        default=None,
+        help=(
+            "Record PPO train/test eval_history every N timesteps. "
+            "Defaults to 32 for --quick and 0, final-result only, otherwise."
+        ),
+    )
     parser.add_argument("--quick", action="store_true", help="Run a small diagnostic configuration for CI/local checks.")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.ppo_eval_interval is None:
+        args.ppo_eval_interval = 32 if args.quick else 0
+    return args
 
 
 def main() -> None:
@@ -248,8 +262,28 @@ def main() -> None:
         if args.include_ppo:
             # Baselines share the same seed list and evaluation budget so their
             # raw rows remain comparable under one reproduction manifest.
-            rows.append(run_ppo("mlp", seed, args.eval_rollouts, args.test_max_steps, args.outdir, args.quick))
-            rows.append(run_ppo("lstm", seed, args.eval_rollouts, args.test_max_steps, args.outdir, args.quick))
+            rows.append(
+                run_ppo(
+                    "mlp",
+                    seed,
+                    args.eval_rollouts,
+                    args.test_max_steps,
+                    args.outdir,
+                    args.ppo_eval_interval,
+                    args.quick,
+                )
+            )
+            rows.append(
+                run_ppo(
+                    "lstm",
+                    seed,
+                    args.eval_rollouts,
+                    args.test_max_steps,
+                    args.outdir,
+                    args.ppo_eval_interval,
+                    args.quick,
+                )
+            )
 
     manifest = {
         "command": " ".join(sys.argv),
@@ -258,6 +292,7 @@ def main() -> None:
         "seeds": seeds,
         "eval_rollouts": args.eval_rollouts,
         "test_max_steps": args.test_max_steps,
+        "ppo_eval_interval": args.ppo_eval_interval,
         "paper_scale_note": (
             "Without --quick, PPO uses 10^7 timesteps per seed. "
             "This runner records exact configs but does not perform hyperparameter search."
@@ -269,7 +304,8 @@ def main() -> None:
         ),
         "ppo_artifact_note": (
             "When --include-ppo is set, PPO rows include checkpoint and metrics_output paths "
-            "under the requested output directory."
+            "under the requested output directory. PPO metrics contain eval_history entries only "
+            "when ppo_eval_interval is greater than zero."
         ),
     }
     write_results(rows, args.outdir, manifest)

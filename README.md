@@ -61,7 +61,9 @@ search. The runner writes raw per-seed rows to `cartpole_results.csv`, grouped
 mean/std plus the best training seed to `cartpole_summary.csv`, and full
 configs/provenance to `cartpole_manifest.json`. When PPO is included, each PPO
 row also records its checkpoint path and metrics JSON path under the output
-directory.
+directory. Use `--ppo-eval-interval N` to record intermediate train/test
+evaluations in each PPO metrics JSON; quick runs default to interval `32`, while
+full runs default to final-result-only metrics unless an interval is supplied.
 
 Programmatic state machine:
 
@@ -160,7 +162,8 @@ the manifest.
 - Result table: `artifacts/results/cartpole_results.csv`
 - Result summary: `artifacts/results/cartpole_summary.csv`
 - Programmatic policy metrics: `artifacts/cartpole_psm*_metrics.json`
-- PPO training metrics: `artifacts/cartpole_ppo_*_metrics.json`
+- PPO training metrics: `artifacts/cartpole_ppo_*_metrics.json`,
+  `artifacts/results/metrics/*.json`, and `artifacts/ppo_sweep/metrics/*.json`
 - PPO sweep plan/results: `artifacts/ppo_sweep/`
 - PPO training-curve figure: `essay/figures/cartpole_ppo_training_curves.png`
 
