@@ -58,6 +58,8 @@ from cartpole_synthesis import (
     _switch_cost,
     _switch_structure_rescore_candidates,
     _switch_structure_cost,
+    _switch_example_cache,
+    _depth2_switch_candidates_with_mistakes,
     _teacher_candidate_traces,
     _switch_timing_loss,
     _teacher_objective,
@@ -695,6 +697,18 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(selected), 32)
         self.assertIn(Depth2Switch(1.0, 0.0, 0.0), selected)
         self.assertNotIn(Depth2Switch(1.0, 0.0, 1.29), selected)
+
+    def test_cartpole_depth2_prefilter_mistakes_match_switch_cost(self):
+        examples = [
+            ([0.0, 0.0, -0.2, -0.1], 0),
+            ([0.0, 0.0, -0.1, 0.2], 0),
+            ([0.0, 0.0, 0.1, -0.1], 1),
+            ([0.0, 0.0, 0.2, 0.2], 1),
+        ]
+        cache = _switch_example_cache(examples)
+
+        for switch, mistakes in _depth2_switch_candidates_with_mistakes(cache)[:25]:
+            self.assertEqual(mistakes, _switch_cost(switch, examples)[0])
 
     def test_cartpole_boolean_tree_switch_supports_depth_two_conjunction(self):
         switch = BooleanTreeSwitch(
