@@ -176,9 +176,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `--include-ppo` rows, tying those local diagnostic results to concrete artifacts.
 - The orchestrated reproduction runner now also writes per-seed PSM metrics JSON and links it from
   `cartpole_results.csv` and `cartpole_manifest.json`, so synthesized PSM rows are tied to concrete
-  student/teacher-trace provenance artifacts. The checked-in result table currently separates the
-  fixed two-mode programmatic diagnostic from the current synthesized-student diagnostic because the
-  current synthesizer does not reproduce the fixed-program row.
+  student/teacher-trace provenance artifacts, including per-teacher/student-iteration
+  `synthesis_history`. The checked-in result table currently separates the fixed two-mode
+  programmatic diagnostic from the current synthesized-student diagnostic because the current
+  synthesizer does not reproduce the fixed-program row.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
   not paper-scale learning curves. It discovers standalone PPO metrics, reproduction-runner metrics

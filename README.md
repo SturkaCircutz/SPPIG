@@ -63,7 +63,8 @@ budget per seed; the runner still does not perform the paper's hyperparameter
 search. The runner writes raw per-seed rows to `cartpole_results.csv`, grouped
 mean/std plus the best training seed to `cartpole_summary.csv`, and full
 configs/provenance to `cartpole_manifest.json`. Each PSM row records a metrics
-JSON path with the fitted probabilistic student and teacher-trace provenance.
+JSON path with the fitted probabilistic student and per-iteration teacher-trace
+provenance.
 When PPO is included, each PPO row also records its checkpoint path and metrics
 JSON path under the output directory. Use `--ppo-eval-interval N` to record
 intermediate train/test evaluations in each PPO metrics JSON; quick runs default

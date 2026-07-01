@@ -20,9 +20,9 @@ from cartpole_synthesis import (  # noqa: E402
     CartpoleSynthesisConfig,
     cartpole_synthesis_algorithm_provenance,
     cartpole_switch_fit_diagnostics,
-    synthesize_cartpole_student,
+    synthesize_cartpole_student_with_history,
 )
-from train_cartpole_psm import summarize_student, summarize_traces  # noqa: E402
+from train_cartpole_psm import summarize_student, summarize_synthesis_history, summarize_traces  # noqa: E402
 
 try:
     from ppo_cartpole import PPOConfig, train_ppo_cartpole  # noqa: E402
@@ -94,7 +94,7 @@ def run_psm(
     }
     cfg_kwargs.update(teacher_overrides or {})
     cfg = CartpoleSynthesisConfig(**cfg_kwargs)
-    student, traces = synthesize_cartpole_student(cfg)
+    student, traces, synthesis_history = synthesize_cartpole_student_with_history(cfg)
     policy = student.to_deterministic_policy()
     train_env = CartpoleEnv.train_env(seed=100 + seed)
     test_env = CartpoleEnv.test_env(seed=200 + seed)
@@ -113,6 +113,7 @@ def run_psm(
         "test_max_steps": test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
+        "synthesis_history": summarize_synthesis_history(synthesis_history),
         "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),
         "probabilistic_student": summarize_student(student),

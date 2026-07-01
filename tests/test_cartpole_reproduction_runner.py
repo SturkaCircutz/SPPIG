@@ -102,6 +102,16 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(psm_metrics["algorithm_provenance"]["switch_timing"]["std_steps"], 2.0)
             self.assertEqual(psm_metrics["paper_test_horizon_steps"], 15000)
             self.assertIn("probabilistic_student", psm_metrics)
+            self.assertEqual(len(psm_metrics["synthesis_history"]), 1)
+            self.assertEqual(psm_metrics["synthesis_history"][0]["iteration"], 1)
+            self.assertEqual(
+                psm_metrics["synthesis_history"][0]["trace_summary"]["count"],
+                psm_metrics["num_traces"],
+            )
+            self.assertIn(
+                "switch_fit_diagnostics",
+                psm_metrics["synthesis_history"][0],
+            )
             self.assertIn("switch_fit_diagnostics", psm_metrics)
             self.assertIn(
                 "fixed_local_reference_switch",
