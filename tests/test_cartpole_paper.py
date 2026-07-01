@@ -33,6 +33,7 @@ from cartpole_synthesis import (
     synthesize_cartpole_student,
     synthesize_cartpole_student_with_history,
     _eq12_switch_log_likelihood,
+    _action_refinement_candidates,
     _boolean_tree_candidates,
     _fit_switch_parameter_distributions,
     _gaussian_threshold_pass_probability,
@@ -1031,6 +1032,54 @@ class CartpolePaperTest(unittest.TestCase):
         )
         self.assertTrue(
             all(len(candidate.segment_actions) == len(candidate.segment_durations) for candidate in candidates)
+        )
+
+    def test_cartpole_teacher_action_refinement_changes_one_action_at_a_time(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=3)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, 10.0, 10.0),
+        )
+
+        candidates = _action_refinement_candidates(trace, initial_state, env.cfg, cfg)
+
+        self.assertEqual(len(candidates), len(trace.segment_actions))
+        for candidate in candidates:
+            changed = sum(
+                int(left != right)
+                for left, right in zip(candidate.segment_actions, trace.segment_actions)
+            )
+            self.assertEqual(changed, 1)
+            self.assertEqual(candidate.segment_durations, trace.segment_durations)
+
+    def test_cartpole_teacher_action_refinement_does_not_reduce_objective(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            segment_steps=2,
+            segments_per_trace=3,
+            teacher_refinement_steps=1,
+        )
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(-10.0, -10.0, -10.0),
+        )
+
+        refined = _refine_loop_free_trace(trace, initial_state, env.cfg, cfg, None)
+
+        self.assertGreaterEqual(
+            _teacher_objective(refined, None, cfg),
+            _teacher_objective(trace, None, cfg),
         )
 
     def test_cartpole_teacher_duration_refinement_does_not_reduce_objective(self):

@@ -86,6 +86,10 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
         self.assertEqual(
+            provenance["teacher_search"]["action_refinement_candidates_per_segment"],
+            1,
+        )
+        self.assertEqual(
             provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
             0.5,
         )

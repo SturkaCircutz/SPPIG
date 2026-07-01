@@ -145,6 +145,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
             self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
             self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
+            self.assertEqual(
+                provenance["teacher_search"]["action_refinement_candidates_per_segment"],
+                1,
+            )
             self.assertIn("rows", manifest)
             self.assertIn("summary", manifest)
             self.assertIn("summary_note", manifest)
@@ -161,6 +165,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
             self.assertEqual(row_provenance["switch_search"]["max_threshold_candidates"], 64)
             self.assertEqual(row_provenance["teacher_search"]["gain_sample_std_fraction"], 0.10)
+            self.assertEqual(
+                row_provenance["teacher_search"]["action_refinement_candidates_per_segment"],
+                1,
+            )
             self.assertTrue(os.path.exists(manifest["rows"][0]["metrics_output"]))
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO artifact checks")

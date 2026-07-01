@@ -111,6 +111,9 @@ bounded samples from the current probabilistic student alongside gain-sampled
 loop-free traces, approximating the paper's sampled-teacher phase before local
 refinement. Trace summaries record the selected source and sampled-trace
 log-probability when available.
+Local refinement can vary teacher gains, one segment duration, or one
+constant-action segment at a time, accepting only improvements under the current
+teacher objective.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood. Switch structures are
 prefiltered by a cheaper hard-label/timing objective, then the top 128 are

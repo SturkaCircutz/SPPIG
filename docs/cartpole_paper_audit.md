@@ -106,7 +106,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
   train reward mean `11.2`, test reward mean `29.7`. This documents a current synthesis gap rather
   than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
-  of `{"gain_refined": 15, "gain_sample": 11, "student_sample": 38}` for the selected traces in this
+  of `{"gain_refined": 23, "gain_sample": 3, "student_sample": 38}` for the selected traces in this
   seed, per-iteration `synthesis_history`, plus `switch_fit_diagnostics`, which shows the selected
   switch was chosen by prefiltering candidates with a cheaper hard-label/timing objective, then
   rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style distribution-timing objective
@@ -161,9 +161,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   threshold shared across a segment, matching the paper's probabilistic-state-machine sampling model.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
-  corresponding constant-action sequence, and duration-only refinement preserves that action sequence
-  while varying durations. This moves toward the paper's loop-free action-function-plus-duration
-  teacher parameterization, but is not the continuous duration optimization from Section 4.2.
+  corresponding constant-action sequence, duration-only refinement preserves that action sequence
+  while varying durations, and bounded action refinement can change one constant-action segment at a
+  time. This moves toward the paper's loop-free action-function-plus-duration teacher
+  parameterization, but is not the continuous duration optimization from Section 4.2.
 - The Cartpole teacher objective now uses the paper-reported reward scale `lambda = 100` by default
   when trading off reward against student likelihood.
 - The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings and
@@ -303,6 +304,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   generate them.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_preserves_action_sequence`
   verifies that duration-only refinement preserves the loop-free teacher's constant-action sequence.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_action_refinement_changes_one_action_at_a_time`
+  verifies that bounded action refinement mutates one loop-free action-function segment at a time.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_does_not_reduce_objective`
   verifies that bounded local segment-duration refinement can be searched without reducing the
   teacher objective.
@@ -356,8 +359,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   approximation over predicate thresholds. The current
   Cartpole teacher samples some candidate traces from the current probabilistic student after the
   first iteration, also keeps gain-sampled candidate traces for exploration, refines only gain-sampled
-  top candidates with bounded coordinate search over teacher gains and integer segment durations, and
-  scores traces with reward plus Gaussian action likelihood and discrete switch timing likelihood
-  under the previous student, but it does not yet perform the paper's full CEM procedure or
-  continuous gradient-based optimization over loop-free action functions and durations.
+  top candidates with bounded coordinate search over teacher gains, integer segment durations, and
+  one-segment constant-action changes, and scores traces with reward plus Gaussian action likelihood
+  and discrete switch timing likelihood under the previous student, but it does not yet perform the
+  paper's full CEM procedure or continuous gradient-based optimization over loop-free action
+  functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.

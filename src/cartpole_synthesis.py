@@ -30,6 +30,7 @@ TEACHER_THETA_REFINEMENT_MIN_DELTA = 0.1
 TEACHER_OMEGA_REFINEMENT_MIN_DELTA = 0.05
 TEACHER_REFINEMENT_DELTA_DECAY = 0.5
 TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
+TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT = 1
 TEACHER_STUDENT_SAMPLE_FRACTION = 0.5
 SWITCH_OBLIQUE_THETA_WEIGHTS = (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
 SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
@@ -114,6 +115,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "omega_refinement_min_delta": TEACHER_OMEGA_REFINEMENT_MIN_DELTA,
             "refinement_delta_decay": TEACHER_REFINEMENT_DELTA_DECAY,
             "duration_refinement_deltas": list(TEACHER_DURATION_REFINEMENT_DELTAS),
+            "action_refinement_candidates_per_segment": TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT,
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "trace_log_probability_approximation",
         },
@@ -764,6 +766,10 @@ def _refine_loop_free_trace(
             if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
                 best = candidate
                 improved = True
+        for candidate in _action_refinement_candidates(best, initial_state, env_cfg, cfg):
+            if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
+                best = candidate
+                improved = True
         if not improved:
             theta_delta *= TEACHER_REFINEMENT_DELTA_DECAY
             omega_delta *= TEACHER_REFINEMENT_DELTA_DECAY
@@ -792,6 +798,38 @@ def _duration_refinement_candidates(
                     trace.omega_gain,
                     tuple(updated),
                     trace.segment_actions or None,
+                )
+            )
+    return candidates
+
+
+def _action_refinement_candidates(
+    trace: CartpoleTrace,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+) -> List[CartpoleTrace]:
+    actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
+    durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
+    if not actions or not durations:
+        return []
+
+    candidates: List[CartpoleTrace] = []
+    for index, current_action in enumerate(actions):
+        for action in cfg.force_values:
+            if action == current_action:
+                continue
+            updated = list(actions)
+            updated[index] = action
+            candidates.append(
+                _rollout_with_teacher_gains(
+                    initial_state,
+                    env_cfg,
+                    cfg,
+                    trace.theta_gain,
+                    trace.omega_gain,
+                    durations,
+                    tuple(updated),
                 )
             )
     return candidates
