@@ -112,11 +112,12 @@ switch-timing responsibility-refinement pass, minimum Gaussian standard
 deviation, switch-timing scale, switch-search grids, bounded switch-parameter
 coordinate refinement, and teacher-search refinement schedule, under
 `algorithm_provenance`.
-After the first teacher/student iteration, the teacher candidate pool is sampled
-from the current probabilistic student before top-rho local refinement,
-matching the paper's sampled-teacher phase more closely than the bootstrap
-gain-sampled search. Trace summaries record the selected source and
-sampled-trace log-probability when available.
+The first teacher iteration uses an explicit probabilistic student prior, then
+later teacher candidate pools are sampled from the current probabilistic
+student before top-rho local refinement, matching the paper's sampled-teacher
+phase more closely than the earlier gain-sampled bootstrap search. Trace
+summaries record the selected source and sampled-trace log-probability when
+available.
 Local refinement can vary teacher gains, one segment duration, or one
 constant-action segment at a time, accepting only improvements under the
 current teacher objective or, after the first student fit, a top-rho
@@ -129,7 +130,7 @@ bounded forward-backward refinement using the learned switch-timing likelihood.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
 plus bounded coordinate steps. Switch structures are
-prefiltered by a cheaper hard-label/timing objective, then the top 128 are
+prefiltered by a cheaper hard-label/timing objective, then the top 32 are
 ranked first by hard trace-label mistakes and then by this bounded
 distribution-timing objective. The teacher regularizer scores both action
 likelihood and switch timing under the current student's Gaussian switch

@@ -35,6 +35,7 @@ from cartpole_synthesis import (
     _eq12_switch_log_likelihood,
     _action_refinement_candidates,
     _boolean_tree_candidates,
+    _bootstrap_probabilistic_student,
     _fit_switch_parameter_distributions,
     _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
@@ -691,7 +692,7 @@ class CartpolePaperTest(unittest.TestCase):
 
         selected = _switch_structure_rescore_candidates(switches, examples, [], [])
 
-        self.assertEqual(len(selected), 128)
+        self.assertEqual(len(selected), 32)
         self.assertIn(Depth2Switch(1.0, 0.0, 0.0), selected)
         self.assertNotIn(Depth2Switch(1.0, 0.0, 1.29), selected)
 
@@ -1087,6 +1088,27 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
         self.assertTrue(set(trace.mode_labels).issubset({0, 1}))
 
+    def test_cartpole_teacher_bootstrap_uses_probabilistic_student_prior(self):
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=4,
+            segment_steps=2,
+            segments_per_trace=4,
+        )
+
+        bootstrap = _bootstrap_probabilistic_student(cfg)
+        candidates = _teacher_candidate_traces(
+            [0.0, 0.0, 0.05, 0.0],
+            CartpoleEnv.train_env(seed=0).cfg,
+            cfg,
+            random.Random(1),
+            None,
+        )
+
+        self.assertEqual(bootstrap.switch.describe(), "mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0")
+        self.assertEqual(len(candidates), 4)
+        self.assertTrue(all(trace.teacher_source == "bootstrap_student_sample" for trace in candidates))
+        self.assertTrue(all(trace.student_log_probability is not None for trace in candidates))
+
     def test_cartpole_teacher_candidate_pool_uses_student_samples_after_first_iteration(self):
         cfg = CartpoleSynthesisConfig(
             candidate_rollouts=4,
@@ -1114,6 +1136,30 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(len(candidates), 4)
         self.assertTrue(all(trace.teacher_source == "student_sample" for trace in candidates))
+
+    def test_cartpole_teacher_optimization_bootstrap_returns_prior_sample(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=4,
+            segment_steps=2,
+            segments_per_trace=3,
+            teacher_top_rho=4,
+            teacher_refinement_steps=1,
+        )
+
+        trace = _optimize_loop_free_trace(
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            random.Random(0),
+            None,
+        )
+
+        self.assertIn(
+            trace.teacher_source,
+            {"bootstrap_student_sample", "bootstrap_student_sample_refined"},
+        )
+        self.assertIsNotNone(trace.student_log_probability)
 
     def test_cartpole_teacher_can_refine_student_sampled_trace(self):
         env = CartpoleEnv.train_env(seed=0)
@@ -1176,7 +1222,7 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertIn(
             trace.teacher_source,
-            {"gain_sample", "gain_refined", "student_sample", "student_sample_refined"},
+            {"student_sample", "student_sample_refined"},
         )
         self.assertGreaterEqual(trace.reward, 1.0)
 

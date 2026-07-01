@@ -84,7 +84,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
         self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
         self.assertEqual(provenance["switch_search"]["max_threshold_candidates"], 64)
-        self.assertEqual(provenance["switch_search"]["distribution_rescore_top_k"], 128)
+        self.assertEqual(provenance["switch_search"]["distribution_rescore_top_k"], 32)
         self.assertEqual(
             provenance["switch_search"]["prefilter_objective_order"][1],
             "eq12_style_timing_loss",
@@ -122,6 +122,16 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["elite_distance_duration_scale_floor"],
             1.0,
         )
+        self.assertEqual(
+            provenance["teacher_search"]["bootstrap_source"],
+            "probabilistic_student_prior",
+        )
+        self.assertEqual(provenance["teacher_search"]["bootstrap_action_std"], 10.0)
+        self.assertEqual(
+            provenance["teacher_search"]["bootstrap_switch_mean"],
+            {"theta_weight": 1.0, "omega_weight": 0.25, "threshold": 0.0},
+        )
+        self.assertEqual(provenance["teacher_search"]["bootstrap_switch_std"], 1.0)
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
@@ -159,7 +169,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             diagnostics["selection_objective_order"][1],
             "bounded_eq12_style_distribution_loss",
         )
-        self.assertEqual(diagnostics["distribution_rescore_top_k"], 128)
+        self.assertEqual(diagnostics["distribution_rescore_top_k"], 32)
         self.assertEqual(diagnostics["prefilter_objective_order"][1], "eq12_style_timing_loss")
         self.assertTrue(diagnostics["responsibility_segment_count_match"])
         self.assertEqual(diagnostics["num_trace_steps"], diagnostics["example_count"])

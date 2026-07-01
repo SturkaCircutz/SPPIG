@@ -171,6 +171,15 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 provenance["teacher_search"]["elite_distance_metric"],
                 "l2_over_segment_actions_and_durations",
             )
+            self.assertEqual(
+                provenance["teacher_search"]["bootstrap_source"],
+                "probabilistic_student_prior",
+            )
+            self.assertEqual(provenance["teacher_search"]["bootstrap_action_std"], 10.0)
+            self.assertEqual(
+                provenance["teacher_search"]["bootstrap_switch_mean"],
+                {"theta_weight": 1.0, "omega_weight": 0.25, "threshold": 0.0},
+            )
             self.assertIn("rows", manifest)
             self.assertIn("summary", manifest)
             self.assertIn("summary_note", manifest)
@@ -213,6 +222,15 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distance_metric"],
                 "l2_over_segment_actions_and_durations",
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["bootstrap_source"],
+                "probabilistic_student_prior",
+            )
+            self.assertEqual(row_provenance["teacher_search"]["bootstrap_action_std"], 10.0)
+            self.assertEqual(
+                row_provenance["teacher_search"]["bootstrap_switch_mean"],
+                {"theta_weight": 1.0, "omega_weight": 0.25, "threshold": 0.0},
             )
             self.assertTrue(os.path.exists(manifest["rows"][0]["metrics_output"]))
 

@@ -110,13 +110,15 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `10.2`, test reward mean `22.8`. This documents a current synthesis gap rather
-  than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
-  of `{"student_sample": 40, "student_sample_refined": 24}` for the selected traces in this
-  seed, per-iteration `synthesis_history`, plus `switch_fit_diagnostics`, which shows the selected
-  switch was chosen by prefiltering candidates with a cheaper hard-label/timing objective, then
-  rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style distribution-timing objective
-  and comparing that objective tuple against the fixed local reference switch.
+  train reward mean `10.2`, test reward mean `22.8`. This tracked full-horizon artifact was generated
+  before the first-iteration bootstrap was changed from gain sampling to a Gaussian PSM prior, so it
+  documents the earlier local synthesis gap rather than the current bootstrap-prior path or a
+  paper-level programmatic-policy result. The regenerated smoke artifact
+  `artifacts/cartpole_psm_smoke_metrics.json` records first-iteration
+  `{"bootstrap_student_sample": 1, "bootstrap_student_sample_refined": 3}` source counts and
+  `distribution_rescore_top_k = 32`. Full-horizon regeneration for the bootstrap-prior path is still
+  pending because the larger sampled-trace set exposes a switch-distribution refinement runtime
+  bottleneck.
 - Direct-Opt diagnostic command:
   `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
 - Direct-Opt diagnostic output:
@@ -164,12 +166,13 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   approximation: switch structure is prefiltered by a cheaper hard-label/timing objective before
   bounded distribution rescoring, depth-2 conjunction probabilities use an independence
   approximation, and this is not the paper's full continuous switch-parameter optimizer.
-- After the first teacher/student iteration, the Cartpole teacher candidate pool is now sampled from
-  the current probabilistic student before top-rho selection, locally refines top sampled loop-free
-  traces by duration/action coordinate search under a top-rho elite-distance kernel approximation,
-  and records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
-  toward the sampled-teacher and local-optimization phases in Section 4.2, but it is not the paper's
-  full CEM plus gradient-based trajectory optimizer.
+- The first Cartpole teacher iteration now samples from an explicit probabilistic student prior, and
+  later teacher candidate pools are sampled from the current probabilistic student before top-rho
+  selection. The teacher locally refines top sampled loop-free traces by duration/action coordinate
+  search under a top-rho elite-distance kernel approximation and records selected trace sources plus
+  sampled-trace log probabilities in metrics JSON. This moves toward the sampled-teacher and
+  local-optimization phases in Section 4.2, but it is not the paper's full CEM plus gradient-based
+  trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
   and the student's discrete Eq. (12)-style switch timing likelihood. For scalar-threshold switches,
   that timing likelihood uses the learned Gaussian switch-parameter distribution with one sampled
@@ -329,9 +332,14 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_can_sample_candidates_from_probabilistic_student`
   verifies that the bounded teacher candidate pool can include rollouts sampled from the current
   probabilistic student after the first student fit.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_bootstrap_uses_probabilistic_student_prior`
+  verifies that the first teacher iteration samples from an explicit Gaussian PSM prior and records
+  sampled-trace log probabilities.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_candidate_pool_uses_student_samples_after_first_iteration`
   verifies that the teacher candidate pool is sampled from the current probabilistic student after the
   first student fit.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_optimization_bootstrap_returns_prior_sample`
+  verifies that first-iteration optimized teacher traces retain bootstrap-sampling provenance.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_can_refine_student_sampled_trace` verifies
   that a sampled-student loop-free trace can be locally refined without reducing the current
   elite-kernel refinement objective.
@@ -402,11 +410,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   no-transition-before-duration terms. It now performs bounded local mean/std grid plus coordinate
   refinement, but does not yet solve the full continuous Eq. (12) optimization for switch-condition
   means and standard deviations. For depth-2 conjunctions, switch-enable probability still uses an
-  independence approximation over predicate thresholds. After the first student fit, the current
-  Cartpole teacher samples candidate traces from the current probabilistic student, refines top
-  loop-free candidates with bounded coordinate search over teacher gains when available, integer
-  segment durations, and one-segment constant-action changes, and scores traces with reward plus
-  Gaussian action likelihood and discrete switch timing likelihood under the previous student, but it
-  does not yet perform the paper's full CEM procedure or continuous gradient-based optimization over
-  loop-free action functions and durations.
+  independence approximation over predicate thresholds. The current Cartpole teacher samples the
+  first iteration from a Gaussian PSM prior and later iterations from the current probabilistic
+  student, refines top loop-free candidates with bounded coordinate search over teacher gains when
+  available, integer segment durations, and one-segment constant-action changes, and scores traces
+  with reward plus Gaussian action likelihood and discrete switch timing likelihood under the
+  previous student, but it does not yet perform the paper's full CEM procedure or continuous
+  gradient-based optimization over loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.

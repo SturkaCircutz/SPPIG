@@ -34,6 +34,11 @@ TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
 TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT = 1
 TEACHER_STUDENT_SAMPLE_FRACTION = 1.0
 TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR = 1.0
+TEACHER_BOOTSTRAP_ACTION_STD = 10.0
+TEACHER_BOOTSTRAP_SWITCH_THETA_WEIGHT = 1.0
+TEACHER_BOOTSTRAP_SWITCH_OMEGA_WEIGHT = 0.25
+TEACHER_BOOTSTRAP_SWITCH_THRESHOLD = 0.0
+TEACHER_BOOTSTRAP_SWITCH_STD = 1.0
 SWITCH_OBLIQUE_THETA_WEIGHTS = (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
 SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
 MAX_SWITCH_THRESHOLD_CANDIDATES = 64
@@ -55,7 +60,7 @@ SWITCH_PREFILTER_OBJECTIVE_ORDER = (
     "program_complexity",
     "description",
 )
-SWITCH_STRUCTURE_RESCORING_TOP_K = 128
+SWITCH_STRUCTURE_RESCORING_TOP_K = 32
 
 
 @dataclass
@@ -134,6 +139,15 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
             "elite_distance_metric": "l2_over_segment_actions_and_durations",
             "elite_distance_duration_scale_floor": TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR,
+            "bootstrap_source": "probabilistic_student_prior",
+            "bootstrap_action_means": "min_and_max_configured_force_values",
+            "bootstrap_action_std": TEACHER_BOOTSTRAP_ACTION_STD,
+            "bootstrap_switch_mean": {
+                "theta_weight": TEACHER_BOOTSTRAP_SWITCH_THETA_WEIGHT,
+                "omega_weight": TEACHER_BOOTSTRAP_SWITCH_OMEGA_WEIGHT,
+                "threshold": TEACHER_BOOTSTRAP_SWITCH_THRESHOLD,
+            },
+            "bootstrap_switch_std": TEACHER_BOOTSTRAP_SWITCH_STD,
         },
     }
 
@@ -554,6 +568,24 @@ def fit_probabilistic_cartpole_student(
     )
 
 
+def _bootstrap_probabilistic_student(cfg: CartpoleSynthesisConfig) -> ProbabilisticCartpoleStudent:
+    threshold = GaussianScalar(TEACHER_BOOTSTRAP_SWITCH_THRESHOLD, TEACHER_BOOTSTRAP_SWITCH_STD)
+    return ProbabilisticCartpoleStudent(
+        action_distributions={
+            0: GaussianScalar(min(cfg.force_values), TEACHER_BOOTSTRAP_ACTION_STD),
+            1: GaussianScalar(max(cfg.force_values), TEACHER_BOOTSTRAP_ACTION_STD),
+        },
+        switch=Depth2Switch(
+            TEACHER_BOOTSTRAP_SWITCH_THETA_WEIGHT,
+            TEACHER_BOOTSTRAP_SWITCH_OMEGA_WEIGHT,
+            TEACHER_BOOTSTRAP_SWITCH_THRESHOLD,
+        ),
+        switch_threshold_distribution=threshold,
+        switch_parameter_distributions=[threshold],
+        responsibilities=[(0.5, 0.5)],
+    )
+
+
 def _optimize_loop_free_trace(
     initial_state: Sequence[float],
     env_cfg: CartpoleConfig,
@@ -563,23 +595,24 @@ def _optimize_loop_free_trace(
 ) -> CartpoleTrace:
     # The "teacher" is restricted to loop-free bang-bang traces; ranking by the
     # student likelihood is the local adaptive-teaching approximation.
+    scoring_student = student or _bootstrap_probabilistic_student(cfg)
     candidates = _teacher_candidate_traces(initial_state, env_cfg, cfg, rng, student)
     ranked = sorted(
         candidates,
-        key=lambda trace: _teacher_objective(trace, student, cfg),
+        key=lambda trace: _teacher_objective(trace, scoring_student, cfg),
         reverse=True,
     )
     # Refine only the top candidates to keep synthesis cheap while still
     # optimizing around promising sampled loop-free traces.
     elites = ranked[: max(1, cfg.teacher_top_rho)]
     refined = [
-        _refine_loop_free_trace(candidate, initial_state, env_cfg, cfg, student, elites)
+        _refine_loop_free_trace(candidate, initial_state, env_cfg, cfg, scoring_student, elites)
         for candidate in elites
         if candidate.segment_actions and candidate.segment_durations
     ]
     return max(
         elites + refined,
-        key=lambda trace: _teacher_refinement_objective(trace, student, cfg, elites),
+        key=lambda trace: _teacher_refinement_objective(trace, scoring_student, cfg, elites),
     )
 
 
@@ -592,10 +625,14 @@ def _teacher_candidate_traces(
 ) -> List[CartpoleTrace]:
     candidate_count = max(1, cfg.candidate_rollouts)
     if student is None:
-        return [
-            _rollout_loop_free_candidate(initial_state, env_cfg, cfg, rng)
+        bootstrap = _bootstrap_probabilistic_student(cfg)
+        candidates = [
+            _rollout_student_sampled_trace(initial_state, env_cfg, cfg, bootstrap, rng)
             for _ in range(candidate_count)
         ]
+        for trace in candidates:
+            trace.teacher_source = "bootstrap_student_sample"
+        return candidates
 
     # Paper Section 4.2 samples teacher candidates from the current student
     # before keeping the top-rho elite set for local optimization.
@@ -818,11 +855,12 @@ def _refine_loop_free_trace(
             theta_delta *= TEACHER_REFINEMENT_DELTA_DECAY
             omega_delta *= TEACHER_REFINEMENT_DELTA_DECAY
     if best is not trace:
-        best.teacher_source = (
-            "student_sample_refined"
-            if trace.teacher_source.startswith("student_sample")
-            else "gain_refined"
-        )
+        if trace.teacher_source.startswith("student_sample"):
+            best.teacher_source = "student_sample_refined"
+        elif trace.teacher_source.startswith("bootstrap_student_sample"):
+            best.teacher_source = "bootstrap_student_sample_refined"
+        else:
+            best.teacher_source = "gain_refined"
         best.student_log_probability = (
             _trace_log_probability(best, student)
             if student is not None
@@ -1513,6 +1551,26 @@ def _switch_label_mistakes(
     switch: SwitchProgram,
     examples: List[Tuple[Observation, int]],
 ) -> int:
+    if isinstance(switch, Depth2Switch):
+        theta_weight = switch.theta_weight
+        omega_weight = switch.omega_weight
+        threshold = switch.threshold
+        return sum(
+            int((theta_weight * observation[2] + omega_weight * observation[3] >= threshold) != bool(label))
+            for observation, label in examples
+        )
+    if isinstance(switch, BooleanTreeSwitch):
+        first = switch.first
+        second = switch.second
+        if second is None:
+            return sum(
+                int(first.evaluate(observation) != bool(label))
+                for observation, label in examples
+            )
+        return sum(
+            int((first.evaluate(observation) and second.evaluate(observation)) != bool(label))
+            for observation, label in examples
+        )
     return sum(
         int(switch.decide(observation) != label)
         for observation, label in examples
@@ -1686,6 +1744,7 @@ def _learn_depth2_switch(
         return Depth2Switch(1.0, 0.0, 0.0)
 
     candidates = []
+    objective_cache: Dict[str, Tuple[int, float, int, str]] = {}
     candidate_switches: List[SwitchProgram] = []
     # Search a compact oblique threshold family over CartPole angle and angular
     # velocity before considering predicate-tree alternatives.
@@ -1695,14 +1754,32 @@ def _learn_depth2_switch(
             thresholds = _candidate_thresholds(scores)
             for threshold in thresholds:
                 candidate_switches.append(Depth2Switch(theta_weight, omega_weight, threshold))
-    candidate_switches.extend(_greedy_boolean_tree_candidates(examples, segments_by_trace, responsibilities))
+    candidate_switches.extend(
+        _greedy_boolean_tree_candidates(
+            examples,
+            segments_by_trace,
+            responsibilities,
+            objective_cache,
+        )
+    )
     for switch in _switch_structure_rescore_candidates(
         candidate_switches,
         examples,
         segments_by_trace,
         responsibilities,
     ):
-        candidates.append((*_switch_structure_cost(switch, examples, segments_by_trace, responsibilities), switch))
+        candidates.append(
+            (
+                *_switch_structure_cost(
+                    switch,
+                    examples,
+                    segments_by_trace,
+                    responsibilities,
+                    objective_cache,
+                ),
+                switch,
+            )
+        )
     return min(candidates, key=lambda item: item[:-1])[-1]
 
 
@@ -1710,11 +1787,12 @@ def _greedy_boolean_tree_candidates(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
+    cache: Dict[str, Tuple[int, float, int, str]] | None = None,
 ) -> List[BooleanTreeSwitch]:
     stumps = [BooleanTreeSwitch(predicate) for predicate in _predicate_candidates(examples)]
     if not stumps:
         return []
-    best = _best_switch(stumps, examples, segments_by_trace, responsibilities)
+    best = _best_switch(stumps, examples, segments_by_trace, responsibilities, cache)
     expanded_examples = [
         (observation, label)
         for observation, label in examples
@@ -1728,7 +1806,7 @@ def _greedy_boolean_tree_candidates(
     ]
     if not expansions:
         return [best]
-    return [best, _best_switch(expansions, examples, segments_by_trace, responsibilities)]
+    return [best, _best_switch(expansions, examples, segments_by_trace, responsibilities, cache)]
 
 
 def _best_switch(
@@ -1736,10 +1814,18 @@ def _best_switch(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None,
     responsibilities: List[Tuple[float, float]] | None,
+    cache: Dict[str, Tuple[int, float, int, str]] | None = None,
 ) -> BooleanTreeSwitch:
+    objective_cache: Dict[str, Tuple[int, float, int, str]] = cache if cache is not None else {}
     return min(
         _switch_structure_rescore_candidates(switches, examples, segments_by_trace, responsibilities),
-        key=lambda switch: _switch_structure_cost(switch, examples, segments_by_trace, responsibilities),
+        key=lambda switch: _switch_structure_cost(
+            switch,
+            examples,
+            segments_by_trace,
+            responsibilities,
+            objective_cache,
+        ),
     )
 
 
@@ -1764,9 +1850,13 @@ def _switch_structure_cost(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
+    cache: Dict[str, Tuple[int, float, int, str]] | None = None,
 ) -> Tuple[int, float, int, str]:
     if segments_by_trace is None or responsibilities is None:
         return _switch_cost(switch, examples, segments_by_trace, responsibilities)
+    cache_key = switch.describe()
+    if cache is not None and cache_key in cache:
+        return cache[cache_key]
 
     # Score a candidate structure after bounded Gaussian threshold refinement,
     # matching the objective reported in metrics provenance.
@@ -1776,7 +1866,10 @@ def _switch_structure_cost(
         segments_by_trace,
         responsibilities,
     )
-    return mistakes, timing_loss, complexity, description
+    result = (mistakes, timing_loss, complexity, description)
+    if cache is not None:
+        cache[cache_key] = result
+    return result
 
 
 def _fit_switch_structure_objective(
@@ -1804,10 +1897,7 @@ def _switch_cost(
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
 ) -> Tuple[int, float, int, str]:
-    mistakes = sum(
-        int(switch.decide(observation) != label)
-        for observation, label in examples
-    )
+    mistakes = _switch_label_mistakes(switch, examples)
     timing_loss = _switch_timing_loss(switch, segments_by_trace, responsibilities)
     # Lexicographic ordering favors label fidelity, then transition timing, then
     # a smaller/readable program; the description makes ties deterministic.
