@@ -24,6 +24,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   - `cliprange` in `{0.1, 0.2, 0.3}`.
   - learning rate in `[5e-6, 0.003]`.
 - Classic control reward functions: standard OpenAI environment rewards.
+- Adaptive-teaching reward scale: `lambda = 100`.
 
 ## Not Verified From Extracted Text
 
@@ -132,6 +133,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   integer segment duration at a time during bounded coordinate search. This moves toward the paper's
   loop-free action-function-plus-duration teacher parameterization, but is not the continuous duration
   optimization from Section 4.2.
+- The Cartpole teacher objective now uses the paper-reported reward scale `lambda = 100` by default
+  when trading off reward against student likelihood.
 - PPO training runs can now write metrics JSON containing the full evaluation history, selected
   result, config, and checkpoint-selection rule.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
@@ -205,8 +208,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that scalar switch timing probability treats the same sampled threshold as shared over the
   segment rather than resampling independently at each simulator step.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_defaults_to_reward` verifies that
-  the Cartpole teacher objective reduces to reward-only candidate selection when no previous student
-  exists.
+  the Cartpole teacher objective uses the paper-reported `lambda = 100` reward scale and reduces to
+  reward-only candidate selection when no previous student exists.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_reward_lambda_is_configurable` verifies that
+  the reward scale is explicit in the Cartpole synthesis config.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_uses_student_regularizer` verifies
   that, once a previous student exists, the teacher objective can prefer a lower-reward loop-free trace
   that has higher probability under the student's Gaussian action distributions.

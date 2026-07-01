@@ -408,7 +408,19 @@ class CartpolePaperTest(unittest.TestCase):
             reward=7.0,
         )
 
-        self.assertEqual(_teacher_objective(trace, None, cfg), 7.0)
+        self.assertEqual(cfg.teacher_reward_lambda, 100.0)
+        self.assertEqual(_teacher_objective(trace, None, cfg), 700.0)
+
+    def test_cartpole_teacher_reward_lambda_is_configurable(self):
+        cfg = CartpoleSynthesisConfig(teacher_reward_lambda=2.0)
+        trace = CartpoleTrace(
+            observations=[[0.0, 0.0, 0.0, 0.0]],
+            actions=[10.0],
+            mode_labels=[1],
+            reward=7.0,
+        )
+
+        self.assertEqual(_teacher_objective(trace, None, cfg), 14.0)
 
     def test_cartpole_teacher_objective_uses_student_regularizer(self):
         cfg = CartpoleSynthesisConfig(teacher_student_regularizer=10.0)

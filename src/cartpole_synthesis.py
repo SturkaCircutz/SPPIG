@@ -19,6 +19,7 @@ PROBABILISTIC_STUDENT_EM_ITERS = 4
 SWITCH_TIMING_STD_STEPS = 2.0
 TEACHER_STUDENT_ITERS = 2
 TEACHER_STUDENT_REGULARIZER = 1.0
+TEACHER_REWARD_LAMBDA = 100.0
 TEACHER_TOP_RHO = 10
 TEACHER_REFINEMENT_STEPS = 2
 
@@ -35,6 +36,7 @@ class CartpoleSynthesisConfig:
     teacher_omega_gain: float = 2.0
     teacher_student_iters: int = TEACHER_STUDENT_ITERS
     teacher_student_regularizer: float = TEACHER_STUDENT_REGULARIZER
+    teacher_reward_lambda: float = TEACHER_REWARD_LAMBDA
     teacher_top_rho: int = TEACHER_TOP_RHO
     teacher_refinement_steps: int = TEACHER_REFINEMENT_STEPS
 
@@ -438,10 +440,10 @@ def _teacher_objective(
     cfg: CartpoleSynthesisConfig,
 ) -> float:
     if student is None:
-        return trace.reward
+        return cfg.teacher_reward_lambda * trace.reward
     # The regularizer rewards traces that the current student can already
     # encode, which is the adaptive-teaching pressure in this local diagnostic.
-    return trace.reward + cfg.teacher_student_regularizer * _trace_log_probability(trace, student)
+    return cfg.teacher_reward_lambda * trace.reward + cfg.teacher_student_regularizer * _trace_log_probability(trace, student)
 
 
 def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleStudent) -> float:
