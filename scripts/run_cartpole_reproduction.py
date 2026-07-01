@@ -34,6 +34,8 @@ RESULT_FIELDS = [
     "train_reward",
     "test_reward",
     "timesteps",
+    "checkpoint",
+    "metrics_output",
 ]
 
 SUMMARY_FIELDS = [
@@ -53,6 +55,8 @@ SUMMARY_FIELDS = [
     "best_train_reward",
     "best_test_reward",
     "best_timesteps",
+    "best_checkpoint",
+    "best_metrics_output",
 ]
 
 
@@ -96,9 +100,19 @@ def run_psm(seed: int, eval_rollouts: int, test_max_steps: int, quick: bool) -> 
     }
 
 
-def run_ppo(policy: str, seed: int, eval_rollouts: int, test_max_steps: int, quick: bool) -> Dict[str, Any]:
+def run_ppo(
+    policy: str,
+    seed: int,
+    eval_rollouts: int,
+    test_max_steps: int,
+    outdir: Path,
+    quick: bool,
+) -> Dict[str, Any]:
     if not HAS_TORCH:
         raise RuntimeError("PyTorch is required to run PPO baselines")
+    artifact_stem = f"ppo_{policy}_seed{seed}"
+    checkpoint_path = outdir / "checkpoints" / f"{artifact_stem}.pt"
+    metrics_path = outdir / "metrics" / f"{artifact_stem}.json"
     # Non-quick PPO keeps the paper-scale 10^7 timestep budget. This runner
     # intentionally records one fixed config; it is not the missing five-seed
     # hyperparameter search from the paper.
@@ -114,8 +128,9 @@ def run_ppo(policy: str, seed: int, eval_rollouts: int, test_max_steps: int, qui
         eval_test_max_steps=test_max_steps,
         seed=seed,
         initial_log_std=-1.0,
+        metrics_output=str(metrics_path),
     )
-    _, result = train_ppo_cartpole(cfg)
+    _, result = train_ppo_cartpole(cfg, output=str(checkpoint_path))
     return {
         "policy": "PPO-LSTM" if policy == "lstm" else "PPO MLP",
         "seed": seed,
@@ -124,6 +139,8 @@ def run_ppo(policy: str, seed: int, eval_rollouts: int, test_max_steps: int, qui
         "train_reward": result.train_reward_mean,
         "test_reward": result.test_reward_mean,
         "timesteps": result.timesteps,
+        "checkpoint": str(checkpoint_path),
+        "metrics_output": str(metrics_path),
         "config": asdict(cfg),
     }
 
@@ -179,6 +196,8 @@ def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "best_train_reward": float(best["train_reward"]),
                 "best_test_reward": float(best["test_reward"]),
                 "best_timesteps": int(best["timesteps"]),
+                "best_checkpoint": best.get("checkpoint", ""),
+                "best_metrics_output": best.get("metrics_output", ""),
             }
         )
     return summary
@@ -194,7 +213,7 @@ def write_results(rows: List[Dict[str, Any]], outdir: Path, manifest: Dict[str, 
         )
         writer.writeheader()
         for row in rows:
-            writer.writerow({field: row[field] for field in writer.fieldnames})
+            writer.writerow({field: row.get(field, "") for field in writer.fieldnames})
     summary = summarize_rows(rows)
     summary_path = outdir / "cartpole_summary.csv"
     with summary_path.open("w", newline="", encoding="utf-8") as handle:
@@ -229,8 +248,8 @@ def main() -> None:
         if args.include_ppo:
             # Baselines share the same seed list and evaluation budget so their
             # raw rows remain comparable under one reproduction manifest.
-            rows.append(run_ppo("mlp", seed, args.eval_rollouts, args.test_max_steps, args.quick))
-            rows.append(run_ppo("lstm", seed, args.eval_rollouts, args.test_max_steps, args.quick))
+            rows.append(run_ppo("mlp", seed, args.eval_rollouts, args.test_max_steps, args.outdir, args.quick))
+            rows.append(run_ppo("lstm", seed, args.eval_rollouts, args.test_max_steps, args.outdir, args.quick))
 
     manifest = {
         "command": " ".join(sys.argv),
@@ -247,6 +266,10 @@ def main() -> None:
             "cartpole_summary.csv reports per-policy means and sample standard deviations over "
             "the requested seeds; with one seed, std is reported as 0. Best seed is selected by "
             "train_success, then train_reward, then lower seed."
+        ),
+        "ppo_artifact_note": (
+            "When --include-ppo is set, PPO rows include checkpoint and metrics_output paths "
+            "under the requested output directory."
         ),
     }
     write_results(rows, args.outdir, manifest)

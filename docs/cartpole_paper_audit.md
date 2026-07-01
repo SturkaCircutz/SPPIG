@@ -47,7 +47,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   switch candidates.
 - `scripts/run_cartpole_reproduction.py`: orchestrated Cartpole runner that writes
   `cartpole_results.csv`, `cartpole_summary.csv`, and `cartpole_manifest.json` for selected seeds
-  and settings.
+  and settings. When PPO is included, it also writes per-row PPO checkpoints and metrics JSON under
+  the requested output directory.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that enumerates the
   paper-reported search ranges, writes a plan/manifest, and can execute jobs with per-config
   checkpoints and metrics JSON. It also writes a per-policy summary selecting the best completed
@@ -120,6 +121,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   metrics.
 - PPO training runs can now write metrics JSON containing the full evaluation history, selected
   result, config, and checkpoint-selection rule.
+- The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
+  `--include-ppo` rows, tying those local diagnostic results to concrete artifacts.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
   not paper-scale learning curves.

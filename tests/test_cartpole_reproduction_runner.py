@@ -11,7 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(__file__))
 SCRIPT = os.path.join(ROOT, "scripts", "run_cartpole_reproduction.py")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from run_cartpole_reproduction import summarize_rows  # noqa: E402
+from run_cartpole_reproduction import HAS_TORCH, summarize_rows  # noqa: E402
 
 
 class CartpoleReproductionRunnerTest(unittest.TestCase):
@@ -98,6 +98,50 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("rows", manifest)
             self.assertIn("summary", manifest)
             self.assertIn("summary_note", manifest)
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO artifact checks")
+    def test_quick_runner_with_ppo_writes_checkpoints_and_metrics(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--quick",
+                    "--include-ppo",
+                    "--seeds",
+                    "0",
+                    "--eval-rollouts",
+                    "1",
+                    "--test-max-steps",
+                    "20",
+                    "--outdir",
+                    tmpdir,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            with open(os.path.join(tmpdir, "cartpole_results.csv"), newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(len(rows), 3)
+            ppo_rows = [row for row in rows if row["policy"] in {"PPO MLP", "PPO-LSTM"}]
+            self.assertEqual(len(ppo_rows), 2)
+            for row in ppo_rows:
+                self.assertTrue(os.path.exists(row["checkpoint"]))
+                self.assertTrue(os.path.exists(row["metrics_output"]))
+                with open(row["metrics_output"], encoding="utf-8") as handle:
+                    metrics = json.load(handle)
+                self.assertEqual(metrics["config"]["eval_test_max_steps"], 20)
+                self.assertIn("selected_result", metrics)
+
+            with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:
+                manifest = json.load(handle)
+            self.assertIn("ppo_artifact_note", manifest)
+            manifest_ppo_rows = [row for row in manifest["rows"] if row["policy"] in {"PPO MLP", "PPO-LSTM"}]
+            self.assertEqual(len(manifest_ppo_rows), 2)
+            for row in manifest_ppo_rows:
+                self.assertTrue(os.path.exists(row["checkpoint"]))
+                self.assertTrue(os.path.exists(row["metrics_output"]))
 
 
 if __name__ == "__main__":

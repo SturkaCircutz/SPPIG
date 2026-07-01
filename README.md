@@ -59,7 +59,9 @@ PPO/PPO-LSTM. Without `--quick`, PPO uses the paper-scale `10^7` timestep
 budget per seed; the runner still does not perform the paper's hyperparameter
 search. The runner writes raw per-seed rows to `cartpole_results.csv`, grouped
 mean/std plus the best training seed to `cartpole_summary.csv`, and full
-configs/provenance to `cartpole_manifest.json`.
+configs/provenance to `cartpole_manifest.json`. When PPO is included, each PPO
+row also records its checkpoint path and metrics JSON path under the output
+directory.
 
 Programmatic state machine:
 
