@@ -108,7 +108,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
   train reward mean `10.1`, test reward mean `24.5`. This documents a current synthesis gap rather
   than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
-  of `{"gain_refined": 46, "gain_sample": 7, "student_sample_refined": 11}` for the selected traces in this
+  of `{"gain_refined": 34, "gain_sample": 19, "student_sample": 5, "student_sample_refined": 6}` for the selected traces in this
   seed, per-iteration `synthesis_history`, plus `switch_fit_diagnostics`, which shows the selected
   switch was chosen by prefiltering candidates with a cheaper hard-label/timing objective, then
   rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style distribution-timing objective
@@ -155,10 +155,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   approximation, and this is not the paper's full continuous switch-parameter optimizer.
 - After the first teacher/student iteration, the Cartpole teacher candidate pool now includes bounded
   rollouts sampled from the current probabilistic student as well as gain-sampled loop-free traces,
-  locally refines top sampled loop-free traces by duration/action coordinate search, and records
-  selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves toward the
-  sampled-teacher and local-optimization phases in Section 4.2, but it is not the paper's full CEM
-  plus gradient-based trajectory optimizer.
+  locally refines top sampled loop-free traces by duration/action coordinate search under a top-rho
+  elite-distance kernel approximation, and records selected trace sources plus sampled-trace
+  log probabilities in metrics JSON. This moves toward the sampled-teacher and local-optimization
+  phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
   and the student's discrete Eq. (12)-style switch timing likelihood. For scalar-threshold switches,
   that timing likelihood uses the learned Gaussian switch-parameter distribution with one sampled
@@ -302,6 +302,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   gradient-based trajectory optimizer.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_regularizer_uses_switch_distribution_uncertainty`
   verifies that the teacher regularizer uses switch-distribution uncertainty when scoring a trace.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distance_matches_loop_free_parameters`
+  verifies that the top-rho refinement distance compares loop-free action and duration parameters.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_kernel_uses_normalized_top_rho_distance`
+  verifies that the refinement objective uses the paper-style normalized elite-distance kernel
+  approximation for trace probability.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_can_sample_candidates_from_probabilistic_student`
   verifies that the bounded teacher candidate pool can include rollouts sampled from the current
   probabilistic student after the first student fit.
@@ -309,7 +314,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that sampled-student traces and gain-sampled traces both remain in the bounded teacher
   candidate pool.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_can_refine_student_sampled_trace` verifies
-  that a sampled-student loop-free trace can be locally refined without reducing the teacher objective.
+  that a sampled-student loop-free trace can be locally refined without reducing the current
+  elite-kernel refinement objective.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_does_not_reduce_objective`
   verifies that local refinement of Cartpole loop-free teacher gains does not reduce the teacher
   objective after top-candidate sampling. This is a bounded coordinate refinement over the diagnostic

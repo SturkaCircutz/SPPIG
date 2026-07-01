@@ -33,6 +33,7 @@ TEACHER_REFINEMENT_DELTA_DECAY = 0.5
 TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
 TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT = 1
 TEACHER_STUDENT_SAMPLE_FRACTION = 0.5
+TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR = 1.0
 SWITCH_OBLIQUE_THETA_WEIGHTS = (-50.0, -20.0, -10.0, -5.0, -2.0, -1.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
 SWITCH_OBLIQUE_OMEGA_WEIGHTS = (-10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
 MAX_SWITCH_THRESHOLD_CANDIDATES = 64
@@ -130,6 +131,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "trace_log_probability_approximation",
             "student_sample_local_refinement": "duration_and_action_coordinate_search",
+            "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
+            "elite_distance_metric": "l2_over_segment_actions_and_durations",
+            "elite_distance_duration_scale_floor": TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR,
         },
     }
 
@@ -567,14 +571,15 @@ def _optimize_loop_free_trace(
     )
     # Refine only the top candidates to keep synthesis cheap while still
     # optimizing around promising sampled loop-free traces.
+    elites = ranked[: max(1, cfg.teacher_top_rho)]
     refined = [
-        _refine_loop_free_trace(candidate, initial_state, env_cfg, cfg, student)
-        for candidate in ranked[: max(1, cfg.teacher_top_rho)]
+        _refine_loop_free_trace(candidate, initial_state, env_cfg, cfg, student, elites)
+        for candidate in elites
         if candidate.segment_actions and candidate.segment_durations
     ]
     return max(
-        ranked + refined,
-        key=lambda trace: _teacher_objective(trace, student, cfg),
+        elites + refined,
+        key=lambda trace: _teacher_refinement_objective(trace, student, cfg, elites),
     )
 
 
@@ -759,8 +764,10 @@ def _refine_loop_free_trace(
     env_cfg: CartpoleConfig,
     cfg: CartpoleSynthesisConfig,
     student: ProbabilisticCartpoleStudent | None,
+    elites: List[CartpoleTrace] | None = None,
 ) -> CartpoleTrace:
     best = trace
+    objective_elites = elites or [trace]
     refine_gains = trace.teacher_source in {"gain_sample", "gain_refined"}
     theta_delta = max(
         abs(trace.theta_gain) * TEACHER_GAIN_REFINEMENT_DELTA_FRACTION,
@@ -789,15 +796,30 @@ def _refine_loop_free_trace(
                     best.omega_gain + omega_step,
                     best.segment_durations,
                 )
-                if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
+                if _teacher_refinement_objective(
+                    candidate,
+                    student,
+                    cfg,
+                    objective_elites,
+                ) > _teacher_refinement_objective(best, student, cfg, objective_elites):
                     best = candidate
                     improved = True
         for candidate in _duration_refinement_candidates(best, initial_state, env_cfg, cfg):
-            if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
+            if _teacher_refinement_objective(
+                candidate,
+                student,
+                cfg,
+                objective_elites,
+            ) > _teacher_refinement_objective(best, student, cfg, objective_elites):
                 best = candidate
                 improved = True
         for candidate in _action_refinement_candidates(best, initial_state, env_cfg, cfg):
-            if _teacher_objective(candidate, student, cfg) > _teacher_objective(best, student, cfg):
+            if _teacher_refinement_objective(
+                candidate,
+                student,
+                cfg,
+                objective_elites,
+            ) > _teacher_refinement_objective(best, student, cfg, objective_elites):
                 best = candidate
                 improved = True
         if not improved:
@@ -892,6 +914,63 @@ def _teacher_objective(
         else _trace_log_probability(trace, student)
     )
     return cfg.teacher_reward_lambda * trace.reward + cfg.teacher_student_regularizer * log_probability
+
+
+def _teacher_refinement_objective(
+    trace: CartpoleTrace,
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+    elites: List[CartpoleTrace],
+) -> float:
+    if student is None or not elites:
+        return _teacher_objective(trace, student, cfg)
+    log_probability = _elite_kernel_log_probability(trace, student, elites)
+    return cfg.teacher_reward_lambda * trace.reward + cfg.teacher_student_regularizer * log_probability
+
+
+def _elite_kernel_log_probability(
+    trace: CartpoleTrace,
+    student: ProbabilisticCartpoleStudent,
+    elites: List[CartpoleTrace],
+) -> float:
+    terms: List[float] = []
+    normalizer_terms: List[float] = []
+    for elite in elites:
+        elite_log_probability = (
+            elite.student_log_probability
+            if elite.student_log_probability is not None
+            else _trace_log_probability(elite, student)
+        )
+        normalizer_terms.append(elite_log_probability)
+        terms.append(elite_log_probability - _loop_free_trace_distance(trace, elite))
+    if not terms:
+        return _trace_log_probability(trace, student)
+    return _logsumexp(terms) - _logsumexp(normalizer_terms)
+
+
+def _loop_free_trace_distance(left: CartpoleTrace, right: CartpoleTrace) -> float:
+    left_actions = left.segment_actions or _mode_run_actions(left.actions, left.mode_labels)
+    right_actions = right.segment_actions or _mode_run_actions(right.actions, right.mode_labels)
+    left_durations = left.segment_durations or _mode_run_lengths(left.mode_labels)
+    right_durations = right.segment_durations or _mode_run_lengths(right.mode_labels)
+    length = max(len(left_actions), len(right_actions), len(left_durations), len(right_durations))
+    if length == 0:
+        return 0.0
+
+    duration_scale = max(
+        TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR,
+        max(left_durations or (0,)),
+        max(right_durations or (0,)),
+    )
+    total = 0.0
+    for index in range(length):
+        left_action = left_actions[index] if index < len(left_actions) else 0.0
+        right_action = right_actions[index] if index < len(right_actions) else 0.0
+        left_duration = left_durations[index] if index < len(left_durations) else 0
+        right_duration = right_durations[index] if index < len(right_durations) else 0
+        total += (left_action - right_action) ** 2
+        total += ((left_duration - right_duration) / duration_scale) ** 2
+    return math.sqrt(total)
 
 
 def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleStudent) -> float:

@@ -110,6 +110,18 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["student_sample_local_refinement"],
             "duration_and_action_coordinate_search",
         )
+        self.assertEqual(
+            provenance["teacher_search"]["elite_refinement_objective"],
+            "reward_plus_top_rho_log_probability_distance_kernel",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["elite_distance_metric"],
+            "l2_over_segment_actions_and_durations",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["elite_distance_duration_scale_floor"],
+            1.0,
+        )
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)

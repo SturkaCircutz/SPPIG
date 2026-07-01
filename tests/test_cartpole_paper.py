@@ -39,10 +39,12 @@ from cartpole_synthesis import (
     _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
     _duration_refinement_candidates,
+    _elite_kernel_log_probability,
     _mode_responsibilities,
     _mode_run_lengths,
     _mode_run_actions,
     _optimize_loop_free_trace,
+    _loop_free_trace_distance,
     _refine_responsibilities_with_switch_timing,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
@@ -58,6 +60,7 @@ from cartpole_synthesis import (
     _teacher_candidate_traces,
     _switch_timing_loss,
     _teacher_objective,
+    _teacher_refinement_objective,
 )
 
 if HAS_TORCH:
@@ -963,6 +966,83 @@ class CartpolePaperTest(unittest.TestCase):
             _teacher_objective(trace, diffuse_student, cfg),
         )
 
+    def test_cartpole_teacher_elite_distance_matches_loop_free_parameters(self):
+        reference = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(2, 3),
+        )
+        same = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(2, 3),
+        )
+        different = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            segment_actions=(-9.0, 8.0),
+            segment_durations=(2, 5),
+        )
+
+        self.assertEqual(_loop_free_trace_distance(reference, same), 0.0)
+        self.assertGreater(_loop_free_trace_distance(reference, different), 0.0)
+
+    def test_cartpole_teacher_elite_kernel_uses_normalized_top_rho_distance(self):
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        elite = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(2, 3),
+            student_log_probability=-5.0,
+        )
+        close = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(2, 3),
+        )
+        far = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            segment_actions=(-8.0, 8.0),
+            segment_durations=(4, 5),
+        )
+        cfg = CartpoleSynthesisConfig(teacher_reward_lambda=0.0, teacher_student_regularizer=1.0)
+
+        self.assertAlmostEqual(_elite_kernel_log_probability(close, student, [elite]), 0.0)
+        self.assertGreater(
+            _elite_kernel_log_probability(close, student, [elite]),
+            _elite_kernel_log_probability(far, student, [elite]),
+        )
+        self.assertGreater(
+            _teacher_refinement_objective(close, student, cfg, [elite]),
+            _teacher_refinement_objective(far, student, cfg, [elite]),
+        )
+
     def test_cartpole_mode_run_lengths_records_sampled_trace_segments(self):
         self.assertEqual(_mode_run_lengths([0, 0, 1, 1, 1, 0]), (2, 3, 1))
         self.assertEqual(_mode_run_lengths([]), ())
@@ -1060,8 +1140,8 @@ class CartpolePaperTest(unittest.TestCase):
         refined = _refine_loop_free_trace(trace, [0.0, 0.0, 0.05, 0.0], env.cfg, cfg, student)
 
         self.assertGreaterEqual(
-            _teacher_objective(refined, student, cfg),
-            _teacher_objective(trace, student, cfg),
+            _teacher_refinement_objective(refined, student, cfg, [trace]),
+            _teacher_refinement_objective(trace, student, cfg, [trace]),
         )
         self.assertIsNotNone(refined.student_log_probability)
         self.assertIn(refined.teacher_source, {"student_sample", "student_sample_refined"})
