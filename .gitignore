@@ -2,3 +2,5 @@ paper/
 scripts/generate_paper_figures.py
 __pycache__/
 *.pyc
+artifacts/
+.venv/

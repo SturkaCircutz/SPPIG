@@ -1,0 +1,13 @@
+{
+  "spec_version": 1,
+  "texlive_version": "2025",
+  "sources": [
+    {
+      "filename": "project.tex",
+      "usage": "toplevel"
+    }
+  ],
+  "process": {
+    "compiler": "pdflatex"
+  }
+}
