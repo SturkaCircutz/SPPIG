@@ -103,11 +103,13 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `21.3`, test reward mean `41.6`. This documents a current synthesis gap rather
+  train reward mean `20.6`, test reward mean `35.3`. This documents a current synthesis gap rather
   than a paper-level programmatic-policy result. The metrics artifact records `teacher_source_counts`
   of `{"student_sample": 64}` for the selected traces in this seed, plus `switch_fit_diagnostics`,
-  which shows the selected switch was chosen by the current hard-label-first trace objective and
-  compares that objective tuple against the fixed local reference switch.
+  which shows the selected switch was chosen by prefiltering candidates with a cheaper
+  hard-label/timing objective, then rescoring the top 128 by a hard-label-first, bounded Eq. (12)-style
+  distribution-timing objective and comparing that objective tuple against the fixed local reference
+  switch.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:

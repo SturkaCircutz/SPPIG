@@ -47,6 +47,8 @@ from cartpole_synthesis import (
     _sample_switch,
     _single_threshold_transition_probability,
     _switch_cost,
+    _switch_structure_rescore_candidates,
+    _switch_structure_cost,
     _teacher_candidate_traces,
     _switch_timing_loss,
     _teacher_objective,
@@ -233,6 +235,18 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(alignment["at_boundary_count"], 1)
         self.assertEqual(alignment["early_switch_count"], 0)
         self.assertEqual(selected["timing_loss_per_boundary"], selected["timing_loss_total"])
+        self.assertEqual(
+            selected["objective_tuple"][1],
+            selected["bounded_eq12_style_distribution_loss"],
+        )
+        self.assertEqual(
+            selected["deterministic_objective_tuple"][1],
+            selected["eq12_style_timing_loss"],
+        )
+        self.assertEqual(
+            selected["objective_boundary_alignment"]["num_boundaries"],
+            diagnostics["num_boundaries"],
+        )
 
     def test_cartpole_switch_fit_diagnostics_excludes_never_enabled_delta_sentinel(self):
         trace = CartpoleTrace(
@@ -508,6 +522,73 @@ class CartpolePaperTest(unittest.TestCase):
                 [[segment]],
                 [],
             )
+
+    def test_cartpole_switch_structure_cost_uses_refined_distribution_timing(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.3, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.15, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.25, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0)]
+        examples = [
+            (observation, trace_segment.hard_mode)
+            for trace_segments in segments_by_trace
+            for trace_segment in trace_segments
+            for observation in trace_segment.observations
+        ]
+        aligned = Depth2Switch(1.0, 0.0, 0.0)
+        wrong_feature = Depth2Switch(0.0, 1.0, 0.0)
+
+        aligned_cost = _switch_structure_cost(aligned, examples, segments_by_trace, responsibilities)
+        wrong_feature_cost = _switch_structure_cost(wrong_feature, examples, segments_by_trace, responsibilities)
+
+        self.assertLess(aligned_cost[1], wrong_feature_cost[1])
+        self.assertNotEqual(
+            wrong_feature_cost[1],
+            _switch_cost(wrong_feature, examples, segments_by_trace, responsibilities)[1],
+        )
+
+    def test_cartpole_switch_structure_cost_falls_back_without_timing_evidence(self):
+        examples = [
+            ([0.0, 0.0, -0.1, 0.0], 0),
+            ([0.0, 0.0, 0.1, 0.0], 1),
+        ]
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+
+        self.assertEqual(
+            _switch_structure_cost(switch, examples),
+            _switch_cost(switch, examples),
+        )
+
+    def test_cartpole_switch_structure_rescore_candidates_keeps_best_prefiltered_subset(self):
+        examples = [
+            ([0.0, 0.0, -0.2, 0.0], 0),
+            ([0.0, 0.0, -0.1, 0.0], 0),
+            ([0.0, 0.0, 0.1, 0.0], 1),
+            ([0.0, 0.0, 0.2, 0.0], 1),
+        ]
+        switches = [
+            Depth2Switch(1.0, 0.0, threshold / 100.0)
+            for threshold in range(130)
+        ]
+
+        selected = _switch_structure_rescore_candidates(switches, examples, [], [])
+
+        self.assertEqual(len(selected), 128)
+        self.assertIn(Depth2Switch(1.0, 0.0, 0.0), selected)
+        self.assertNotIn(Depth2Switch(1.0, 0.0, 1.29), selected)
 
     def test_cartpole_boolean_tree_switch_supports_depth_two_conjunction(self):
         switch = BooleanTreeSwitch(

@@ -38,10 +38,17 @@ DEFAULT_SWITCH_THRESHOLD_CANDIDATE = 0.0
 SWITCH_STD_REFINEMENT_MULTIPLIERS = (0.5, 1.0, 2.0)
 SWITCH_SELECTION_OBJECTIVE_ORDER = (
     "hard_label_mistakes",
+    "bounded_eq12_style_distribution_loss",
+    "program_complexity",
+    "description",
+)
+SWITCH_PREFILTER_OBJECTIVE_ORDER = (
+    "hard_label_mistakes",
     "eq12_style_timing_loss",
     "program_complexity",
     "description",
 )
+SWITCH_STRUCTURE_RESCORING_TOP_K = 128
 
 
 @dataclass
@@ -94,6 +101,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "oblique_omega_weights": list(SWITCH_OBLIQUE_OMEGA_WEIGHTS),
             "max_threshold_candidates": MAX_SWITCH_THRESHOLD_CANDIDATES,
             "default_threshold_candidate": DEFAULT_SWITCH_THRESHOLD_CANDIDATE,
+            "distribution_rescore_top_k": SWITCH_STRUCTURE_RESCORING_TOP_K,
+            "prefilter_objective_order": list(SWITCH_PREFILTER_OBJECTIVE_ORDER),
             "selection_objective_order": list(SWITCH_SELECTION_OBJECTIVE_ORDER),
         },
         "teacher_search": {
@@ -271,6 +280,8 @@ def cartpole_switch_fit_diagnostics(
             "are not paper-scale reproduction results or closed-loop evaluations."
         ),
         "selection_objective_order": list(SWITCH_SELECTION_OBJECTIVE_ORDER),
+        "distribution_rescore_top_k": SWITCH_STRUCTURE_RESCORING_TOP_K,
+        "prefilter_objective_order": list(SWITCH_PREFILTER_OBJECTIVE_ORDER),
         "example_count": len(examples),
         "num_trace_steps": len(examples),
         "segment_count": len(flat_segments),
@@ -306,21 +317,41 @@ def _switch_fit_summary(
         segments_by_trace,
         responsibilities,
     )
+    (
+        refined_switch,
+        structure_mistakes,
+        distribution_loss,
+        structure_complexity,
+        structure_description,
+    ) = _fit_switch_structure_objective(
+        switch,
+        examples,
+        segments_by_trace,
+        responsibilities,
+    )
     example_count = len(examples)
     num_boundaries = _trace_boundary_count(segments_by_trace)
-    label_error_rate = mistakes / example_count if example_count else 0.0
+    label_error_rate = structure_mistakes / example_count if example_count else 0.0
+    deterministic_label_error_rate = mistakes / example_count if example_count else 0.0
     return {
         "description": description,
-        "label_mistakes": mistakes,
+        "objective_description": structure_description,
+        "label_mistakes": structure_mistakes,
         "label_error_rate": label_error_rate,
-        "hard_label_mistakes": mistakes,
+        "hard_label_mistakes": structure_mistakes,
         "hard_label_mistake_rate": label_error_rate,
-        "timing_loss_total": timing_loss,
-        "timing_loss_per_boundary": timing_loss / num_boundaries if num_boundaries else 0.0,
+        "timing_loss_total": distribution_loss,
+        "timing_loss_per_boundary": distribution_loss / num_boundaries if num_boundaries else 0.0,
+        "bounded_eq12_style_distribution_loss": distribution_loss,
         "eq12_style_timing_loss": timing_loss,
-        "program_complexity": complexity,
+        "program_complexity": structure_complexity,
+        "deterministic_hard_label_mistakes": mistakes,
+        "deterministic_label_error_rate": deterministic_label_error_rate,
+        "deterministic_eq12_style_timing_loss": timing_loss,
+        "deterministic_objective_tuple": [mistakes, timing_loss, complexity, description],
         "boundary_alignment": _switch_boundary_alignment(switch, segments_by_trace),
-        "objective_tuple": [mistakes, timing_loss, complexity, description],
+        "objective_boundary_alignment": _switch_boundary_alignment(refined_switch, segments_by_trace),
+        "objective_tuple": [structure_mistakes, distribution_loss, structure_complexity, structure_description],
     }
 
 
@@ -1251,8 +1282,13 @@ def _learn_depth2_switch(
             for threshold in thresholds:
                 candidate_switches.append(Depth2Switch(theta_weight, omega_weight, threshold))
     candidate_switches.extend(_greedy_boolean_tree_candidates(examples, segments_by_trace, responsibilities))
-    for switch in candidate_switches:
-        candidates.append((*_switch_cost(switch, examples, segments_by_trace, responsibilities), switch))
+    for switch in _switch_structure_rescore_candidates(
+        candidate_switches,
+        examples,
+        segments_by_trace,
+        responsibilities,
+    ):
+        candidates.append((*_switch_structure_cost(switch, examples, segments_by_trace, responsibilities), switch))
     return min(candidates, key=lambda item: item[:-1])[-1]
 
 
@@ -1288,9 +1324,64 @@ def _best_switch(
     responsibilities: List[Tuple[float, float]] | None,
 ) -> BooleanTreeSwitch:
     return min(
+        _switch_structure_rescore_candidates(switches, examples, segments_by_trace, responsibilities),
+        key=lambda switch: _switch_structure_cost(switch, examples, segments_by_trace, responsibilities),
+    )
+
+
+def _switch_structure_rescore_candidates(
+    switches: List[SwitchProgram],
+    examples: List[Tuple[Observation, int]],
+    segments_by_trace: List[List[CartpoleSegment]] | None,
+    responsibilities: List[Tuple[float, float]] | None,
+) -> List[SwitchProgram]:
+    if segments_by_trace is None or responsibilities is None or len(switches) <= SWITCH_STRUCTURE_RESCORING_TOP_K:
+        return switches
+
+    ranked = sorted(
         switches,
         key=lambda switch: _switch_cost(switch, examples, segments_by_trace, responsibilities),
     )
+    return ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]
+
+
+def _switch_structure_cost(
+    switch: SwitchProgram,
+    examples: List[Tuple[Observation, int]],
+    segments_by_trace: List[List[CartpoleSegment]] | None = None,
+    responsibilities: List[Tuple[float, float]] | None = None,
+) -> Tuple[int, float, int, str]:
+    if segments_by_trace is None or responsibilities is None:
+        return _switch_cost(switch, examples, segments_by_trace, responsibilities)
+
+    # Score a candidate structure after bounded Gaussian threshold refinement,
+    # matching the objective reported in metrics provenance.
+    _, mistakes, timing_loss, complexity, description = _fit_switch_structure_objective(
+        switch,
+        examples,
+        segments_by_trace,
+        responsibilities,
+    )
+    return mistakes, timing_loss, complexity, description
+
+
+def _fit_switch_structure_objective(
+    switch: SwitchProgram,
+    examples: List[Tuple[Observation, int]],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> Tuple[SwitchProgram, int, float, int, str]:
+    distributions = _fit_switch_parameter_distributions(switch, segments_by_trace, responsibilities)
+    refined_switch = _switch_with_distribution_means(switch, distributions)
+    mistakes = _switch_label_mistakes(refined_switch, examples)
+    timing_loss = _switch_distribution_timing_loss(
+        refined_switch,
+        distributions,
+        segments_by_trace,
+        responsibilities,
+    )
+    complexity = refined_switch.node_count if isinstance(refined_switch, BooleanTreeSwitch) else 1
+    return refined_switch, mistakes, timing_loss, complexity, refined_switch.describe()
 
 
 def _switch_cost(
