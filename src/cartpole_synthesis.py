@@ -150,7 +150,7 @@ class ProbabilisticCartpoleStudent:
         return SynthesizedCartpolePSM(
             self.action_distributions[0].mean,
             self.action_distributions[1].mean,
-            self.switch,
+            _switch_with_distribution_means(self.switch, self.switch_parameter_distributions),
         )
 
     def sample_policy(self, rng: random.Random) -> "SynthesizedCartpolePSM":
@@ -230,8 +230,9 @@ def fit_probabilistic_cartpole_student(
     """Fit the Cartpole student using Gaussian action-parameter distributions.
 
     This implements the action-distribution part of the paper's EM-style
-    student step for Cartpole's constant-action grammar.  Duration likelihoods
-    for switch timing are still approximated by the threshold distribution below.
+    student step for Cartpole's constant-action grammar.  Switch timing uses a
+    bounded threshold-mean refinement against the local Eq. (12)-style timing
+    likelihood; it is still not the paper's full continuous M-step.
     """
 
     segments_by_trace = _segments_from_traces(traces)
@@ -263,15 +264,16 @@ def fit_probabilistic_cartpole_student(
     # Fit the discrete switch after action EM so switch costs can use the same
     # soft transition evidence instead of only the teacher's hard labels.
     switch = _learn_depth2_switch(traces, segments_by_trace, responsibilities)
-    threshold_distribution = _fit_switch_threshold_distribution(
-        switch,
-        segments_by_trace,
-        responsibilities,
-    )
     switch_parameter_distributions = _fit_switch_parameter_distributions(
         switch,
         segments_by_trace,
         responsibilities,
+    )
+    switch = _switch_with_distribution_means(switch, switch_parameter_distributions)
+    threshold_distribution = (
+        switch_parameter_distributions[0]
+        if switch_parameter_distributions
+        else GaussianScalar(_switch_default_threshold(switch), 1.0)
     )
     return ProbabilisticCartpoleStudent(
         action_distributions,
@@ -488,17 +490,6 @@ def _weighted_gaussian(
     return GaussianScalar(mean, max(math.sqrt(max(variance, 0.0)), MIN_GAUSSIAN_STD))
 
 
-def _fit_switch_threshold_distribution(
-    switch: SwitchProgram,
-    segments_by_trace: List[List[CartpoleSegment]],
-    responsibilities: List[Tuple[float, float]],
-) -> GaussianScalar:
-    distributions = _fit_switch_parameter_distributions(switch, segments_by_trace, responsibilities)
-    if distributions:
-        return distributions[0]
-    return GaussianScalar(_switch_default_threshold(switch), 1.0)
-
-
 def _fit_switch_parameter_distributions(
     switch: SwitchProgram,
     segments_by_trace: List[List[CartpoleSegment]],
@@ -506,11 +497,141 @@ def _fit_switch_parameter_distributions(
 ) -> List[GaussianScalar]:
     predicates = _switch_predicates(switch)
     if not predicates:
-        return [_legacy_switch_threshold_distribution(switch, segments_by_trace, responsibilities)]
-    return [
+        distribution = _legacy_switch_threshold_distribution(switch, segments_by_trace, responsibilities)
+        _, refined = _refine_switch_distribution_means(
+            switch,
+            [distribution],
+            segments_by_trace,
+            responsibilities,
+        )
+        return refined
+    distributions = [
         _predicate_threshold_distribution(predicate, segments_by_trace, responsibilities)
         for predicate in predicates
     ]
+    _, refined = _refine_switch_distribution_means(
+        switch,
+        distributions,
+        segments_by_trace,
+        responsibilities,
+    )
+    return refined
+
+
+def _switch_with_distribution_means(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+) -> SwitchProgram:
+    if isinstance(switch, BooleanTreeSwitch):
+        predicates = _switch_predicates(switch)
+        if len(distributions) < len(predicates):
+            return switch
+        fitted = [
+            predicate.with_threshold(distribution.mean)
+            for predicate, distribution in zip(predicates, distributions)
+        ]
+        if len(fitted) == 1:
+            return BooleanTreeSwitch(fitted[0])
+        return BooleanTreeSwitch(fitted[0], fitted[1])
+    if not distributions:
+        return switch
+    return Depth2Switch(
+        switch.theta_weight,
+        switch.omega_weight,
+        distributions[0].mean,
+    )
+
+
+def _refine_switch_distribution_means(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> Tuple[SwitchProgram, List[GaussianScalar]]:
+    if not distributions or not segments_by_trace:
+        return switch, distributions
+
+    examples = [
+        (observation, 1 if segment.hard_mode == 1 else 0)
+        for trace_segments in segments_by_trace
+        for segment in trace_segments
+        for observation in segment.observations
+    ]
+    best_distributions = _distributions_with_switch_means(switch, distributions)
+    best_switch = _switch_with_distribution_means(switch, best_distributions)
+    best_mistakes = _switch_label_mistakes(best_switch, examples)
+    best_loss = _switch_timing_loss(best_switch, segments_by_trace, responsibilities)
+
+    for param_index, distribution in enumerate(distributions):
+        candidates = [
+            distribution.mean,
+            *_switch_distribution_mean_candidates(switch, param_index, segments_by_trace),
+        ]
+        for candidate_mean in candidates:
+            candidate_distributions = list(best_distributions)
+            candidate_distributions[param_index] = GaussianScalar(candidate_mean, distribution.std)
+            candidate_switch = _switch_with_distribution_means(switch, candidate_distributions)
+            candidate_mistakes = _switch_label_mistakes(candidate_switch, examples)
+            if candidate_mistakes > best_mistakes:
+                continue
+            candidate_loss = _switch_timing_loss(candidate_switch, segments_by_trace, responsibilities)
+            if candidate_loss < best_loss:
+                best_distributions = candidate_distributions
+                best_switch = candidate_switch
+                best_mistakes = candidate_mistakes
+                best_loss = candidate_loss
+    return best_switch, best_distributions
+
+
+def _distributions_with_switch_means(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+) -> List[GaussianScalar]:
+    if isinstance(switch, BooleanTreeSwitch):
+        predicates = _switch_predicates(switch)
+        return [
+            GaussianScalar(predicate.threshold, distribution.std)
+            for predicate, distribution in zip(predicates, distributions)
+        ]
+    if not distributions:
+        return []
+    return [GaussianScalar(_switch_default_threshold(switch), distributions[0].std)]
+
+
+def _switch_distribution_mean_candidates(
+    switch: SwitchProgram,
+    param_index: int,
+    segments_by_trace: List[List[CartpoleSegment]],
+) -> List[float]:
+    if isinstance(switch, BooleanTreeSwitch):
+        predicates = _switch_predicates(switch)
+        if param_index >= len(predicates):
+            return []
+        feature_index = predicates[param_index].feature_index
+        values = [
+            observation[feature_index]
+            for trace_segments in segments_by_trace
+            for segment in trace_segments
+            for observation in segment.observations
+        ]
+        return _candidate_thresholds(values)
+    values = [
+        _switch_margin(switch, observation)
+        for trace_segments in segments_by_trace
+        for segment in trace_segments
+        for observation in segment.observations
+    ]
+    return _candidate_thresholds(values)
+
+
+def _switch_label_mistakes(
+    switch: SwitchProgram,
+    examples: List[Tuple[Observation, int]],
+) -> int:
+    return sum(
+        int(switch.decide(observation) != label)
+        for observation, label in examples
+    )
 
 
 def _legacy_switch_threshold_distribution(

@@ -69,8 +69,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   fits Gaussian distributions over constant action parameters and latent mode responsibilities, but it
   still approximates switch timing and does not implement the full probabilistic adaptive-teaching
   objective from the paper. The switch grammar now includes decision stumps and depth-2 conjunction
-  candidates over observation inequalities via a depth-2 greedy leaf-expansion step, but it still uses
-  an approximate cost instead of fully optimizing Eq. (12).
+  candidates over observation inequalities via a depth-2 greedy leaf-expansion step. Switch threshold
+  means are locally refined against the discrete Eq. (12)-style timing likelihood, but the learner
+  still uses an approximate cost instead of fully optimizing Eq. (12).
 - Complete as a local diagnostic baseline: feed-forward PPO reaches 100% success on the paper's
   5-second training split.
 - Not complete against the paper: PPO/PPO-LSTM have not been run for `10^7` timesteps or selected
@@ -120,6 +121,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
   compact teacher-trace examples, number of teacher traces, evaluation settings, and train/test
   metrics.
+- The Cartpole switch learner now locally refines Gaussian threshold means when doing so improves the
+  discrete Eq. (12)-style timing likelihood without increasing hard segment-label mistakes. This is
+  still a bounded approximation, not the paper's full continuous switch-parameter optimizer.
 - PPO training runs can now write metrics JSON containing the full evaluation history, selected
   result, config, and checkpoint-selection rule.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
@@ -184,6 +188,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies the transition-at-duration term in the discrete Eq. (12)-style switch likelihood.
 - `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_penalizes_early_transition_when_staying`
   verifies the no-transition-before-duration term in the discrete Eq. (12)-style switch likelihood.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_improves_timing_likelihood`
+  verifies that the bounded switch-threshold mean refinement can improve the current timing
+  likelihood without increasing hard segment-label mistakes.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_defaults_to_reward` verifies that
   the Cartpole teacher objective reduces to reward-only candidate selection when no previous student
   exists.
@@ -237,8 +244,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   learner performs a depth-2 greedy Boolean-tree expansion, stores Gaussian threshold distributions
   for each selected switch predicate, can sample deterministic policies from those distributions, and
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
-  no-transition-before-duration terms. It does not yet solve the continuous Eq. (12) optimization for
-  switch-condition means and standard deviations. The current
+  no-transition-before-duration terms. It now performs a bounded local threshold-mean refinement, but
+  does not yet solve the continuous Eq. (12) optimization for switch-condition means and standard
+  deviations. The current
   Cartpole teacher samples candidate traces, keeps top candidates for local coordinate refinement of
   teacher gains, and scores traces with reward plus a Gaussian action
   log-probability regularizer from the previous student, but it does not yet perform the paper's

@@ -34,6 +34,7 @@ from cartpole_synthesis import (
     _fit_switch_parameter_distributions,
     _greedy_boolean_tree_candidates,
     _refine_loop_free_trace,
+    _refine_switch_distribution_means,
     _sample_switch,
     _switch_cost,
     _switch_timing_loss,
@@ -221,6 +222,50 @@ class CartpolePaperTest(unittest.TestCase):
             _eq12_switch_log_likelihood(late_switch, segment, (1.0, 0.0), (1.0, 0.0)),
             _eq12_switch_log_likelihood(early_switch, segment, (1.0, 0.0), (1.0, 0.0)),
         )
+
+    def test_cartpole_switch_distribution_refinement_improves_timing_likelihood(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.3, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0)]
+        initial_switch = Depth2Switch(1.0, 0.0, -0.3)
+
+        refined_switch, refined = _refine_switch_distribution_means(
+            initial_switch,
+            [GaussianScalar(-0.3, 0.2)],
+            segments_by_trace,
+            responsibilities,
+        )
+
+        def mistakes(switch):
+            return sum(
+                int(switch.decide(observation) != segment.hard_mode)
+                for trace_segments in segments_by_trace
+                for segment in trace_segments
+                for observation in segment.observations
+            )
+
+        self.assertEqual(len(refined), 1)
+        self.assertGreater(refined[0].std, 0.0)
+        self.assertLess(
+            _switch_timing_loss(refined_switch, segments_by_trace, responsibilities),
+            _switch_timing_loss(initial_switch, segments_by_trace, responsibilities),
+        )
+        self.assertLessEqual(mistakes(refined_switch), mistakes(initial_switch))
 
     def test_cartpole_boolean_tree_switch_supports_depth_two_conjunction(self):
         switch = BooleanTreeSwitch(
