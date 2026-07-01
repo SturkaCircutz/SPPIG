@@ -49,8 +49,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   and settings.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that enumerates the
   paper-reported search ranges, writes a plan/manifest, and can execute jobs with per-config
-  checkpoints and metrics JSON. This is search infrastructure; the full paper-scale sweep has not
-  been run.
+  checkpoints and metrics JSON. It also writes a per-policy summary selecting the best completed
+  config by train success and train reward. This is search infrastructure; the full paper-scale
+  sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
   generated LaTeX table fragment consumed by `essay/project.tex`, and plots PPO training curves when
@@ -121,7 +122,7 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   not paper-scale learning curves.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges and the chosen
-  learning-rate samples in a manifest.
+  learning-rate samples in a manifest, and writes a best-config summary for completed jobs.
 
 ## Verified PPO Invariants
 
@@ -147,6 +148,10 @@ paper-scale PPO2 runs.
   `nminibatches = 1`.
 - `tests/test_cartpole_ppo_sweep.py::test_dry_run_writes_plan_and_manifest` verifies that dry-run
   sweep planning writes a CSV plan and manifest with paper-space metadata.
+- `tests/test_cartpole_ppo_sweep.py::test_summarize_results_selects_best_train_per_policy` verifies
+  the sweep summary selection rule.
+- `tests/test_cartpole_ppo_sweep.py::test_quick_execution_writes_results_summary_and_manifest`
+  verifies that quick sweep execution writes results, summary, and manifest artifacts.
 
 ## Verified Programmatic-Student Invariants
 

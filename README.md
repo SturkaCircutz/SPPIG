@@ -128,11 +128,14 @@ PPO hyperparameter sweep plan/execution:
 ```
 
 Use `--dry-run` to write only `cartpole_ppo_sweep_plan.csv` and the manifest,
-or `--quick --max-configs 1` for a smoke execution. The sweep enumerates the
-paper's reported `nminibatches`, `ent_coef`, `noptepochs`, and `cliprange`
-ranges, with PPO-LSTM fixed to `nminibatches=1`. The extracted paper text gives
-a learning-rate interval rather than exact samples, so the runner records the
-explicit sampled values in the manifest.
+or `--quick --max-configs 1` for a smoke execution. Executed sweeps also write
+`cartpole_ppo_sweep_results.csv` and `cartpole_ppo_sweep_summary.csv`; the
+summary selects the best completed config per policy by train success, then
+train reward. The sweep enumerates the paper's reported `nminibatches`,
+`ent_coef`, `noptepochs`, and `cliprange` ranges, with PPO-LSTM fixed to
+`nminibatches=1`. The extracted paper text gives a learning-rate interval
+rather than exact samples, so the runner records the explicit sampled values in
+the manifest.
 
 ## Paper and Audit
 

@@ -48,6 +48,25 @@ RESULT_FIELDS = PLAN_FIELDS + [
     "selected_timesteps",
 ]
 
+SUMMARY_FIELDS = [
+    "policy",
+    "jobs_completed",
+    "best_job_id",
+    "best_seed",
+    "best_train_success",
+    "best_test_success",
+    "best_train_reward",
+    "best_test_reward",
+    "best_selected_timesteps",
+    "best_minibatches",
+    "best_learning_rate",
+    "best_entropy_coef",
+    "best_update_epochs",
+    "best_clip_range",
+    "best_output",
+    "best_metrics_output",
+]
+
 
 def _parse_ints(value: str) -> List[int]:
     return [int(item) for item in value.split(",") if item]
@@ -123,6 +142,50 @@ def write_csv(path: Path, fieldnames: List[str], rows: Iterable[Dict[str, Any]])
             writer.writerow({field: row[field] for field in fieldnames})
 
 
+def summarize_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    policies: List[str] = []
+    by_policy: Dict[str, List[Dict[str, Any]]] = {}
+    for row in results:
+        policy = str(row["policy"])
+        if policy not in by_policy:
+            policies.append(policy)
+            by_policy[policy] = []
+        by_policy[policy].append(row)
+
+    summary: List[Dict[str, Any]] = []
+    for policy in policies:
+        group = by_policy[policy]
+        best = max(
+            group,
+            key=lambda row: (
+                float(row["train_success"]),
+                float(row["train_reward"]),
+                -int(row["job_id"]),
+            ),
+        )
+        summary.append(
+            {
+                "policy": policy,
+                "jobs_completed": len(group),
+                "best_job_id": int(best["job_id"]),
+                "best_seed": int(best["seed"]),
+                "best_train_success": float(best["train_success"]),
+                "best_test_success": float(best["test_success"]),
+                "best_train_reward": float(best["train_reward"]),
+                "best_test_reward": float(best["test_reward"]),
+                "best_selected_timesteps": int(best["selected_timesteps"]),
+                "best_minibatches": int(best["minibatches"]),
+                "best_learning_rate": float(best["learning_rate"]),
+                "best_entropy_coef": float(best["entropy_coef"]),
+                "best_update_epochs": int(best["update_epochs"]),
+                "best_clip_range": float(best["clip_range"]),
+                "best_output": best["output"],
+                "best_metrics_output": best["metrics_output"],
+            }
+        )
+    return summary
+
+
 def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
     from ppo_cartpole import PPOConfig, train_ppo_cartpole
 
@@ -182,9 +245,11 @@ def write_manifest(args: argparse.Namespace, jobs: List[Dict[str, Any]], complet
         "artifacts": {
             "plan": str(args.outdir / "cartpole_ppo_sweep_plan.csv"),
             "results": str(args.outdir / "cartpole_ppo_sweep_results.csv"),
+            "summary": str(args.outdir / "cartpole_ppo_sweep_summary.csv"),
             "checkpoints": str(args.outdir / "checkpoints"),
             "metrics": str(args.outdir / "metrics"),
         },
+        "selection_rule": "per policy: max train_success, then train_reward, then lower job_id",
     }
     args.outdir.mkdir(parents=True, exist_ok=True)
     (args.outdir / "cartpole_ppo_sweep_manifest.json").write_text(
@@ -234,10 +299,12 @@ def main() -> None:
         for job in jobs:
             results.append(run_job(job))
             write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
+            write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
     write_manifest(args, jobs, len(results))
     print(f"wrote {args.outdir / 'cartpole_ppo_sweep_plan.csv'}")
     if not args.dry_run:
         print(f"wrote {args.outdir / 'cartpole_ppo_sweep_results.csv'}")
+        print(f"wrote {args.outdir / 'cartpole_ppo_sweep_summary.csv'}")
     print(f"wrote {args.outdir / 'cartpole_ppo_sweep_manifest.json'}")
 
 
