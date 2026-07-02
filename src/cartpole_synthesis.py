@@ -34,6 +34,10 @@ TEACHER_REFINEMENT_DELTA_DECAY = 0.5
 TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
 TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT = 2
 TEACHER_ACTION_REFINEMENT_STEP_FRACTION = 0.25
+TEACHER_ACTION_GRADIENT_STEP_FRACTION = 0.10
+TEACHER_ACTION_GRADIENT_EPS_FRACTION = 0.05
+TEACHER_DURATION_GRADIENT_STEP = 1
+TEACHER_DURATION_GRADIENT_EPS = 1
 TEACHER_STUDENT_SAMPLE_FRACTION = 1.0
 TEACHER_ELITE_DISTRIBUTION_RESAMPLES = 1
 TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD = 1e-3
@@ -139,10 +143,18 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "duration_refinement_deltas": list(TEACHER_DURATION_REFINEMENT_DELTAS),
             "action_refinement_max_candidates_per_segment": TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT,
             "action_refinement_step_fraction": TEACHER_ACTION_REFINEMENT_STEP_FRACTION,
+            "action_gradient_step_fraction": TEACHER_ACTION_GRADIENT_STEP_FRACTION,
+            "action_gradient_epsilon_fraction": TEACHER_ACTION_GRADIENT_EPS_FRACTION,
+            "duration_gradient_step": TEACHER_DURATION_GRADIENT_STEP,
+            "duration_gradient_epsilon": TEACHER_DURATION_GRADIENT_EPS,
+            "finite_difference_candidates_per_refinement_iteration": {
+                "action_schedule": 1,
+                "duration_schedule": 1,
+            },
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
             "student_sample_segment_budget": "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
-            "student_sample_local_refinement": "duration_and_continuous_action_coordinate_search",
+            "student_sample_local_refinement": "duration_continuous_action_and_finite_difference_schedule_search",
             "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
             "elite_recombination": "top_rho_segment_action_duration_centroid",
             "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
@@ -1198,6 +1210,14 @@ def _refine_loop_free_trace(
             if objective(candidate) > objective(best):
                 best = candidate
                 improved = True
+        candidate = _action_gradient_refinement_candidate(best, initial_state, env_cfg, cfg, objective)
+        if candidate is not None and objective(candidate) > objective(best):
+            best = candidate
+            improved = True
+        candidate = _duration_gradient_refinement_candidate(best, initial_state, env_cfg, cfg, objective)
+        if candidate is not None and objective(candidate) > objective(best):
+            best = candidate
+            improved = True
         if not improved:
             theta_delta *= TEACHER_REFINEMENT_DELTA_DECAY
             omega_delta *= TEACHER_REFINEMENT_DELTA_DECAY
@@ -1290,6 +1310,140 @@ def _action_refinement_candidates(
                 )
             )
     return candidates
+
+
+def _action_gradient_refinement_candidate(
+    trace: CartpoleTrace,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    objective,
+) -> CartpoleTrace | None:
+    actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
+    durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
+    if not actions or not durations:
+        return None
+
+    lower = max(min(cfg.force_values), -env_cfg.force_limit)
+    upper = min(max(cfg.force_values), env_cfg.force_limit)
+    action_span = max(MIN_GAUSSIAN_STD, upper - lower)
+    epsilon = max(MIN_GAUSSIAN_STD, action_span * TEACHER_ACTION_GRADIENT_EPS_FRACTION)
+    step_size = action_span * TEACHER_ACTION_GRADIENT_STEP_FRACTION
+    gradients: List[float] = []
+    for index, current_action in enumerate(actions):
+        minus_action = max(lower, min(upper, current_action - epsilon))
+        plus_action = max(lower, min(upper, current_action + epsilon))
+        if abs(plus_action - minus_action) < MIN_GAUSSIAN_STD:
+            gradients.append(0.0)
+            continue
+        minus_actions = list(actions)
+        plus_actions = list(actions)
+        minus_actions[index] = minus_action
+        plus_actions[index] = plus_action
+        minus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            durations,
+            tuple(minus_actions),
+        )
+        plus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            durations,
+            tuple(plus_actions),
+        )
+        gradients.append((objective(plus) - objective(minus)) / (plus_action - minus_action))
+    norm = math.sqrt(sum(gradient * gradient for gradient in gradients))
+    if norm < MIN_GAUSSIAN_STD:
+        return None
+    updated_actions = tuple(
+        max(lower, min(upper, action + step_size * gradient / norm))
+        for action, gradient in zip(actions, gradients)
+    )
+    if all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_actions, actions)):
+        return None
+    return _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain,
+        trace.omega_gain,
+        durations,
+        updated_actions,
+    )
+
+
+def _duration_gradient_refinement_candidate(
+    trace: CartpoleTrace,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    objective,
+) -> CartpoleTrace | None:
+    actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
+    durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
+    if not actions or not durations:
+        return None
+
+    max_duration = max(1, cfg.segment_steps)
+    epsilon = max(1, TEACHER_DURATION_GRADIENT_EPS)
+    gradients: List[float] = []
+    for index, current_duration in enumerate(durations):
+        minus_duration = max(1, current_duration - epsilon)
+        plus_duration = min(max_duration, current_duration + epsilon)
+        if plus_duration == minus_duration:
+            gradients.append(0.0)
+            continue
+        minus_durations = list(durations)
+        plus_durations = list(durations)
+        minus_durations[index] = minus_duration
+        plus_durations[index] = plus_duration
+        minus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            tuple(minus_durations),
+            actions,
+        )
+        plus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            tuple(plus_durations),
+            actions,
+        )
+        gradients.append((objective(plus) - objective(minus)) / float(plus_duration - minus_duration))
+    norm = math.sqrt(sum(gradient * gradient for gradient in gradients))
+    if norm < MIN_GAUSSIAN_STD:
+        return None
+    updated_durations = tuple(
+        min(
+            max_duration,
+            max(1, int(math.floor(duration + TEACHER_DURATION_GRADIENT_STEP * gradient / norm + 0.5))),
+        )
+        for duration, gradient in zip(durations, gradients)
+    )
+    if updated_durations == durations:
+        return None
+    return _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain,
+        trace.omega_gain,
+        updated_durations,
+        actions,
+    )
 
 
 def _teacher_objective(

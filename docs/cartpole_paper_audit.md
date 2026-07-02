@@ -172,9 +172,11 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   selection. These sampled rollouts now resample action and switch parameters whenever execution
   enters a mode segment, matching the paper's probabilistic PSM execution model more closely. The
   teacher locally refines top sampled loop-free traces by duration/action coordinate search under a
-  top-rho elite-distance kernel approximation, evaluates one centroid recombination of the elite
-  action/duration schedules plus one bounded sample from their fitted per-segment statistics, and
-  records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
+  top-rho elite-distance kernel approximation, adds one bounded finite-difference action candidate
+  and one bounded finite-difference integer-duration candidate per refinement iteration, evaluates
+  one centroid recombination of the elite action/duration schedules plus one
+  bounded sample from their fitted per-segment statistics, and records selected trace sources plus
+  sampled-trace log probabilities in metrics JSON. This moves
   toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
@@ -388,6 +390,20 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_action_refinement_uses_continuous_local_steps`
   verifies that bounded action refinement proposes local continuous force steps rather than only
   bang-bang action flips.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_action_gradient_uses_central_differences`
+  verifies that bounded action-schedule refinement can estimate a central finite-difference direction.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_action_gradient_refinement_can_be_accepted`
+  verifies that the finite-difference action update is only accepted when it does not reduce the
+  current teacher objective. This remains a bounded local approximation, not the paper's full
+  gradient trajectory optimizer.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_gradient_uses_central_differences`
+  verifies that bounded duration-schedule refinement can estimate a central finite-difference
+  direction over integer segment durations.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_gradient_refinement_can_be_accepted`
+  verifies that the finite-difference duration update is only accepted when it does not reduce the
+  current teacher objective.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_finite_difference_refinement_rejects_worse_candidates`
+  verifies that worse action and duration finite-difference candidates are rejected.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_does_not_reduce_objective`
   verifies that bounded local segment-duration refinement can be searched without reducing the
   teacher objective.
@@ -456,10 +472,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   current Cartpole teacher samples the first iteration from a Gaussian PSM prior and later iterations
   from the current probabilistic student, resampling action/switch parameters on mode entry, refines
   top loop-free candidates with bounded coordinate search over teacher gains when available, integer
-  segment durations, and one-segment local continuous constant-action steps, evaluates one
-  deterministic top-rho centroid recombination candidate plus one bounded sample from fitted
-  per-segment elite statistics, and scores traces with reward plus Gaussian action likelihood and
-  discrete switch timing likelihood under the
+  segment durations, one-segment local continuous constant-action steps, and one action plus one
+  integer-duration finite-difference candidate per refinement iteration, evaluates one deterministic
+  top-rho centroid recombination candidate plus one bounded sample from fitted per-segment elite
+  statistics, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
+  likelihood under the
   previous student, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.

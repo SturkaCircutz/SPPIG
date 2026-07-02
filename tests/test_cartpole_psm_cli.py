@@ -150,6 +150,14 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["action_refinement_step_fraction"],
             0.25,
         )
+        self.assertEqual(provenance["teacher_search"]["action_gradient_step_fraction"], 0.10)
+        self.assertEqual(provenance["teacher_search"]["action_gradient_epsilon_fraction"], 0.05)
+        self.assertEqual(provenance["teacher_search"]["duration_gradient_step"], 1)
+        self.assertEqual(provenance["teacher_search"]["duration_gradient_epsilon"], 1)
+        self.assertEqual(
+            provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"],
+            {"action_schedule": 1, "duration_schedule": 1},
+        )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
             1.0,
@@ -160,7 +168,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_local_refinement"],
-            "duration_and_continuous_action_coordinate_search",
+            "duration_continuous_action_and_finite_difference_schedule_search",
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_segment_budget"],

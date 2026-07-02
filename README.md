@@ -128,7 +128,9 @@ constant-action segment at a time, accepting only improvements under the
 current teacher objective or, after the first student fit, a top-rho
 elite-distance kernel approximation of the paper's second teacher optimization
 phase. Student-sampled traces can also be locally refined through
-duration/action coordinate search. The teacher also evaluates one deterministic
+duration/action coordinate search plus one bounded finite-difference action
+candidate and one bounded finite-difference integer-duration candidate per
+refinement iteration. The teacher also evaluates one deterministic
 centroid recombination of the top-rho loop-free action/duration schedules
 and one bounded sample from their fitted per-segment action/duration statistics
 before refinement. This still does not implement the paper's full CEM plus
