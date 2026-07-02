@@ -1,11 +1,14 @@
 {
   "algorithm_provenance": {
     "baseline": "direct_opt",
+    "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall",
     "force_values": [
       -10.0,
       10.0
     ],
-    "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It is not the paper's two-hour parallel numerical optimization with batch restarts over all program parameters.",
+    "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It includes a bounded batch/restart local refinement, but is not the paper's two-hour, ten-thread numerical optimization over the full continuous one-hot switching grammar.",
+    "local_parallel_threads": 1,
+    "local_time_limit_seconds": null,
     "not_paper_scale": true,
     "omega_weight_grid": [
       -10.0,
@@ -23,8 +26,11 @@
       10.0
     ],
     "paper_baseline": "Direct-Opt",
+    "paper_batch_size": 10,
+    "paper_parallel_threads": 10,
+    "paper_time_limit_seconds": 7200,
     "policy_class": "two_mode_constant_action_depth2_linear_switch",
-    "search_method": "deterministic_grid_plus_seeded_random_threshold_search",
+    "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
     "selection_objective": "mean_train_horizon_reward_then_success",
     "test_horizon_steps": 15000,
     "theta_weight_grid": [
@@ -48,24 +54,43 @@
     "left_force": -10.0,
     "omega_weight": 0.25,
     "right_force": 10.0,
+    "source": "grid",
     "theta_weight": 1.0,
     "threshold": 0.0,
     "train_reward_mean": 250.0,
     "train_success_rate": 1.0
   },
-  "command": "src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
+  "command": "src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
   "config": {
+    "batch_refinement_rounds": 1,
+    "batch_size": 10,
     "eval_rollouts": 20,
+    "local_refinement_steps": 2,
+    "local_step_fraction": 0.25,
     "num_train_states": 10,
     "quick": false,
     "random_candidates": 256,
+    "restart_candidates_on_stall": 1,
     "seed": 0,
     "test_max_steps": 15000
   },
   "eval_rollouts": 20,
   "paper_test_horizon_steps": 15000,
   "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
-  "searched_candidates": 412,
+  "search_diagnostics": {
+    "accepted_batch_improvements": 0,
+    "accepted_restarts": 0,
+    "batch_count": 1,
+    "batch_local_evaluations": 9,
+    "batch_refinement_candidates": 1,
+    "batch_rounds": 1,
+    "batch_seed_evaluations": 1,
+    "evaluated_candidates": 424,
+    "grid_candidates": 156,
+    "random_candidates": 256,
+    "restart_evaluations": 1
+  },
+  "searched_candidates": 424,
   "test": {
     "reward_mean": 4220.05,
     "success_rate": 0.1

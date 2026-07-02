@@ -219,7 +219,7 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `--include-ppo` rows, tying those local diagnostic results to concrete artifacts.
 - The orchestrated reproduction runner can include a bounded Direct-Opt diagnostic row through
   `--include-direct-opt`, writing a per-seed metrics JSON with the selected program, searched
-  candidate count, exact search grids, and limitation note.
+  candidate count, exact search grids, bounded batch/restart diagnostics, and limitation note.
 - The orchestrated reproduction runner now also writes per-seed PSM metrics JSON and links it from
   `cartpole_results.csv` and `cartpole_manifest.json`, so synthesized PSM rows are tied to concrete
   student/teacher-trace provenance artifacts, including per-teacher/student-iteration
