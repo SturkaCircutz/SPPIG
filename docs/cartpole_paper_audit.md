@@ -106,19 +106,17 @@ These are implementation diagnostics, not paper-scale reproduced results.
 - Fixed PSM output:
   train success `1.000`, test success over the full 15000-step/300-second horizon `0.200`,
   train reward mean `250.0`, test reward mean `6275.4`.
-- Current synthesizer diagnostic command:
-  `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
+- Current synthesizer diagnostic command used for the regenerated artifact:
+  `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output /tmp/psm64_full_candidate_metrics.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `10.2`, test reward mean `22.8`. This tracked full-horizon artifact was generated
-  before the first-iteration bootstrap was changed from gain sampling to a Gaussian PSM prior, so it
-  documents the earlier local synthesis gap rather than the current bootstrap-prior path or a
-  paper-level programmatic-policy result. The regenerated smoke artifact
-  `artifacts/cartpole_psm_smoke_metrics.json` records first-iteration
-  `{"bootstrap_student_sample": 1, "bootstrap_student_sample_refined": 3}` source counts and
-  `distribution_rescore_top_k = 32`. Full-horizon regeneration for the bootstrap-prior path is still
-  pending because the larger sampled-trace set exposes a switch-distribution refinement runtime
-  bottleneck.
+  train reward mean `108.5`, test reward mean `107.2`. The tracked artifact was regenerated from
+  the current bootstrap-prior path to `/tmp/psm64_full_candidate_metrics.json` and copied to
+  `artifacts/results/metrics/psm_seed0_full_horizon.json`; its metadata records
+  `bootstrap_source = probabilistic_student_prior`, first-iteration source counts
+  `{"bootstrap_student_sample_refined": 64}`, and `distribution_rescore_top_k = 32`. This remains a
+  local synthesis diagnostic and still demonstrates a programmatic-policy gap, not a paper-level
+  reproduction result.
 - Direct-Opt diagnostic command:
   `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
 - Direct-Opt diagnostic output:

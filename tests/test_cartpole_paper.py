@@ -58,6 +58,9 @@ from cartpole_synthesis import (
     _switch_cost,
     _switch_structure_rescore_candidates,
     _switch_structure_cost,
+    _switch_transition_and_stay_probabilities,
+    _switch_transition_probability_at_duration,
+    _switch_no_transition_probability_before_duration,
     _switch_example_cache,
     _depth2_switch_candidates_with_mistakes,
     _teacher_candidate_traces,
@@ -850,6 +853,48 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(
             _single_threshold_transition_probability(values, distribution, ">=", 3),
             _single_threshold_transition_probability(values, distribution, ">=", 1),
+        )
+
+    def test_cartpole_combined_switch_probabilities_match_split_helpers(self):
+        switch = BooleanTreeSwitch(
+            ObservationPredicate(2, ">=", 0.0),
+            ObservationPredicate(3, "<=", 0.5),
+        )
+        distributions = [GaussianScalar(0.0, 0.2), GaussianScalar(0.5, 0.2)]
+        observations = [
+            [0.0, 0.0, -0.2, 0.4],
+            [0.0, 0.0, 0.1, 0.6],
+            [0.0, 0.0, 0.2, 0.2],
+        ]
+
+        transition, stay = _switch_transition_and_stay_probabilities(
+            switch,
+            distributions,
+            observations,
+            3,
+        )
+        step_probabilities = [
+            _gaussian_threshold_pass_probability(observation[2], distributions[0], ">=")
+            * _gaussian_threshold_pass_probability(observation[3], distributions[1], "<=")
+            for observation in observations
+        ]
+        enabled_by_step = []
+        no_enable_probability = 1.0
+        for step_probability in step_probabilities:
+            no_enable_probability *= 1.0 - step_probability
+            enabled_by_step.append(1.0 - no_enable_probability)
+        expected_transition = enabled_by_step[2] - enabled_by_step[1]
+        expected_stay = 1.0 - enabled_by_step[1]
+
+        self.assertAlmostEqual(transition, expected_transition)
+        self.assertAlmostEqual(stay, expected_stay)
+        self.assertAlmostEqual(
+            transition,
+            _switch_transition_probability_at_duration(switch, distributions, observations, 3),
+        )
+        self.assertAlmostEqual(
+            stay,
+            _switch_no_transition_probability_before_duration(switch, distributions, observations, 3),
         )
 
     def test_cartpole_teacher_objective_defaults_to_reward(self):
