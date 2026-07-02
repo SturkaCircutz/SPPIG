@@ -429,7 +429,15 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 direct_metrics = json.load(handle)
             self.assertEqual(direct_metrics["algorithm_provenance"]["paper_baseline"], "Direct-Opt")
             self.assertTrue(direct_metrics["algorithm_provenance"]["not_paper_scale"])
+            self.assertEqual(direct_metrics["algorithm_provenance"]["batch_refinement"], "seed_each_batch_from_best_so_far_and_restart_on_stall")
+            self.assertEqual(direct_metrics["algorithm_provenance"]["paper_time_limit_seconds"], 7200)
             self.assertEqual(direct_metrics["config"]["quick"], True)
+            self.assertEqual(direct_metrics["config"]["batch_size"], 2)
+            self.assertEqual(direct_metrics["config"]["batch_refinement_rounds"], 1)
+            self.assertEqual(direct_metrics["config"]["local_refinement_steps"], 1)
+            self.assertEqual(direct_metrics["search_diagnostics"]["batch_count"], 1)
+            self.assertEqual(direct_metrics["search_diagnostics"]["batch_refinement_candidates"], 1)
+            self.assertGreater(direct_metrics["search_diagnostics"]["batch_local_evaluations"], 0)
 
             with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:
                 manifest = json.load(handle)

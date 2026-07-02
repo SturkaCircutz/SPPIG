@@ -166,15 +166,22 @@ Direct-Opt diagnostic:
 .venv/bin/python src/train_cartpole_direct_opt.py \
   --num-train-states 10 \
   --random-candidates 256 \
+  --batch-size 10 \
+  --batch-refinement-rounds 1 \
+  --local-refinement-steps 2 \
+  --restart-candidates-on-stall 1 \
   --eval-rollouts 20 \
   --test-max-steps 15000 \
   --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json
 ```
 
 This baseline searches a bounded two-mode constant-action/depth-2 linear-switch
-CartPole PSM directly on the 5-second training split and reevaluates the
-selected program on the full paper test horizon. Its metrics JSON records the
-exact grid, candidate count, selected program, and limitation note.
+CartPole PSM directly on the 5-second training split, then applies a bounded
+batch/restart local refinement seeded from the best candidate so far, and
+reevaluates the selected program on the full paper test horizon. Its metrics
+JSON records the exact grid, batch/restart diagnostics, selected program, and
+limitation note. This is still not the paper's two-hour, ten-thread Direct-Opt
+protocol over the full continuous one-hot switching grammar.
 
 PPO MLP:
 

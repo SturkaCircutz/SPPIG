@@ -41,9 +41,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   persist per-evaluation train/test metrics to JSON for checkpoint provenance.
 - `src/evaluate_cartpole_psm.py`: two-mode constant-action/depth-2-switch programmatic policy evaluator.
 - `src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py`: bounded diagnostic Direct-Opt
-  baseline over a two-mode constant-action/depth-2 linear-switch Cartpole PSM. This records exact
-  search grids and selected program provenance, but is not the paper's full two-hour parallel direct
-  optimization protocol.
+  baseline over a two-mode constant-action/depth-2 linear-switch Cartpole PSM, with a local
+  batch/restart refinement seeded from the best candidate so far. This records exact search grids,
+  search diagnostics, and selected program provenance, but is not the paper's full two-hour parallel
+  direct optimization protocol.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
@@ -124,12 +125,14 @@ These are implementation diagnostics, not paper-scale reproduced results.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
   gap, not a paper-level reproduction result.
 - Direct-Opt diagnostic command:
-  `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
+  `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
 - Direct-Opt diagnostic output:
   train success `1.000`, test success over the full 15000-step/300-second horizon `0.100`,
   train reward mean `250.0`, test reward mean `4220.1`. The selected bounded two-mode policy is
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
-  This is an executable local baseline artifact, not the paper's full Direct-Opt protocol.
+  This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
+  implementation records bounded batch/restart diagnostics to mirror the paper baseline's batch
+  seeding and restart structure, while keeping `not_paper_scale` true.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -305,9 +308,12 @@ paper-scale PPO2 runs.
   still stop the sweep by default.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
   the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
-  non-paper-scale provenance.
+  non-paper-scale provenance, including local batch/restart diagnostics.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_can_disable_batch_refinement_for_grid_random_diagnostic`
+  verifies that the old grid/random diagnostic can still be isolated when batch refinement is disabled.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_cli_writes_metrics_json` verifies that the
-  Direct-Opt CLI writes config, selected candidate, train/test metrics, and provenance JSON.
+  Direct-Opt CLI writes config, selected candidate, train/test metrics, search diagnostics, and
+  provenance JSON.
 
 ## Verified Programmatic-Student Invariants
 
@@ -503,7 +509,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - Run hyperparameter search over the paper's specified ranges.
 - Replace the bounded Direct-Opt diagnostic with the paper's full direct optimization protocol:
   optimize the combined reward over all initial states using batch optimization, random restarts when
-  stalled, and the reported two-hour/parallel budget.
+  stalled, the full continuous one-hot switching-condition encoding, and the reported
+  two-hour/parallel budget.
 - Complete the probabilistic adaptive-teaching implementation: continuous optimization of switch
   Gaussian parameters and the paper's full teacher optimization procedure. The current Cartpole switch
   learner performs a depth-2 greedy Boolean-tree expansion, stores Gaussian threshold distributions
