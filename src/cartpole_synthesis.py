@@ -65,6 +65,7 @@ SWITCH_PARAMETER_GRADIENT_REFINEMENT_STEPS = 2
 SWITCH_PARAMETER_GRADIENT_MEAN_STEP_FRACTION = 0.50
 SWITCH_PARAMETER_GRADIENT_LOG_STD_STEP = 0.25
 SWITCH_PARAMETER_GRADIENT_EPS_FRACTION = 0.25
+SWITCH_PARAMETER_GRADIENT_BACKTRACK_FACTORS = (1.0, 0.5, 0.25, 0.125)
 SWITCH_SELECTION_OBJECTIVE_ORDER = (
     "hard_label_mistakes",
     "bounded_eq12_style_distribution_loss",
@@ -140,6 +141,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "finite_difference_gradient_mean_step_fraction": SWITCH_PARAMETER_GRADIENT_MEAN_STEP_FRACTION,
             "finite_difference_gradient_log_std_step": SWITCH_PARAMETER_GRADIENT_LOG_STD_STEP,
             "finite_difference_gradient_epsilon_fraction": SWITCH_PARAMETER_GRADIENT_EPS_FRACTION,
+            "finite_difference_gradient_backtracking_factors": list(SWITCH_PARAMETER_GRADIENT_BACKTRACK_FACTORS),
         },
         "switch_search": {
             "boolean_tree_depth": 2,
@@ -2567,42 +2569,63 @@ def _gradient_refine_switch_parameter_distributions(
         )
         if norm < MIN_GAUSSIAN_STD:
             break
-        candidate_distributions: List[GaussianScalar] = []
+        accepted = False
+        for backtrack in SWITCH_PARAMETER_GRADIENT_BACKTRACK_FACTORS:
+            candidate_distributions = _gradient_switch_parameter_candidate_distributions(
+                best_distributions,
+                mean_steps,
+                gradients,
+                norm,
+                backtrack,
+            )
+            candidate_switch, candidate_mistakes, candidate_loss = _evaluate_switch_parameter_candidate(
+                switch,
+                candidate_distributions,
+                examples,
+                example_cache,
+                mistake_cache,
+                timing_pairs,
+                scalar_timing_pairs,
+                segments_by_trace,
+                responsibilities,
+            )
+            if candidate_mistakes <= best_mistakes and candidate_loss < best_loss:
+                best_distributions = candidate_distributions
+                best_switch = candidate_switch
+                best_mistakes = candidate_mistakes
+                best_loss = candidate_loss
+                accepted = True
+                break
+        if not accepted:
+            break
+    return best_switch, best_distributions
+
+
+def _gradient_switch_parameter_candidate_distributions(
+    distributions: List[GaussianScalar],
+    mean_steps: List[float],
+    gradients: List[Tuple[float, float]],
+    norm: float,
+    backtrack: float,
+) -> List[GaussianScalar]:
+    return [
+        GaussianScalar(
+            distribution.mean
+            - backtrack * SWITCH_PARAMETER_GRADIENT_MEAN_STEP_FRACTION * mean_step * mean_gradient / norm,
+            max(
+                MIN_GAUSSIAN_STD,
+                distribution.std
+                * math.exp(
+                    -backtrack * SWITCH_PARAMETER_GRADIENT_LOG_STD_STEP * log_std_gradient / norm
+                ),
+            ),
+        )
         for distribution, mean_step, (mean_gradient, log_std_gradient) in zip(
-            best_distributions,
+            distributions,
             mean_steps,
             gradients,
-        ):
-            candidate_distributions.append(
-                GaussianScalar(
-                    distribution.mean
-                    - SWITCH_PARAMETER_GRADIENT_MEAN_STEP_FRACTION * mean_step * mean_gradient / norm,
-                    max(
-                        MIN_GAUSSIAN_STD,
-                        distribution.std
-                        * math.exp(-SWITCH_PARAMETER_GRADIENT_LOG_STD_STEP * log_std_gradient / norm),
-                    ),
-                )
-            )
-        candidate_switch, candidate_mistakes, candidate_loss = _evaluate_switch_parameter_candidate(
-            switch,
-            candidate_distributions,
-            examples,
-            example_cache,
-            mistake_cache,
-            timing_pairs,
-            scalar_timing_pairs,
-            segments_by_trace,
-            responsibilities,
         )
-        if candidate_mistakes <= best_mistakes and candidate_loss < best_loss:
-            best_distributions = candidate_distributions
-            best_switch = candidate_switch
-            best_mistakes = candidate_mistakes
-            best_loss = candidate_loss
-            continue
-        break
-    return best_switch, best_distributions
+    ]
 
 
 def _switch_parameter_loss_gradient(

@@ -557,8 +557,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   for each selected switch predicate, can sample deterministic policies from those distributions, and
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
   no-transition-before-duration terms. It now performs bounded local mean/std grid, coordinate
-  refinement, and finite-difference gradient polishing, but does not yet solve the full continuous
-  Eq. (12) optimization for switch-condition means and standard deviations. For depth-2 Boolean trees,
+  refinement, and finite-difference gradient polishing with backtracking line search, but does not yet
+  solve the full continuous Eq. (12) optimization for switch-condition means and standard deviations.
+  For depth-2 Boolean trees,
   switch-enable probability now uses an
   exact union of axis-aligned threshold rectangles for conjunctions and disjunctions under
   independent predicate-threshold Gaussians, with threshold samples shared across the segment. The

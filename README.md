@@ -117,7 +117,7 @@ diagnostics, not a paper-reported constant.
 It also records local synthesis defaults, including student EM count, switch-timing
 responsibility-refinement passes, minimum Gaussian standard deviation,
 switch-timing scale, switch-search grids, bounded switch-parameter coordinate
-refinement plus finite-difference gradient polishing, and teacher-search
+refinement plus finite-difference gradient polishing with backtracking, and teacher-search
 refinement schedule, under `algorithm_provenance`;
 the actual configured EM schedule is recorded under `config` and
 `paper_protocol_status`.
@@ -154,7 +154,7 @@ durations as elapsed time normalized to the CartPole simulator step, so
 per-segment time increments influence the bounded Eq. (12)-style timing terms.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
-plus bounded coordinate steps and finite-difference gradient polishing. Switch structures are
+plus bounded coordinate steps and finite-difference gradient polishing with backtracking. Switch structures are
 prefiltered by a cheaper hard-label/timing objective, then the top 32 are
 ranked first by hard trace-label mistakes and then by this bounded
 distribution-timing objective. The teacher regularizer scores both action

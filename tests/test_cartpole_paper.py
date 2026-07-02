@@ -61,6 +61,7 @@ from cartpole_synthesis import (
     _switch_cache_key,
     _switch_distribution_std_candidates,
     _switch_distribution_timing_loss,
+    _gradient_switch_parameter_candidate_distributions,
     _rollout_student_sampled_trace,
     _rollout_with_teacher_gains,
     _sample_switch,
@@ -770,6 +771,28 @@ class CartpolePaperTest(unittest.TestCase):
             ),
         )
         self.assertGreaterEqual(refined[0].std, 1e-3)
+
+    def test_cartpole_switch_gradient_candidate_supports_backtracking(self):
+        distribution = GaussianScalar(0.0, 1.0)
+        full_step = _gradient_switch_parameter_candidate_distributions(
+            [distribution],
+            [2.0],
+            [(4.0, 4.0)],
+            4.0,
+            1.0,
+        )[0]
+        half_step = _gradient_switch_parameter_candidate_distributions(
+            [distribution],
+            [2.0],
+            [(4.0, 4.0)],
+            4.0,
+            0.5,
+        )[0]
+
+        self.assertAlmostEqual(full_step.mean, -1.0)
+        self.assertAlmostEqual(half_step.mean, -0.5)
+        self.assertLess(full_step.std, half_step.std)
+        self.assertLess(half_step.std, distribution.std)
 
     def test_cartpole_switch_mistake_cache_key_preserves_submillithresholds(self):
         lower = Depth2Switch(1.0, 0.0, 0.0004)
