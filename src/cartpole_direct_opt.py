@@ -24,6 +24,9 @@ DIRECT_OPT_BOOLEAN_THRESHOLD_GRIDS = (
     (-0.5, 0.0, 0.5),
 )
 DIRECT_OPT_BOOLEAN_TOP_STUMPS = 4
+DIRECT_OPT_OBSERVATION_FEATURES = ("x", "cart_velocity", "theta", "omega")
+DIRECT_OPT_RELATIONS = (">=", "<=")
+DIRECT_OPT_TREE_OPERATORS = ("leaf", "and", "or")
 
 
 @dataclass
@@ -59,6 +62,11 @@ class DirectOptCandidate:
     second_relation: str | None = None
     second_threshold: float | None = None
     operator: str | None = None
+    first_feature_one_hot: Tuple[int, ...] = ()
+    first_relation_one_hot: Tuple[int, ...] = ()
+    second_feature_one_hot: Tuple[int, ...] = ()
+    second_relation_one_hot: Tuple[int, ...] = ()
+    operator_one_hot: Tuple[int, ...] = ()
 
 
 @dataclass
@@ -89,11 +97,17 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "paper_time_limit_seconds": 7200,
         "local_parallel_threads": 1,
         "local_time_limit_seconds": None,
-        "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates",
+        "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
         "boolean_tree_depth": 2,
-        "boolean_tree_features": ["x", "cart_velocity", "theta", "omega"],
+        "boolean_tree_features": list(DIRECT_OPT_OBSERVATION_FEATURES),
+        "boolean_tree_relations": list(DIRECT_OPT_RELATIONS),
+        "boolean_tree_operator_choices": list(DIRECT_OPT_TREE_OPERATORS),
         "boolean_tree_threshold_grids": [list(grid) for grid in DIRECT_OPT_BOOLEAN_THRESHOLD_GRIDS],
         "boolean_tree_expansion": "evaluate_all_stumps_then_depth2_expansions_from_top_training_reward_stumps",
+        "one_hot_switch_encoding": (
+            "records bounded discrete one-hot metadata for feature, relation, and depth-2 tree operator choices; "
+            "does not optimize the paper's continuous one-hot relaxation"
+        ),
         "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors",
         "train_horizon_seconds": CartpoleEnv.train_env().cfg.horizon_seconds,
         "test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
@@ -103,9 +117,9 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "threshold_scale": DIRECT_OPT_THRESHOLD_SCALE,
         "limitations": (
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
-            "It includes bounded Boolean-tree switch candidates and batch/restart "
-            "local refinement, but is not the paper's two-hour, ten-thread numerical "
-            "optimization over the full continuous one-hot switching grammar."
+            "It includes bounded Boolean-tree switch candidates with one-hot metadata and batch/restart "
+            "local refinement, but is not the paper's two-hour, ten-thread continuous numerical "
+            "optimization over the full one-hot switching grammar."
         ),
     }
 
@@ -252,6 +266,7 @@ def _boolean_tree_candidates(
         "boolean_stump_candidates": len(stump_candidates),
         "boolean_depth2_candidates": len(depth2_candidates),
         "boolean_top_stumps_for_depth2": len(top_stumps),
+        "boolean_candidates_with_one_hot_metadata": len(stump_candidates) + len(depth2_candidates),
     }
 
 
@@ -413,9 +428,13 @@ def _boolean_local_neighbor_candidates(
     force_step = (force_upper - force_lower) * max(0.0, cfg.local_step_fraction)
     threshold_switches: List[BooleanTreeSwitch] = []
     for direction in (-1.0, 1.0):
-        threshold_switches.append(_boolean_switch_with_threshold_delta(switch, 0, direction * cfg.local_step_fraction))
+        threshold_switches.append(
+            _boolean_switch_with_threshold_delta(switch, 0, direction * cfg.local_step_fraction)
+        )
         if switch.second is not None:
-            threshold_switches.append(_boolean_switch_with_threshold_delta(switch, 1, direction * cfg.local_step_fraction))
+            threshold_switches.append(
+                _boolean_switch_with_threshold_delta(switch, 1, direction * cfg.local_step_fraction)
+            )
     params = [
         (
             local_switch,
@@ -556,6 +575,19 @@ def _candidate_from_switch(
             second_relation=switch.second.relation if switch.second is not None else None,
             second_threshold=switch.second.threshold if switch.second is not None else None,
             operator=switch.operator if switch.second is not None else None,
+            first_feature_one_hot=_one_hot(switch.first.feature_index, len(DIRECT_OPT_OBSERVATION_FEATURES)),
+            first_relation_one_hot=_relation_one_hot(switch.first.relation),
+            second_feature_one_hot=(
+                _one_hot(switch.second.feature_index, len(DIRECT_OPT_OBSERVATION_FEATURES))
+                if switch.second is not None
+                else ()
+            ),
+            second_relation_one_hot=(
+                _relation_one_hot(switch.second.relation)
+                if switch.second is not None
+                else ()
+            ),
+            operator_one_hot=_operator_one_hot(switch.operator if switch.second is not None else "leaf"),
         )
     return DirectOptCandidate(
         theta_weight=theta_weight,
@@ -619,6 +651,18 @@ def _direct_opt_predicates() -> List[ObservationPredicate]:
             predicates.append(ObservationPredicate(feature_index, ">=", threshold))
             predicates.append(ObservationPredicate(feature_index, "<=", threshold))
     return predicates
+
+
+def _one_hot(index: int, width: int) -> Tuple[int, ...]:
+    return tuple(1 if item == index else 0 for item in range(width))
+
+
+def _relation_one_hot(relation: str) -> Tuple[int, ...]:
+    return _one_hot(DIRECT_OPT_RELATIONS.index(relation), len(DIRECT_OPT_RELATIONS))
+
+
+def _operator_one_hot(operator: str) -> Tuple[int, ...]:
+    return _one_hot(DIRECT_OPT_TREE_OPERATORS.index(operator), len(DIRECT_OPT_TREE_OPERATORS))
 
 
 def _boolean_switch_with_threshold_delta(

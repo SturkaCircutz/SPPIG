@@ -476,9 +476,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(direct_metrics["algorithm_provenance"]["batch_refinement"], "seed_each_batch_from_best_so_far_and_restart_on_stall")
             self.assertEqual(
                 direct_metrics["algorithm_provenance"]["switch_search_space"],
-                "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates",
+                "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
             )
             self.assertEqual(direct_metrics["algorithm_provenance"]["boolean_tree_depth"], 2)
+            self.assertIn("one-hot", direct_metrics["algorithm_provenance"]["one_hot_switch_encoding"])
             self.assertEqual(direct_metrics["algorithm_provenance"]["paper_time_limit_seconds"], 7200)
             self.assertEqual(direct_metrics["config"]["quick"], True)
             self.assertEqual(direct_metrics["config"]["batch_size"], 2)
@@ -488,6 +489,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(direct_metrics["search_diagnostics"]["batch_refinement_candidates"], 1)
             self.assertEqual(direct_metrics["search_diagnostics"]["boolean_stump_candidates"], 24)
             self.assertGreater(direct_metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
+            self.assertEqual(
+                direct_metrics["search_diagnostics"]["boolean_candidates_with_one_hot_metadata"],
+                direct_metrics["search_diagnostics"]["boolean_stump_candidates"]
+                + direct_metrics["search_diagnostics"]["boolean_depth2_candidates"],
+            )
             self.assertGreater(direct_metrics["search_diagnostics"]["batch_local_evaluations"], 0)
 
             with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:

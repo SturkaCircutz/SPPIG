@@ -63,19 +63,26 @@ class CartpoleDirectOptTest(unittest.TestCase):
         )
         self.assertEqual(
             metrics["algorithm_provenance"]["switch_search_space"],
-            "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates",
+            "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
         )
         self.assertEqual(metrics["algorithm_provenance"]["boolean_tree_depth"], 2)
         self.assertEqual(
             metrics["algorithm_provenance"]["boolean_tree_features"],
             ["x", "cart_velocity", "theta", "omega"],
         )
-        self.assertIn("bounded Boolean-tree", metrics["algorithm_provenance"]["limitations"])
+        self.assertEqual(metrics["algorithm_provenance"]["boolean_tree_relations"], [">=", "<="])
+        self.assertEqual(metrics["algorithm_provenance"]["boolean_tree_operator_choices"], ["leaf", "and", "or"])
+        self.assertIn("one-hot", metrics["algorithm_provenance"]["one_hot_switch_encoding"])
+        self.assertIn("one-hot metadata", metrics["algorithm_provenance"]["limitations"])
         self.assertEqual(diagnostics["grid_candidates"], 156)
         self.assertEqual(diagnostics["random_candidates"], 4)
         self.assertEqual(diagnostics["boolean_stump_candidates"], 24)
         self.assertGreater(diagnostics["boolean_depth2_candidates"], 0)
         self.assertEqual(diagnostics["boolean_top_stumps_for_depth2"], 4)
+        self.assertEqual(
+            diagnostics["boolean_candidates_with_one_hot_metadata"],
+            diagnostics["boolean_stump_candidates"] + diagnostics["boolean_depth2_candidates"],
+        )
         self.assertEqual(diagnostics["batch_count"], 1)
         self.assertEqual(diagnostics["batch_rounds"], 1)
         self.assertEqual(diagnostics["batch_refinement_candidates"], 1)
@@ -127,6 +134,14 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertIsNotNone(depth2.first_feature)
         self.assertIsNotNone(depth2.second_feature)
         self.assertIn(depth2.operator, {"and", "or"})
+        self.assertEqual(sum(depth2.first_feature_one_hot), 1)
+        self.assertEqual(len(depth2.first_feature_one_hot), 4)
+        self.assertEqual(sum(depth2.first_relation_one_hot), 1)
+        self.assertEqual(len(depth2.first_relation_one_hot), 2)
+        self.assertEqual(sum(depth2.second_feature_one_hot), 1)
+        self.assertEqual(sum(depth2.second_relation_one_hot), 1)
+        self.assertEqual(sum(depth2.operator_one_hot), 1)
+        self.assertEqual(len(depth2.operator_one_hot), 3)
         self.assertIn(" o[", policy.describe())
 
     def test_direct_opt_boolean_local_refinement_dedupes_before_evaluation(self):

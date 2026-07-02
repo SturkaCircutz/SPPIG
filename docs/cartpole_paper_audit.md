@@ -42,9 +42,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `src/evaluate_cartpole_psm.py`: two-mode constant-action/depth-2-switch programmatic policy evaluator.
 - `src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py`: bounded diagnostic Direct-Opt
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
-  bounded depth-1/depth-2 Boolean-tree switch candidates and a local batch/restart refinement seeded
-  from the best candidate so far. This records exact search grids, search diagnostics, and selected
-  program provenance, but is not the paper's full two-hour parallel direct optimization protocol.
+  bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
+  tree-operator metadata, plus a local batch/restart refinement seeded from the best candidate so far.
+  This records exact search grids, search diagnostics, and selected program provenance, but is not the
+  paper's full two-hour parallel direct optimization protocol.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
@@ -132,7 +133,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train reward mean `250.0`, test reward mean `4220.1`. The selected bounded two-mode policy is
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
-  implementation records bounded Boolean-tree switch-candidate counts plus batch/restart diagnostics
+  implementation records bounded Boolean-tree switch-candidate one-hot metadata plus batch/restart diagnostics
   to mirror part of the paper baseline's grammar and batch seeding structure, while keeping
   `not_paper_scale` true.
 - PPO MLP command:
@@ -338,7 +339,8 @@ paper-scale PPO2 runs.
   disabled.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_boolean_tree_candidates_use_cartpole_switch_grammar`
   verifies that the Direct-Opt diagnostic evaluates serializable depth-2 Boolean-tree switch
-  candidates from the Cartpole switch grammar.
+  candidates from the Cartpole switch grammar and records bounded one-hot feature/relation/operator
+  metadata for those candidates.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_cli_writes_metrics_json` verifies that the
   Direct-Opt CLI writes config, selected candidate, train/test metrics, search diagnostics, and
   provenance JSON.

@@ -65,9 +65,9 @@ PPO/PPO-LSTM, and add `--include-direct-opt` to include the bounded Direct-Opt
 diagnostic baseline. Without `--quick`, PPO uses the paper-scale `10^7`
 timestep budget per seed; the runner still does not perform the paper's
 hyperparameter search. The Direct-Opt path is a local bounded search over linear
-switches plus explicit Boolean-tree CartPole switch candidates, not the paper's
-full two-hour parallel direct optimization protocol. The runner writes raw per-seed rows to
-`cartpole_results.csv`, grouped mean/std plus the best training seed to
+switches plus Boolean-tree CartPole switch candidates with one-hot metadata, not
+the paper's full two-hour parallel direct optimization protocol. The runner writes
+raw per-seed rows to `cartpole_results.csv`, grouped mean/std plus the best training seed to
 `cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
 Each PSM row records a metrics JSON path with the fitted probabilistic student
 and per-iteration teacher-trace provenance.
@@ -181,12 +181,14 @@ Direct-Opt diagnostic:
 
 This baseline searches a bounded two-mode constant-action CartPole PSM directly
 on the 5-second training split, including the previous linear switch grid plus
-bounded depth-1/depth-2 Boolean-tree switch predicates. It then applies a bounded
-batch/restart local refinement seeded from the best candidate so far, and
-reevaluates the selected program on the full paper test horizon. Its metrics
-JSON records the exact grid, batch/restart diagnostics, selected program, and
-limitation note. This is still not the paper's two-hour, ten-thread Direct-Opt
-protocol over the full continuous one-hot switching grammar.
+bounded depth-1/depth-2 Boolean-tree switch predicates with explicit one-hot
+feature, relation, and tree-operator metadata recorded for each Boolean
+candidate. It then applies a bounded batch/restart local refinement seeded from
+the best candidate so far, and reevaluates the selected program on the full paper
+test horizon. Its metrics JSON records the exact grid, one-hot metadata counts,
+batch/restart diagnostics, selected program, and limitation note. This is still
+not the paper's two-hour, ten-thread Direct-Opt protocol over the full continuous
+one-hot switching grammar.
 
 PPO MLP:
 
