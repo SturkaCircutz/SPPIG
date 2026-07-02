@@ -51,7 +51,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   metrics to JSON. It also persists teacher candidate-source counts, loop-free segment action and
   duration schedules, sampled-trace log-probability provenance, and switch-fit diagnostics comparing
   the selected switch objective tuple to a fixed local reference switch; this is failure-analysis
-  provenance, not a controller selection rule.
+  provenance, not a controller selection rule. PSM metrics also include `paper_protocol_status`, a
+  compact machine-readable block that records matched CartPole horizons and keeps the full
+  probabilistic adaptive-teaching, full continuous switch-M-step, full CEM teacher optimizer, and
+  paper-scale result flags false for the current bounded implementation.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
@@ -174,9 +177,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   teacher locally refines top sampled loop-free traces by duration/action coordinate search under a
   top-rho elite-distance kernel approximation, adds one bounded finite-difference action candidate
   and one bounded finite-difference integer-duration candidate per refinement iteration, evaluates
-  one centroid recombination of the elite action/duration schedules plus one
-  bounded sample from their fitted per-segment statistics, and records selected trace sources plus
-  sampled-trace log probabilities in metrics JSON. This moves
+  one centroid recombination of the elite action/duration schedules plus configurable bounded
+  rounds of fitted per-segment distribution mean candidates and samples, refreshing the top-rho set
+  between rounds, and records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
   toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
@@ -200,9 +203,12 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings and
   records their exact values in metrics JSON.
 - PSM metrics and reproduction-runner manifests now record fixed local synthesis constants such as
-  EM iterations, Gaussian floors, switch-timing scale, switch-search grids, and teacher-search
-  refinement schedule. These values document the current partial implementation; they are not claimed
-  as paper-specified constants.
+  default EM iterations, Gaussian floors, switch-timing scale, switch-search grids, and teacher-search
+  refinement schedule. The actual configured student EM iterations and switch-responsibility passes
+  are recorded under `config` and the compact PSM `paper_protocol_status` block, which also
+  distinguishes matched CartPole environment settings from the still-missing full probabilistic
+  adaptive-teaching optimizer and paper-scale result reproduction. These values document the current
+  partial implementation; they are not claimed as paper-specified constants.
 - PPO training runs can now write metrics JSON containing the full evaluation history, compact
   per-update rollout diagnostics, selected result, config, and checkpoint-selection rule.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
@@ -231,9 +237,13 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges and the chosen
   learning-rate samples in a manifest, records the uncapped job count for the selected search space,
-  writes a best-config summary for completed jobs, can resume interrupted sweeps by reusing only
-  matching completed rows with existing checkpoint and metrics artifacts, and can optionally record
-  failed jobs while continuing a long sweep.
+  writes machine-readable `paper_protocol_status` flags to distinguish full paper-scale plans from
+  quick/truncated or dry-run diagnostics and to mark paper-scale execution only when all planned jobs
+  complete with zero failures. The full-plan flag requires the runner's full explicit learning-rate
+  sample grid, while still documenting that the paper text reports only an interval rather than the
+  authors' exact samples. The runner writes a best-config summary for completed jobs, can resume
+  interrupted sweeps by reusing only matching completed rows with existing checkpoint and metrics
+  artifacts, and can optionally record failed jobs while continuing a long sweep.
 
 ## Verified PPO Invariants
 
@@ -256,12 +266,29 @@ paper-scale PPO2 runs.
   programmatic-policy metrics are persisted to JSON and that the file records the full paper test
   horizon even when a quick test cap is supplied. It also verifies that exposed teacher
   hyperparameters, fixed local synthesis constants, the fitted probabilistic student summary, and
-  per-iteration bounded teacher-trace provenance are persisted.
+  per-iteration bounded teacher-trace provenance are persisted, plus PSM protocol-status flags that
+  keep the full probabilistic adaptive-teaching and paper-scale result claims false.
 - `tests/test_cartpole_ppo_sweep.py::test_build_jobs_uses_paper_minibatch_rule_for_lstm` verifies
   that the sweep includes the paper's feed-forward minibatch grid while forcing PPO-LSTM to
   `nminibatches = 1`.
 - `tests/test_cartpole_ppo_sweep.py::test_dry_run_writes_plan_and_manifest` verifies that dry-run
   sweep planning writes a CSV plan and manifest with paper-space metadata.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_identifies_full_dry_run_plan`
+  verifies that the manifest status flags distinguish a full paper-scale dry-run plan from completed
+  paper-scale execution.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_duplicate_seed_list`
+  verifies that five repeated seed entries are not tagged as the paper five-seed protocol.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_completed_jobs_for_execution`
+  verifies that paper-scale execution is not marked true unless all planned jobs completed and no
+  job failed.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_empty_learning_rate_list`
+  verifies that an empty learning-rate list is not tagged as a paper-scale plan.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_reduced_learning_rate_grid`
+  verifies that a smaller non-empty learning-rate subset is not tagged as the runner's full plan.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_partial_policy_set`
+  verifies that a PPO MLP-only plan is not tagged as the full paper baseline protocol.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_duplicate_policy_entries`
+  verifies that duplicate policy entries are not tagged as the full two-baseline protocol.
 - `tests/test_cartpole_ppo_sweep.py::test_summarize_results_selects_best_train_per_policy` verifies
   the sweep summary selection rule.
 - `tests/test_cartpole_ppo_sweep.py::test_quick_execution_writes_results_summary_and_manifest`
@@ -292,6 +319,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_responsibility_refinement_uses_switch_timing` verifies
   that switch-timing likelihood can shift ambiguous latent segment responsibilities away from the
   action-only posterior while preserving normalization.
+- `tests/test_cartpole_paper.py::test_cartpole_student_switch_responsibility_passes_are_configurable`
+  verifies that the configured number of switch-timing responsibility passes changes the fitted
+  student responsibilities and action distributions.
 - `tests/test_cartpole_paper.py::test_cartpole_synthesis_can_return_probabilistic_student` verifies
   that synthesis can expose the fitted probabilistic student directly for metrics/provenance without
   re-fitting from traces.
@@ -362,6 +392,13 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that the teacher can sample one loop-free candidate from per-segment action/duration
   statistics fit to the top-rho traces. This is a bounded CEM-like sample, not an iterative CEM
   optimizer.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_mean_uses_fitted_statistics`
+  verifies that the teacher can evaluate the deterministic per-segment fitted-distribution mean
+  candidate before local refinement.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_resample_count_is_configurable`
+  verifies that the bounded elite distribution sample count is configured rather than hard-coded.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refresh_elites`
+  verifies that bounded elite distribution rounds refresh the top-rho set between sampling rounds.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_can_sample_candidates_from_probabilistic_student`
   verifies that the bounded teacher candidate pool can include rollouts sampled from the current
   probabilistic student after the first student fit.
@@ -474,8 +511,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   top loop-free candidates with bounded coordinate search over teacher gains when available, integer
   segment durations, one-segment local continuous constant-action steps, and one action plus one
   integer-duration finite-difference candidate per refinement iteration, evaluates one deterministic
-  top-rho centroid recombination candidate plus one bounded sample from fitted per-segment elite
-  statistics, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
+  top-rho centroid recombination candidate plus configurable bounded rounds of fitted per-segment
+  distribution mean candidates and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the
   previous student, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.

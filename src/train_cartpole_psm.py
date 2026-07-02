@@ -13,6 +13,7 @@ from cartpole_synthesis import (
     CartpoleTrace,
     ProbabilisticCartpoleStudent,
     cartpole_synthesis_algorithm_provenance,
+    cartpole_synthesis_protocol_status,
     cartpole_switch_fit_diagnostics,
     synthesize_cartpole_student_with_history,
 )
@@ -150,10 +151,26 @@ def main() -> None:
     parser.add_argument("--teacher-theta-gain", type=float, default=default_cfg.teacher_theta_gain)
     parser.add_argument("--teacher-omega-gain", type=float, default=default_cfg.teacher_omega_gain)
     parser.add_argument("--teacher-student-iters", type=int, default=default_cfg.teacher_student_iters)
+    parser.add_argument("--student-em-iters", type=int, default=default_cfg.student_em_iters)
+    parser.add_argument(
+        "--student-switch-responsibility-passes",
+        type=int,
+        default=default_cfg.student_switch_responsibility_passes,
+    )
     parser.add_argument("--teacher-student-regularizer", type=float, default=default_cfg.teacher_student_regularizer)
     parser.add_argument("--teacher-reward-lambda", type=float, default=default_cfg.teacher_reward_lambda)
     parser.add_argument("--teacher-top-rho", type=int, default=default_cfg.teacher_top_rho)
     parser.add_argument("--teacher-refinement-steps", type=int, default=default_cfg.teacher_refinement_steps)
+    parser.add_argument(
+        "--teacher-elite-distribution-resamples",
+        type=int,
+        default=default_cfg.teacher_elite_distribution_resamples,
+    )
+    parser.add_argument(
+        "--teacher-elite-distribution-rounds",
+        type=int,
+        default=default_cfg.teacher_elite_distribution_rounds,
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--eval-rollouts", type=int, default=20)
     parser.add_argument("--test-max-steps", type=int, default=15000)
@@ -168,10 +185,14 @@ def main() -> None:
         teacher_theta_gain=args.teacher_theta_gain,
         teacher_omega_gain=args.teacher_omega_gain,
         teacher_student_iters=args.teacher_student_iters,
+        student_em_iters=args.student_em_iters,
+        student_switch_responsibility_passes=args.student_switch_responsibility_passes,
         teacher_student_regularizer=args.teacher_student_regularizer,
         teacher_reward_lambda=args.teacher_reward_lambda,
         teacher_top_rho=args.teacher_top_rho,
         teacher_refinement_steps=args.teacher_refinement_steps,
+        teacher_elite_distribution_resamples=args.teacher_elite_distribution_resamples,
+        teacher_elite_distribution_rounds=args.teacher_elite_distribution_rounds,
         seed=args.seed,
     )
     student, traces, synthesis_history = synthesize_cartpole_student_with_history(cfg)
@@ -183,6 +204,11 @@ def main() -> None:
         "command": " ".join(sys.argv),
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
+        "paper_protocol_status": cartpole_synthesis_protocol_status(
+            cfg,
+            args.eval_rollouts,
+            args.test_max_steps,
+        ),
         "eval_rollouts": args.eval_rollouts,
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,

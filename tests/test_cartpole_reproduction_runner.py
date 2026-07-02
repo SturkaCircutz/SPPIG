@@ -27,6 +27,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "test_success": 0.25,
                     "train_reward": 100.0,
                     "test_reward": 200.0,
+                    "test_horizon_steps": 15000,
                     "timesteps": 0,
                 },
                 {
@@ -36,6 +37,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "test_success": 0.75,
                     "train_reward": 250.0,
                     "test_reward": 900.0,
+                    "test_horizon_steps": 15000,
                     "timesteps": 0,
                 },
             ]
@@ -50,6 +52,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertAlmostEqual(row["test_reward_mean"], 550.0)
         self.assertEqual(row["best_seed_by_train"], 0)
         self.assertAlmostEqual(row["best_test_success"], 0.75)
+        self.assertEqual(row["test_horizon_steps"], 15000)
 
     def test_quick_runner_writes_results_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -70,6 +73,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "0.75",
                     "--psm-teacher-student-iters",
                     "1",
+                    "--psm-student-em-iters",
+                    "2",
+                    "--psm-student-switch-responsibility-passes",
+                    "2",
                     "--psm-teacher-student-regularizer",
                     "0.5",
                     "--psm-teacher-reward-lambda",
@@ -78,6 +85,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "1",
                     "--psm-teacher-refinement-steps",
                     "1",
+                    "--psm-teacher-elite-distribution-resamples",
+                    "3",
+                    "--psm-teacher-elite-distribution-rounds",
+                    "2",
                     "--outdir",
                     tmpdir,
                 ],
@@ -97,12 +108,29 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["policy"], "Programmatic state machine")
             self.assertEqual(rows[0]["seed"], "0")
+            self.assertEqual(rows[0]["test_horizon_steps"], "20")
             self.assertTrue(os.path.exists(rows[0]["metrics_output"]))
             with open(rows[0]["metrics_output"], encoding="utf-8") as handle:
                 psm_metrics = json.load(handle)
             self.assertEqual(psm_metrics["config"]["teacher_theta_gain"], 12.5)
             self.assertEqual(psm_metrics["algorithm_provenance"]["switch_timing"]["std_steps"], 2.0)
             self.assertEqual(psm_metrics["paper_test_horizon_steps"], 15000)
+            psm_status = psm_metrics["paper_protocol_status"]
+            self.assertTrue(psm_status["cartpole_environment"])
+            self.assertEqual(psm_status["train_horizon_seconds"], 5.0)
+            self.assertEqual(psm_status["train_pole_length"], 0.5)
+            self.assertEqual(psm_status["test_horizon_seconds"], 300.0)
+            self.assertEqual(psm_status["test_pole_length"], 1.0)
+            self.assertTrue(psm_status["quick_diagnostic"])
+            self.assertFalse(psm_status["uses_full_test_horizon"])
+            self.assertFalse(psm_status["full_probabilistic_adaptive_teaching"])
+            self.assertFalse(psm_status["full_continuous_switch_m_step"])
+            self.assertFalse(psm_status["full_cem_teacher_optimizer"])
+            self.assertFalse(psm_status["paper_scale_result"])
+            self.assertEqual(psm_status["student_em_iters"], 2)
+            self.assertEqual(psm_status["student_switch_responsibility_passes"], 2)
+            self.assertEqual(psm_status["teacher_elite_distribution_resamples"], 3)
+            self.assertEqual(psm_status["teacher_elite_distribution_rounds"], 2)
             self.assertIn("probabilistic_student", psm_metrics)
             self.assertEqual(len(psm_metrics["synthesis_history"]), 1)
             self.assertEqual(psm_metrics["synthesis_history"][0]["iteration"], 1)
@@ -131,6 +159,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(summary[0]["n"], "1")
             self.assertEqual(summary[0]["best_seed_by_train"], "0")
             self.assertEqual(summary[0]["train_success_std"], "0.0")
+            self.assertEqual(summary[0]["test_horizon_steps"], "20")
 
             with open(manifest_path, encoding="utf-8") as handle:
                 manifest = json.load(handle)
@@ -140,12 +169,19 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_theta_gain"], 12.5)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_omega_gain"], 0.75)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_student_iters"], 1)
+            self.assertEqual(manifest["psm_teacher_overrides"]["student_em_iters"], 2)
+            self.assertEqual(manifest["psm_teacher_overrides"]["student_switch_responsibility_passes"], 2)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_student_regularizer"], 0.5)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_reward_lambda"], 100.0)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_top_rho"], 1)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_refinement_steps"], 1)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_elite_distribution_resamples"], 3)
+            self.assertEqual(manifest["psm_teacher_overrides"]["teacher_elite_distribution_rounds"], 2)
+            manifest_psm_status = manifest["psm_paper_protocol_status"]
+            self.assertEqual(manifest_psm_status, psm_status)
             provenance = manifest["psm_algorithm_provenance"]
-            self.assertEqual(provenance["probabilistic_student"]["em_iters"], 4)
+            self.assertEqual(provenance["probabilistic_student"]["default_em_iters"], 4)
+            self.assertEqual(provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
             self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
             self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
             self.assertEqual(
@@ -207,7 +243,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 provenance["teacher_search"]["elite_recombination_candidate_count"],
                 "at_most_one_when_elites_have_loop_free_schedules",
             )
-            self.assertEqual(provenance["teacher_search"]["elite_distribution_resamples"], 1)
+            self.assertEqual(provenance["teacher_search"]["default_elite_distribution_resamples"], 1)
+            self.assertEqual(provenance["teacher_search"]["default_elite_distribution_rounds"], 1)
+            self.assertEqual(provenance["teacher_search"]["elite_distribution_mean_candidate_per_round"], 1)
             self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
             self.assertEqual(
                 provenance["teacher_search"]["elite_refinement_objective"],
@@ -234,12 +272,18 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(config["teacher_theta_gain"], 12.5)
             self.assertEqual(config["teacher_omega_gain"], 0.75)
             self.assertEqual(config["teacher_student_iters"], 1)
+            self.assertEqual(config["student_em_iters"], 2)
+            self.assertEqual(config["student_switch_responsibility_passes"], 2)
             self.assertEqual(config["teacher_student_regularizer"], 0.5)
             self.assertEqual(config["teacher_reward_lambda"], 100.0)
             self.assertEqual(config["teacher_top_rho"], 1)
             self.assertEqual(config["teacher_refinement_steps"], 1)
+            self.assertEqual(config["teacher_elite_distribution_resamples"], 3)
+            self.assertEqual(config["teacher_elite_distribution_rounds"], 2)
             row_provenance = manifest["rows"][0]["algorithm_provenance"]
-            self.assertEqual(row_provenance["probabilistic_student"]["switch_responsibility_passes"], 1)
+            self.assertEqual(manifest["rows"][0]["paper_protocol_status"], psm_status)
+            self.assertEqual(row_provenance["probabilistic_student"]["default_em_iters"], 4)
+            self.assertEqual(row_provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
             self.assertEqual(
                 row_provenance["probabilistic_student"]["responsibility_evidence"],
                 "action_likelihood_then_switch_timing_forward_backward",
@@ -301,7 +345,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 row_provenance["teacher_search"]["elite_recombination_candidate_count"],
                 "at_most_one_when_elites_have_loop_free_schedules",
             )
-            self.assertEqual(row_provenance["teacher_search"]["elite_distribution_resamples"], 1)
+            self.assertEqual(row_provenance["teacher_search"]["default_elite_distribution_resamples"], 1)
+            self.assertEqual(row_provenance["teacher_search"]["default_elite_distribution_rounds"], 1)
+            self.assertEqual(row_provenance["teacher_search"]["elite_distribution_mean_candidate_per_round"], 1)
             self.assertEqual(row_provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_refinement_objective"],

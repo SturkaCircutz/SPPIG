@@ -24,6 +24,7 @@ from cartpole_direct_opt import (  # noqa: E402
 from cartpole_synthesis import (  # noqa: E402
     CartpoleSynthesisConfig,
     cartpole_synthesis_algorithm_provenance,
+    cartpole_synthesis_protocol_status,
     cartpole_switch_fit_diagnostics,
     synthesize_cartpole_student_with_history,
 )
@@ -49,6 +50,7 @@ RESULT_FIELDS = [
     "test_success",
     "train_reward",
     "test_reward",
+    "test_horizon_steps",
     "timesteps",
     "checkpoint",
     "metrics_output",
@@ -70,6 +72,7 @@ SUMMARY_FIELDS = [
     "best_test_success",
     "best_train_reward",
     "best_test_reward",
+    "test_horizon_steps",
     "best_timesteps",
     "best_checkpoint",
     "best_metrics_output",
@@ -84,18 +87,7 @@ def run_psm(
     outdir: Path,
     teacher_overrides: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
-    # The quick path is a CI/local smoke test; the non-quick path preserves the
-    # larger candidate pool and trace count expected for reproduction runs.
-    cfg_kwargs = {
-        "num_initial_states": 4 if quick else 64,
-        "candidate_rollouts": 4 if quick else 128,
-        "segment_steps": 2 if quick else 1,
-        "segments_per_trace": 8 if quick else 250,
-        "teacher_student_iters": 1 if quick else 2,
-        "seed": seed,
-    }
-    cfg_kwargs.update(teacher_overrides or {})
-    cfg = CartpoleSynthesisConfig(**cfg_kwargs)
+    cfg = psm_config(seed, quick, teacher_overrides)
     student, traces, synthesis_history = synthesize_cartpole_student_with_history(cfg)
     policy = student.to_deterministic_policy()
     # The paper's test horizon is 300s; test_max_steps is only exposed so tests
@@ -114,6 +106,12 @@ def run_psm(
     metrics = {
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
+        "paper_protocol_status": cartpole_synthesis_protocol_status(
+            cfg,
+            eval_rollouts,
+            test_max_steps,
+            quick,
+        ),
         "eval_rollouts": eval_rollouts,
         "test_max_steps": test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
@@ -140,10 +138,17 @@ def run_psm(
         "test_success": test["success_rate"],
         "train_reward": train["reward_mean"],
         "test_reward": test["reward_mean"],
+        "test_horizon_steps": test_max_steps,
         "timesteps": 0,
         "metrics_output": str(metrics_path),
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
+        "paper_protocol_status": cartpole_synthesis_protocol_status(
+            cfg,
+            eval_rollouts,
+            test_max_steps,
+            quick,
+        ),
         "policy_description": policy.describe(),
         "num_traces": len(traces),
     }
@@ -189,6 +194,7 @@ def run_ppo(
         "test_success": result.test_success_rate,
         "train_reward": result.train_reward_mean,
         "test_reward": result.test_reward_mean,
+        "test_horizon_steps": test_max_steps,
         "timesteps": result.timesteps,
         "checkpoint": str(checkpoint_path),
         "metrics_output": str(metrics_path),
@@ -225,6 +231,7 @@ def run_direct_opt(
         "test_success": result.test_success_rate,
         "train_reward": result.train_reward_mean,
         "test_reward": result.test_reward_mean,
+        "test_horizon_steps": test_max_steps,
         "timesteps": 0,
         "metrics_output": str(metrics_path),
         "config": asdict(cfg),
@@ -284,6 +291,7 @@ def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "best_test_success": float(best["test_success"]),
                 "best_train_reward": float(best["train_reward"]),
                 "best_test_reward": float(best["test_reward"]),
+                "test_horizon_steps": int(best["test_horizon_steps"]),
                 "best_timesteps": int(best["timesteps"]),
                 "best_checkpoint": best.get("checkpoint", ""),
                 "best_metrics_output": best.get("metrics_output", ""),
@@ -334,10 +342,26 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Teacher/student alternations for PSM; defaults to 1 for --quick and 2 otherwise.",
     )
+    parser.add_argument("--psm-student-em-iters", type=int, default=default_psm.student_em_iters)
+    parser.add_argument(
+        "--psm-student-switch-responsibility-passes",
+        type=int,
+        default=default_psm.student_switch_responsibility_passes,
+    )
     parser.add_argument("--psm-teacher-student-regularizer", type=float, default=default_psm.teacher_student_regularizer)
     parser.add_argument("--psm-teacher-reward-lambda", type=float, default=default_psm.teacher_reward_lambda)
     parser.add_argument("--psm-teacher-top-rho", type=int, default=default_psm.teacher_top_rho)
     parser.add_argument("--psm-teacher-refinement-steps", type=int, default=default_psm.teacher_refinement_steps)
+    parser.add_argument(
+        "--psm-teacher-elite-distribution-resamples",
+        type=int,
+        default=default_psm.teacher_elite_distribution_resamples,
+    )
+    parser.add_argument(
+        "--psm-teacher-elite-distribution-rounds",
+        type=int,
+        default=default_psm.teacher_elite_distribution_rounds,
+    )
     parser.add_argument(
         "--ppo-eval-interval",
         type=int,
@@ -361,11 +385,34 @@ def psm_teacher_overrides_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         "teacher_theta_gain": args.psm_teacher_theta_gain,
         "teacher_omega_gain": args.psm_teacher_omega_gain,
         "teacher_student_iters": args.psm_teacher_student_iters,
+        "student_em_iters": args.psm_student_em_iters,
+        "student_switch_responsibility_passes": args.psm_student_switch_responsibility_passes,
         "teacher_student_regularizer": args.psm_teacher_student_regularizer,
         "teacher_reward_lambda": args.psm_teacher_reward_lambda,
         "teacher_top_rho": args.psm_teacher_top_rho,
         "teacher_refinement_steps": args.psm_teacher_refinement_steps,
+        "teacher_elite_distribution_resamples": args.psm_teacher_elite_distribution_resamples,
+        "teacher_elite_distribution_rounds": args.psm_teacher_elite_distribution_rounds,
     }
+
+
+def psm_config(
+    seed: int,
+    quick: bool,
+    teacher_overrides: Dict[str, Any] | None = None,
+) -> CartpoleSynthesisConfig:
+    # The quick path is a CI/local smoke test; the non-quick path preserves the
+    # larger candidate pool and trace count expected for reproduction runs.
+    cfg_kwargs = {
+        "num_initial_states": 4 if quick else 64,
+        "candidate_rollouts": 4 if quick else 128,
+        "segment_steps": 2 if quick else 1,
+        "segments_per_trace": 8 if quick else 250,
+        "teacher_student_iters": 1 if quick else 2,
+        "seed": seed,
+    }
+    cfg_kwargs.update(teacher_overrides or {})
+    return CartpoleSynthesisConfig(**cfg_kwargs)
 
 
 def main() -> None:
@@ -421,6 +468,12 @@ def main() -> None:
         "test_max_steps": args.test_max_steps,
         "psm_teacher_overrides": psm_teacher_overrides,
         "psm_algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
+        "psm_paper_protocol_status": cartpole_synthesis_protocol_status(
+            psm_config(seeds[0] if seeds else 0, args.quick, psm_teacher_overrides),
+            args.eval_rollouts,
+            args.test_max_steps,
+            args.quick,
+        ),
         "ppo_eval_interval": args.ppo_eval_interval,
         "paper_scale_note": (
             "Without --quick, PPO uses 10^7 timesteps per seed. "

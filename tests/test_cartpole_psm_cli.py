@@ -71,6 +71,10 @@ class CartpolePSMCliTest(unittest.TestCase):
                     "0.75",
                     "--teacher-student-iters",
                     "2",
+                    "--student-em-iters",
+                    "2",
+                    "--student-switch-responsibility-passes",
+                    "2",
                     "--teacher-student-regularizer",
                     "0.5",
                     "--teacher-reward-lambda",
@@ -79,6 +83,10 @@ class CartpolePSMCliTest(unittest.TestCase):
                     "1",
                     "--teacher-refinement-steps",
                     "1",
+                    "--teacher-elite-distribution-resamples",
+                    "3",
+                    "--teacher-elite-distribution-rounds",
+                    "2",
                     "--eval-rollouts",
                     "1",
                     "--test-max-steps",
@@ -97,13 +105,17 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["config"]["teacher_theta_gain"], 12.5)
         self.assertEqual(metrics["config"]["teacher_omega_gain"], 0.75)
         self.assertEqual(metrics["config"]["teacher_student_iters"], 2)
+        self.assertEqual(metrics["config"]["student_em_iters"], 2)
+        self.assertEqual(metrics["config"]["student_switch_responsibility_passes"], 2)
         self.assertEqual(metrics["config"]["teacher_student_regularizer"], 0.5)
         self.assertEqual(metrics["config"]["teacher_reward_lambda"], 100.0)
         self.assertEqual(metrics["config"]["teacher_top_rho"], 1)
         self.assertEqual(metrics["config"]["teacher_refinement_steps"], 1)
+        self.assertEqual(metrics["config"]["teacher_elite_distribution_resamples"], 3)
+        self.assertEqual(metrics["config"]["teacher_elite_distribution_rounds"], 2)
         provenance = metrics["algorithm_provenance"]
-        self.assertEqual(provenance["probabilistic_student"]["em_iters"], 4)
-        self.assertEqual(provenance["probabilistic_student"]["switch_responsibility_passes"], 1)
+        self.assertEqual(provenance["probabilistic_student"]["default_em_iters"], 4)
+        self.assertEqual(provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
         self.assertEqual(
             provenance["probabilistic_student"]["responsibility_evidence"],
             "action_likelihood_then_switch_timing_forward_backward",
@@ -186,7 +198,9 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["elite_recombination_candidate_count"],
             "at_most_one_when_elites_have_loop_free_schedules",
         )
-        self.assertEqual(provenance["teacher_search"]["elite_distribution_resamples"], 1)
+        self.assertEqual(provenance["teacher_search"]["default_elite_distribution_resamples"], 1)
+        self.assertEqual(provenance["teacher_search"]["default_elite_distribution_rounds"], 1)
+        self.assertEqual(provenance["teacher_search"]["elite_distribution_mean_candidate_per_round"], 1)
         self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
         self.assertEqual(
             provenance["teacher_search"]["elite_refinement_objective"],
@@ -213,6 +227,27 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
+        status = metrics["paper_protocol_status"]
+        self.assertTrue(status["cartpole_environment"])
+        self.assertEqual(status["train_horizon_seconds"], 5.0)
+        self.assertEqual(status["train_pole_length"], 0.5)
+        self.assertEqual(status["test_horizon_seconds"], 300.0)
+        self.assertEqual(status["test_pole_length"], 1.0)
+        self.assertEqual(status["paper_test_horizon_steps"], 15000)
+        self.assertFalse(status["uses_full_test_horizon"])
+        self.assertTrue(status["uses_paper_reward_scale"])
+        self.assertTrue(status["gaussian_action_parameter_distributions"])
+        self.assertTrue(status["gaussian_switch_parameter_distributions"])
+        self.assertTrue(status["resamples_parameters_on_mode_entry"])
+        self.assertEqual(status["student_em_iters"], 2)
+        self.assertEqual(status["student_switch_responsibility_passes"], 2)
+        self.assertEqual(status["teacher_elite_distribution_resamples"], 3)
+        self.assertEqual(status["teacher_elite_distribution_rounds"], 2)
+        self.assertFalse(status["full_probabilistic_adaptive_teaching"])
+        self.assertFalse(status["full_continuous_switch_m_step"])
+        self.assertFalse(status["full_cem_teacher_optimizer"])
+        self.assertFalse(status["paper_scale_result"])
+        self.assertIn("Local bounded Cartpole PSM diagnostic", status["limitation"])
         self.assertIn("policy_description", metrics)
         self.assertEqual(len(metrics["synthesis_history"]), 2)
         for index, entry in enumerate(metrics["synthesis_history"], start=1):

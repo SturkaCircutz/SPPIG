@@ -40,6 +40,7 @@ TEACHER_DURATION_GRADIENT_STEP = 1
 TEACHER_DURATION_GRADIENT_EPS = 1
 TEACHER_STUDENT_SAMPLE_FRACTION = 1.0
 TEACHER_ELITE_DISTRIBUTION_RESAMPLES = 1
+TEACHER_ELITE_DISTRIBUTION_ROUNDS = 1
 TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD = 1e-3
 TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR = 1.0
 TEACHER_BOOTSTRAP_ACTION_STD = 10.0
@@ -82,10 +83,14 @@ class CartpoleSynthesisConfig:
     teacher_theta_gain: float = 20.0
     teacher_omega_gain: float = 2.0
     teacher_student_iters: int = TEACHER_STUDENT_ITERS
+    student_em_iters: int = PROBABILISTIC_STUDENT_EM_ITERS
+    student_switch_responsibility_passes: int = PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES
     teacher_student_regularizer: float = TEACHER_STUDENT_REGULARIZER
     teacher_reward_lambda: float = TEACHER_REWARD_LAMBDA
     teacher_top_rho: int = TEACHER_TOP_RHO
     teacher_refinement_steps: int = TEACHER_REFINEMENT_STEPS
+    teacher_elite_distribution_resamples: int = TEACHER_ELITE_DISTRIBUTION_RESAMPLES
+    teacher_elite_distribution_rounds: int = TEACHER_ELITE_DISTRIBUTION_ROUNDS
 
 
 @dataclass
@@ -105,8 +110,8 @@ class CartpoleTrace:
 def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
     return {
         "probabilistic_student": {
-            "em_iters": PROBABILISTIC_STUDENT_EM_ITERS,
-            "switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
+            "default_em_iters": PROBABILISTIC_STUDENT_EM_ITERS,
+            "default_switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
             "responsibility_evidence": "action_likelihood_then_switch_timing_forward_backward",
             "rollout_parameter_resampling": "on_mode_entry",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
@@ -158,7 +163,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
             "elite_recombination": "top_rho_segment_action_duration_centroid",
             "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
-            "elite_distribution_resamples": TEACHER_ELITE_DISTRIBUTION_RESAMPLES,
+            "default_elite_distribution_resamples": TEACHER_ELITE_DISTRIBUTION_RESAMPLES,
+            "default_elite_distribution_rounds": TEACHER_ELITE_DISTRIBUTION_ROUNDS,
+            "elite_distribution_mean_candidate_per_round": 1,
             "elite_distribution_min_action_std": TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD,
             "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
             "elite_distance_metric": "l2_over_segment_actions_and_durations",
@@ -173,6 +180,51 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             },
             "bootstrap_switch_std": TEACHER_BOOTSTRAP_SWITCH_STD,
         },
+    }
+
+
+def cartpole_synthesis_protocol_status(
+    cfg: CartpoleSynthesisConfig,
+    eval_rollouts: int | None = None,
+    test_max_steps: int | None = None,
+    quick: bool = False,
+) -> Dict[str, object]:
+    paper_train_env = CartpoleEnv.train_env()
+    paper_test_env = CartpoleEnv.test_env()
+    loop_free_training_horizon = cfg.segment_steps * cfg.segments_per_trace
+    paper_test_horizon = test_max_steps == paper_test_env.cfg.max_steps if test_max_steps is not None else False
+    return {
+        "cartpole_environment": True,
+        "train_horizon_seconds": paper_train_env.cfg.horizon_seconds,
+        "train_pole_length": paper_train_env.cfg.pole_length,
+        "test_horizon_seconds": paper_test_env.cfg.horizon_seconds,
+        "test_pole_length": paper_test_env.cfg.pole_length,
+        "training_horizon_steps": paper_train_env.cfg.max_steps,
+        "loop_free_teacher_horizon_steps": loop_free_training_horizon,
+        "loop_free_teacher_spans_training_horizon": loop_free_training_horizon >= paper_train_env.cfg.max_steps,
+        "paper_test_horizon_steps": paper_test_env.cfg.max_steps,
+        "uses_full_test_horizon": paper_test_horizon,
+        "eval_rollouts": eval_rollouts,
+        "quick_diagnostic": bool(quick),
+        "uses_paper_reward_scale": cfg.teacher_reward_lambda == TEACHER_REWARD_LAMBDA,
+        "two_mode_constant_action_psm": len(cfg.force_values) == 2,
+        "boolean_tree_depth": 2,
+        "gaussian_action_parameter_distributions": True,
+        "gaussian_switch_parameter_distributions": True,
+        "resamples_parameters_on_mode_entry": True,
+        "student_em_iters": cfg.student_em_iters,
+        "student_switch_responsibility_passes": cfg.student_switch_responsibility_passes,
+        "teacher_elite_distribution_resamples": cfg.teacher_elite_distribution_resamples,
+        "teacher_elite_distribution_rounds": cfg.teacher_elite_distribution_rounds,
+        "full_probabilistic_adaptive_teaching": False,
+        "full_continuous_switch_m_step": False,
+        "full_cem_teacher_optimizer": False,
+        "paper_scale_result": False,
+        "limitation": (
+            "Local bounded Cartpole PSM diagnostic: implements Gaussian action/switch distributions "
+            "and sampled teacher traces, but not the paper's full probabilistic adaptive-teaching "
+            "optimizer or paper-scale result reproduction."
+        ),
     }
 
 
@@ -613,7 +665,7 @@ def fit_probabilistic_cartpole_student(
 
     # The actions are observed, but their latent mode assignments are softened
     # so ambiguous segments can influence both constant-action primitives.
-    for _ in range(PROBABILISTIC_STUDENT_EM_ITERS):
+    for _ in range(max(1, cfg.student_em_iters)):
         responsibilities = [
             _mode_responsibilities(segment.action_parameter, action_distributions)
             for segment in segments
@@ -632,7 +684,7 @@ def fit_probabilistic_cartpole_student(
         segments_by_trace,
         responsibilities,
     )
-    for _ in range(PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES):
+    for _ in range(max(0, cfg.student_switch_responsibility_passes)):
         responsibilities = _refine_responsibilities_with_switch_timing(
             segments_by_trace,
             action_distributions,
@@ -693,14 +745,9 @@ def _optimize_loop_free_trace(
     # student likelihood is the local adaptive-teaching approximation.
     scoring_student = student or _bootstrap_probabilistic_student(cfg)
     candidates = _teacher_candidate_traces(initial_state, env_cfg, cfg, rng, student)
-    ranked = sorted(
-        candidates,
-        key=lambda trace: _teacher_objective(trace, scoring_student, cfg),
-        reverse=True,
-    )
     # Refine only the top candidates to keep synthesis cheap while still
     # optimizing around promising sampled loop-free traces.
-    elites = ranked[: max(1, cfg.teacher_top_rho)]
+    elites = _top_teacher_elites(candidates, scoring_student, cfg)
     elite_recombinations = _elite_recombination_candidates(
         elites,
         initial_state,
@@ -771,15 +818,92 @@ def _elite_distribution_sample_traces(
     rng: random.Random,
     student: ProbabilisticCartpoleStudent | None = None,
 ) -> List[CartpoleTrace]:
-    schedules = _elite_loop_free_schedules(elites)
-    if not schedules:
-        return []
     samples: List[CartpoleTrace] = []
-    for _ in range(max(0, TEACHER_ELITE_DISTRIBUTION_RESAMPLES)):
-        sample = _elite_distribution_sample_trace(schedules, initial_state, env_cfg, cfg, rng, student)
-        if sample is not None:
-            samples.append(sample)
+    current_elites = elites
+    rounds = max(0, cfg.teacher_elite_distribution_rounds)
+    for _ in range(rounds):
+        schedules = _elite_loop_free_schedules(current_elites)
+        if not schedules:
+            break
+        round_samples: List[CartpoleTrace] = []
+        mean_trace = _elite_distribution_mean_trace(schedules, initial_state, env_cfg, cfg, student)
+        if mean_trace is not None:
+            round_samples.append(mean_trace)
+        for _ in range(max(0, cfg.teacher_elite_distribution_resamples)):
+            sample = _elite_distribution_sample_trace(schedules, initial_state, env_cfg, cfg, rng, student)
+            if sample is not None:
+                round_samples.append(sample)
+        if not round_samples:
+            break
+        samples.extend(round_samples)
+        current_elites = _top_teacher_elites(current_elites + round_samples, student, cfg)
     return samples
+
+
+def _top_teacher_elites(
+    traces: List[CartpoleTrace],
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+) -> List[CartpoleTrace]:
+    if not traces:
+        return []
+    top_count = max(1, cfg.teacher_top_rho)
+    return sorted(
+        traces,
+        key=lambda trace: _teacher_objective(trace, student, cfg),
+        reverse=True,
+    )[:top_count]
+
+
+def _elite_distribution_mean_trace(
+    schedules: List[Tuple[Tuple[float, ...], Tuple[int, ...], CartpoleTrace]],
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    student: ProbabilisticCartpoleStudent | None = None,
+) -> CartpoleTrace | None:
+    max_segments = min(
+        max(1, cfg.segments_per_trace),
+        max(len(actions) for actions, _, _ in schedules),
+    )
+    max_duration = max(1, cfg.segment_steps)
+    lower = max(min(cfg.force_values), -env_cfg.force_limit)
+    upper = min(max(cfg.force_values), env_cfg.force_limit)
+    mean_actions: List[float] = []
+    mean_durations: List[int] = []
+    for index in range(max_segments):
+        pairs = [
+            (actions[index], durations[index])
+            for actions, durations, _ in schedules
+            if index < len(actions) and index < len(durations)
+        ]
+        if not pairs:
+            break
+        action_mean, _ = _mean_and_std([pair[0] for pair in pairs], TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD)
+        duration_mean, _ = _mean_and_std([float(pair[1]) for pair in pairs], 1.0)
+        mean_actions.append(max(lower, min(upper, action_mean)))
+        mean_durations.append(min(max_duration, max(1, int(math.floor(duration_mean + 0.5)))))
+    if not mean_actions or not mean_durations:
+        return None
+
+    theta_gain = sum(trace.theta_gain for _, _, trace in schedules) / len(schedules)
+    omega_gain = sum(trace.omega_gain for _, _, trace in schedules) / len(schedules)
+    mean_trace = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        theta_gain,
+        omega_gain,
+        tuple(mean_durations),
+        tuple(mean_actions),
+    )
+    mean_trace.teacher_source = _elite_distribution_mean_source([trace for _, _, trace in schedules])
+    mean_trace.student_log_probability = (
+        _trace_log_probability(mean_trace, student)
+        if student is not None
+        else None
+    )
+    return mean_trace
 
 
 def _elite_centroid_trace(
@@ -911,20 +1035,29 @@ def _mean_and_std(values: List[float], std_floor: float) -> Tuple[float, float]:
 
 def _elite_centroid_source(elites: List[CartpoleTrace]) -> str:
     sources = [trace.teacher_source for trace in elites]
-    if sources and all(source.startswith("bootstrap_student_sample") for source in sources):
+    if sources and all(source.startswith("bootstrap_") for source in sources):
         return "bootstrap_elite_centroid"
-    if sources and all(source.startswith("student_sample") for source in sources):
+    if sources and all(source.startswith("student_") for source in sources):
         return "student_elite_centroid"
     return "elite_centroid"
 
 
 def _elite_distribution_source(elites: List[CartpoleTrace]) -> str:
     sources = [trace.teacher_source for trace in elites]
-    if sources and all(source.startswith("bootstrap_student_sample") for source in sources):
+    if sources and all(source.startswith("bootstrap_") for source in sources):
         return "bootstrap_elite_distribution_sample"
-    if sources and all(source.startswith("student_sample") for source in sources):
+    if sources and all(source.startswith("student_") for source in sources):
         return "student_elite_distribution_sample"
     return "elite_distribution_sample"
+
+
+def _elite_distribution_mean_source(elites: List[CartpoleTrace]) -> str:
+    sources = [trace.teacher_source for trace in elites]
+    if sources and all(source.startswith("bootstrap_") for source in sources):
+        return "bootstrap_elite_distribution_mean"
+    if sources and all(source.startswith("student_") for source in sources):
+        return "student_elite_distribution_mean"
+    return "elite_distribution_mean"
 
 
 def _rollout_loop_free_candidate(
@@ -1230,6 +1363,9 @@ def _refine_loop_free_trace(
             "bootstrap_elite_centroid",
             "student_elite_centroid",
             "elite_centroid",
+            "bootstrap_elite_distribution_mean",
+            "student_elite_distribution_mean",
+            "elite_distribution_mean",
             "bootstrap_elite_distribution_sample",
             "student_elite_distribution_sample",
             "elite_distribution_sample",

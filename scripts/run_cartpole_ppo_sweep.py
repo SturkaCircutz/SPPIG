@@ -161,6 +161,75 @@ def count_uncapped_jobs(args: argparse.Namespace) -> int:
     return total
 
 
+def paper_protocol_status(
+    args: argparse.Namespace,
+    jobs_planned: int | None = None,
+    jobs_completed: int | None = None,
+    jobs_failed: int | None = None,
+) -> Dict[str, Any]:
+    policies = [policy for policy in args.policies.split(",") if policy]
+    seeds = _parse_ints(args.seeds)
+    nminibatches = _parse_ints(args.nminibatches)
+    ent_coefs = _parse_floats(args.ent_coefs)
+    update_epochs = _parse_update_epochs(args.update_epochs)
+    clip_ranges = _parse_floats(args.clip_ranges)
+    learning_rates = _parse_floats(args.learning_rates)
+    requested_policy_set = set(policies)
+    full_baseline_policy_set = requested_policy_set == {"mlp", "lstm"} and len(policies) == 2
+    has_full_mlp_grid = (
+        "mlp" in policies
+        and nminibatches == PAPER_NMINIBATCHES
+        and ent_coefs == PAPER_ENT_COEFS
+        and update_epochs == PAPER_UPDATE_EPOCHS
+        and clip_ranges == PAPER_CLIP_RANGES
+    )
+    paper_timestep_budget = int(args.timesteps) == PAPER_TIMESTEPS
+    paper_seed_count = len(seeds) == 5 and len(set(seeds)) == 5
+    learning_rates_in_interval = bool(learning_rates) and all(5e-6 <= value <= 0.003 for value in learning_rates)
+    full_default_learning_rate_grid = (
+        len(learning_rates) == len(DEFAULT_LEARNING_RATES)
+        and set(learning_rates) == set(DEFAULT_LEARNING_RATES)
+    )
+    truncated = args.max_configs is not None
+    paper_scale_plan = (
+        paper_timestep_budget
+        and paper_seed_count
+        and full_baseline_policy_set
+        and has_full_mlp_grid
+        and learning_rates_in_interval
+        and full_default_learning_rate_grid
+        and not truncated
+        and not args.quick
+    )
+    all_planned_jobs_completed = (
+        jobs_planned is not None
+        and jobs_completed is not None
+        and jobs_failed is not None
+        and jobs_planned > 0
+        and jobs_completed == jobs_planned
+        and jobs_failed == 0
+    )
+    return {
+        "paper_timestep_budget": paper_timestep_budget,
+        "paper_seed_count": paper_seed_count,
+        "selected_seed_count": len(seeds),
+        "includes_ppo_mlp": "mlp" in requested_policy_set,
+        "includes_ppo_lstm": "lstm" in requested_policy_set,
+        "full_baseline_policy_set": full_baseline_policy_set,
+        "full_reported_mlp_grid": has_full_mlp_grid,
+        "ppo_lstm_minibatches_fixed_to_one": "lstm" in requested_policy_set,
+        "learning_rate_interval_only": True,
+        "learning_rate_values_within_reported_interval": learning_rates_in_interval,
+        "full_default_learning_rate_grid": full_default_learning_rate_grid,
+        "truncated_by_max_configs": truncated,
+        "quick_diagnostic": bool(args.quick),
+        "dry_run_only": bool(args.dry_run),
+        "all_planned_jobs_completed": all_planned_jobs_completed,
+        "paper_scale_plan": paper_scale_plan,
+        "paper_scale_execution": paper_scale_plan and not args.dry_run and all_planned_jobs_completed,
+    }
+
+
 def write_csv(path: Path, fieldnames: List[str], rows: Iterable[Dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -301,6 +370,7 @@ def write_manifest(
         "jobs_skipped_existing": skipped,
         "jobs_run_this_invocation": completed - skipped,
         "max_configs": args.max_configs,
+        "paper_protocol_status": paper_protocol_status(args, len(jobs), completed, failed),
         "paper_space": {
             "timesteps": PAPER_TIMESTEPS,
             "nminibatches": PAPER_NMINIBATCHES,

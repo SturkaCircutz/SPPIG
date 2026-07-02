@@ -65,16 +65,16 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
             "missing result artifacts for generated paper claims: "
             + ", ".join(missing)
         )
-    short_horizon = [
+    non_paper_horizon = [
         row["policy"]
         for row in rows
-        if row.get("test_horizon_steps")
-        and int(float(row["test_horizon_steps"])) != PAPER_TEST_HORIZON_STEPS
+        if not row.get("test_horizon_steps")
+        or int(float(row["test_horizon_steps"])) != PAPER_TEST_HORIZON_STEPS
     ]
-    if short_horizon:
+    if non_paper_horizon:
         raise ValueError(
-            "result rows are not evaluated on the paper 300-second test horizon: "
-            + ", ".join(short_horizon)
+            "result rows lack paper 300-second test-horizon provenance: "
+            + ", ".join(non_paper_horizon)
         )
 
 

@@ -17,6 +17,7 @@ from run_cartpole_ppo_sweep import (  # noqa: E402
     build_jobs,
     count_uncapped_jobs,
     parse_args,
+    paper_protocol_status,
     read_existing_results,
     resumable_result_for_job,
     summarize_results,
@@ -139,6 +140,122 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertGreater(manifest["jobs_uncapped_for_selected_space"], manifest["jobs_planned"])
         self.assertEqual(manifest["jobs_completed"], 0)
         self.assertEqual(manifest["paper_space"]["timesteps"], 10_000_000)
+        self.assertFalse(manifest["paper_protocol_status"]["paper_scale_plan"])
+        self.assertFalse(manifest["paper_protocol_status"]["paper_scale_execution"])
+        self.assertTrue(manifest["paper_protocol_status"]["quick_diagnostic"])
+        self.assertTrue(manifest["paper_protocol_status"]["dry_run_only"])
+        self.assertTrue(manifest["paper_protocol_status"]["truncated_by_max_configs"])
+
+    def test_paper_protocol_status_identifies_full_dry_run_plan(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertTrue(status["paper_timestep_budget"])
+        self.assertTrue(status["paper_seed_count"])
+        self.assertTrue(status["full_baseline_policy_set"])
+        self.assertTrue(status["full_reported_mlp_grid"])
+        self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
+        self.assertTrue(status["learning_rate_values_within_reported_interval"])
+        self.assertTrue(status["full_default_learning_rate_grid"])
+        self.assertTrue(status["paper_scale_plan"])
+        self.assertFalse(status["paper_scale_execution"])
+
+    def test_paper_protocol_status_rejects_duplicate_seed_list(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--seeds", "0,0,0,0,0"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args, jobs_planned=10, jobs_completed=10, jobs_failed=0)
+
+        self.assertFalse(status["paper_seed_count"])
+        self.assertFalse(status["paper_scale_plan"])
+        self.assertFalse(status["paper_scale_execution"])
+
+    def test_paper_protocol_status_requires_completed_jobs_for_execution(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        incomplete_status = paper_protocol_status(args, jobs_planned=10, jobs_completed=9, jobs_failed=0)
+        failed_status = paper_protocol_status(args, jobs_planned=10, jobs_completed=9, jobs_failed=1)
+        completed_status = paper_protocol_status(args, jobs_planned=10, jobs_completed=10, jobs_failed=0)
+
+        self.assertTrue(incomplete_status["paper_scale_plan"])
+        self.assertFalse(incomplete_status["all_planned_jobs_completed"])
+        self.assertFalse(incomplete_status["paper_scale_execution"])
+        self.assertFalse(failed_status["all_planned_jobs_completed"])
+        self.assertFalse(failed_status["paper_scale_execution"])
+        self.assertTrue(completed_status["all_planned_jobs_completed"])
+        self.assertTrue(completed_status["paper_scale_execution"])
+
+    def test_paper_protocol_status_rejects_empty_learning_rate_list(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--learning-rates", ""]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertFalse(status["learning_rate_values_within_reported_interval"])
+        self.assertFalse(status["paper_scale_plan"])
+
+    def test_paper_protocol_status_rejects_reduced_learning_rate_grid(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--learning-rates", "0.001"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertTrue(status["learning_rate_values_within_reported_interval"])
+        self.assertFalse(status["full_default_learning_rate_grid"])
+        self.assertFalse(status["paper_scale_plan"])
+
+    def test_paper_protocol_status_rejects_partial_policy_set(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--policies", "mlp"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertTrue(status["includes_ppo_mlp"])
+        self.assertFalse(status["includes_ppo_lstm"])
+        self.assertFalse(status["full_baseline_policy_set"])
+        self.assertFalse(status["paper_scale_plan"])
+
+    def test_paper_protocol_status_rejects_duplicate_policy_entries(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--policies", "mlp,lstm,lstm"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertTrue(status["includes_ppo_mlp"])
+        self.assertTrue(status["includes_ppo_lstm"])
+        self.assertFalse(status["full_baseline_policy_set"])
+        self.assertFalse(status["paper_scale_plan"])
 
     def test_quick_execution_writes_results_summary_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -297,6 +414,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertTrue(manifest["continue_on_error"])
         self.assertEqual(manifest["jobs_completed"], 0)
         self.assertEqual(manifest["jobs_failed"], 1)
+        self.assertFalse(manifest["paper_protocol_status"]["all_planned_jobs_completed"])
+        self.assertFalse(manifest["paper_protocol_status"]["paper_scale_execution"])
 
     def test_default_job_failure_stops_sweep(self):
         with tempfile.TemporaryDirectory() as tmpdir:

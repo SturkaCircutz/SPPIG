@@ -55,6 +55,8 @@ Regenerate the CartPole result table, summary, and manifest:
   --seeds 0,1,2,3,4 \
   --eval-rollouts 20 \
   --test-max-steps 15000 \
+  --include-ppo \
+  --include-direct-opt \
   --outdir artifacts/results
 ```
 
@@ -112,11 +114,17 @@ The current CartPole PSM defaults use one-step loop-free teacher segments over
 the full 250-step training horizon (`segment_steps=1`, `segments_per_trace=250`);
 this is a local teacher hyperparameter profile selected for CartPole
 diagnostics, not a paper-reported constant.
-It also records fixed local synthesis constants, including EM count, one
-switch-timing responsibility-refinement pass, minimum Gaussian standard
-deviation, switch-timing scale, switch-search grids, bounded switch-parameter
-coordinate refinement, and teacher-search refinement schedule, under
-`algorithm_provenance`.
+It also records local synthesis defaults, including student EM count, switch-timing
+responsibility-refinement passes, minimum Gaussian standard deviation,
+switch-timing scale, switch-search grids, bounded switch-parameter coordinate
+refinement, and teacher-search refinement schedule, under `algorithm_provenance`;
+the actual configured EM schedule is recorded under `config` and
+`paper_protocol_status`.
+The metrics JSON also includes `paper_protocol_status`, which records the
+matched CartPole train/test horizons and the remaining algorithmic gaps. That
+block deliberately keeps `full_probabilistic_adaptive_teaching`,
+`full_continuous_switch_m_step`, `full_cem_teacher_optimizer`, and
+`paper_scale_result` false for the current bounded diagnostic implementation.
 The first teacher iteration uses an explicit probabilistic student prior, then
 later teacher candidate pools are sampled from the current probabilistic
 student before top-rho local refinement, matching the paper's sampled-teacher
@@ -132,11 +140,13 @@ duration/action coordinate search plus one bounded finite-difference action
 candidate and one bounded finite-difference integer-duration candidate per
 refinement iteration. The teacher also evaluates one deterministic
 centroid recombination of the top-rho loop-free action/duration schedules
-and one bounded sample from their fitted per-segment action/duration statistics
+and configurable bounded rounds of fitted per-segment action/duration
+distribution means plus samples, refreshing the top-rho set between rounds
 before refinement. This still does not implement the paper's full CEM plus
 gradient optimizer.
-The student starts with action-likelihood responsibilities, then performs one
-bounded forward-backward refinement using the learned switch-timing likelihood.
+The student starts with action-likelihood responsibilities, then performs the
+configured number of bounded forward-backward refinements using the learned
+switch-timing likelihood.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
 plus bounded coordinate steps. Switch structures are
@@ -230,11 +240,16 @@ stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`
 and `cartpole_ppo_sweep_summary.csv`; the summary selects the best completed
 config per policy by train success, then train reward. The manifest records
 both the jobs actually planned and the uncapped job count for the selected
-search space. The sweep enumerates the paper's reported `nminibatches`,
-`ent_coef`, `noptepochs`, and `cliprange` ranges, with PPO-LSTM fixed to
-`nminibatches=1`. The extracted paper text gives a learning-rate interval
-rather than exact samples, so the runner records the explicit sampled values in
-the manifest.
+search space, plus `paper_protocol_status` flags showing whether the plan is
+paper-scale, whether all planned jobs completed with zero failures, whether it
+is quick/truncated or dry-run only, and whether both PPO MLP and PPO-LSTM are
+included. The full-plan flag requires the runner's complete explicit
+learning-rate sample grid; the paper text reports only the interval, not the
+exact samples used by the authors. The sweep enumerates the paper's reported
+`nminibatches`, `ent_coef`, `noptepochs`, and `cliprange` ranges, with
+PPO-LSTM fixed to `nminibatches=1`. The extracted paper text gives a
+learning-rate interval rather than exact samples, so the runner records the
+explicit sampled values in the manifest.
 
 ## Paper and Audit
 
