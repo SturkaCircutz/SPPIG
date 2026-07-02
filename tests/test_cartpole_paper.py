@@ -93,6 +93,7 @@ if HAS_TORCH:
         PPOConfig,
         _collect_rollout,
         _update_lstm,
+        ppo_paper_protocol_status,
         train_ppo_cartpole,
     )
 
@@ -2934,6 +2935,28 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(PAPER_PPO_TIMESTEPS, 10_000_000)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_protocol_status_distinguishes_single_run_from_full_baseline(self):
+        status = ppo_paper_protocol_status(
+            PPOConfig(
+                policy_type="lstm",
+                total_timesteps=PAPER_PPO_TIMESTEPS,
+                eval_test_max_steps=CartpoleEnv.test_env().cfg.max_steps,
+                minibatches=1,
+            )
+        )
+
+        self.assertEqual(status["train_horizon_seconds"], 5.0)
+        self.assertEqual(status["train_pole_length"], 0.5)
+        self.assertEqual(status["test_horizon_seconds"], 300.0)
+        self.assertEqual(status["test_pole_length"], 1.0)
+        self.assertTrue(status["paper_timestep_budget"])
+        self.assertTrue(status["paper_test_horizon"])
+        self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
+        self.assertTrue(status["single_run_matches_paper_budget"])
+        self.assertFalse(status["five_seed_hyperparameter_search"])
+        self.assertFalse(status["paper_scale_baseline_protocol"])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_smoke_train_mlp(self):
         _, result = train_ppo_cartpole(
             PPOConfig(
@@ -2985,6 +3008,10 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIn("horizon_truncations", metrics["update_history"][0])
         self.assertIn("failure_terminations", metrics["update_history"][0])
         self.assertEqual(metrics["selected_result"]["timesteps"], result.timesteps)
+        self.assertEqual(metrics["paper_protocol_status"]["selected_test_max_steps"], 20)
+        self.assertFalse(metrics["paper_protocol_status"]["paper_timestep_budget"])
+        self.assertFalse(metrics["paper_protocol_status"]["paper_test_horizon"])
+        self.assertFalse(metrics["paper_protocol_status"]["paper_scale_baseline_protocol"])
         self.assertIn("selection_rule", metrics)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")

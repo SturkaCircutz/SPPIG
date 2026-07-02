@@ -291,6 +291,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_ppo_writes_eval_history_metrics_json` verifies that PPO
   interval evaluations and per-update rollout diagnostics are persisted to JSON instead of existing
   only in stdout.
+- `tests/test_cartpole_paper.py::test_ppo_protocol_status_distinguishes_single_run_from_full_baseline`
+  verifies that PPO metrics can mark a single configured run as matching the paper timestep/test
+  horizon budget while still marking the full five-seed paper baseline protocol as incomplete.
 - `tests/test_cartpole_paper.py::test_ppo_config_defaults_to_paper_timestep_budget` and
   `tests/test_cartpole_ppo_cli.py::test_cli_defaults_to_paper_timestep_budget_without_running`
   verify that the standalone PPO config and CLI default to the paper's `10^7` timestep budget

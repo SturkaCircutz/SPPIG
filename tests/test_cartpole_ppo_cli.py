@@ -97,6 +97,9 @@ class CartpolePPOCliTest(unittest.TestCase):
         self.assertIn("train_survival_seconds_mean", metrics["selected_result"])
         self.assertIn("test_survival_seconds_mean", metrics["selected_result"])
         self.assertIn("test_steps_mean", metrics["eval_history"][0])
+        self.assertFalse(metrics["paper_protocol_status"]["paper_timestep_budget"])
+        self.assertFalse(metrics["paper_protocol_status"]["paper_test_horizon"])
+        self.assertFalse(metrics["paper_protocol_status"]["paper_scale_baseline_protocol"])
 
 
 if __name__ == "__main__":

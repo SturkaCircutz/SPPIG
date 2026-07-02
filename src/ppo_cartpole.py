@@ -75,6 +75,35 @@ def result_to_metrics(result: PPOResult) -> Dict[str, object]:
     }
 
 
+def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
+    train_env = CartpoleEnv.train_env()
+    test_env = CartpoleEnv.test_env()
+    paper_timestep_budget = cfg.total_timesteps == PAPER_PPO_TIMESTEPS
+    paper_test_horizon = cfg.eval_test_max_steps == test_env.cfg.max_steps
+    lstm_minibatches_ok = cfg.policy_type != "lstm" or cfg.minibatches == 1
+    single_run_matches_paper_budget = paper_timestep_budget and paper_test_horizon and lstm_minibatches_ok
+    return {
+        "policy_type": cfg.policy_type,
+        "train_horizon_seconds": train_env.cfg.horizon_seconds,
+        "train_pole_length": train_env.cfg.pole_length,
+        "train_horizon_steps": train_env.cfg.max_steps,
+        "test_horizon_seconds": test_env.cfg.horizon_seconds,
+        "test_pole_length": test_env.cfg.pole_length,
+        "paper_test_horizon_steps": test_env.cfg.max_steps,
+        "selected_test_max_steps": cfg.eval_test_max_steps,
+        "paper_timestep_budget": paper_timestep_budget,
+        "paper_test_horizon": paper_test_horizon,
+        "ppo_lstm_minibatches_fixed_to_one": lstm_minibatches_ok,
+        "single_run_matches_paper_budget": single_run_matches_paper_budget,
+        "five_seed_hyperparameter_search": False,
+        "paper_scale_baseline_protocol": False,
+        "limitation": (
+            "Standalone PPO training can match the paper timestep and test-horizon budget for one run, "
+            "but it is not the paper's full five-seed hyperparameter-search baseline protocol."
+        ),
+    }
+
+
 def rollout_to_update_metrics(rollout: "Rollout", update: int, timesteps: int) -> Dict[str, object]:
     horizon_truncations = int(rollout.horizon_truncations.sum().item())
     failure_terminations = int(rollout.failure_terminations.sum().item())
@@ -332,6 +361,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
                     "eval_history": eval_history,
                     "update_history": update_history,
                     "selected_result": final_metrics,
+                    "paper_protocol_status": ppo_paper_protocol_status(cfg),
                     "selection_rule": "max train_success_rate, then train_reward_mean when eval_interval > 0 and keep_best is true",
                 },
                 handle,
