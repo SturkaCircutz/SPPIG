@@ -41,6 +41,7 @@ from cartpole_synthesis import (
     _greedy_boolean_tree_candidates,
     _duration_refinement_candidates,
     _elite_kernel_log_probability,
+    _limit_loop_free_trace_segment_budget,
     _mode_responsibilities,
     _mode_run_lengths,
     _mode_run_actions,
@@ -56,6 +57,7 @@ from cartpole_synthesis import (
     _sample_switch,
     _single_threshold_transition_probability,
     _switch_cost,
+    _segments_from_traces,
     _switch_structure_rescore_candidates,
     _switch_structure_cost,
     _switch_transition_and_stay_probabilities,
@@ -117,6 +119,14 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(traces), 2)
         self.assertIn("m0", policy.describe())
         self.assertIn("m1", policy.describe())
+
+    def test_cartpole_default_loop_free_teacher_spans_training_horizon(self):
+        cfg = CartpoleSynthesisConfig()
+        env = CartpoleEnv.train_env(seed=0)
+
+        self.assertEqual(cfg.segment_steps, 1)
+        self.assertEqual(cfg.segments_per_trace, env.cfg.max_steps)
+        self.assertEqual(cfg.segment_steps * cfg.segments_per_trace, env.cfg.max_steps)
 
     def test_cartpole_synthesis_can_return_probabilistic_student(self):
         student, traces = synthesize_cartpole_student(
@@ -181,6 +191,27 @@ class CartpolePaperTest(unittest.TestCase):
             self.assertAlmostEqual(left_weight + right_weight, 1.0)
             self.assertGreaterEqual(left_weight, 0.0)
             self.assertGreaterEqual(right_weight, 0.0)
+
+    def test_cartpole_student_segments_follow_teacher_loop_free_schedule(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, -0.05, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.05, 0.0],
+            ],
+            actions=[2.0, 2.0, 4.0, 4.0],
+            mode_labels=[1, 1, 1, 1],
+            reward=4.0,
+            segment_actions=(2.0, 4.0),
+            segment_durations=(2, 2),
+        )
+
+        segments = _segments_from_traces([trace])[0]
+
+        self.assertEqual(len(segments), 2)
+        self.assertEqual([segment.duration for segment in segments], [2, 2])
+        self.assertEqual([segment.action_parameter for segment in segments], [2.0, 4.0])
 
     def test_cartpole_responsibility_refinement_uses_switch_timing(self):
         first_segment = CartpoleSegment(
@@ -1147,6 +1178,58 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
         self.assertTrue(set(trace.mode_labels).issubset({0, 1}))
 
+    def test_cartpole_student_sampled_teacher_respects_training_horizon(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=8, segments_per_trace=32)
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(0.0, 0.0),
+                1: GaussianScalar(0.0, 0.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 1.0),
+            switch_threshold_distribution=GaussianScalar(1.0, 0.0),
+            switch_parameter_distributions=[GaussianScalar(1.0, 0.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+
+        trace = _rollout_student_sampled_trace(
+            [0.0, 0.0, 0.0, 0.0],
+            env.cfg,
+            cfg,
+            student,
+            random.Random(0),
+        )
+
+        self.assertEqual(len(trace.actions), env.cfg.max_steps)
+        self.assertEqual(trace.reward, float(env.cfg.max_steps))
+        self.assertEqual(sum(trace.segment_durations), len(trace.actions))
+
+    def test_cartpole_student_sampled_teacher_respects_loop_free_segment_budget(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=8, segments_per_trace=4)
+        raw_trace = CartpoleTrace(
+            observations=[[0.0, 0.0, 0.0, 0.0] for _ in range(9)],
+            actions=[-10.0, 10.0, -8.0, 8.0, -6.0, 6.0, -4.0, 4.0, -2.0],
+            mode_labels=[0, 1, 0, 1, 0, 1, 0, 1, 0],
+            reward=9.0,
+            segment_actions=(-10.0, 10.0, -8.0, 8.0, -6.0, 6.0, -4.0, 4.0, -2.0),
+            segment_durations=(1, 1, 1, 1, 1, 1, 1, 1, 1),
+            teacher_source="student_sample",
+        )
+
+        trace = _limit_loop_free_trace_segment_budget(
+            raw_trace,
+            [0.0, 0.0, -0.1, -1.0],
+            env.cfg,
+            cfg,
+        )
+
+        self.assertEqual(trace.teacher_source, "student_sample")
+        self.assertLessEqual(len(trace.segment_actions), cfg.segments_per_trace)
+        self.assertTrue(all(duration <= cfg.segment_steps for duration in trace.segment_durations))
+        self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
+        self.assertEqual(sum(trace.segment_durations), len(trace.actions))
+
     def test_cartpole_teacher_bootstrap_uses_probabilistic_student_prior(self):
         cfg = CartpoleSynthesisConfig(
             candidate_rollouts=4,
@@ -1167,6 +1250,7 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(candidates), 4)
         self.assertTrue(all(trace.teacher_source == "bootstrap_student_sample" for trace in candidates))
         self.assertTrue(all(trace.student_log_probability is not None for trace in candidates))
+        self.assertTrue(all(len(trace.segment_actions) <= cfg.segments_per_trace for trace in candidates))
 
     def test_cartpole_teacher_candidate_pool_uses_student_samples_after_first_iteration(self):
         cfg = CartpoleSynthesisConfig(
@@ -1195,6 +1279,7 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(len(candidates), 4)
         self.assertTrue(all(trace.teacher_source == "student_sample" for trace in candidates))
+        self.assertTrue(all(len(trace.segment_actions) <= cfg.segments_per_trace for trace in candidates))
 
     def test_cartpole_teacher_optimization_bootstrap_returns_prior_sample(self):
         env = CartpoleEnv.train_env(seed=0)
@@ -1324,6 +1409,26 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(trace.segment_durations, (2, 2, 2))
         self.assertEqual(trace.segment_actions, (10.0, 10.0, 10.0))
         self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
+
+    def test_cartpole_teacher_rollout_respects_training_horizon(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=8, segments_per_trace=32)
+
+        trace = _rollout_with_teacher_gains(
+            [0.0, 0.0, 0.0, 0.0],
+            env.cfg,
+            cfg,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_durations=tuple(300 for _ in range(40)),
+            segment_actions=tuple(0.0 for _ in range(40)),
+        )
+
+        self.assertEqual(len(trace.actions), env.cfg.max_steps)
+        self.assertEqual(trace.reward, float(env.cfg.max_steps))
+        self.assertEqual(sum(trace.segment_durations), len(trace.actions))
+        self.assertLessEqual(len(trace.segment_durations), cfg.segments_per_trace)
+        self.assertTrue(all(duration <= cfg.segment_steps for duration in trace.segment_durations))
 
     def test_cartpole_teacher_rollout_records_only_started_loop_free_segments(self):
         env = CartpoleEnv.train_env(seed=0)

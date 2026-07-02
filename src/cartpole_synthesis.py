@@ -68,8 +68,8 @@ SWITCH_STRUCTURE_RESCORING_TOP_K = 32
 class CartpoleSynthesisConfig:
     num_initial_states: int = 32
     candidate_rollouts: int = 128
-    segment_steps: int = 8
-    segments_per_trace: int = 32
+    segment_steps: int = 1
+    segments_per_trace: int = 250
     force_values: Tuple[float, ...] = (-10.0, 10.0)
     seed: int = 0
     teacher_theta_gain: float = 20.0
@@ -136,7 +136,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "action_refinement_candidates_per_segment": TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT,
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "trace_log_probability_approximation",
+            "student_sample_segment_budget": "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
             "student_sample_local_refinement": "duration_and_action_coordinate_search",
+            "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
             "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
             "elite_distance_metric": "l2_over_segment_actions_and_durations",
             "elite_distance_duration_scale_floor": TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR,
@@ -704,13 +706,19 @@ def _rollout_with_teacher_gains(
     mode_labels: List[int] = []
     state = list(initial_state)
     alive = 0
-    durations = segment_durations or tuple(cfg.segment_steps for _ in range(cfg.segments_per_trace))
+    max_segment_steps = max(1, cfg.segment_steps)
+    max_segments = max(1, cfg.segments_per_trace)
+    max_steps = min(env_cfg.max_steps, max_segment_steps * max_segments)
+    durations = segment_durations or tuple(max_segment_steps for _ in range(max_segments))
+    durations = tuple(durations[:max_segments])
     chosen_actions: List[float] = []
     started_durations: List[int] = []
     for segment_index, duration in enumerate(durations):
-        if cartpole_done(state, env_cfg):
+        if cartpole_done(state, env_cfg) or alive >= max_steps:
             break
-        duration_steps = max(1, duration)
+        duration_steps = min(max(1, duration), max_segment_steps, max_steps - alive)
+        if duration_steps <= 0:
+            break
         if segment_actions is not None and segment_index < len(segment_actions):
             action = segment_actions[segment_index]
         else:
@@ -720,8 +728,8 @@ def _rollout_with_teacher_gains(
             raw_force = theta_gain * theta + omega_gain * omega
             action = max(cfg.force_values) if raw_force >= 0.0 else min(cfg.force_values)
         chosen_actions.append(action)
-        started_durations.append(duration_steps)
         label = 1 if action > 0.0 else 0
+        executed_steps = 0
         for _ in range(duration_steps):
             if cartpole_done(state, env_cfg):
                 break
@@ -730,6 +738,11 @@ def _rollout_with_teacher_gains(
             mode_labels.append(label)
             state = cartpole_next_state(state, action, env_cfg)
             alive += 1
+            executed_steps += 1
+            if alive >= max_steps:
+                break
+        if executed_steps:
+            started_durations.append(executed_steps)
     return CartpoleTrace(
         observations=observations,
         actions=actions,
@@ -759,7 +772,8 @@ def _rollout_student_sampled_trace(
     mode_labels: List[int] = []
     state = list(initial_state)
     alive = 0
-    for _ in range(cfg.segment_steps * cfg.segments_per_trace):
+    max_steps = min(env_cfg.max_steps, cfg.segment_steps * cfg.segments_per_trace)
+    for _ in range(max_steps):
         if cartpole_done(state, env_cfg):
             break
         observation = list(state)
@@ -778,8 +792,66 @@ def _rollout_student_sampled_trace(
         segment_durations=_mode_run_lengths(mode_labels),
         teacher_source="student_sample",
     )
+    trace = _limit_loop_free_trace_segment_budget(trace, initial_state, env_cfg, cfg)
     trace.student_log_probability = _trace_log_probability(trace, student)
     return trace
+
+
+def _limit_loop_free_trace_segment_budget(
+    trace: CartpoleTrace,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+) -> CartpoleTrace:
+    actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
+    durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
+    if len(actions) != len(durations):
+        raise ValueError("loop-free action count must match duration count")
+    max_segments = max(1, cfg.segments_per_trace)
+    max_segment_steps = max(1, cfg.segment_steps)
+    if len(actions) <= max_segments and all(duration <= max_segment_steps for duration in durations):
+        return trace
+
+    # Student samples are closed-loop PSMs, but the paper's teacher candidates
+    # are loop-free programs with both a segment-count and segment-time budget.
+    projected_actions, projected_durations = _chunk_actions_to_loop_free_segments(
+        tuple(trace.actions),
+        max_segment_steps,
+        max_segments,
+    )
+    limited = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain,
+        trace.omega_gain,
+        projected_durations,
+        projected_actions,
+    )
+    limited.teacher_source = trace.teacher_source
+    return limited
+
+
+def _chunk_actions_to_loop_free_segments(
+    actions: Tuple[float, ...],
+    max_segment_steps: int,
+    max_segments: int,
+) -> Tuple[Tuple[float, ...], Tuple[int, ...]]:
+    if max_segment_steps < 1:
+        raise ValueError("max_segment_steps must be positive")
+    if max_segments < 1:
+        raise ValueError("max_segments must be positive")
+
+    projected_actions: List[float] = []
+    projected_durations: List[int] = []
+    limit = min(len(actions), max_segment_steps * max_segments)
+    for start in range(0, limit, max_segment_steps):
+        chunk = actions[start : start + max_segment_steps]
+        if not chunk:
+            break
+        projected_actions.append(sum(chunk) / len(chunk))
+        projected_durations.append(len(chunk))
+    return tuple(projected_actions), tuple(projected_durations)
 
 
 def _mode_run_lengths(mode_labels: List[int]) -> Tuple[int, ...]:
@@ -1090,6 +1162,10 @@ def _segments_from_traces(traces: List[CartpoleTrace]) -> List[List[CartpoleSegm
             segments_by_trace.append(trace_segments)
             continue
 
+        if trace.segment_actions and trace.segment_durations:
+            segments_by_trace.append(_teacher_schedule_segments(trace))
+            continue
+
         start = 0
         mode = trace.mode_labels[0]
         for index, label in enumerate(trace.mode_labels[1:], start=1):
@@ -1103,6 +1179,28 @@ def _segments_from_traces(traces: List[CartpoleTrace]) -> List[List[CartpoleSegm
         trace_segments.append(_make_segment(trace, start, len(trace.actions), mode))
         segments_by_trace.append(trace_segments)
     return segments_by_trace
+
+
+def _teacher_schedule_segments(trace: CartpoleTrace) -> List[CartpoleSegment]:
+    if len(trace.segment_actions) != len(trace.segment_durations):
+        raise ValueError("loop-free action count must match duration count")
+
+    segments: List[CartpoleSegment] = []
+    start = 0
+    for action, duration in zip(trace.segment_actions, trace.segment_durations):
+        end = min(start + max(1, int(duration)), len(trace.actions))
+        if start >= end:
+            break
+        segments.append(
+            CartpoleSegment(
+                observations=trace.observations[start:end],
+                action_parameter=float(action),
+                duration=end - start,
+                hard_mode=1 if action > 0.0 else 0,
+            )
+        )
+        start = end
+    return segments
 
 
 def _make_segment(trace: CartpoleTrace, start: int, end: int, hard_mode: int) -> CartpoleSegment:

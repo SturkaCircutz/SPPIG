@@ -12,6 +12,44 @@ SCRIPT = os.path.join(ROOT, "src", "train_cartpole_psm.py")
 
 
 class CartpolePSMCliTest(unittest.TestCase):
+    def test_cli_default_teacher_profile_matches_cartpole_training_horizon(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "psm_metrics.json")
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--num-initial-states",
+                    "1",
+                    "--candidate-rollouts",
+                    "1",
+                    "--teacher-student-iters",
+                    "1",
+                    "--teacher-top-rho",
+                    "1",
+                    "--teacher-refinement-steps",
+                    "0",
+                    "--eval-rollouts",
+                    "1",
+                    "--test-max-steps",
+                    "20",
+                    "--metrics-output",
+                    metrics_path,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            with open(metrics_path, encoding="utf-8") as handle:
+                metrics = json.load(handle)
+
+        self.assertEqual(metrics["config"]["segment_steps"], 1)
+        self.assertEqual(metrics["config"]["segments_per_trace"], 250)
+        self.assertEqual(
+            metrics["config"]["segment_steps"] * metrics["config"]["segments_per_trace"],
+            250,
+        )
+
     def test_cli_writes_metrics_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "psm_metrics.json")
@@ -109,6 +147,14 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(
             provenance["teacher_search"]["student_sample_local_refinement"],
             "duration_and_action_coordinate_search",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["student_sample_segment_budget"],
+            "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["teacher_rollout_horizon"],
+            "min_environment_max_steps_and_configured_loop_free_horizon",
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_refinement_objective"],

@@ -92,8 +92,8 @@ def run_psm(
     cfg_kwargs = {
         "num_initial_states": 4 if quick else 64,
         "candidate_rollouts": 4 if quick else 128,
-        "segment_steps": 2 if quick else 8,
-        "segments_per_trace": 8 if quick else 32,
+        "segment_steps": 2 if quick else 1,
+        "segments_per_trace": 8 if quick else 250,
         "teacher_student_iters": 1 if quick else 2,
         "seed": seed,
     }

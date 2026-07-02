@@ -107,16 +107,17 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train success `1.000`, test success over the full 15000-step/300-second horizon `0.200`,
   train reward mean `250.0`, test reward mean `6275.4`.
 - Current synthesizer diagnostic command used for the regenerated artifact:
-  `python src/train_cartpole_psm.py --num-initial-states 64 --segment-steps 8 --segments-per-trace 32 --eval-rollouts 20 --test-max-steps 15000 --metrics-output /tmp/psm64_full_candidate_metrics.json`
+  `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
-  train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `108.5`, test reward mean `107.2`. The tracked artifact was regenerated from
-  the current bootstrap-prior path to `/tmp/psm64_full_candidate_metrics.json` and copied to
-  `artifacts/results/metrics/psm_seed0_full_horizon.json`; its metadata records
-  `bootstrap_source = probabilistic_student_prior`, first-iteration source counts
-  `{"bootstrap_student_sample_refined": 64}`, and `distribution_rescore_top_k = 32`. This remains a
-  local synthesis diagnostic and still demonstrates a programmatic-policy gap, not a paper-level
-  reproduction result.
+  train success `0.350`, test success over the full 15000-step/300-second horizon `0.000`,
+  train reward mean `215.0`, test reward mean `255.4`. The tracked artifact uses the current
+  CartPole PSM default loop-free teacher profile (`segment_steps = 1`, `segments_per_trace = 250`)
+  so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
+  records `bootstrap_source = probabilistic_student_prior`, first-iteration source counts
+  `{"bootstrap_student_sample": 2, "bootstrap_student_sample_refined": 2}`, and
+  `student_sample_segment_budget = chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace`.
+  This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
+  gap, not a paper-level reproduction result.
 - Direct-Opt diagnostic command:
   `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
 - Direct-Opt diagnostic output:

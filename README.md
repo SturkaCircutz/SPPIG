@@ -81,11 +81,11 @@ Programmatic state machine:
 
 ```bash
 .venv/bin/python src/train_cartpole_psm.py \
-  --num-initial-states 64 \
-  --segment-steps 8 \
-  --segments-per-trace 32 \
+  --num-initial-states 4 \
+  --candidate-rollouts 8 \
   --teacher-reward-lambda 100 \
-  --teacher-top-rho 10 \
+  --teacher-top-rho 2 \
+  --teacher-refinement-steps 1 \
   --eval-rollouts 20 \
   --test-max-steps 15000 \
   --metrics-output artifacts/cartpole_psm_metrics.json
@@ -107,6 +107,10 @@ synthesis failures; it is not a paper-scale result claim.
 The CLI exposes the current teacher gain, teacher/student iteration, reward
 scale, regularization, top-rho, and local-refinement settings, and the metrics
 JSON records their exact values under `config`.
+The current CartPole PSM defaults use one-step loop-free teacher segments over
+the full 250-step training horizon (`segment_steps=1`, `segments_per_trace=250`);
+this is a local teacher hyperparameter profile selected for CartPole
+diagnostics, not a paper-reported constant.
 It also records fixed local synthesis constants, including EM count, one
 switch-timing responsibility-refinement pass, minimum Gaussian standard
 deviation, switch-timing scale, switch-search grids, bounded switch-parameter

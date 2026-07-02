@@ -6,13 +6,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 SCRIPT = os.path.join(ROOT, "scripts", "run_cartpole_reproduction.py")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from run_cartpole_reproduction import HAS_TORCH, summarize_rows  # noqa: E402
+from run_cartpole_reproduction import HAS_TORCH, run_psm, summarize_rows  # noqa: E402
 
 
 class CartpoleReproductionRunnerTest(unittest.TestCase):
@@ -160,6 +161,14 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "duration_and_action_coordinate_search",
             )
             self.assertEqual(
+                provenance["teacher_search"]["student_sample_segment_budget"],
+                "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
+            )
+            self.assertEqual(
+                provenance["teacher_search"]["teacher_rollout_horizon"],
+                "min_environment_max_steps_and_configured_loop_free_horizon",
+            )
+            self.assertEqual(
                 provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
                 1.0,
             )
@@ -212,6 +221,14 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "duration_and_action_coordinate_search",
             )
             self.assertEqual(
+                row_provenance["teacher_search"]["student_sample_segment_budget"],
+                "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["teacher_rollout_horizon"],
+                "min_environment_max_steps_and_configured_loop_free_horizon",
+            )
+            self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
                 1.0,
             )
@@ -233,6 +250,28 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 {"theta_weight": 1.0, "omega_weight": 0.25, "threshold": 0.0},
             )
             self.assertTrue(os.path.exists(manifest["rows"][0]["metrics_output"]))
+
+    def test_nonquick_psm_profile_uses_full_training_horizon_loop_free_segments(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            row = run_psm(
+                seed=0,
+                eval_rollouts=1,
+                test_max_steps=20,
+                quick=False,
+                outdir=Path(tmpdir),
+                teacher_overrides={
+                    "num_initial_states": 1,
+                    "candidate_rollouts": 1,
+                    "teacher_student_iters": 1,
+                    "teacher_top_rho": 1,
+                    "teacher_refinement_steps": 0,
+                },
+            )
+
+        config = row["config"]
+        self.assertEqual(config["segment_steps"], 1)
+        self.assertEqual(config["segments_per_trace"], 250)
+        self.assertEqual(config["segment_steps"] * config["segments_per_trace"], 250)
 
     def test_quick_runner_can_include_direct_opt_diagnostic(self):
         with tempfile.TemporaryDirectory() as tmpdir:
