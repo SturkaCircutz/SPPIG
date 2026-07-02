@@ -98,7 +98,8 @@ trace examples with reward, length, gains, segment durations, switches, and
 boundary observations. Trace examples include the loop-free segment action
 sequence and duration sequence used by the teacher. It also records
 `synthesis_history`, a compact row for each teacher/student iteration with
-trace summaries, fitted student parameters, and local switch-fit diagnostics.
+trace summaries, fitted student parameters, local switch-fit diagnostics, and
+train/test evaluation under the requested diagnostic rollout budget.
 It also records `switch_fit_diagnostics`, which compares the selected switch's
 hard trace-label mistakes and bounded Eq. (12)-style distribution timing loss
 against a fixed local reference switch, while also retaining the older

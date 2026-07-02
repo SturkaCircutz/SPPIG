@@ -32,7 +32,8 @@ TEACHER_THETA_REFINEMENT_MIN_DELTA = 0.1
 TEACHER_OMEGA_REFINEMENT_MIN_DELTA = 0.05
 TEACHER_REFINEMENT_DELTA_DECAY = 0.5
 TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
-TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT = 1
+TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT = 2
+TEACHER_ACTION_REFINEMENT_STEP_FRACTION = 0.25
 TEACHER_STUDENT_SAMPLE_FRACTION = 1.0
 TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR = 1.0
 TEACHER_BOOTSTRAP_ACTION_STD = 10.0
@@ -108,7 +109,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         "switch_timing": {
             "std_steps": SWITCH_TIMING_STD_STEPS,
             "scalar_threshold_uses_shared_sample": True,
-            "depth2_conjunction_probability": "shared_threshold_rectangle_union",
+            "depth2_boolean_probability": "shared_threshold_rectangle_union",
             "std_refinement_multipliers": list(SWITCH_STD_REFINEMENT_MULTIPLIERS),
             "coordinate_refinement_steps": SWITCH_PARAMETER_COORDINATE_REFINEMENT_STEPS,
             "coordinate_mean_step_fraction": SWITCH_PARAMETER_COORDINATE_MEAN_STEP_FRACTION,
@@ -117,7 +118,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         },
         "switch_search": {
             "boolean_tree_depth": 2,
-            "greedy_second_predicate_only_refines_mode1": True,
+            "greedy_second_predicate_expands_switch_and_no_switch_leaves": True,
             "oblique_theta_weights": list(SWITCH_OBLIQUE_THETA_WEIGHTS),
             "oblique_omega_weights": list(SWITCH_OBLIQUE_OMEGA_WEIGHTS),
             "max_threshold_candidates": MAX_SWITCH_THRESHOLD_CANDIDATES,
@@ -134,11 +135,12 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "omega_refinement_min_delta": TEACHER_OMEGA_REFINEMENT_MIN_DELTA,
             "refinement_delta_decay": TEACHER_REFINEMENT_DELTA_DECAY,
             "duration_refinement_deltas": list(TEACHER_DURATION_REFINEMENT_DELTAS),
-            "action_refinement_candidates_per_segment": TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT,
+            "action_refinement_max_candidates_per_segment": TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT,
+            "action_refinement_step_fraction": TEACHER_ACTION_REFINEMENT_STEP_FRACTION,
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
-            "student_sample_probability": "trace_log_probability_approximation",
+            "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
             "student_sample_segment_budget": "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
-            "student_sample_local_refinement": "duration_and_action_coordinate_search",
+            "student_sample_local_refinement": "duration_and_continuous_action_coordinate_search",
             "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
             "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
             "elite_distance_metric": "l2_over_segment_actions_and_durations",
@@ -198,19 +200,26 @@ class ObservationPredicate:
 class BooleanTreeSwitch:
     first: ObservationPredicate
     second: ObservationPredicate | None = None
+    operator: str = "and"
 
     def decide(self, observation: Observation) -> int:
-        if not self.first.evaluate(observation):
-            return 0
-        if self.second is not None and not self.second.evaluate(observation):
-            return 0
-        return 1
+        first_enabled = self.first.evaluate(observation)
+        if self.second is None:
+            return 1 if first_enabled else 0
+        second_enabled = self.second.evaluate(observation)
+        if self.operator == "and":
+            return 1 if first_enabled and second_enabled else 0
+        if self.operator == "or":
+            return 1 if first_enabled or second_enabled else 0
+        raise ValueError(f"unknown BooleanTreeSwitch operator: {self.operator}")
 
     def describe(self) -> str:
         if self.second is None:
             return f"mode=1 if {self.first.describe()}, else mode=0"
+        if self.operator not in {"and", "or"}:
+            raise ValueError(f"unknown BooleanTreeSwitch operator: {self.operator}")
         return (
-            f"mode=1 if {self.first.describe()} and "
+            f"mode=1 if {self.first.describe()} {self.operator} "
             f"{self.second.describe()}, else mode=0"
         )
 
@@ -1052,9 +1061,16 @@ def _action_refinement_candidates(
         return []
 
     candidates: List[CartpoleTrace] = []
+    lower = max(min(cfg.force_values), -env_cfg.force_limit)
+    upper = min(max(cfg.force_values), env_cfg.force_limit)
+    action_step = max(MIN_GAUSSIAN_STD, (upper - lower) * TEACHER_ACTION_REFINEMENT_STEP_FRACTION)
     for index, current_action in enumerate(actions):
-        for action in cfg.force_values:
-            if action == current_action:
+        action_candidates = {
+            max(lower, min(upper, current_action - action_step)),
+            max(lower, min(upper, current_action + action_step)),
+        }
+        for action in sorted(action_candidates):
+            if abs(action - current_action) < MIN_GAUSSIAN_STD:
                 continue
             updated = list(actions)
             updated[index] = action
@@ -1165,30 +1181,38 @@ def _loop_free_trace_distance(left: CartpoleTrace, right: CartpoleTrace) -> floa
 
 
 def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleStudent) -> float:
-    total = 0.0
     trace_segments = _segments_from_traces([trace])[0]
-    responsibilities = _refine_responsibilities_with_switch_timing(
-        [trace_segments],
-        student.action_distributions,
-        student.switch,
-        student.switch_parameter_distributions,
-    )
-    for segment, resp in zip(trace_segments, responsibilities):
-        mode_log_terms = []
-        for mode in (0, 1):
-            prior = max(resp[mode], LOG_PROBABILITY_FLOOR)
-            mode_log_terms.append(
-                math.log(prior) + student.action_distributions[mode].log_pdf(segment.action_parameter)
-            )
-        total += _logsumexp(mode_log_terms)
-    for current_index, current_segment in enumerate(trace_segments[:-1]):
-        total += _student_switch_log_likelihood(
-            student,
-            current_segment,
-            responsibilities[current_index],
-            responsibilities[current_index + 1],
+    if not trace_segments:
+        return 0.0
+    mode_prior = math.log(0.5)
+    emissions = [
+        [
+            student.action_distributions[mode].log_pdf(segment.action_parameter)
+            for mode in (0, 1)
+        ]
+        for segment in trace_segments
+    ]
+    forward: List[List[float]] = [[mode_prior + emissions[0][0], mode_prior + emissions[0][1]]]
+    for index in range(1, len(trace_segments)):
+        previous = forward[-1]
+        pair = _switch_responsibility_pair_log_potentials(
+            student.switch,
+            student.switch_parameter_distributions,
+            trace_segments[index - 1],
         )
-    return total
+        forward.append(
+            [
+                emissions[index][mode]
+                + _logsumexp(
+                    [
+                        previous[previous_mode] + pair[previous_mode][mode]
+                        for previous_mode in (0, 1)
+                    ]
+                )
+                for mode in (0, 1)
+            ]
+        )
+    return _logsumexp(forward[-1])
 
 
 def _logsumexp(values: List[float]) -> float:
@@ -1460,7 +1484,7 @@ def _switch_with_distribution_means(
         ]
         if len(fitted) == 1:
             return BooleanTreeSwitch(fitted[0])
-        return BooleanTreeSwitch(fitted[0], fitted[1])
+        return BooleanTreeSwitch(fitted[0], fitted[1], switch.operator)
     if not distributions:
         return switch
     return Depth2Switch(
@@ -1892,54 +1916,9 @@ def _switch_label_mistakes(
             for theta, omega, label in zip(theta_values, omega_values, cache.labels)
         )
     if isinstance(switch, BooleanTreeSwitch):
-        first = switch.first
-        second = switch.second
-        first_values = cache.columns[first.feature_index]
-        if second is None:
-            if first.relation == ">=":
-                return sum(
-                    int(int(value >= first.threshold) != label)
-                    for value, label in zip(first_values, cache.labels)
-                )
-            if first.relation == "<=":
-                return sum(
-                    int(int(value <= first.threshold) != label)
-                    for value, label in zip(first_values, cache.labels)
-                )
-            return sum(
-                int(_predicate_value_enabled(first, value) != bool(label))
-                for value, label in zip(first_values, cache.labels)
-            )
-        second_values = cache.columns[second.feature_index]
-        if first.relation == ">=" and second.relation == ">=":
-            return sum(
-                int(int(first_value >= first.threshold and second_value >= second.threshold) != label)
-                for first_value, second_value, label in zip(first_values, second_values, cache.labels)
-            )
-        if first.relation == ">=" and second.relation == "<=":
-            return sum(
-                int(int(first_value >= first.threshold and second_value <= second.threshold) != label)
-                for first_value, second_value, label in zip(first_values, second_values, cache.labels)
-            )
-        if first.relation == "<=" and second.relation == ">=":
-            return sum(
-                int(int(first_value <= first.threshold and second_value >= second.threshold) != label)
-                for first_value, second_value, label in zip(first_values, second_values, cache.labels)
-            )
-        if first.relation == "<=" and second.relation == "<=":
-            return sum(
-                int(int(first_value <= first.threshold and second_value <= second.threshold) != label)
-                for first_value, second_value, label in zip(first_values, second_values, cache.labels)
-            )
         return sum(
-            int(
-                (
-                    _predicate_value_enabled(first, first_value)
-                    and _predicate_value_enabled(second, second_value)
-                )
-                != bool(label)
-            )
-            for first_value, second_value, label in zip(first_values, second_values, cache.labels)
+            int(switch.decide(observation) != label)
+            for observation, label in examples
         )
     return sum(
         int(switch.decide(observation) != label)
@@ -2051,7 +2030,7 @@ def _sample_switch(
         ]
         if len(sampled) == 1:
             return BooleanTreeSwitch(sampled[0])
-        return BooleanTreeSwitch(sampled[0], sampled[1])
+        return BooleanTreeSwitch(sampled[0], sampled[1], switch.operator)
     distribution = distributions[0] if distributions else GaussianScalar(switch.threshold, 1.0)
     return Depth2Switch(
         switch.theta_weight,
@@ -2088,8 +2067,14 @@ def _switch_enabled_probability(
             return _predicate_enabled_probability(switch.first, distributions[0], observation)
         if len(distributions) < 2:
             return 1.0 if switch.decide(observation) == 1 else 0.0
-        probability = _predicate_enabled_probability(switch.first, distributions[0], observation)
-        probability *= _predicate_enabled_probability(switch.second, distributions[1], observation)
+        first_probability = _predicate_enabled_probability(switch.first, distributions[0], observation)
+        second_probability = _predicate_enabled_probability(switch.second, distributions[1], observation)
+        if switch.operator == "and":
+            probability = first_probability * second_probability
+        elif switch.operator == "or":
+            probability = first_probability + second_probability - first_probability * second_probability
+        else:
+            raise ValueError(f"unknown BooleanTreeSwitch operator: {switch.operator}")
         return min(max(probability, 0.0), 1.0)
     distribution = distributions[0] if distributions else GaussianScalar(switch.threshold, MIN_GAUSSIAN_STD)
     _, _, theta, omega = observation
@@ -2246,30 +2231,62 @@ def _greedy_boolean_tree_candidates(
         cache=cache,
         example_cache=switch_examples,
     )
-    expanded_examples = [
-        (observation, label)
-        for observation, label in examples
-        if best.decide(observation) == 1
+    best_mistakes = _switch_label_mistakes(best, examples, switch_examples)
+    seed_stumps = [
+        stump
+        for stump in stumps
+        if _switch_label_mistakes(stump, examples, switch_examples) == best_mistakes
     ]
-    # A second predicate only refines the mode-1 region, yielding a small
-    # conjunction instead of an unrestricted tree search.
-    expansions = [
-        BooleanTreeSwitch(best.first, predicate)
-        for predicate in _predicate_candidates(expanded_examples)
-    ]
+    # A second predicate refines either leaf of the stump, yielding bounded
+    # depth-2 conjunction/disjunction candidates from the paper's tree view.
+    conjunctions: List[BooleanTreeSwitch] = []
+    disjunctions: List[BooleanTreeSwitch] = []
+    for stump in seed_stumps:
+        conjunction_examples = [
+            (observation, label)
+            for observation, label in examples
+            if stump.decide(observation) == 1
+        ]
+        disjunction_examples = [
+            (observation, label)
+            for observation, label in examples
+            if stump.decide(observation) == 0
+        ]
+        conjunctions.extend(
+            BooleanTreeSwitch(stump.first, predicate)
+            for predicate in _predicate_candidates(conjunction_examples)
+        )
+        disjunctions.extend(
+            BooleanTreeSwitch(stump.first, predicate, "or")
+            for predicate in _predicate_candidates(disjunction_examples)
+        )
+    expansions = conjunctions + disjunctions
     if not expansions:
         return [best]
-    return [
-        best,
-        _best_switch(
-            expansions,
-            examples,
-            segments_by_trace,
-            responsibilities,
-            cache=cache,
-            example_cache=switch_examples,
-        ),
-    ]
+    result = [best]
+    if conjunctions:
+        result.append(
+            _best_switch(
+                conjunctions,
+                examples,
+                segments_by_trace,
+                responsibilities,
+                cache=cache,
+                example_cache=switch_examples,
+            )
+        )
+    if disjunctions:
+        result.append(
+            _best_switch(
+                disjunctions,
+                examples,
+                segments_by_trace,
+                responsibilities,
+                cache=cache,
+                example_cache=switch_examples,
+            )
+        )
+    return result
 
 
 def _best_switch(
@@ -2475,26 +2492,6 @@ def _eq12_switch_log_likelihood(
     )
 
 
-def _student_switch_log_likelihood(
-    student: ProbabilisticCartpoleStudent,
-    segment: CartpoleSegment,
-    current_resp: Tuple[float, float],
-    next_resp: Tuple[float, float],
-) -> float:
-    transition_weight = current_resp[0] * next_resp[1] + current_resp[1] * next_resp[0]
-    stay_weight = current_resp[0] * next_resp[0] + current_resp[1] * next_resp[1]
-    transition_probability, stay_probability = _switch_transition_and_stay_probabilities(
-        student.switch,
-        student.switch_parameter_distributions,
-        segment.observations,
-        segment.duration,
-    )
-    return (
-        transition_weight * math.log(max(transition_probability, LOG_PROBABILITY_FLOOR))
-        + stay_weight * math.log(max(stay_probability, LOG_PROBABILITY_FLOOR))
-    )
-
-
 def _switch_transition_and_stay_probabilities(
     switch: SwitchProgram,
     distributions: List[GaussianScalar],
@@ -2634,6 +2631,7 @@ def _boolean_tree_enabled_cumulative_probabilities(
         distributions[1],
         first_values,
         second_values,
+        switch.operator,
     )
 
 
@@ -2655,6 +2653,7 @@ def _boolean_tree_pair_enabled_cumulative_probabilities(
         distributions[1],
         first_values,
         second_values,
+        switch.operator,
     )
 
 
@@ -2665,18 +2664,30 @@ def _predicate_pair_enabled_cumulative_probabilities(
     second_distribution: GaussianScalar,
     first_values: Tuple[float, ...],
     second_values: Tuple[float, ...],
+    operator: str = "and",
 ) -> List[float]:
     rectangles: List[Tuple[float, float]] = []
     enabled_by_step: List[float] = []
     for first_value, second_value in zip(first_values, second_values):
-        rectangles.append(
-            (
-                _predicate_enabled_probability_from_value(first, first_distribution, first_value),
-                _predicate_enabled_probability_from_value(second, second_distribution, second_value),
-            )
+        first_probability = _predicate_enabled_probability_from_value(first, first_distribution, first_value)
+        second_probability = _predicate_enabled_probability_from_value(second, second_distribution, second_value)
+        rectangles.extend(
+            _predicate_pair_enabled_rectangles(first_probability, second_probability, operator)
         )
         enabled_by_step.append(_anchored_rectangle_union_probability(rectangles))
     return enabled_by_step
+
+
+def _predicate_pair_enabled_rectangles(
+    first_probability: float,
+    second_probability: float,
+    operator: str,
+) -> List[Tuple[float, float]]:
+    if operator == "and":
+        return [(first_probability, second_probability)]
+    if operator == "or":
+        return [(first_probability, 1.0), (1.0, second_probability)]
+    raise ValueError(f"unknown BooleanTreeSwitch operator: {operator}")
 
 
 def _predicate_enabled_probability_from_value(

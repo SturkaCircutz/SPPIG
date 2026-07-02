@@ -85,8 +85,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   responsibilities now use one bounded forward-backward refinement over the learned switch-timing
   likelihood, but the learner still approximates switch timing and does not implement the full
   probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
-  stumps and depth-2 conjunction candidates over observation inequalities via a depth-2 greedy
-  leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
+  stumps plus depth-2 conjunction and disjunction candidates over observation inequalities via a
+  bounded greedy leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
   against the Eq. (12)-style timing likelihood with a bounded grid initializer plus coordinate
   refinement, but the learner still does not fully optimize Eq. (12).
 - Complete as a local diagnostic baseline: feed-forward PPO reaches 100% success on the paper's
@@ -165,7 +165,7 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   likelihood, while rejecting candidate means that increase hard segment-label mistakes. This moves
   the switch-parameter M-step closer to the paper's numerical optimization, but remains a diagnostic
   approximation: switch structure is prefiltered by a cheaper hard-label/timing objective before
-  bounded distribution rescoring, depth-2 conjunction probabilities use a shared-threshold
+  bounded distribution rescoring, depth-2 Boolean-tree probabilities use a shared-threshold
   rectangle-union calculation, and this is not the paper's full continuous switch-parameter optimizer.
 - The first Cartpole teacher iteration now samples from an explicit probabilistic student prior, and
   later teacher candidate pools are sampled from the current probabilistic student before top-rho
@@ -176,9 +176,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   log probabilities in metrics JSON. This moves toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
-  and the student's discrete Eq. (12)-style switch timing likelihood. For scalar-threshold switches,
-  that timing likelihood uses the learned Gaussian switch-parameter distribution with one sampled
-  threshold shared across a segment, matching the paper's probabilistic-state-machine sampling model.
+  and the student's discrete Eq. (12)-style switch timing likelihood, marginalizing over the latent
+  mode sequence with a two-state forward pass. For scalar-threshold switches, that timing likelihood
+  uses the learned Gaussian switch-parameter distribution with one sampled threshold shared across a
+  segment, matching the paper's probabilistic-state-machine sampling model.
 - The Cartpole student now refines action-only latent segment responsibilities with a bounded
   forward-backward pass over adjacent segment switch-timing probabilities before refitting the action
   distributions and switch. This moves Eq. (10) closer to the paper by using both `H` and `G` evidence,
@@ -186,9 +187,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
   corresponding constant-action sequence, duration-only refinement preserves that action sequence
-  while varying durations, and bounded action refinement can change one constant-action segment at a
-  time. This moves toward the paper's loop-free action-function-plus-duration teacher
-  parameterization, but is not the continuous duration optimization from Section 4.2.
+  while varying durations, and bounded action refinement can take local continuous force steps for
+  one constant-action segment at a time. This moves toward the paper's loop-free
+  action-function-plus-duration teacher parameterization, but is not the continuous gradient-based
+  action/duration optimization from Section 4.2.
 - The Cartpole teacher objective now uses the paper-reported reward scale `lambda = 100` by default
   when trading off reward against student likelihood.
 - The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings and
@@ -207,8 +209,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The orchestrated reproduction runner now also writes per-seed PSM metrics JSON and links it from
   `cartpole_results.csv` and `cartpole_manifest.json`, so synthesized PSM rows are tied to concrete
   student/teacher-trace provenance artifacts, including per-teacher/student-iteration
-  `synthesis_history`. The checked-in result table currently separates the fixed two-mode
-  programmatic diagnostic from the current synthesized-student diagnostic because the current
+  `synthesis_history` with local diagnostic train/test evaluations. The checked-in result table
+  currently separates the fixed two-mode programmatic diagnostic from the current
+  synthesized-student diagnostic because the current
   synthesizer does not reproduce the fixed-program row.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
@@ -319,6 +322,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_uses_student_regularizer` verifies
   that, once a previous student exists, the teacher objective can prefer a lower-reward loop-free trace
   that has higher probability under the student's Gaussian action distributions.
+- `tests/test_cartpole_paper.py::test_cartpole_trace_log_probability_marginalizes_latent_modes`
+  verifies that the teacher regularizer marginalizes over latent segment modes instead of treating
+  posterior responsibilities as extra priors.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_regularizer_uses_switch_timing_likelihood`
   verifies that the teacher regularizer also prefers traces with switch timing that the current
   student explains better. These regularizer tests cover a partial implementation of the probability
@@ -356,15 +362,23 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that duration-only refinement preserves the loop-free teacher's constant-action sequence.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_action_refinement_changes_one_action_at_a_time`
   verifies that bounded action refinement mutates one loop-free action-function segment at a time.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_action_refinement_uses_continuous_local_steps`
+  verifies that bounded action refinement proposes local continuous force steps rather than only
+  bang-bang action flips.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_does_not_reduce_objective`
   verifies that bounded local segment-duration refinement can be searched without reducing the
   teacher objective.
 - `tests/test_cartpole_paper.py::test_cartpole_boolean_tree_switch_supports_depth_two_conjunction`
   verifies that the Cartpole switch representation supports depth-2 Boolean-tree conjunctions over
   observation inequalities.
+- `tests/test_cartpole_paper.py::test_cartpole_boolean_tree_switch_supports_depth_two_disjunction`
+  verifies that the Cartpole switch representation also supports depth-2 disjunctions from the
+  paper's decision-tree view.
 - `tests/test_cartpole_paper.py::test_cartpole_boolean_tree_candidates_include_depth_two` verifies
   that Cartpole switch candidate generation includes depth-2 Boolean-tree candidates, not only linear
   thresholds or single predicates.
+- `tests/test_cartpole_paper.py::test_cartpole_boolean_tree_candidates_include_disjunction` verifies
+  that the bounded greedy switch search can expand the no-switch leaf into an OR-style candidate.
 - `tests/test_cartpole_paper.py::test_cartpole_greedy_boolean_tree_expansion_improves_stump`
   verifies that the greedy Boolean-tree expansion can choose a depth-2 switch when it improves over
   the best depth-1 stump.
@@ -378,7 +392,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_writes_results_and_manifest`
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
-  a per-seed PSM metrics JSON artifact.
+  a per-seed PSM metrics JSON artifact whose final per-iteration evaluation matches the top-level PSM
+  row.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_can_include_direct_opt_diagnostic`
   verifies that `--include-direct-opt` adds the bounded Direct-Opt diagnostic row and links its
   metrics artifact from the manifest.
@@ -411,14 +426,14 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
   no-transition-before-duration terms. It now performs bounded local mean/std grid plus coordinate
   refinement, but does not yet solve the full continuous Eq. (12) optimization for switch-condition
-  means and standard deviations. For depth-2 conjunctions, switch-enable probability now uses an
-  exact union of axis-aligned threshold rectangles under independent predicate-threshold Gaussians,
-  with threshold samples shared across the segment. The current Cartpole teacher samples the
+  means and standard deviations. For depth-2 Boolean trees, switch-enable probability now uses an
+  exact union of axis-aligned threshold rectangles for conjunctions and disjunctions under
+  independent predicate-threshold Gaussians, with threshold samples shared across the segment. The current Cartpole teacher samples the
   first iteration from a Gaussian PSM prior and later iterations from the current probabilistic
   student, resampling action/switch parameters on mode entry, refines top loop-free candidates with
   bounded coordinate search over teacher gains when available, integer segment durations, and
-  one-segment constant-action changes, and scores traces with reward plus Gaussian action likelihood
-  and discrete switch timing likelihood under the
+  one-segment local continuous constant-action steps, and scores traces with reward plus Gaussian
+  action likelihood and discrete switch timing likelihood under the
   previous student, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.

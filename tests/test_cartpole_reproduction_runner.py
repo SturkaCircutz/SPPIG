@@ -106,6 +106,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("probabilistic_student", psm_metrics)
             self.assertEqual(len(psm_metrics["synthesis_history"]), 1)
             self.assertEqual(psm_metrics["synthesis_history"][0]["iteration"], 1)
+            self.assertIn("evaluation", psm_metrics["synthesis_history"][0])
+            self.assertEqual(psm_metrics["synthesis_history"][0]["evaluation"]["train"], psm_metrics["train"])
+            self.assertEqual(psm_metrics["synthesis_history"][0]["evaluation"]["test"], psm_metrics["test"])
             self.assertEqual(
                 psm_metrics["synthesis_history"][0]["trace_summary"]["count"],
                 psm_metrics["num_traces"],
@@ -146,7 +149,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
             self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
             self.assertEqual(
-                provenance["switch_timing"]["depth2_conjunction_probability"],
+                provenance["switch_timing"]["depth2_boolean_probability"],
                 "shared_threshold_rectangle_union",
             )
             self.assertEqual(provenance["switch_timing"]["coordinate_refinement_steps"], 3)
@@ -155,15 +158,22 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 math.log(2.0),
             )
             self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
+            self.assertTrue(
+                provenance["switch_search"]["greedy_second_predicate_expands_switch_and_no_switch_leaves"]
+            )
             self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
             self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
             self.assertEqual(
-                provenance["teacher_search"]["action_refinement_candidates_per_segment"],
-                1,
+                provenance["teacher_search"]["action_refinement_max_candidates_per_segment"],
+                2,
+            )
+            self.assertEqual(
+                provenance["teacher_search"]["action_refinement_step_fraction"],
+                0.25,
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_local_refinement"],
-                "duration_and_action_coordinate_search",
+                "duration_and_continuous_action_coordinate_search",
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_segment_budget"],
@@ -176,6 +186,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
                 1.0,
+            )
+            self.assertEqual(
+                provenance["teacher_search"]["student_sample_probability"],
+                "forward_marginalized_action_and_switch_timing_likelihood",
             )
             self.assertEqual(
                 provenance["teacher_search"]["elite_refinement_objective"],
@@ -218,7 +232,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
             self.assertEqual(
-                row_provenance["switch_timing"]["depth2_conjunction_probability"],
+                row_provenance["switch_timing"]["depth2_boolean_probability"],
                 "shared_threshold_rectangle_union",
             )
             self.assertEqual(row_provenance["switch_timing"]["coordinate_refinement_steps"], 3)
@@ -226,12 +240,16 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(row_provenance["switch_search"]["max_threshold_candidates"], 64)
             self.assertEqual(row_provenance["teacher_search"]["gain_sample_std_fraction"], 0.10)
             self.assertEqual(
-                row_provenance["teacher_search"]["action_refinement_candidates_per_segment"],
-                1,
+                row_provenance["teacher_search"]["action_refinement_max_candidates_per_segment"],
+                2,
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["action_refinement_step_fraction"],
+                0.25,
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_local_refinement"],
-                "duration_and_action_coordinate_search",
+                "duration_and_continuous_action_coordinate_search",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_segment_budget"],
@@ -244,6 +262,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
                 1.0,
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["student_sample_probability"],
+                "forward_marginalized_action_and_switch_timing_likelihood",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_refinement_objective"],

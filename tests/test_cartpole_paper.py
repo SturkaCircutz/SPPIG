@@ -69,6 +69,7 @@ from cartpole_synthesis import (
     _switch_timing_loss,
     _teacher_objective,
     _teacher_refinement_objective,
+    _trace_log_probability,
 )
 
 if HAS_TORCH:
@@ -758,6 +759,18 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(switch.decide([0.0, 0.0, 0.1, 2.0]), 0)
         self.assertIn("and", switch.describe())
 
+    def test_cartpole_boolean_tree_switch_supports_depth_two_disjunction(self):
+        switch = BooleanTreeSwitch(
+            ObservationPredicate(2, ">=", 0.0),
+            ObservationPredicate(3, "<=", -1.0),
+            "or",
+        )
+
+        self.assertEqual(switch.decide([0.0, 0.0, 0.1, 0.5]), 1)
+        self.assertEqual(switch.decide([0.0, 0.0, -0.1, -2.0]), 1)
+        self.assertEqual(switch.decide([0.0, 0.0, -0.1, 0.5]), 0)
+        self.assertIn("or", switch.describe())
+
     def test_cartpole_boolean_tree_candidates_include_depth_two(self):
         examples = [
             ([0.0, 0.0, 0.0, 0.0], 0),
@@ -768,6 +781,19 @@ class CartpolePaperTest(unittest.TestCase):
         candidates = _boolean_tree_candidates(examples)
 
         self.assertTrue(any(candidate.second is not None for candidate in candidates))
+
+    def test_cartpole_boolean_tree_candidates_include_disjunction(self):
+        examples = [
+            ([0.0, 0.0, 0.0, 0.0], 0),
+            ([0.0, 0.0, 1.0, 0.0], 1),
+            ([0.0, 0.0, 0.0, 1.0], 1),
+            ([0.0, 0.0, 1.0, 1.0], 1),
+        ]
+
+        candidates = _greedy_boolean_tree_candidates(examples)
+
+        self.assertTrue(any(candidate.second is not None and candidate.operator == "or" for candidate in candidates))
+        self.assertEqual(min(_switch_cost(candidate, examples)[0] for candidate in candidates), 0)
 
     def test_cartpole_greedy_boolean_tree_expansion_improves_stump(self):
         examples = [
@@ -824,6 +850,7 @@ class CartpolePaperTest(unittest.TestCase):
         switch = BooleanTreeSwitch(
             ObservationPredicate(2, ">=", 0.0),
             ObservationPredicate(3, "<=", 1.0),
+            "or",
         )
 
         sampled = _sample_switch(
@@ -835,6 +862,7 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIsInstance(sampled, BooleanTreeSwitch)
         self.assertEqual(sampled.first.threshold, 0.25)
         self.assertEqual(sampled.second.threshold, 0.75)
+        self.assertEqual(sampled.operator, "or")
 
     def test_cartpole_sampled_depth2_switch_preserves_predicate_count(self):
         switch = BooleanTreeSwitch(
@@ -990,6 +1018,54 @@ class CartpolePaperTest(unittest.TestCase):
             _switch_no_transition_probability_before_duration(switch, distributions, observations, 3),
         )
 
+    def test_cartpole_or_switch_probabilities_use_shared_threshold_samples(self):
+        switch = BooleanTreeSwitch(
+            ObservationPredicate(2, ">=", 0.0),
+            ObservationPredicate(3, "<=", 0.5),
+            "or",
+        )
+        distributions = [GaussianScalar(0.0, 0.2), GaussianScalar(0.5, 0.2)]
+        observations = [
+            [0.0, 0.0, -0.2, 0.7],
+            [0.0, 0.0, 0.1, 0.6],
+            [0.0, 0.0, -0.1, 0.2],
+        ]
+
+        transition, stay = _switch_transition_and_stay_probabilities(
+            switch,
+            distributions,
+            observations,
+            3,
+        )
+        rectangles = []
+        for observation in observations:
+            first_probability = _gaussian_threshold_pass_probability(observation[2], distributions[0], ">=")
+            second_probability = _gaussian_threshold_pass_probability(observation[3], distributions[1], "<=")
+            rectangles.extend([(first_probability, 1.0), (1.0, second_probability)])
+
+        def union_area(prefix):
+            xs = sorted({0.0, 1.0, *(x for x, _ in prefix)})
+            area = 0.0
+            for left, right in zip(xs, xs[1:]):
+                probe = (left + right) / 2.0
+                area += (right - left) * max((y for x, y in prefix if probe <= x), default=0.0)
+            return area
+
+        enabled_before = union_area(rectangles[:4])
+        expected_transition = union_area(rectangles) - enabled_before
+        expected_stay = 1.0 - enabled_before
+
+        self.assertAlmostEqual(transition, expected_transition)
+        self.assertAlmostEqual(stay, expected_stay)
+        self.assertAlmostEqual(
+            transition,
+            _switch_transition_probability_at_duration(switch, distributions, observations, 3),
+        )
+        self.assertAlmostEqual(
+            stay,
+            _switch_no_transition_probability_before_duration(switch, distributions, observations, 3),
+        )
+
     def test_cartpole_teacher_objective_defaults_to_reward(self):
         cfg = CartpoleSynthesisConfig()
         trace = CartpoleTrace(
@@ -1041,6 +1117,29 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(
             _teacher_objective(matching_trace, student, cfg),
             _teacher_objective(mismatched_trace, student, cfg),
+        )
+
+    def test_cartpole_trace_log_probability_marginalizes_latent_modes(self):
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(1.0, 1.0),
+                1: GaussianScalar(1.0, 1.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 10.0),
+            switch_threshold_distribution=GaussianScalar(10.0, 0.1),
+            switch_parameter_distributions=[GaussianScalar(10.0, 0.1)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        trace = CartpoleTrace(
+            observations=[[0.0, 0.0, 0.0, 0.0]],
+            actions=[1.0],
+            mode_labels=[0],
+            reward=1.0,
+        )
+
+        self.assertAlmostEqual(
+            _trace_log_probability(trace, student),
+            GaussianScalar(1.0, 1.0).log_pdf(1.0),
         )
 
     def test_cartpole_teacher_regularizer_uses_switch_timing_likelihood(self):
@@ -1553,6 +1652,33 @@ class CartpolePaperTest(unittest.TestCase):
             )
             self.assertEqual(changed, 1)
             self.assertEqual(candidate.segment_durations, trace.segment_durations)
+            self.assertTrue(
+                all(
+                    -env.cfg.force_limit <= action <= env.cfg.force_limit
+                    for action in candidate.segment_actions
+                )
+            )
+
+    def test_cartpole_teacher_action_refinement_uses_continuous_local_steps(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(0.0, 10.0),
+        )
+
+        candidates = _action_refinement_candidates(trace, initial_state, env.cfg, cfg)
+        actions = {candidate.segment_actions for candidate in candidates}
+
+        self.assertIn((-5.0, 10.0), actions)
+        self.assertIn((5.0, 10.0), actions)
+        self.assertIn((0.0, 5.0), actions)
+        self.assertNotIn((0.0, -10.0), actions)
 
     def test_cartpole_teacher_action_refinement_does_not_reduce_objective(self):
         env = CartpoleEnv.train_env(seed=0)

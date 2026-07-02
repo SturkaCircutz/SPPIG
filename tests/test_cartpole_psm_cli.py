@@ -70,7 +70,7 @@ class CartpolePSMCliTest(unittest.TestCase):
                     "--teacher-omega-gain",
                     "0.75",
                     "--teacher-student-iters",
-                    "1",
+                    "2",
                     "--teacher-student-regularizer",
                     "0.5",
                     "--teacher-reward-lambda",
@@ -96,7 +96,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["config"]["num_initial_states"], 2)
         self.assertEqual(metrics["config"]["teacher_theta_gain"], 12.5)
         self.assertEqual(metrics["config"]["teacher_omega_gain"], 0.75)
-        self.assertEqual(metrics["config"]["teacher_student_iters"], 1)
+        self.assertEqual(metrics["config"]["teacher_student_iters"], 2)
         self.assertEqual(metrics["config"]["teacher_student_regularizer"], 0.5)
         self.assertEqual(metrics["config"]["teacher_reward_lambda"], 100.0)
         self.assertEqual(metrics["config"]["teacher_top_rho"], 1)
@@ -113,7 +113,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
         self.assertTrue(provenance["switch_timing"]["scalar_threshold_uses_shared_sample"])
         self.assertEqual(
-            provenance["switch_timing"]["depth2_conjunction_probability"],
+            provenance["switch_timing"]["depth2_boolean_probability"],
             "shared_threshold_rectangle_union",
         )
         self.assertEqual(provenance["switch_timing"]["std_refinement_multipliers"], [0.5, 1.0, 2.0])
@@ -125,6 +125,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(provenance["switch_timing"]["coordinate_step_decay"], 0.5)
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
+        self.assertTrue(provenance["switch_search"]["greedy_second_predicate_expands_switch_and_no_switch_leaves"])
         self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
         self.assertEqual(provenance["switch_search"]["max_threshold_candidates"], 64)
         self.assertEqual(provenance["switch_search"]["distribution_rescore_top_k"], 32)
@@ -142,16 +143,24 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
         self.assertEqual(
-            provenance["teacher_search"]["action_refinement_candidates_per_segment"],
-            1,
+            provenance["teacher_search"]["action_refinement_max_candidates_per_segment"],
+            2,
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["action_refinement_step_fraction"],
+            0.25,
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
             1.0,
         )
         self.assertEqual(
+            provenance["teacher_search"]["student_sample_probability"],
+            "forward_marginalized_action_and_switch_timing_likelihood",
+        )
+        self.assertEqual(
             provenance["teacher_search"]["student_sample_local_refinement"],
-            "duration_and_action_coordinate_search",
+            "duration_and_continuous_action_coordinate_search",
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_segment_budget"],
@@ -187,10 +196,18 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("policy_description", metrics)
-        self.assertEqual(len(metrics["synthesis_history"]), 1)
-        history_entry = metrics["synthesis_history"][0]
-        self.assertEqual(history_entry["iteration"], 1)
+        self.assertEqual(len(metrics["synthesis_history"]), 2)
+        for index, entry in enumerate(metrics["synthesis_history"], start=1):
+            self.assertEqual(entry["iteration"], index)
+            self.assertIn("evaluation", entry)
+            self.assertIn("success_rate", entry["evaluation"]["train"])
+            self.assertIn("reward_mean", entry["evaluation"]["train"])
+            self.assertIn("success_rate", entry["evaluation"]["test"])
+            self.assertIn("reward_mean", entry["evaluation"]["test"])
+        history_entry = metrics["synthesis_history"][-1]
         self.assertEqual(history_entry["trace_summary"]["count"], metrics["num_traces"])
+        self.assertEqual(history_entry["evaluation"]["train"], metrics["train"])
+        self.assertEqual(history_entry["evaluation"]["test"], metrics["test"])
         self.assertIn("teacher_source_counts", history_entry["trace_summary"])
         self.assertIn("probabilistic_student", history_entry)
         self.assertIn("switch_fit_diagnostics", history_entry)

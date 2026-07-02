@@ -25,6 +25,23 @@ def summarize_rollouts(results):
     }
 
 
+def summarize_policy_evaluation(
+    policy,
+    eval_rollouts: int,
+    test_max_steps: int,
+    train_seed: int = 100,
+    test_seed: int = 200,
+):
+    train_env = CartpoleEnv.train_env(seed=train_seed)
+    test_env = CartpoleEnv.test_env(seed=test_seed)
+    train_results = [train_env.rollout(policy) for _ in range(eval_rollouts)]
+    test_results = [test_env.rollout(policy, max_steps=test_max_steps) for _ in range(eval_rollouts)]
+    return {
+        "train": summarize_rollouts(train_results),
+        "test": summarize_rollouts(test_results),
+    }
+
+
 def summarize_student(student: ProbabilisticCartpoleStudent):
     responsibilities = student.responsibilities
     if responsibilities:
@@ -96,16 +113,31 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
     }
 
 
-def summarize_synthesis_history(history: list[CartpoleSynthesisIteration]):
-    return [
-        {
+def summarize_synthesis_history(
+    history: list[CartpoleSynthesisIteration],
+    eval_rollouts: int | None = None,
+    test_max_steps: int | None = None,
+    train_seed: int = 100,
+    test_seed: int = 200,
+):
+    rows = []
+    for entry in history:
+        row = {
             "iteration": entry.iteration,
             "trace_summary": summarize_traces(entry.traces, max_examples=1),
             "probabilistic_student": summarize_student(entry.student),
             "switch_fit_diagnostics": cartpole_switch_fit_diagnostics(entry.traces, entry.student),
         }
-        for entry in history
-    ]
+        if eval_rollouts is not None and test_max_steps is not None:
+            row["evaluation"] = summarize_policy_evaluation(
+                entry.student.to_deterministic_policy(),
+                eval_rollouts,
+                test_max_steps,
+                train_seed,
+                test_seed,
+            )
+        rows.append(row)
+    return rows
 
 
 def main() -> None:
@@ -144,12 +176,9 @@ def main() -> None:
     )
     student, traces, synthesis_history = synthesize_cartpole_student_with_history(cfg)
     policy = student.to_deterministic_policy()
-    train_env = CartpoleEnv.train_env(seed=100)
-    test_env = CartpoleEnv.test_env(seed=200)
-    train_results = [train_env.rollout(policy) for _ in range(args.eval_rollouts)]
-    test_results = [test_env.rollout(policy, max_steps=args.test_max_steps) for _ in range(args.eval_rollouts)]
-    train = summarize_rollouts(train_results)
-    test = summarize_rollouts(test_results)
+    evaluation = summarize_policy_evaluation(policy, args.eval_rollouts, args.test_max_steps)
+    train = evaluation["train"]
+    test = evaluation["test"]
     metrics = {
         "command": " ".join(sys.argv),
         "config": asdict(cfg),
@@ -158,7 +187,11 @@ def main() -> None:
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
-        "synthesis_history": summarize_synthesis_history(synthesis_history),
+        "synthesis_history": summarize_synthesis_history(
+            synthesis_history,
+            args.eval_rollouts,
+            args.test_max_steps,
+        ),
         "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),
         "probabilistic_student": summarize_student(student),

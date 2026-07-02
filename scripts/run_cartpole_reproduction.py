@@ -7,7 +7,7 @@ import os
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, List
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +27,12 @@ from cartpole_synthesis import (  # noqa: E402
     cartpole_switch_fit_diagnostics,
     synthesize_cartpole_student_with_history,
 )
-from train_cartpole_psm import summarize_student, summarize_synthesis_history, summarize_traces  # noqa: E402
+from train_cartpole_psm import (  # noqa: E402
+    summarize_policy_evaluation,
+    summarize_student,
+    summarize_synthesis_history,
+    summarize_traces,
+)
 
 try:
     from ppo_cartpole import PPOConfig, train_ppo_cartpole  # noqa: E402
@@ -71,14 +76,6 @@ SUMMARY_FIELDS = [
 ]
 
 
-def _summarize_results(results: Iterable[Any]) -> Dict[str, float]:
-    result_list = list(results)
-    return {
-        "success": sum(result.success for result in result_list) / len(result_list),
-        "reward": sum(result.reward for result in result_list) / len(result_list),
-    }
-
-
 def run_psm(
     seed: int,
     eval_rollouts: int,
@@ -101,14 +98,17 @@ def run_psm(
     cfg = CartpoleSynthesisConfig(**cfg_kwargs)
     student, traces, synthesis_history = synthesize_cartpole_student_with_history(cfg)
     policy = student.to_deterministic_policy()
-    train_env = CartpoleEnv.train_env(seed=100 + seed)
-    test_env = CartpoleEnv.test_env(seed=200 + seed)
-    train_results = [train_env.rollout(policy) for _ in range(eval_rollouts)]
     # The paper's test horizon is 300s; test_max_steps is only exposed so tests
     # can cap runtime without changing the environment definition itself.
-    test_results = [test_env.rollout(policy, max_steps=test_max_steps) for _ in range(eval_rollouts)]
-    train = _summarize_results(train_results)
-    test = _summarize_results(test_results)
+    evaluation = summarize_policy_evaluation(
+        policy,
+        eval_rollouts,
+        test_max_steps,
+        train_seed=100 + seed,
+        test_seed=200 + seed,
+    )
+    train = evaluation["train"]
+    test = evaluation["test"]
     metrics_path = outdir / "metrics" / f"psm_seed{seed}.json"
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics = {
@@ -118,22 +118,28 @@ def run_psm(
         "test_max_steps": test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
-        "synthesis_history": summarize_synthesis_history(synthesis_history),
+        "synthesis_history": summarize_synthesis_history(
+            synthesis_history,
+            eval_rollouts,
+            test_max_steps,
+            train_seed=100 + seed,
+            test_seed=200 + seed,
+        ),
         "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),
         "probabilistic_student": summarize_student(student),
         "switch_fit_diagnostics": cartpole_switch_fit_diagnostics(traces, student),
-        "train": {"success_rate": train["success"], "reward_mean": train["reward"]},
-        "test": {"success_rate": test["success"], "reward_mean": test["reward"]},
+        "train": train,
+        "test": test,
     }
     metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True), encoding="utf-8")
     return {
         "policy": "Programmatic state machine",
         "seed": seed,
-        "train_success": train["success"],
-        "test_success": test["success"],
-        "train_reward": train["reward"],
-        "test_reward": test["reward"],
+        "train_success": train["success_rate"],
+        "test_success": test["success_rate"],
+        "train_reward": train["reward_mean"],
+        "test_reward": test["reward_mean"],
         "timesteps": 0,
         "metrics_output": str(metrics_path),
         "config": asdict(cfg),
