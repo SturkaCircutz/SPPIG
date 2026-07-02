@@ -5,6 +5,7 @@ import random
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -40,6 +41,8 @@ from cartpole_synthesis import (
     _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
     _duration_refinement_candidates,
+    _elite_centroid_trace,
+    _elite_distribution_sample_trace,
     _elite_kernel_log_probability,
     _limit_loop_free_trace_segment_budget,
     _mode_responsibilities,
@@ -1295,6 +1298,184 @@ class CartpolePaperTest(unittest.TestCase):
             _teacher_refinement_objective(far, student, cfg, [elite]),
         )
 
+    def test_cartpole_teacher_elite_centroid_recombines_loop_free_schedules(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=3, segments_per_trace=3)
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 2.0),
+                1: GaussianScalar(10.0, 2.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        left = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=10.0,
+            omega_gain=1.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(1, 3),
+            teacher_source="student_sample",
+            student_log_probability=-2.0,
+        )
+        right = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=20.0,
+            omega_gain=3.0,
+            segment_actions=(10.0, 10.0),
+            segment_durations=(3, 1),
+            teacher_source="student_sample_refined",
+            student_log_probability=-3.0,
+        )
+
+        centroid = _elite_centroid_trace(
+            [left, right],
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            student,
+        )
+
+        self.assertIsNotNone(centroid)
+        assert centroid is not None
+        self.assertEqual(centroid.segment_actions, (0.0, 10.0))
+        self.assertEqual(centroid.segment_durations, (2, 2))
+        self.assertEqual(centroid.teacher_source, "student_elite_centroid")
+        self.assertEqual(centroid.theta_gain, 15.0)
+        self.assertEqual(centroid.omega_gain, 2.0)
+        self.assertIsNotNone(centroid.student_log_probability)
+        self.assertEqual(len(centroid.segment_actions), len(centroid.segment_durations))
+
+    def test_cartpole_teacher_elite_distribution_sample_uses_top_rho_statistics(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=4, segments_per_trace=3)
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 2.0),
+                1: GaussianScalar(10.0, 2.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        left = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=10.0,
+            omega_gain=1.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(1, 4),
+            teacher_source="student_sample",
+            student_log_probability=-2.0,
+        )
+        right = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=20.0,
+            omega_gain=3.0,
+            segment_actions=(10.0, 10.0),
+            segment_durations=(4, 1),
+            teacher_source="student_sample_refined",
+            student_log_probability=-3.0,
+        )
+        schedules = [
+            (left.segment_actions, left.segment_durations, left),
+            (right.segment_actions, right.segment_durations, right),
+        ]
+
+        sample = _elite_distribution_sample_trace(
+            schedules,
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            random.Random(3),
+            student,
+        )
+
+        self.assertIsNotNone(sample)
+        assert sample is not None
+        self.assertEqual(sample.teacher_source, "student_elite_distribution_sample")
+        self.assertEqual(len(sample.segment_actions), len(sample.segment_durations))
+        self.assertLessEqual(len(sample.segment_actions), cfg.segments_per_trace)
+        self.assertTrue(all(1 <= duration <= cfg.segment_steps for duration in sample.segment_durations))
+        self.assertTrue(all(-env.cfg.force_limit <= action <= env.cfg.force_limit for action in sample.segment_actions))
+        self.assertEqual(sample.theta_gain, 15.0)
+        self.assertEqual(sample.omega_gain, 2.0)
+        self.assertIsNotNone(sample.student_log_probability)
+
+    def test_cartpole_teacher_elite_distribution_sample_uses_gaussian_statistics(self):
+        class RecordingRng:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def gauss(self, mean, std):
+                self.calls.append((mean, std))
+                return mean + std
+
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=5, segments_per_trace=2)
+        left = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(1, 5),
+            teacher_source="student_sample",
+        )
+        right = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_durations=(5, 1),
+            teacher_source="student_sample",
+        )
+        rng = RecordingRng()
+
+        sample = _elite_distribution_sample_trace(
+            [
+                (left.segment_actions, left.segment_durations, left),
+                (right.segment_actions, right.segment_durations, right),
+            ],
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            rng,
+        )
+
+        self.assertIsNotNone(sample)
+        self.assertEqual(
+            rng.calls,
+            [
+                (0.0, 10.0),
+                (3.0, 2.0),
+                (10.0, 0.001),
+                (3.0, 2.0),
+            ],
+        )
+        assert sample is not None
+        self.assertEqual(sample.segment_actions, (10.0, 10.0))
+        self.assertEqual(sample.segment_durations, (5, 5))
+
     def test_cartpole_mode_run_lengths_records_sampled_trace_segments(self):
         self.assertEqual(_mode_run_lengths([0, 0, 1, 1, 1, 0]), (2, 3, 1))
         self.assertEqual(_mode_run_lengths([]), ())
@@ -1462,7 +1643,14 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertIn(
             trace.teacher_source,
-            {"bootstrap_student_sample", "bootstrap_student_sample_refined"},
+            {
+                "bootstrap_student_sample",
+                "bootstrap_student_sample_refined",
+                "bootstrap_elite_centroid",
+                "bootstrap_elite_centroid_refined",
+                "bootstrap_elite_distribution_sample",
+                "bootstrap_elite_distribution_sample_refined",
+            },
         )
         self.assertIsNotNone(trace.student_log_probability)
 
@@ -1527,9 +1715,168 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertIn(
             trace.teacher_source,
-            {"student_sample", "student_sample_refined"},
+            {
+                "student_sample",
+                "student_sample_refined",
+                "student_elite_centroid",
+                "student_elite_centroid_refined",
+                "student_elite_distribution_sample",
+                "student_elite_distribution_sample_refined",
+            },
         )
         self.assertGreaterEqual(trace.reward, 1.0)
+
+    def test_cartpole_teacher_optimization_can_select_elite_centroid(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=2,
+            segment_steps=2,
+            segments_per_trace=2,
+            teacher_top_rho=2,
+            teacher_refinement_steps=0,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        student = _bootstrap_probabilistic_student(cfg)
+        poor_left = CartpoleTrace(
+            observations=[],
+            actions=[-10.0],
+            mode_labels=[0],
+            reward=1.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(1, 1),
+            teacher_source="student_sample",
+            student_log_probability=0.0,
+        )
+        poor_right = CartpoleTrace(
+            observations=[],
+            actions=[10.0],
+            mode_labels=[1],
+            reward=1.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_durations=(1, 1),
+            teacher_source="student_sample",
+            student_log_probability=0.0,
+        )
+
+        with patch(
+            "cartpole_synthesis._teacher_candidate_traces",
+            return_value=[poor_left, poor_right],
+        ), patch(
+            "cartpole_synthesis._elite_distribution_sample_traces",
+            return_value=[],
+        ), patch(
+            "cartpole_synthesis._rollout_with_teacher_gains",
+            side_effect=[
+                CartpoleTrace(
+                    observations=[],
+                    actions=[0.0, 10.0],
+                    mode_labels=[0, 1],
+                    reward=5.0,
+                    theta_gain=0.0,
+                    omega_gain=0.0,
+                    segment_actions=(0.0, 10.0),
+                    segment_durations=(1, 1),
+                    teacher_source="gain_sample",
+                )
+            ],
+        ):
+            trace = _optimize_loop_free_trace(
+                [0.0, 0.0, 0.05, 0.0],
+                env.cfg,
+                cfg,
+                random.Random(0),
+                student,
+            )
+
+        self.assertEqual(trace.teacher_source, "student_elite_centroid")
+        self.assertEqual(trace.segment_actions, (0.0, 10.0))
+        self.assertEqual(trace.reward, 5.0)
+
+    def test_cartpole_teacher_optimization_can_select_elite_distribution_sample(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=2,
+            segment_steps=2,
+            segments_per_trace=2,
+            teacher_top_rho=2,
+            teacher_refinement_steps=0,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        student = _bootstrap_probabilistic_student(cfg)
+        poor_left = CartpoleTrace(
+            observations=[],
+            actions=[-10.0],
+            mode_labels=[0],
+            reward=1.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(1, 1),
+            teacher_source="student_sample",
+            student_log_probability=0.0,
+        )
+        poor_right = CartpoleTrace(
+            observations=[],
+            actions=[10.0],
+            mode_labels=[1],
+            reward=1.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_durations=(1, 1),
+            teacher_source="student_sample",
+            student_log_probability=0.0,
+        )
+        distribution_sample = CartpoleTrace(
+            observations=[],
+            actions=[1.0, 10.0],
+            mode_labels=[1, 1],
+            reward=6.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(1.0, 10.0),
+            segment_durations=(1, 1),
+            teacher_source="student_elite_distribution_sample",
+            student_log_probability=0.0,
+        )
+
+        with patch(
+            "cartpole_synthesis._teacher_candidate_traces",
+            return_value=[poor_left, poor_right],
+        ), patch(
+            "cartpole_synthesis._elite_distribution_sample_traces",
+            return_value=[distribution_sample],
+        ), patch(
+            "cartpole_synthesis._rollout_with_teacher_gains",
+            return_value=CartpoleTrace(
+                observations=[],
+                actions=[0.0, 10.0],
+                mode_labels=[0, 1],
+                reward=5.0,
+                theta_gain=0.0,
+                omega_gain=0.0,
+                segment_actions=(0.0, 10.0),
+                segment_durations=(1, 1),
+                teacher_source="gain_sample",
+            ),
+        ):
+            trace = _optimize_loop_free_trace(
+                [0.0, 0.0, 0.05, 0.0],
+                env.cfg,
+                cfg,
+                random.Random(0),
+                student,
+            )
+
+        self.assertEqual(trace.teacher_source, "student_elite_distribution_sample")
+        self.assertEqual(trace.segment_actions, (1.0, 10.0))
+        self.assertEqual(trace.reward, 6.0)
 
     def test_cartpole_teacher_refinement_does_not_reduce_objective(self):
         env = CartpoleEnv.train_env(seed=0)

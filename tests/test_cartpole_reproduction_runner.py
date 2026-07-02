@@ -192,6 +192,16 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "forward_marginalized_action_and_switch_timing_likelihood",
             )
             self.assertEqual(
+                provenance["teacher_search"]["elite_recombination"],
+                "top_rho_segment_action_duration_centroid",
+            )
+            self.assertEqual(
+                provenance["teacher_search"]["elite_recombination_candidate_count"],
+                "at_most_one_when_elites_have_loop_free_schedules",
+            )
+            self.assertEqual(provenance["teacher_search"]["elite_distribution_resamples"], 1)
+            self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
+            self.assertEqual(
                 provenance["teacher_search"]["elite_refinement_objective"],
                 "reward_plus_top_rho_log_probability_distance_kernel",
             )
@@ -267,6 +277,16 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 row_provenance["teacher_search"]["student_sample_probability"],
                 "forward_marginalized_action_and_switch_timing_likelihood",
             )
+            self.assertEqual(
+                row_provenance["teacher_search"]["elite_recombination"],
+                "top_rho_segment_action_duration_centroid",
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["elite_recombination_candidate_count"],
+                "at_most_one_when_elites_have_loop_free_schedules",
+            )
+            self.assertEqual(row_provenance["teacher_search"]["elite_distribution_resamples"], 1)
+            self.assertEqual(row_provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_refinement_objective"],
                 "reward_plus_top_rho_log_probability_distance_kernel",

@@ -171,6 +171,16 @@ class CartpolePSMCliTest(unittest.TestCase):
             "min_environment_max_steps_and_configured_loop_free_horizon",
         )
         self.assertEqual(
+            provenance["teacher_search"]["elite_recombination"],
+            "top_rho_segment_action_duration_centroid",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["elite_recombination_candidate_count"],
+            "at_most_one_when_elites_have_loop_free_schedules",
+        )
+        self.assertEqual(provenance["teacher_search"]["elite_distribution_resamples"], 1)
+        self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
+        self.assertEqual(
             provenance["teacher_search"]["elite_refinement_objective"],
             "reward_plus_top_rho_log_probability_distance_kernel",
         )

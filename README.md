@@ -128,8 +128,11 @@ constant-action segment at a time, accepting only improvements under the
 current teacher objective or, after the first student fit, a top-rho
 elite-distance kernel approximation of the paper's second teacher optimization
 phase. Student-sampled traces can also be locally refined through
-duration/action coordinate search. This still does not implement the paper's
-full CEM plus gradient optimizer.
+duration/action coordinate search. The teacher also evaluates one deterministic
+centroid recombination of the top-rho loop-free action/duration schedules
+and one bounded sample from their fitted per-segment action/duration statistics
+before refinement. This still does not implement the paper's full CEM plus
+gradient optimizer.
 The student starts with action-likelihood responsibilities, then performs one
 bounded forward-backward refinement using the learned switch-timing likelihood.
 The switch threshold Gaussian means and standard deviations are locally refined

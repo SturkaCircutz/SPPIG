@@ -172,8 +172,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   selection. These sampled rollouts now resample action and switch parameters whenever execution
   enters a mode segment, matching the paper's probabilistic PSM execution model more closely. The
   teacher locally refines top sampled loop-free traces by duration/action coordinate search under a
-  top-rho elite-distance kernel approximation and records selected trace sources plus sampled-trace
-  log probabilities in metrics JSON. This moves toward the sampled-teacher and local-optimization
+  top-rho elite-distance kernel approximation, evaluates one centroid recombination of the elite
+  action/duration schedules plus one bounded sample from their fitted per-segment statistics, and
+  records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
+  toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
   and the student's discrete Eq. (12)-style switch timing likelihood, marginalizing over the latent
@@ -350,6 +352,14 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_kernel_uses_normalized_top_rho_distance`
   verifies that the refinement objective uses the paper-style normalized elite-distance kernel
   approximation for trace probability.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_centroid_recombines_loop_free_schedules`
+  verifies that the teacher can evaluate one deterministic top-rho centroid of segment actions and
+  durations before local refinement. This is only a bounded recombination approximation, not the
+  paper's full CEM distribution update.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_sample_uses_top_rho_statistics`
+  verifies that the teacher can sample one loop-free candidate from per-segment action/duration
+  statistics fit to the top-rho traces. This is a bounded CEM-like sample, not an iterative CEM
+  optimizer.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_can_sample_candidates_from_probabilistic_student`
   verifies that the bounded teacher candidate pool can include rollouts sampled from the current
   probabilistic student after the first student fit.
@@ -442,12 +452,14 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   refinement, but does not yet solve the full continuous Eq. (12) optimization for switch-condition
   means and standard deviations. For depth-2 Boolean trees, switch-enable probability now uses an
   exact union of axis-aligned threshold rectangles for conjunctions and disjunctions under
-  independent predicate-threshold Gaussians, with threshold samples shared across the segment. The current Cartpole teacher samples the
-  first iteration from a Gaussian PSM prior and later iterations from the current probabilistic
-  student, resampling action/switch parameters on mode entry, refines top loop-free candidates with
-  bounded coordinate search over teacher gains when available, integer segment durations, and
-  one-segment local continuous constant-action steps, and scores traces with reward plus Gaussian
-  action likelihood and discrete switch timing likelihood under the
+  independent predicate-threshold Gaussians, with threshold samples shared across the segment. The
+  current Cartpole teacher samples the first iteration from a Gaussian PSM prior and later iterations
+  from the current probabilistic student, resampling action/switch parameters on mode entry, refines
+  top loop-free candidates with bounded coordinate search over teacher gains when available, integer
+  segment durations, and one-segment local continuous constant-action steps, evaluates one
+  deterministic top-rho centroid recombination candidate plus one bounded sample from fitted
+  per-segment elite statistics, and scores traces with reward plus Gaussian action likelihood and
+  discrete switch timing likelihood under the
   previous student, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.
