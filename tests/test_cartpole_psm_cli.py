@@ -172,7 +172,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["teacher_search"]["duration_gradient_epsilon"], 1)
         self.assertEqual(
             provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"],
-            {"action_schedule": 1, "duration_schedule": 1},
+            {"action_schedule": 1, "duration_schedule": 1, "time_increment_schedule": 1},
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
@@ -184,7 +184,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_local_refinement"],
-            "duration_continuous_action_and_finite_difference_schedule_search",
+            "duration_time_increment_continuous_action_and_finite_difference_schedule_search",
         )
         self.assertEqual(
             provenance["teacher_search"]["student_sample_segment_budget"],
@@ -196,7 +196,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_recombination"],
-            "top_rho_segment_action_duration_centroid",
+            "top_rho_segment_action_duration_time_increment_centroid",
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_recombination_candidate_count"],
@@ -212,7 +212,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_distance_metric"],
-            "l2_over_segment_actions_and_durations",
+            "l2_over_segment_actions_durations_and_time_increments",
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_distance_duration_scale_floor"],
@@ -280,6 +280,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("theta_gain", metrics["trace_summary"]["examples"][0])
         self.assertIn("segment_actions", metrics["trace_summary"]["examples"][0])
         self.assertIn("segment_durations", metrics["trace_summary"]["examples"][0])
+        self.assertIn("segment_time_increments", metrics["trace_summary"]["examples"][0])
         self.assertIn("teacher_source", metrics["trace_summary"]["examples"][0])
         self.assertIn("student_log_probability", metrics["trace_summary"]["examples"][0])
         self.assertIn("probabilistic_student", metrics)

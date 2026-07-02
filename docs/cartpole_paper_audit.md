@@ -163,7 +163,7 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - Test evaluation defaults now use `15000` steps, matching the paper's 300-second test horizon.
 - Programmatic-state-machine synthesis can now write metrics JSON containing the synthesis config,
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
-  compact teacher-trace examples with segment-duration schedules, per-teacher/student-iteration
+  compact teacher-trace examples with segment-duration and time-increment schedules, per-teacher/student-iteration
   `synthesis_history`, number of teacher traces, evaluation settings, switch-fit diagnostics, and
   train/test metrics.
 - The Cartpole switch learner now performs bounded local grid, coordinate refinement, and
@@ -178,11 +178,12 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   later teacher candidate pools are sampled from the current probabilistic student before top-rho
   selection. These sampled rollouts now resample action and switch parameters whenever execution
   enters a mode segment, matching the paper's probabilistic PSM execution model more closely. The
-  teacher locally refines top sampled loop-free traces by duration/action coordinate search under a
+  teacher locally refines top sampled loop-free traces by duration/time-increment/action coordinate search under a
   top-rho elite-distance kernel approximation, adds one bounded finite-difference action candidate
-  and one bounded finite-difference integer-duration candidate per refinement iteration, evaluates
-  one centroid recombination of the elite action/duration schedules plus configurable bounded
-  rounds of fitted per-segment distribution mean candidates and samples, refreshing the top-rho set
+  one bounded finite-difference integer-duration candidate, and one bounded finite-difference
+  time-increment candidate per refinement iteration, evaluates one centroid recombination of the
+  elite action/duration/time-increment schedules plus configurable bounded rounds of fitted
+  per-segment distribution mean candidates and samples, refreshing the top-rho set
   between rounds, and records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
   toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
@@ -432,8 +433,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   objective after top-candidate sampling. This is a bounded coordinate refinement over the diagnostic
   teacher gains, not the paper's continuous gradient-based trajectory optimizer.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_rollout_records_segment_durations` verifies
-  that loop-free teacher traces persist the segment-action and segment-duration schedules used to
-  generate them.
+  that loop-free teacher traces persist the segment-action, segment-duration, and time-increment
+  schedules used to generate them.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_rollout_uses_segment_time_increments`
+  verifies that the loop-free teacher can vary per-segment integration increments without changing
+  the global CartPole environment timestep.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_preserves_action_sequence`
   verifies that duration-only refinement preserves the loop-free teacher's constant-action sequence.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_action_refinement_changes_one_action_at_a_time`
@@ -453,6 +457,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_gradient_refinement_can_be_accepted`
   verifies that the finite-difference duration update is only accepted when it does not reduce the
   current teacher objective.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_time_increment_gradient_uses_central_differences`
+  verifies that bounded time-increment refinement can estimate a central finite-difference
+  direction over loop-free segment time increments.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_finite_difference_refinement_rejects_worse_candidates`
   verifies that worse action and duration finite-difference candidates are rejected.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_does_not_reduce_objective`
@@ -525,10 +532,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   current Cartpole teacher samples the first iteration from a Gaussian PSM prior and later iterations
   from the current probabilistic student, resampling action/switch parameters on mode entry, refines
   top loop-free candidates with bounded coordinate search over teacher gains when available, integer
-  segment durations, one-segment local continuous constant-action steps, and one action plus one
-  integer-duration finite-difference candidate per refinement iteration, evaluates one deterministic
-  top-rho centroid recombination candidate plus configurable bounded rounds of fitted per-segment
-  distribution mean candidates and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
+  segment durations, per-segment time increments, one-segment local continuous constant-action
+  steps, and one action plus one integer-duration plus one time-increment finite-difference
+  candidate per refinement iteration, evaluates one deterministic top-rho centroid recombination
+  candidate plus configurable bounded rounds of fitted per-segment distribution mean candidates
+  and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the
   previous student, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.

@@ -217,11 +217,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(provenance["teacher_search"]["duration_gradient_epsilon"], 1)
             self.assertEqual(
                 provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"],
-                {"action_schedule": 1, "duration_schedule": 1},
+                {"action_schedule": 1, "duration_schedule": 1, "time_increment_schedule": 1},
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_local_refinement"],
-                "duration_continuous_action_and_finite_difference_schedule_search",
+                "duration_time_increment_continuous_action_and_finite_difference_schedule_search",
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_segment_budget"],
@@ -241,7 +241,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["teacher_search"]["elite_recombination"],
-                "top_rho_segment_action_duration_centroid",
+                "top_rho_segment_action_duration_time_increment_centroid",
             )
             self.assertEqual(
                 provenance["teacher_search"]["elite_recombination_candidate_count"],
@@ -257,7 +257,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["teacher_search"]["elite_distance_metric"],
-                "l2_over_segment_actions_and_durations",
+                "l2_over_segment_actions_durations_and_time_increments",
             )
             self.assertEqual(
                 provenance["teacher_search"]["bootstrap_source"],
@@ -323,11 +323,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(row_provenance["teacher_search"]["duration_gradient_epsilon"], 1)
             self.assertEqual(
                 row_provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"],
-                {"action_schedule": 1, "duration_schedule": 1},
+                {"action_schedule": 1, "duration_schedule": 1, "time_increment_schedule": 1},
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_local_refinement"],
-                "duration_continuous_action_and_finite_difference_schedule_search",
+                "duration_time_increment_continuous_action_and_finite_difference_schedule_search",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_segment_budget"],
@@ -347,7 +347,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_recombination"],
-                "top_rho_segment_action_duration_centroid",
+                "top_rho_segment_action_duration_time_increment_centroid",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_recombination_candidate_count"],
@@ -363,7 +363,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distance_metric"],
-                "l2_over_segment_actions_and_durations",
+                "l2_over_segment_actions_durations_and_time_increments",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["bootstrap_source"],

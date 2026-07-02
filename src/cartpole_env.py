@@ -109,9 +109,15 @@ class CartpoleEnv:
         return CartpoleResult(True, steps, total_reward, max_abs_theta, max_abs_x)
 
 
-def cartpole_next_state(state: Sequence[float], force: float, cfg: CartpoleConfig) -> Observation:
+def cartpole_next_state(
+    state: Sequence[float],
+    force: float,
+    cfg: CartpoleConfig,
+    dt: Optional[float] = None,
+) -> Observation:
     x, x_dot, theta, theta_dot = state
     force = max(-cfg.force_limit, min(cfg.force_limit, float(force)))
+    step_dt = cfg.dt if dt is None else float(dt)
     total_mass = cfg.cart_mass + cfg.pole_mass
     polemass_length = cfg.pole_mass * cfg.pole_length
 
@@ -127,10 +133,10 @@ def cartpole_next_state(state: Sequence[float], force: float, cfg: CartpoleConfi
     x_acc = temp - polemass_length * theta_acc * costheta / total_mass
 
     return [
-        x + cfg.dt * x_dot,
-        x_dot + cfg.dt * x_acc,
-        theta + cfg.dt * theta_dot,
-        theta_dot + cfg.dt * theta_acc,
+        x + step_dt * x_dot,
+        x_dot + step_dt * x_acc,
+        theta + step_dt * theta_dot,
+        theta_dot + step_dt * theta_acc,
     ]
 
 
