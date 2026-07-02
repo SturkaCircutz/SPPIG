@@ -211,6 +211,18 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["teacher_search"]["elite_distribution_mean_candidate_per_round"], 1)
         self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
         self.assertEqual(
+            provenance["teacher_search"]["elite_distribution_phase"],
+            "bounded_cem_style_top_rho_refresh",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["elite_distribution_selection_objective"],
+            "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_student_log_probability",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["elite_refinement_elite_set"],
+            "refreshed_top_rho_after_distribution_rounds",
+        )
+        self.assertEqual(
             provenance["teacher_search"]["elite_refinement_objective"],
             "reward_plus_top_rho_log_probability_distance_kernel",
         )

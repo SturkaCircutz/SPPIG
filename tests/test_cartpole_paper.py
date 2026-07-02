@@ -46,6 +46,7 @@ from cartpole_synthesis import (
     _elite_distribution_sample_trace,
     _elite_distribution_sample_traces,
     _elite_distribution_mean_trace,
+    _refresh_teacher_elites_with_distribution,
     _duration_gradient_refinement_candidate,
     _elite_kernel_log_probability,
     _limit_loop_free_trace_segment_budget,
@@ -2088,8 +2089,8 @@ class CartpolePaperTest(unittest.TestCase):
             "cartpole_synthesis._teacher_candidate_traces",
             return_value=[poor_left, poor_right],
         ), patch(
-            "cartpole_synthesis._elite_distribution_sample_traces",
-            return_value=[],
+            "cartpole_synthesis._refresh_teacher_elites_with_distribution",
+            return_value=([poor_left, poor_right], []),
         ), patch(
             "cartpole_synthesis._rollout_with_teacher_gains",
             side_effect=[
@@ -2171,8 +2172,8 @@ class CartpolePaperTest(unittest.TestCase):
             "cartpole_synthesis._teacher_candidate_traces",
             return_value=[poor_left, poor_right],
         ), patch(
-            "cartpole_synthesis._elite_distribution_sample_traces",
-            return_value=[distribution_sample],
+            "cartpole_synthesis._refresh_teacher_elites_with_distribution",
+            return_value=([distribution_sample, poor_left], [distribution_sample]),
         ), patch(
             "cartpole_synthesis._rollout_with_teacher_gains",
             return_value=CartpoleTrace(
@@ -2198,6 +2199,69 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(trace.teacher_source, "student_elite_distribution_sample")
         self.assertEqual(trace.segment_actions, (1.0, 10.0))
         self.assertEqual(trace.reward, 6.0)
+
+    def test_cartpole_teacher_refinement_uses_refreshed_distribution_elites(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=1,
+            segment_steps=2,
+            segments_per_trace=2,
+            teacher_top_rho=1,
+            teacher_refinement_steps=1,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=10.0,
+        )
+        student = _bootstrap_probabilistic_student(cfg)
+        initial_elite = CartpoleTrace(
+            observations=[],
+            actions=[0.0],
+            mode_labels=[1],
+            reward=5.0,
+            segment_actions=(0.0,),
+            segment_durations=(1,),
+            teacher_source="student_sample",
+            student_log_probability=0.0,
+        )
+        refreshed_elite = CartpoleTrace(
+            observations=[],
+            actions=[5.0],
+            mode_labels=[1],
+            reward=5.0,
+            segment_actions=(5.0,),
+            segment_durations=(1,),
+            teacher_source="student_elite_distribution_sample",
+            student_log_probability=0.0,
+        )
+        refinement_elite_rewards: list[float] = []
+
+        def fake_refine(candidate, _initial_state, _env_cfg, _cfg, _student, elites):
+            refinement_elite_rewards.append(elites[0].reward)
+            return candidate
+
+        with patch(
+            "cartpole_synthesis._teacher_candidate_traces",
+            return_value=[initial_elite],
+        ), patch(
+            "cartpole_synthesis._refresh_teacher_elites_with_distribution",
+            return_value=([refreshed_elite], [refreshed_elite]),
+        ), patch(
+            "cartpole_synthesis._elite_centroid_trace",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._refine_loop_free_trace",
+            side_effect=fake_refine,
+        ):
+            trace = _optimize_loop_free_trace(
+                [0.0, 0.0, 0.05, 0.0],
+                env.cfg,
+                cfg,
+                random.Random(0),
+                student,
+            )
+
+        self.assertTrue(refinement_elite_rewards)
+        self.assertEqual(set(refinement_elite_rewards), {5.0})
+        self.assertEqual(trace.teacher_source, "student_elite_distribution_sample")
 
     def test_cartpole_teacher_elite_distribution_resample_count_is_configurable(self):
         env = CartpoleEnv.train_env(seed=0)
@@ -2289,7 +2353,7 @@ class CartpolePaperTest(unittest.TestCase):
             return improved_sample if len(sampled_from) == 1 else second_round_sample
 
         with patch("cartpole_synthesis._elite_distribution_sample_trace", side_effect=fake_sample):
-            candidates = _elite_distribution_sample_traces(
+            refreshed_elites, candidates = _refresh_teacher_elites_with_distribution(
                 [initial_elite],
                 [0.0, 0.0, 0.05, 0.0],
                 env.cfg,
@@ -2308,6 +2372,7 @@ class CartpolePaperTest(unittest.TestCase):
         )
         self.assertEqual([candidates[1].reward, candidates[3].reward], [5.0, 6.0])
         self.assertEqual(sampled_from, [0.0, 5.0])
+        self.assertEqual(refreshed_elites, [second_round_sample])
         self.assertEqual(_top_teacher_elites([initial_elite, improved_sample], None, cfg), [improved_sample])
 
     def test_cartpole_teacher_refinement_does_not_reduce_objective(self):

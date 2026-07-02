@@ -189,6 +189,11 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "default_elite_distribution_rounds": TEACHER_ELITE_DISTRIBUTION_ROUNDS,
             "elite_distribution_mean_candidate_per_round": 1,
             "elite_distribution_min_action_std": TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD,
+            "elite_distribution_phase": "bounded_cem_style_top_rho_refresh",
+            "elite_distribution_selection_objective": (
+                "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_student_log_probability"
+            ),
+            "elite_refinement_elite_set": "refreshed_top_rho_after_distribution_rounds",
             "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
             "elite_distance_metric": "l2_over_segment_actions_durations_and_time_increments",
             "elite_distance_duration_scale_floor": TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR,
@@ -796,7 +801,7 @@ def _optimize_loop_free_trace(
     # Refine only the top candidates to keep synthesis cheap while still
     # optimizing around promising sampled loop-free traces.
     elites = _top_teacher_elites(candidates, scoring_student, cfg)
-    elite_recombinations = _elite_recombination_candidates(
+    elite_recombinations, refinement_elites = _elite_recombination_candidates_and_elites(
         elites,
         initial_state,
         env_cfg,
@@ -806,13 +811,13 @@ def _optimize_loop_free_trace(
     )
     refinement_seeds = elites + elite_recombinations
     refined = [
-        _refine_loop_free_trace(candidate, initial_state, env_cfg, cfg, scoring_student, elites)
+        _refine_loop_free_trace(candidate, initial_state, env_cfg, cfg, scoring_student, refinement_elites)
         for candidate in refinement_seeds
         if candidate.segment_actions and candidate.segment_durations
     ]
     return max(
         refinement_seeds + refined,
-        key=lambda trace: _teacher_refinement_objective(trace, scoring_student, cfg, elites),
+        key=lambda trace: _teacher_refinement_objective(trace, scoring_student, cfg, refinement_elites),
     )
 
 
@@ -850,12 +855,40 @@ def _elite_recombination_candidates(
     rng: random.Random,
     student: ProbabilisticCartpoleStudent | None,
 ) -> List[CartpoleTrace]:
+    candidates, _ = _elite_recombination_candidates_and_elites(
+        elites,
+        initial_state,
+        env_cfg,
+        cfg,
+        rng,
+        student,
+    )
+    return candidates
+
+
+def _elite_recombination_candidates_and_elites(
+    elites: List[CartpoleTrace],
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    rng: random.Random,
+    student: ProbabilisticCartpoleStudent | None,
+) -> Tuple[List[CartpoleTrace], List[CartpoleTrace]]:
+    current_elites = _top_teacher_elites(elites, student, cfg)
     candidates: List[CartpoleTrace] = []
-    centroid = _elite_centroid_trace(elites, initial_state, env_cfg, cfg, student)
+    centroid = _elite_centroid_trace(current_elites, initial_state, env_cfg, cfg, student)
     if centroid is not None:
         candidates.append(centroid)
-    candidates.extend(_elite_distribution_sample_traces(elites, initial_state, env_cfg, cfg, rng, student))
-    return candidates
+    refreshed_elites, distribution_candidates = _refresh_teacher_elites_with_distribution(
+        current_elites,
+        initial_state,
+        env_cfg,
+        cfg,
+        rng,
+        student,
+    )
+    candidates.extend(distribution_candidates)
+    return candidates, refreshed_elites
 
 
 def _elite_distribution_sample_traces(
@@ -866,8 +899,27 @@ def _elite_distribution_sample_traces(
     rng: random.Random,
     student: ProbabilisticCartpoleStudent | None = None,
 ) -> List[CartpoleTrace]:
+    _, samples = _refresh_teacher_elites_with_distribution(
+        elites,
+        initial_state,
+        env_cfg,
+        cfg,
+        rng,
+        student,
+    )
+    return samples
+
+
+def _refresh_teacher_elites_with_distribution(
+    elites: List[CartpoleTrace],
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    rng: random.Random,
+    student: ProbabilisticCartpoleStudent | None = None,
+) -> Tuple[List[CartpoleTrace], List[CartpoleTrace]]:
     samples: List[CartpoleTrace] = []
-    current_elites = elites
+    current_elites = _top_teacher_elites(elites, student, cfg)
     rounds = max(0, cfg.teacher_elite_distribution_rounds)
     for _ in range(rounds):
         schedules = _elite_loop_free_schedules(current_elites, env_cfg.dt)
@@ -885,7 +937,7 @@ def _elite_distribution_sample_traces(
             break
         samples.extend(round_samples)
         current_elites = _top_teacher_elites(current_elites + round_samples, student, cfg)
-    return samples
+    return current_elites, samples
 
 
 def _top_teacher_elites(

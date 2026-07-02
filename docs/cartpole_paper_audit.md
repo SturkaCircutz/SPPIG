@@ -184,7 +184,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   time-increment candidate per refinement iteration, evaluates one centroid recombination of the
   elite action/duration/time-increment schedules plus configurable bounded rounds of fitted
   per-segment distribution mean candidates and samples, refreshing the top-rho set
-  between rounds, and records selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
+  between rounds and using the refreshed top-rho set for the refinement objective, and records
+  selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
   toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
@@ -421,6 +422,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that the bounded elite distribution sample count is configured rather than hard-coded.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refresh_elites`
   verifies that bounded elite distribution rounds refresh the top-rho set between sampling rounds.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_uses_refreshed_distribution_elites`
+  verifies that local refinement uses the refreshed top-rho elite set produced by the bounded
+  distribution rounds.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_can_sample_candidates_from_probabilistic_student`
   verifies that the bounded teacher candidate pool can include rollouts sampled from the current
   probabilistic student after the first student fit.
