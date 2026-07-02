@@ -36,7 +36,7 @@ from train_cartpole_psm import (  # noqa: E402
 )
 
 try:
-    from ppo_cartpole import PPOConfig, train_ppo_cartpole  # noqa: E402
+    from ppo_cartpole import PPOConfig, ppo_paper_protocol_status, train_ppo_cartpole  # noqa: E402
 
     HAS_TORCH = True
 except Exception:
@@ -223,6 +223,7 @@ def run_ppo(
         "checkpoint": str(checkpoint_path),
         "metrics_output": str(metrics_path),
         "config": asdict(cfg),
+        "paper_protocol_status": ppo_paper_protocol_status(cfg),
     }
 
 

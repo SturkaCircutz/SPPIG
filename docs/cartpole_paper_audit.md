@@ -70,7 +70,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
   contain intermediate train/test `eval_history` entries or only the selected final result.
   PPO metrics also contain compact `update_history` rows with rollout reward means and
-  train-horizon termination counts. Result rows, summaries, and metrics JSON explicitly record mean
+  train-horizon termination counts. PPO manifest rows mirror the metrics JSON `paper_protocol_status`
+  block, so local diagnostic runs and single fixed-config runs are not mistaken for the full
+  five-seed paper baseline protocol. Result rows, summaries, and metrics JSON explicitly record mean
   survived steps and survival seconds so long-horizon plots do not rely on reward as an implicit
   survival-time proxy.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that defaults to 10
@@ -557,8 +559,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   metrics artifact from the manifest.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_with_ppo_writes_checkpoints_and_metrics`
   verifies that the reproduction runner writes PPO/PPO-LSTM checkpoints and metrics JSON, that the
-  configured PPO evaluation interval produces `eval_history` entries, and that PPO update diagnostics
-  are persisted.
+  configured PPO evaluation interval produces `eval_history` entries, that PPO update diagnostics are
+  persisted, and that each PPO manifest row mirrors the metrics JSON paper-protocol status.
 - `tests/test_cartpole_reproduction_runner.py::test_summary_rows_report_mean_std_and_best_train_seed`
   verifies the runner's per-policy mean/std summary and deterministic best-training-seed selection.
 - `tests/test_make_paper_figures.py` verifies that figure/table generation reads grouped summary rows

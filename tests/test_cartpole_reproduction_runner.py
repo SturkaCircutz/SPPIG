@@ -591,6 +591,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             for row in manifest_ppo_rows:
                 self.assertTrue(os.path.exists(row["checkpoint"]))
                 self.assertTrue(os.path.exists(row["metrics_output"]))
+                with open(row["metrics_output"], encoding="utf-8") as handle:
+                    metrics = json.load(handle)
+                self.assertEqual(row["paper_protocol_status"], metrics["paper_protocol_status"])
+                self.assertFalse(row["paper_protocol_status"]["paper_timestep_budget"])
+                self.assertFalse(row["paper_protocol_status"]["paper_test_horizon"])
+                self.assertFalse(row["paper_protocol_status"]["paper_scale_baseline_protocol"])
 
 
 if __name__ == "__main__":
