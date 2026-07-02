@@ -57,6 +57,7 @@ from cartpole_synthesis import (
     _refine_responsibilities_with_switch_timing,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
+    _switch_cache_key,
     _switch_distribution_std_candidates,
     _switch_distribution_timing_loss,
     _rollout_student_sampled_trace,
@@ -575,14 +576,76 @@ class CartpolePaperTest(unittest.TestCase):
             )
         )
 
-        _, refined = _refine_switch_distribution_means(
+        with patch("cartpole_synthesis.SWITCH_PARAMETER_GRADIENT_REFINEMENT_STEPS", 0):
+            _, refined = _refine_switch_distribution_means(
+                switch,
+                initial,
+                segments_by_trace,
+                responsibilities,
+            )
+
+        self.assertLess(refined[0].std, grid_best_std)
+
+    def test_cartpole_switch_gradient_refinement_polishes_coordinate_solution(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.3, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.15, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.25, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0)]
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+        initial = [GaussianScalar(0.0, 1.0)]
+
+        with patch("cartpole_synthesis.SWITCH_PARAMETER_GRADIENT_REFINEMENT_STEPS", 0):
+            coordinate_switch, coordinate = _refine_switch_distribution_means(
+                switch,
+                initial,
+                segments_by_trace,
+                responsibilities,
+            )
+        refined_switch, refined = _refine_switch_distribution_means(
             switch,
             initial,
             segments_by_trace,
             responsibilities,
         )
 
-        self.assertLess(refined[0].std, grid_best_std)
+        self.assertLess(
+            _switch_distribution_timing_loss(refined_switch, refined, segments_by_trace, responsibilities),
+            _switch_distribution_timing_loss(
+                coordinate_switch,
+                coordinate,
+                segments_by_trace,
+                responsibilities,
+            ),
+        )
+        self.assertGreaterEqual(refined[0].std, 1e-3)
+
+    def test_cartpole_switch_mistake_cache_key_preserves_submillithresholds(self):
+        lower = Depth2Switch(1.0, 0.0, 0.0004)
+        higher = Depth2Switch(1.0, 0.0, 0.00049)
+        examples = [
+            ([0.0, 0.0, 0.00045, 0.0], 1),
+        ]
+
+        self.assertEqual(lower.describe(), higher.describe())
+        self.assertNotEqual(_switch_cache_key(lower), _switch_cache_key(higher))
+        self.assertLess(
+            _switch_cost(lower, examples)[0],
+            _switch_cost(higher, examples)[0],
+        )
 
     def test_cartpole_switch_distribution_refinement_keeps_std_finite(self):
         segment = CartpoleSegment(

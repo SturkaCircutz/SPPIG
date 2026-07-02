@@ -163,8 +163,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   compact teacher-trace examples with segment-duration schedules, per-teacher/student-iteration
   `synthesis_history`, number of teacher traces, evaluation settings, switch-fit diagnostics, and
   train/test metrics.
-- The Cartpole switch learner now performs bounded local grid plus coordinate refinement of selected
-  switch-threshold Gaussian means and standard deviations against a discrete Eq. (12)-style
+- The Cartpole switch learner now performs bounded local grid, coordinate refinement, and
+  finite-difference gradient polishing of selected switch-threshold Gaussian means and standard
+  deviations against a discrete Eq. (12)-style
   likelihood, while rejecting candidate means that increase hard segment-label mistakes. This moves
   the switch-parameter M-step closer to the paper's numerical optimization, but remains a diagnostic
   approximation: switch structure is prefiltered by a cheaper hard-label/timing objective before
@@ -343,7 +344,14 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that bounded Gaussian standard-deviation refinement can improve the current
   probabilistic timing objective.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_coordinate_refinement_polishes_grid_solution`
-  verifies that the bounded coordinate pass can improve beyond the discrete std-candidate grid.
+  verifies that the bounded coordinate pass can improve beyond the discrete std-candidate grid when
+  finite-difference gradient polishing is disabled.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_gradient_refinement_polishes_coordinate_solution`
+  verifies that finite-difference gradient polishing can improve the Eq. (12)-style timing objective
+  beyond the bounded coordinate pass.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_mistake_cache_key_preserves_submillithresholds`
+  verifies that hard-label mistake caching keys exact switch thresholds rather than rounded
+  descriptions, so tiny gradient-polish moves cannot bypass the mistake guard.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_keeps_std_finite`
   verifies that refined switch Gaussian standard deviations remain finite and above the local
   Gaussian floor.
@@ -501,9 +509,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   learner performs a depth-2 greedy Boolean-tree expansion, stores Gaussian threshold distributions
   for each selected switch predicate, can sample deterministic policies from those distributions, and
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
-  no-transition-before-duration terms. It now performs bounded local mean/std grid plus coordinate
-  refinement, but does not yet solve the full continuous Eq. (12) optimization for switch-condition
-  means and standard deviations. For depth-2 Boolean trees, switch-enable probability now uses an
+  no-transition-before-duration terms. It now performs bounded local mean/std grid, coordinate
+  refinement, and finite-difference gradient polishing, but does not yet solve the full continuous
+  Eq. (12) optimization for switch-condition means and standard deviations. For depth-2 Boolean trees,
+  switch-enable probability now uses an
   exact union of axis-aligned threshold rectangles for conjunctions and disjunctions under
   independent predicate-threshold Gaussians, with threshold samples shared across the segment. The
   current Cartpole teacher samples the first iteration from a Gaussian PSM prior and later iterations

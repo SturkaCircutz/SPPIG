@@ -136,6 +136,10 @@ class CartpolePSMCliTest(unittest.TestCase):
             math.log(2.0),
         )
         self.assertEqual(provenance["switch_timing"]["coordinate_step_decay"], 0.5)
+        self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_refinement_steps"], 2)
+        self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_mean_step_fraction"], 0.5)
+        self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_log_std_step"], 0.25)
+        self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_epsilon_fraction"], 0.25)
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
         self.assertTrue(provenance["switch_search"]["greedy_second_predicate_expands_switch_and_no_switch_leaves"])
         self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
