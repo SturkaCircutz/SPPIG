@@ -143,7 +143,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_refinement_steps"], 1)
             provenance = manifest["psm_algorithm_provenance"]
             self.assertEqual(provenance["probabilistic_student"]["em_iters"], 4)
+            self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
             self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
+            self.assertEqual(
+                provenance["switch_timing"]["depth2_conjunction_probability"],
+                "shared_threshold_rectangle_union",
+            )
             self.assertEqual(provenance["switch_timing"]["coordinate_refinement_steps"], 3)
             self.assertAlmostEqual(
                 provenance["switch_timing"]["coordinate_log_std_initial_step"],
@@ -207,7 +212,15 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 row_provenance["probabilistic_student"]["responsibility_evidence"],
                 "action_likelihood_then_switch_timing_forward_backward",
             )
+            self.assertEqual(
+                row_provenance["probabilistic_student"]["rollout_parameter_resampling"],
+                "on_mode_entry",
+            )
             self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
+            self.assertEqual(
+                row_provenance["switch_timing"]["depth2_conjunction_probability"],
+                "shared_threshold_rectangle_union",
+            )
             self.assertEqual(row_provenance["switch_timing"]["coordinate_refinement_steps"], 3)
             self.assertEqual(row_provenance["switch_timing"]["coordinate_step_decay"], 0.5)
             self.assertEqual(row_provenance["switch_search"]["max_threshold_candidates"], 64)

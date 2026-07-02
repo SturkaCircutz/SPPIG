@@ -179,7 +179,10 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(set(student.action_distributions), {0, 1})
         self.assertLess(student.action_distributions[0].mean, 0.0)
-        self.assertGreater(student.action_distributions[1].mean, 0.0)
+        self.assertGreater(
+            student.action_distributions[1].mean,
+            student.action_distributions[0].mean,
+        )
         self.assertGreater(student.action_distributions[0].std, 0.0)
         self.assertGreater(student.action_distributions[1].std, 0.0)
         self.assertGreater(student.switch_threshold_distribution.std, 0.0)
@@ -865,6 +868,56 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(policy.right_force, 9.0)
         self.assertEqual(policy.switch.first.threshold, 0.1)
 
+    def test_cartpole_probabilistic_rollout_resamples_parameters_on_mode_change(self):
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-1.0, 1.0),
+                1: GaussianScalar(1.0, 1.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 0.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        policy = student.sample_segment_resampling_policy(random.Random(0))
+
+        policy.reset()
+        initial_right = policy.right_force
+        first_action = policy.act([0.0, 0.0, -0.1, 0.0])
+        first_left = policy.left_force
+        second_action = policy.act([0.0, 0.0, 0.1, 0.0])
+        second_right = policy.right_force
+        third_action = policy.act([0.0, 0.0, -0.1, 0.0])
+        third_left = policy.left_force
+
+        self.assertEqual(policy.mode, 0)
+        self.assertEqual(first_action, first_left)
+        self.assertEqual(second_action, second_right)
+        self.assertEqual(third_action, third_left)
+        self.assertEqual(initial_right, 0.0)
+        self.assertNotEqual(first_left, third_left)
+        self.assertNotEqual(second_right, initial_right)
+
+    def test_cartpole_probabilistic_rollout_keeps_detected_mode_after_resampling(self):
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-9.0, 0.0),
+                1: GaussianScalar(9.0, 0.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.0),
+            switch_parameter_distributions=[GaussianScalar(10.0, 0.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        policy = student.sample_segment_resampling_policy(random.Random(0))
+
+        policy.reset()
+        policy.switch = Depth2Switch(1.0, 0.0, 0.0)
+        action = policy.act([0.0, 0.0, 0.1, 0.0])
+
+        self.assertEqual(policy.mode, 1)
+        self.assertEqual(action, 9.0)
+
     def test_cartpole_switch_probability_uses_gaussian_threshold_distribution(self):
         distribution = GaussianScalar(0.0, 0.1)
 
@@ -886,7 +939,7 @@ class CartpolePaperTest(unittest.TestCase):
             _single_threshold_transition_probability(values, distribution, ">=", 1),
         )
 
-    def test_cartpole_combined_switch_probabilities_match_split_helpers(self):
+    def test_cartpole_combined_switch_probabilities_use_shared_threshold_samples(self):
         switch = BooleanTreeSwitch(
             ObservationPredicate(2, ">=", 0.0),
             ObservationPredicate(3, "<=", 0.5),
@@ -904,21 +957,30 @@ class CartpolePaperTest(unittest.TestCase):
             observations,
             3,
         )
-        step_probabilities = [
-            _gaussian_threshold_pass_probability(observation[2], distributions[0], ">=")
-            * _gaussian_threshold_pass_probability(observation[3], distributions[1], "<=")
+        rectangles = [
+            (
+                _gaussian_threshold_pass_probability(observation[2], distributions[0], ">="),
+                _gaussian_threshold_pass_probability(observation[3], distributions[1], "<="),
+            )
             for observation in observations
         ]
-        enabled_by_step = []
-        no_enable_probability = 1.0
-        for step_probability in step_probabilities:
-            no_enable_probability *= 1.0 - step_probability
-            enabled_by_step.append(1.0 - no_enable_probability)
-        expected_transition = enabled_by_step[2] - enabled_by_step[1]
-        expected_stay = 1.0 - enabled_by_step[1]
+
+        def union_area(prefix):
+            xs = sorted({0.0, 1.0, *(x for x, _ in prefix)})
+            area = 0.0
+            for left, right in zip(xs, xs[1:]):
+                probe = (left + right) / 2.0
+                area += (right - left) * max((y for x, y in prefix if probe <= x), default=0.0)
+            return area
+
+        enabled_before = union_area(rectangles[:2])
+        expected_transition = union_area(rectangles) - enabled_before
+        expected_stay = 1.0 - enabled_before
 
         self.assertAlmostEqual(transition, expected_transition)
         self.assertAlmostEqual(stay, expected_stay)
+        independent_step_probability = rectangles[2][0] * rectangles[2][1]
+        self.assertNotAlmostEqual(transition, independent_step_probability)
         self.assertAlmostEqual(
             transition,
             _switch_transition_probability_at_duration(switch, distributions, observations, 3),

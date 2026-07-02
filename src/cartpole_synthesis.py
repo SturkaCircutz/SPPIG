@@ -101,13 +101,14 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "em_iters": PROBABILISTIC_STUDENT_EM_ITERS,
             "switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
             "responsibility_evidence": "action_likelihood_then_switch_timing_forward_backward",
+            "rollout_parameter_resampling": "on_mode_entry",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
             "log_probability_floor": LOG_PROBABILITY_FLOOR,
         },
         "switch_timing": {
             "std_steps": SWITCH_TIMING_STD_STEPS,
             "scalar_threshold_uses_shared_sample": True,
-            "depth2_conjunction_probability": "independence_approximation",
+            "depth2_conjunction_probability": "shared_threshold_rectangle_union",
             "std_refinement_multipliers": list(SWITCH_STD_REFINEMENT_MULTIPLIERS),
             "coordinate_refinement_steps": SWITCH_PARAMETER_COORDINATE_REFINEMENT_STEPS,
             "coordinate_mean_step_fraction": SWITCH_PARAMETER_COORDINATE_MEAN_STEP_FRACTION,
@@ -289,6 +290,9 @@ class ProbabilisticCartpoleStudent:
             rng.gauss(self.action_distributions[1].mean, self.action_distributions[1].std),
             _sample_switch(self.switch, self.switch_parameter_distributions, rng),
         )
+
+    def sample_segment_resampling_policy(self, rng: random.Random) -> "SampledCartpolePSM":
+        return SampledCartpolePSM(self, rng)
 
     def describe(self) -> str:
         left = self.action_distributions[0]
@@ -476,6 +480,44 @@ class SynthesizedCartpolePSM:
             f"m0 action={self.left_force:.3f}; m1 action={self.right_force:.3f}; "
             f"{self.switch.describe()}"
         )
+
+
+class SampledCartpolePSM:
+    """Probabilistic PSM execution that resamples parameters on mode changes."""
+
+    def __init__(self, student: ProbabilisticCartpoleStudent, rng: random.Random) -> None:
+        self.student = student
+        self.rng = rng
+        self.mode = 0
+        self.left_force = 0.0
+        self.right_force = 0.0
+        self.switch: SwitchProgram = student.switch
+
+    def reset(self) -> None:
+        self.mode = 0
+        self._resample_segment_parameters(self.mode)
+
+    def act(self, observation: Observation) -> float:
+        next_mode = self.switch.decide(observation)
+        if next_mode != self.mode:
+            self.mode = next_mode
+            self._resample_segment_parameters(self.mode)
+        return self.right_force if self.mode == 1 else self.left_force
+
+    def _resample_segment_parameters(self, mode: int) -> None:
+        if mode == 0:
+            self.left_force = self._sample_action(0)
+        else:
+            self.right_force = self._sample_action(1)
+        self.switch = _sample_switch(
+            self.student.switch,
+            self.student.switch_parameter_distributions,
+            self.rng,
+        )
+
+    def _sample_action(self, mode: int) -> float:
+        distribution = self.student.action_distributions[mode]
+        return self.rng.gauss(distribution.mean, distribution.std)
 
 
 @dataclass
@@ -763,9 +805,9 @@ def _rollout_student_sampled_trace(
     student: ProbabilisticCartpoleStudent,
     rng: random.Random,
 ) -> CartpoleTrace:
-    # Sample one deterministic PSM from the student's Gaussian parameters and
-    # record the induced trace probability for Eq. (8)-style ranking.
-    policy = student.sample_policy(rng)
+    # The paper's probabilistic PSM resamples action and switch parameters
+    # whenever execution enters a mode segment.
+    policy = student.sample_segment_resampling_policy(rng)
     policy.reset()
     observations: List[Observation] = []
     actions: List[float] = []
@@ -2466,6 +2508,13 @@ def _switch_transition_and_stay_probabilities(
             _single_threshold_transition_probability(values, distribution, relation, duration),
             _single_threshold_no_transition_probability(values, distribution, relation, duration),
         )
+    if isinstance(switch, BooleanTreeSwitch) and switch.second is not None and len(distributions) >= 2:
+        enabled_by_step = _boolean_tree_enabled_cumulative_probabilities(
+            switch,
+            distributions,
+            observations,
+        )
+        return _cumulative_transition_and_stay_probability(enabled_by_step, duration)
     enabled_by_step = _switch_enabled_cumulative_probabilities(switch, distributions, observations)
     return _cumulative_transition_and_stay_probability(enabled_by_step, duration)
 
@@ -2485,7 +2534,7 @@ def _switch_transition_and_stay_probabilities_for_pair(
             pair.duration,
         )
     if isinstance(switch, BooleanTreeSwitch) and switch.second is not None and len(distributions) >= 2:
-        enabled_by_step = _boolean_tree_enabled_cumulative_probabilities(switch, distributions, pair)
+        enabled_by_step = _boolean_tree_pair_enabled_cumulative_probabilities(switch, distributions, pair)
         return _cumulative_transition_and_stay_probability(enabled_by_step, pair.duration)
     enabled_by_step = _switch_enabled_cumulative_probabilities(
         switch,
@@ -2570,6 +2619,27 @@ def _single_threshold_pair_view(
 def _boolean_tree_enabled_cumulative_probabilities(
     switch: BooleanTreeSwitch,
     distributions: List[GaussianScalar],
+    observations: List[Observation],
+) -> List[float]:
+    if switch.second is None or len(distributions) < 2:
+        return _switch_enabled_cumulative_probabilities(switch, distributions, observations)
+    first = switch.first
+    second = switch.second
+    first_values = tuple(observation[first.feature_index] for observation in observations)
+    second_values = tuple(observation[second.feature_index] for observation in observations)
+    return _predicate_pair_enabled_cumulative_probabilities(
+        first,
+        second,
+        distributions[0],
+        distributions[1],
+        first_values,
+        second_values,
+    )
+
+
+def _boolean_tree_pair_enabled_cumulative_probabilities(
+    switch: BooleanTreeSwitch,
+    distributions: List[GaussianScalar],
     pair: _SwitchTimingPair,
 ) -> List[float]:
     if switch.second is None:
@@ -2578,24 +2648,62 @@ def _boolean_tree_enabled_cumulative_probabilities(
     second = switch.second
     first_values = pair.columns[first.feature_index]
     second_values = pair.columns[second.feature_index]
-    first_distribution = distributions[0]
-    second_distribution = distributions[1]
-    no_enable_probability = 1.0
+    return _predicate_pair_enabled_cumulative_probabilities(
+        first,
+        second,
+        distributions[0],
+        distributions[1],
+        first_values,
+        second_values,
+    )
+
+
+def _predicate_pair_enabled_cumulative_probabilities(
+    first: ObservationPredicate,
+    second: ObservationPredicate,
+    first_distribution: GaussianScalar,
+    second_distribution: GaussianScalar,
+    first_values: Tuple[float, ...],
+    second_values: Tuple[float, ...],
+) -> List[float]:
+    rectangles: List[Tuple[float, float]] = []
     enabled_by_step: List[float] = []
     for first_value, second_value in zip(first_values, second_values):
-        step_probability = _gaussian_threshold_pass_probability(
-            first_value,
-            first_distribution,
-            first.relation,
+        rectangles.append(
+            (
+                _predicate_enabled_probability_from_value(first, first_distribution, first_value),
+                _predicate_enabled_probability_from_value(second, second_distribution, second_value),
+            )
         )
-        step_probability *= _gaussian_threshold_pass_probability(
-            second_value,
-            second_distribution,
-            second.relation,
-        )
-        no_enable_probability *= 1.0 - min(max(step_probability, 0.0), 1.0)
-        enabled_by_step.append(1.0 - no_enable_probability)
+        enabled_by_step.append(_anchored_rectangle_union_probability(rectangles))
     return enabled_by_step
+
+
+def _predicate_enabled_probability_from_value(
+    predicate: ObservationPredicate,
+    distribution: GaussianScalar,
+    value: float,
+) -> float:
+    return _gaussian_threshold_pass_probability(value, distribution, predicate.relation)
+
+
+def _anchored_rectangle_union_probability(rectangles: List[Tuple[float, float]]) -> float:
+    clamped = [
+        (min(max(x_bound, 0.0), 1.0), min(max(y_bound, 0.0), 1.0))
+        for x_bound, y_bound in rectangles
+        if x_bound > 0.0 and y_bound > 0.0
+    ]
+    if not clamped:
+        return 0.0
+    x_edges = sorted({0.0, 1.0, *(x_bound for x_bound, _ in clamped)})
+    area = 0.0
+    for left, right in zip(x_edges, x_edges[1:]):
+        if right <= left:
+            continue
+        probe = (left + right) / 2.0
+        y_bound = max((y for x_bound, y in clamped if probe <= x_bound), default=0.0)
+        area += (right - left) * y_bound
+    return min(max(area, 0.0), 1.0)
 
 
 def _single_threshold_transition_and_stay_probability(
