@@ -26,6 +26,15 @@ from run_cartpole_ppo_sweep import (  # noqa: E402
 )
 
 
+def survival_fields(train_steps=250.0, test_steps=50.0):
+    return {
+        "train_steps": train_steps,
+        "test_steps": test_steps,
+        "train_survival_seconds": train_steps * 0.02,
+        "test_survival_seconds": test_steps * 0.02,
+    }
+
+
 class CartpolePPOSweepTest(unittest.TestCase):
     def test_summarize_results_selects_best_train_per_policy(self):
         summary = summarize_results(
@@ -38,6 +47,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
                     "test_success": 1.0,
                     "train_reward": 100.0,
                     "test_reward": 200.0,
+                    **survival_fields(100.0, 200.0),
                     "selected_timesteps": 32,
                     "minibatches": 1,
                     "learning_rate": 0.001,
@@ -55,6 +65,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
                     "test_success": 0.0,
                     "train_reward": 250.0,
                     "test_reward": 50.0,
+                    **survival_fields(250.0, 50.0),
                     "selected_timesteps": 64,
                     "minibatches": 8,
                     "learning_rate": 0.0003,
@@ -71,6 +82,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(summary[0]["policy"], "mlp")
         self.assertEqual(summary[0]["jobs_completed"], 2)
         self.assertEqual(summary[0]["best_job_id"], 1)
+        self.assertEqual(summary[0]["best_test_steps"], 50.0)
+        self.assertEqual(summary[0]["best_test_survival_seconds"], 1.0)
         self.assertEqual(summary[0]["best_minibatches"], 8)
         self.assertAlmostEqual(summary[0]["best_learning_rate"], 0.0003)
 
@@ -86,6 +99,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 "test_success": 0.0,
                 "train_reward": 200.0,
                 "test_reward": 50.0,
+                **survival_fields(200.0, 50.0),
                 "selected_timesteps": 64,
                 "minibatches": 1,
                 "learning_rate": 0.001,
@@ -105,6 +119,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 "test_success": 1.0,
                 "train_reward": 100.0,
                 "test_reward": 70.0,
+                **survival_fields(100.0, 70.0),
                 "selected_timesteps": 64,
                 "minibatches": 1,
                 "learning_rate": 0.001,
@@ -124,6 +139,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 "test_success": 0.5,
                 "train_reward": 175.0,
                 "test_reward": 60.0,
+                **survival_fields(175.0, 60.0),
                 "selected_timesteps": 64,
                 "minibatches": 4,
                 "learning_rate": 0.0003,
@@ -146,6 +162,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(first["seeds_completed"], "0,1")
         self.assertAlmostEqual(first["train_success_mean"], 0.5)
         self.assertAlmostEqual(first["train_success_std"], 0.7071067811865476)
+        self.assertAlmostEqual(first["test_steps_mean"], 60.0)
+        self.assertAlmostEqual(first["test_survival_seconds_mean"], 1.2)
         self.assertEqual(first["best_job_id"], 0)
         self.assertFalse(first["is_best_hyperparam_for_policy"])
         self.assertEqual(second["hyperparam_sample"], 1)
@@ -474,10 +492,17 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
         self.assertEqual(result_rows[0]["hyperparam_mode"], "paper-random")
         self.assertEqual(result_rows[0]["hyperparam_sample"], "0")
+        self.assertIn("test_steps", result_rows[0])
+        self.assertIn("test_survival_seconds", result_rows[0])
+        self.assertGreater(float(result_rows[0]["test_steps"]), 0.0)
         self.assertEqual(len(summary_rows), 1)
         self.assertEqual(summary_rows[0]["best_job_id"], "0")
+        self.assertIn("best_test_steps", summary_rows[0])
+        self.assertIn("best_test_survival_seconds", summary_rows[0])
         self.assertEqual(len(hyperparam_summary_rows), 1)
         self.assertEqual(hyperparam_summary_rows[0]["hyperparam_sample"], "0")
+        self.assertIn("test_steps_mean", hyperparam_summary_rows[0])
+        self.assertIn("test_survival_seconds_mean", hyperparam_summary_rows[0])
         self.assertEqual(hyperparam_summary_rows[0]["is_best_hyperparam_for_policy"], "True")
         self.assertEqual(manifest["hyperparam_mode"], "paper-random")
         self.assertEqual(manifest["hyperparam_samples"], 10)
@@ -567,6 +592,10 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 "test_success": "0.0",
                 "train_reward": "1.0",
                 "test_reward": "1.0",
+                "train_steps": "1.0",
+                "test_steps": "1.0",
+                "train_survival_seconds": "0.02",
+                "test_survival_seconds": "0.02",
                 "selected_timesteps": "64",
             }
             results_path = os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv")

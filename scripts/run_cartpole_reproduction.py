@@ -50,6 +50,10 @@ RESULT_FIELDS = [
     "test_success",
     "train_reward",
     "test_reward",
+    "train_steps",
+    "test_steps",
+    "train_survival_seconds",
+    "test_survival_seconds",
     "test_horizon_steps",
     "timesteps",
     "checkpoint",
@@ -67,11 +71,23 @@ SUMMARY_FIELDS = [
     "train_reward_std",
     "test_reward_mean",
     "test_reward_std",
+    "train_steps_mean",
+    "train_steps_std",
+    "test_steps_mean",
+    "test_steps_std",
+    "train_survival_seconds_mean",
+    "train_survival_seconds_std",
+    "test_survival_seconds_mean",
+    "test_survival_seconds_std",
     "best_seed_by_train",
     "best_train_success",
     "best_test_success",
     "best_train_reward",
     "best_test_reward",
+    "best_train_steps",
+    "best_test_steps",
+    "best_train_survival_seconds",
+    "best_test_survival_seconds",
     "test_horizon_steps",
     "best_timesteps",
     "best_checkpoint",
@@ -138,6 +154,10 @@ def run_psm(
         "test_success": test["success_rate"],
         "train_reward": train["reward_mean"],
         "test_reward": test["reward_mean"],
+        "train_steps": train["steps_mean"],
+        "test_steps": test["steps_mean"],
+        "train_survival_seconds": train["survival_seconds_mean"],
+        "test_survival_seconds": test["survival_seconds_mean"],
         "test_horizon_steps": test_max_steps,
         "timesteps": 0,
         "metrics_output": str(metrics_path),
@@ -194,6 +214,10 @@ def run_ppo(
         "test_success": result.test_success_rate,
         "train_reward": result.train_reward_mean,
         "test_reward": result.test_reward_mean,
+        "train_steps": result.train_steps_mean,
+        "test_steps": result.test_steps_mean,
+        "train_survival_seconds": result.train_survival_seconds_mean,
+        "test_survival_seconds": result.test_survival_seconds_mean,
         "test_horizon_steps": test_max_steps,
         "timesteps": result.timesteps,
         "checkpoint": str(checkpoint_path),
@@ -235,6 +259,10 @@ def run_direct_opt(
         "test_success": result.test_success_rate,
         "train_reward": result.train_reward_mean,
         "test_reward": result.test_reward_mean,
+        "train_steps": result.train_steps_mean,
+        "test_steps": result.test_steps_mean,
+        "train_survival_seconds": result.train_survival_seconds_mean,
+        "test_survival_seconds": result.test_survival_seconds_mean,
         "test_horizon_steps": test_max_steps,
         "timesteps": 0,
         "metrics_output": str(metrics_path),
@@ -290,11 +318,31 @@ def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "train_reward_std": _sample_std([float(row["train_reward"]) for row in group]),
                 "test_reward_mean": _mean([float(row["test_reward"]) for row in group]),
                 "test_reward_std": _sample_std([float(row["test_reward"]) for row in group]),
+                "train_steps_mean": _mean([float(row["train_steps"]) for row in group]),
+                "train_steps_std": _sample_std([float(row["train_steps"]) for row in group]),
+                "test_steps_mean": _mean([float(row["test_steps"]) for row in group]),
+                "test_steps_std": _sample_std([float(row["test_steps"]) for row in group]),
+                "train_survival_seconds_mean": _mean(
+                    [float(row["train_survival_seconds"]) for row in group]
+                ),
+                "train_survival_seconds_std": _sample_std(
+                    [float(row["train_survival_seconds"]) for row in group]
+                ),
+                "test_survival_seconds_mean": _mean(
+                    [float(row["test_survival_seconds"]) for row in group]
+                ),
+                "test_survival_seconds_std": _sample_std(
+                    [float(row["test_survival_seconds"]) for row in group]
+                ),
                 "best_seed_by_train": int(best["seed"]),
                 "best_train_success": float(best["train_success"]),
                 "best_test_success": float(best["test_success"]),
                 "best_train_reward": float(best["train_reward"]),
                 "best_test_reward": float(best["test_reward"]),
+                "best_train_steps": float(best["train_steps"]),
+                "best_test_steps": float(best["test_steps"]),
+                "best_train_survival_seconds": float(best["train_survival_seconds"]),
+                "best_test_survival_seconds": float(best["test_survival_seconds"]),
                 "test_horizon_steps": int(best["test_horizon_steps"]),
                 "best_timesteps": int(best["timesteps"]),
                 "best_checkpoint": best.get("checkpoint", ""),
@@ -487,6 +535,10 @@ def main() -> None:
             "cartpole_summary.csv reports per-policy means and sample standard deviations over "
             "the requested seeds; with one seed, std is reported as 0. Best seed is selected by "
             "train_success, then train_reward, then lower seed."
+        ),
+        "survival_metric_note": (
+            "Rows and summaries report mean survived simulator steps and seconds separately "
+            "from reward so long-horizon survival plots do not rely on reward as an implicit proxy."
         ),
         "psm_artifact_note": (
             "Programmatic-state-machine rows include metrics_output paths under the requested "

@@ -65,6 +65,11 @@ class CartpolePPOCliTest(unittest.TestCase):
         self.assertEqual(len(metrics["update_history"]), 2)
         self.assertEqual(metrics["update_history"][0]["rollout_steps"], 32)
         self.assertIn("selected_result", metrics)
+        self.assertIn("train_steps_mean", metrics["selected_result"])
+        self.assertIn("test_steps_mean", metrics["selected_result"])
+        self.assertIn("train_survival_seconds_mean", metrics["selected_result"])
+        self.assertIn("test_survival_seconds_mean", metrics["selected_result"])
+        self.assertIn("test_steps_mean", metrics["eval_history"][0])
 
 
 if __name__ == "__main__":

@@ -13,15 +13,12 @@ SRC = ROOT / "src"
 # Keep this script runnable from a fresh checkout without requiring package install.
 sys.path.insert(0, str(SRC))
 
-from cartpole_env import CartpoleEnv  # noqa: E402
+from cartpole_env import CartpoleEnv, summarize_cartpole_results  # noqa: E402
 from cartpole_synthesis import Depth2Switch, SynthesizedCartpolePSM  # noqa: E402
 
 
 def summarize_rollouts(results):
-    return {
-        "success_rate": sum(result.success for result in results) / len(results),
-        "reward_mean": sum(result.reward for result in results) / len(results),
-    }
+    return summarize_cartpole_results(results)
 
 
 def main() -> None:

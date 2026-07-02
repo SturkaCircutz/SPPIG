@@ -6,7 +6,7 @@ import os
 import sys
 from dataclasses import asdict
 
-from cartpole_env import CartpoleEnv
+from cartpole_env import CartpoleEnv, summarize_cartpole_results
 from cartpole_synthesis import (
     CartpoleSynthesisIteration,
     CartpoleSynthesisConfig,
@@ -20,10 +20,7 @@ from cartpole_synthesis import (
 
 
 def summarize_rollouts(results):
-    return {
-        "success_rate": sum(result.success for result in results) / len(results),
-        "reward_mean": sum(result.reward for result in results) / len(results),
-    }
+    return summarize_cartpole_results(results)
 
 
 def summarize_policy_evaluation(

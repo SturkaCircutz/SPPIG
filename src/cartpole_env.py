@@ -109,6 +109,22 @@ class CartpoleEnv:
         return CartpoleResult(True, steps, total_reward, max_abs_theta, max_abs_x)
 
 
+def summarize_cartpole_results(
+    results: Sequence[CartpoleResult],
+    dt: float = 0.02,
+) -> dict[str, float]:
+    result_list = list(results)
+    if not result_list:
+        raise ValueError("cannot summarize empty CartPole rollout results")
+    steps_mean = sum(result.steps for result in result_list) / len(result_list)
+    return {
+        "success_rate": sum(result.success for result in result_list) / len(result_list),
+        "reward_mean": sum(result.reward for result in result_list) / len(result_list),
+        "steps_mean": steps_mean,
+        "survival_seconds_mean": steps_mean * dt,
+    }
+
+
 def cartpole_next_state(
     state: Sequence[float],
     force: float,

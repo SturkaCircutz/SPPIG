@@ -53,6 +53,10 @@ RESULT_FIELDS = PLAN_FIELDS + [
     "test_success",
     "train_reward",
     "test_reward",
+    "train_steps",
+    "test_steps",
+    "train_survival_seconds",
+    "test_survival_seconds",
     "selected_timesteps",
 ]
 
@@ -65,6 +69,10 @@ SUMMARY_FIELDS = [
     "best_test_success",
     "best_train_reward",
     "best_test_reward",
+    "best_train_steps",
+    "best_test_steps",
+    "best_train_survival_seconds",
+    "best_test_survival_seconds",
     "best_selected_timesteps",
     "best_minibatches",
     "best_learning_rate",
@@ -90,6 +98,14 @@ HYPERPARAMETER_SUMMARY_FIELDS = [
     "train_reward_std",
     "test_reward_mean",
     "test_reward_std",
+    "train_steps_mean",
+    "train_steps_std",
+    "test_steps_mean",
+    "test_steps_std",
+    "train_survival_seconds_mean",
+    "train_survival_seconds_std",
+    "test_survival_seconds_mean",
+    "test_survival_seconds_std",
     "minibatches",
     "learning_rate",
     "entropy_coef",
@@ -101,6 +117,10 @@ HYPERPARAMETER_SUMMARY_FIELDS = [
     "best_test_success",
     "best_train_reward",
     "best_test_reward",
+    "best_train_steps",
+    "best_test_steps",
+    "best_train_survival_seconds",
+    "best_test_survival_seconds",
     "best_selected_timesteps",
     "best_output",
     "best_metrics_output",
@@ -368,6 +388,10 @@ def summarize_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "best_test_success": float(best["test_success"]),
                 "best_train_reward": float(best["train_reward"]),
                 "best_test_reward": float(best["test_reward"]),
+                "best_train_steps": float(best["train_steps"]),
+                "best_test_steps": float(best["test_steps"]),
+                "best_train_survival_seconds": float(best["train_survival_seconds"]),
+                "best_test_survival_seconds": float(best["test_survival_seconds"]),
                 "best_selected_timesteps": int(best["selected_timesteps"]),
                 "best_minibatches": int(best["minibatches"]),
                 "best_learning_rate": float(best["learning_rate"]),
@@ -437,6 +461,10 @@ def summarize_hyperparameter_configs(results: List[Dict[str, Any]]) -> List[Dict
         test_success = [float(row["test_success"]) for row in group]
         train_reward = [float(row["train_reward"]) for row in group]
         test_reward = [float(row["test_reward"]) for row in group]
+        train_steps = [float(row["train_steps"]) for row in group]
+        test_steps = [float(row["test_steps"]) for row in group]
+        train_survival_seconds = [float(row["train_survival_seconds"]) for row in group]
+        test_survival_seconds = [float(row["test_survival_seconds"]) for row in group]
         summary.append(
             {
                 "policy": policy,
@@ -453,6 +481,14 @@ def summarize_hyperparameter_configs(results: List[Dict[str, Any]]) -> List[Dict
                 "train_reward_std": _sample_std(train_reward),
                 "test_reward_mean": _mean(test_reward),
                 "test_reward_std": _sample_std(test_reward),
+                "train_steps_mean": _mean(train_steps),
+                "train_steps_std": _sample_std(train_steps),
+                "test_steps_mean": _mean(test_steps),
+                "test_steps_std": _sample_std(test_steps),
+                "train_survival_seconds_mean": _mean(train_survival_seconds),
+                "train_survival_seconds_std": _sample_std(train_survival_seconds),
+                "test_survival_seconds_mean": _mean(test_survival_seconds),
+                "test_survival_seconds_std": _sample_std(test_survival_seconds),
                 "minibatches": int(first["minibatches"]),
                 "learning_rate": float(first["learning_rate"]),
                 "entropy_coef": float(first["entropy_coef"]),
@@ -464,6 +500,10 @@ def summarize_hyperparameter_configs(results: List[Dict[str, Any]]) -> List[Dict
                 "best_test_success": float(best["test_success"]),
                 "best_train_reward": float(best["train_reward"]),
                 "best_test_reward": float(best["test_reward"]),
+                "best_train_steps": float(best["train_steps"]),
+                "best_test_steps": float(best["test_steps"]),
+                "best_train_survival_seconds": float(best["train_survival_seconds"]),
+                "best_test_survival_seconds": float(best["test_survival_seconds"]),
                 "best_selected_timesteps": int(best["selected_timesteps"]),
                 "best_output": best["output"],
                 "best_metrics_output": best["metrics_output"],
@@ -535,6 +575,10 @@ def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
         "test_success": result.test_success_rate,
         "train_reward": result.train_reward_mean,
         "test_reward": result.test_reward_mean,
+        "train_steps": result.train_steps_mean,
+        "test_steps": result.test_steps_mean,
+        "train_survival_seconds": result.train_survival_seconds_mean,
+        "test_survival_seconds": result.test_survival_seconds_mean,
         "selected_timesteps": result.timesteps,
     }
 

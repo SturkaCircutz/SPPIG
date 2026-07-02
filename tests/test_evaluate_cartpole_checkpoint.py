@@ -51,6 +51,10 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("selected_result", metrics)
+        self.assertIn("train_steps_mean", metrics["selected_result"])
+        self.assertIn("test_steps_mean", metrics["selected_result"])
+        self.assertIn("train_survival_seconds_mean", metrics["selected_result"])
+        self.assertIn("test_survival_seconds_mean", metrics["selected_result"])
         self.assertIn("command", metrics)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
@@ -114,6 +118,10 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
         self.assertEqual(metrics["selected_result"]["test_success_rate"], 0.0)
         self.assertEqual(metrics["selected_result"]["train_reward_mean"], 250.0)
         self.assertEqual(metrics["selected_result"]["test_reward_mean"], 910.6)
+        self.assertEqual(metrics["selected_result"]["train_steps_mean"], 250.0)
+        self.assertEqual(metrics["selected_result"]["test_steps_mean"], 910.6)
+        self.assertEqual(metrics["selected_result"]["train_survival_seconds_mean"], 5.0)
+        self.assertAlmostEqual(metrics["selected_result"]["test_survival_seconds_mean"], 18.212)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_lstm_warm_start_checkpoint_matches_checked_in_full_horizon_row(self):
@@ -146,6 +154,10 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
         self.assertEqual(metrics["selected_result"]["test_success_rate"], 0.0)
         self.assertEqual(metrics["selected_result"]["train_reward_mean"], 250.0)
         self.assertEqual(metrics["selected_result"]["test_reward_mean"], 912.25)
+        self.assertEqual(metrics["selected_result"]["train_steps_mean"], 250.0)
+        self.assertEqual(metrics["selected_result"]["test_steps_mean"], 912.25)
+        self.assertEqual(metrics["selected_result"]["train_survival_seconds_mean"], 5.0)
+        self.assertAlmostEqual(metrics["selected_result"]["test_survival_seconds_mean"], 18.245)
 
 
 if __name__ == "__main__":

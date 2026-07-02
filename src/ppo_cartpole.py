@@ -12,7 +12,7 @@ from torch import nn
 from torch.distributions import Normal
 from torch.nn import functional as F
 
-from cartpole_env import BangBangCartpolePSM, CartpoleEnv, Observation
+from cartpole_env import BangBangCartpolePSM, CartpoleEnv, Observation, summarize_cartpole_results
 
 
 @dataclass
@@ -51,6 +51,10 @@ class PPOResult:
     test_success_rate: float
     train_reward_mean: float
     test_reward_mean: float
+    train_steps_mean: float
+    test_steps_mean: float
+    train_survival_seconds_mean: float
+    test_survival_seconds_mean: float
     timesteps: int
 
 
@@ -61,6 +65,10 @@ def result_to_metrics(result: PPOResult) -> Dict[str, object]:
         "test_success_rate": result.test_success_rate,
         "train_reward_mean": result.train_reward_mean,
         "test_reward_mean": result.test_reward_mean,
+        "train_steps_mean": result.train_steps_mean,
+        "test_steps_mean": result.test_steps_mean,
+        "train_survival_seconds_mean": result.train_survival_seconds_mean,
+        "test_survival_seconds_mean": result.test_survival_seconds_mean,
     }
 
 
@@ -618,10 +626,16 @@ def evaluate_ppo_model(
     test_env = CartpoleEnv.test_env(seed=200)
     train_results = [train_env.rollout(model) for _ in range(rollouts)]
     test_results = [test_env.rollout(model, max_steps=test_max_steps) for _ in range(rollouts)]
+    train = summarize_cartpole_results(train_results)
+    test = summarize_cartpole_results(test_results)
     return PPOResult(
-        train_success_rate=sum(result.success for result in train_results) / rollouts,
-        test_success_rate=sum(result.success for result in test_results) / rollouts,
-        train_reward_mean=sum(result.reward for result in train_results) / rollouts,
-        test_reward_mean=sum(result.reward for result in test_results) / rollouts,
+        train_success_rate=train["success_rate"],
+        test_success_rate=test["success_rate"],
+        train_reward_mean=train["reward_mean"],
+        test_reward_mean=test["reward_mean"],
+        train_steps_mean=train["steps_mean"],
+        test_steps_mean=test["steps_mean"],
+        train_survival_seconds_mean=train["survival_seconds_mean"],
+        test_survival_seconds_mean=test["survival_seconds_mean"],
         timesteps=timesteps,
     )

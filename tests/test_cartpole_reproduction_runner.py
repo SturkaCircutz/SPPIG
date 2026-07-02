@@ -27,6 +27,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "test_success": 0.25,
                     "train_reward": 100.0,
                     "test_reward": 200.0,
+                    "train_steps": 100.0,
+                    "test_steps": 200.0,
+                    "train_survival_seconds": 2.0,
+                    "test_survival_seconds": 4.0,
                     "test_horizon_steps": 15000,
                     "timesteps": 0,
                 },
@@ -37,6 +41,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "test_success": 0.75,
                     "train_reward": 250.0,
                     "test_reward": 900.0,
+                    "train_steps": 250.0,
+                    "test_steps": 900.0,
+                    "train_survival_seconds": 5.0,
+                    "test_survival_seconds": 18.0,
                     "test_horizon_steps": 15000,
                     "timesteps": 0,
                 },
@@ -50,8 +58,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertAlmostEqual(row["train_success_mean"], 0.75)
         self.assertAlmostEqual(row["train_success_std"], 0.3535533905932738)
         self.assertAlmostEqual(row["test_reward_mean"], 550.0)
+        self.assertAlmostEqual(row["test_steps_mean"], 550.0)
+        self.assertAlmostEqual(row["test_survival_seconds_mean"], 11.0)
         self.assertEqual(row["best_seed_by_train"], 0)
         self.assertAlmostEqual(row["best_test_success"], 0.75)
+        self.assertAlmostEqual(row["best_test_steps"], 900.0)
+        self.assertAlmostEqual(row["best_test_survival_seconds"], 18.0)
         self.assertEqual(row["test_horizon_steps"], 15000)
 
     def test_quick_runner_writes_results_and_manifest(self):
@@ -109,6 +121,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(rows[0]["policy"], "Programmatic state machine")
             self.assertEqual(rows[0]["seed"], "0")
             self.assertEqual(rows[0]["test_horizon_steps"], "20")
+            self.assertIn("train_steps", rows[0])
+            self.assertIn("test_steps", rows[0])
+            self.assertIn("train_survival_seconds", rows[0])
+            self.assertIn("test_survival_seconds", rows[0])
+            self.assertGreater(float(rows[0]["train_steps"]), 0.0)
+            self.assertGreater(float(rows[0]["test_steps"]), 0.0)
             self.assertTrue(os.path.exists(rows[0]["metrics_output"]))
             with open(rows[0]["metrics_output"], encoding="utf-8") as handle:
                 psm_metrics = json.load(handle)
@@ -119,6 +137,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "segment_elapsed_time_normalized_to_default_cartpole_dt",
             )
             self.assertEqual(psm_metrics["paper_test_horizon_steps"], 15000)
+            self.assertIn("steps_mean", psm_metrics["train"])
+            self.assertIn("survival_seconds_mean", psm_metrics["train"])
+            self.assertIn("steps_mean", psm_metrics["test"])
+            self.assertIn("survival_seconds_mean", psm_metrics["test"])
             psm_status = psm_metrics["paper_protocol_status"]
             self.assertTrue(psm_status["cartpole_environment"])
             self.assertEqual(psm_status["train_horizon_seconds"], 5.0)
@@ -164,6 +186,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(summary[0]["best_seed_by_train"], "0")
             self.assertEqual(summary[0]["train_success_std"], "0.0")
             self.assertEqual(summary[0]["test_horizon_steps"], "20")
+            self.assertIn("test_steps_mean", summary[0])
+            self.assertIn("test_survival_seconds_mean", summary[0])
 
             with open(manifest_path, encoding="utf-8") as handle:
                 manifest = json.load(handle)
@@ -295,6 +319,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("rows", manifest)
             self.assertIn("summary", manifest)
             self.assertIn("summary_note", manifest)
+            self.assertIn("survival_metric_note", manifest)
             self.assertIn("psm_artifact_note", manifest)
             config = manifest["rows"][0]["config"]
             self.assertEqual(config["teacher_theta_gain"], 12.5)
@@ -467,6 +492,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 rows = list(csv.DictReader(handle))
             self.assertEqual([row["policy"] for row in rows], ["Programmatic state machine", "Direct-Opt diagnostic"])
             direct_row = rows[1]
+            self.assertIn("test_steps", direct_row)
+            self.assertIn("test_survival_seconds", direct_row)
+            self.assertGreater(float(direct_row["test_steps"]), 0.0)
             self.assertTrue(os.path.exists(direct_row["metrics_output"]))
 
             with open(direct_row["metrics_output"], encoding="utf-8") as handle:
@@ -495,6 +523,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 + direct_metrics["search_diagnostics"]["boolean_depth2_candidates"],
             )
             self.assertGreater(direct_metrics["search_diagnostics"]["batch_local_evaluations"], 0)
+            self.assertIn("steps_mean", direct_metrics["train"])
+            self.assertIn("survival_seconds_mean", direct_metrics["train"])
+            self.assertIn("steps_mean", direct_metrics["test"])
+            self.assertIn("survival_seconds_mean", direct_metrics["test"])
 
             with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:
                 manifest = json.load(handle)
@@ -533,6 +565,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             ppo_rows = [row for row in rows if row["policy"] in {"PPO MLP", "PPO-LSTM"}]
             self.assertEqual(len(ppo_rows), 2)
             for row in ppo_rows:
+                self.assertIn("test_steps", row)
+                self.assertIn("test_survival_seconds", row)
+                self.assertGreater(float(row["test_steps"]), 0.0)
                 self.assertTrue(os.path.exists(row["checkpoint"]))
                 self.assertTrue(os.path.exists(row["metrics_output"]))
                 with open(row["metrics_output"], encoding="utf-8") as handle:
@@ -543,6 +578,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 self.assertGreaterEqual(len(metrics["update_history"]), 1)
                 self.assertIn("horizon_truncations", metrics["update_history"][0])
                 self.assertIn("selected_result", metrics)
+                self.assertIn("test_steps_mean", metrics["selected_result"])
+                self.assertIn("test_survival_seconds_mean", metrics["selected_result"])
+                self.assertIn("test_steps_mean", metrics["eval_history"][0])
 
             with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:
                 manifest = json.load(handle)

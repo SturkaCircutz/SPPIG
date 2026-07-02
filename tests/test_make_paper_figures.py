@@ -78,6 +78,7 @@ class MakePaperFiguresTest(unittest.TestCase):
 
         self.assertEqual(rows[0]["policy"], "summary")
         self.assertEqual(make_paper_figures.metric(rows[0], "test_reward"), 10.0)
+        self.assertIsNone(make_paper_figures.metric_or_none(rows[0], "test_steps"))
 
     def test_read_results_falls_back_to_raw_csv(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -175,6 +176,29 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertIn(r"10\textsuperscript{7}-timestep, five-seed PPO/PPO-LSTM protocol", table)
         self.assertIn("Programmatic PSM & 1.00 & 0.20 & 250.0 & 6275.4", table)
         self.assertIn("\\bottomrule", table)
+
+    def test_plot_survival_rewards_prefers_explicit_steps(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outdir = os.path.join(tmpdir, "figures")
+            os.makedirs(outdir)
+            original_out_dir = make_paper_figures.OUT_DIR
+            try:
+                make_paper_figures.OUT_DIR = outdir
+                make_paper_figures.plot_survival_rewards(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "test_reward_mean": "900.0",
+                            "test_steps_mean": "901.0",
+                        }
+                    ]
+                )
+            finally:
+                make_paper_figures.OUT_DIR = original_out_dir
+
+            outpath = os.path.join(outdir, "cartpole_test_survival_reward.png")
+            self.assertTrue(os.path.exists(outpath))
+            self.assertGreater(os.path.getsize(outpath), 0)
 
     def test_write_abstract_results_uses_result_rows(self):
         with tempfile.TemporaryDirectory() as tmpdir:

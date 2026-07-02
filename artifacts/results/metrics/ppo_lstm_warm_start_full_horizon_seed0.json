@@ -39,10 +39,14 @@
   "paper_test_horizon_steps": 15000,
   "selected_result": {
     "test_reward_mean": 912.25,
+    "test_steps_mean": 912.25,
     "test_success_rate": 0.0,
+    "test_survival_seconds_mean": 18.245,
     "timesteps": 16384,
     "train_reward_mean": 250.0,
-    "train_success_rate": 1.0
+    "train_steps_mean": 250.0,
+    "train_success_rate": 1.0,
+    "train_survival_seconds_mean": 5.0
   },
   "test_max_steps": 15000
 }

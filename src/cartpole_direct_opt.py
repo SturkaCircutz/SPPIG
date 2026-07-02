@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass
 import random
 from typing import Dict, List, Sequence, Tuple
 
-from cartpole_env import CartpoleEnv
+from cartpole_env import CartpoleEnv, summarize_cartpole_results
 from cartpole_synthesis import (
     BooleanTreeSwitch,
     Depth2Switch,
@@ -77,6 +77,10 @@ class DirectOptResult:
     test_success_rate: float
     train_reward_mean: float
     test_reward_mean: float
+    train_steps_mean: float
+    test_steps_mean: float
+    train_survival_seconds_mean: float
+    test_survival_seconds_mean: float
     searched_candidates: int
     config: DirectOptConfig
     algorithm_provenance: Dict[str, object]
@@ -150,6 +154,10 @@ def run_cartpole_direct_opt(cfg: DirectOptConfig) -> DirectOptResult:
         test_success_rate=test["success_rate"],
         train_reward_mean=train["reward_mean"],
         test_reward_mean=test["reward_mean"],
+        train_steps_mean=train["steps_mean"],
+        test_steps_mean=test["steps_mean"],
+        train_survival_seconds_mean=train["survival_seconds_mean"],
+        test_survival_seconds_mean=test["survival_seconds_mean"],
         searched_candidates=int(search_diagnostics["evaluated_candidates"]),
         config=cfg,
         algorithm_provenance=cartpole_direct_opt_algorithm_provenance(),
@@ -171,10 +179,14 @@ def direct_opt_metrics(result: DirectOptResult) -> Dict[str, object]:
         "train": {
             "success_rate": result.train_success_rate,
             "reward_mean": result.train_reward_mean,
+            "steps_mean": result.train_steps_mean,
+            "survival_seconds_mean": result.train_survival_seconds_mean,
         },
         "test": {
             "success_rate": result.test_success_rate,
             "reward_mean": result.test_reward_mean,
+            "steps_mean": result.test_steps_mean,
+            "survival_seconds_mean": result.test_survival_seconds_mean,
         },
     }
 
@@ -718,8 +730,4 @@ def _candidate_threshold_magnitude(candidate: DirectOptCandidate) -> float:
 
 
 def _summarize_results(results) -> Dict[str, float]:
-    result_list = list(results)
-    return {
-        "success_rate": sum(result.success for result in result_list) / len(result_list),
-        "reward_mean": sum(result.reward for result in result_list) / len(result_list),
-    }
+    return summarize_cartpole_results(results)

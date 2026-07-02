@@ -44,6 +44,10 @@ class EvaluateCartpoleProgramTest(unittest.TestCase):
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("train", metrics)
         self.assertIn("test", metrics)
+        self.assertIn("steps_mean", metrics["train"])
+        self.assertIn("survival_seconds_mean", metrics["train"])
+        self.assertIn("steps_mean", metrics["test"])
+        self.assertIn("survival_seconds_mean", metrics["test"])
 
     def test_fixed_program_matches_checked_in_result_row(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -74,6 +78,10 @@ class EvaluateCartpoleProgramTest(unittest.TestCase):
         self.assertEqual(metrics["test"]["success_rate"], 0.2)
         self.assertEqual(metrics["train"]["reward_mean"], 250.0)
         self.assertAlmostEqual(metrics["test"]["reward_mean"], 6275.35)
+        self.assertEqual(metrics["train"]["steps_mean"], 250.0)
+        self.assertAlmostEqual(metrics["test"]["steps_mean"], 6275.35)
+        self.assertEqual(metrics["train"]["survival_seconds_mean"], 5.0)
+        self.assertAlmostEqual(metrics["test"]["survival_seconds_mean"], 125.507)
 
 
 if __name__ == "__main__":

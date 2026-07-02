@@ -49,6 +49,11 @@ def metric(row: dict[str, str], name: str) -> float:
     return float(row.get(f"{name}_mean") or row[name])
 
 
+def metric_or_none(row: dict[str, str], name: str) -> float | None:
+    value = row.get(f"{name}_mean") or row.get(name)
+    return float(value) if value not in (None, "") else None
+
+
 def artifact_path(path: str) -> str:
     return path if os.path.isabs(path) else os.path.join(ROOT, path)
 
@@ -181,7 +186,7 @@ def plot_success_bars(rows: list[dict[str, str]]) -> None:
 
 def plot_survival_rewards(rows: list[dict[str, str]]) -> None:
     labels = [row["policy"].replace("Programmatic state machine", "Programmatic PSM") for row in rows]
-    rewards = [metric(row, "test_reward") for row in rows]
+    rewards = [metric_or_none(row, "test_steps") or metric(row, "test_reward") for row in rows]
     palette = ["#6f8fb8", "#8aa777", "#c58b47", "#9b6fa8", "#c76f5b"]
     colors = [palette[index % len(palette)] for index in range(len(labels))]
 

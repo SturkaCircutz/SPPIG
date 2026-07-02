@@ -68,18 +68,23 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
   contain intermediate train/test `eval_history` entries or only the selected final result.
   PPO metrics also contain compact `update_history` rows with rollout reward means and
-  train-horizon termination counts.
+  train-horizon termination counts. Result rows, summaries, and metrics JSON explicitly record mean
+  survived steps and survival seconds so long-horizon plots do not rely on reward as an implicit
+  survival-time proxy.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that defaults to 10
   uniformly sampled hyperparameter configs from the reported ranges per policy, evaluates each
   config for every selected seed, writes a plan/manifest, and can execute jobs with per-config
   checkpoints and metrics JSON. It also supports an explicit Cartesian-grid diagnostic mode and
   writes both a single-best-job summary and a per-hyperparameter summary aggregating completed seeds
-  for each sampled config. This is search infrastructure; the full paper-scale sweep has not been run.
+  for each sampled config, including survived-step and survival-second provenance for executed rows.
+  This is search infrastructure; the full paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
   generated abstract-result, LaTeX table, and PSM policy fragments consumed by `essay/project.tex`,
   plots the PSM switch-boundary figure from a linear-switch PSM metrics artifact when available, and
-  plots PPO training curves when metrics JSON artifacts with `eval_history` are present.
+  plots PPO training curves when metrics JSON artifacts with `eval_history` are present. Its
+  survival plot uses explicit survived-step fields when available and falls back to reward only for
+  older artifacts.
 
 ## Current Status
 
@@ -111,18 +116,20 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0`
 - Fixed PSM output:
   train success `1.000`, test success over the full 15000-step/300-second horizon `0.200`,
-  train reward mean `250.0`, test reward mean `6275.4`.
+  train reward mean `250.0`, test reward mean `6275.35`; the same artifact records
+  train/test survived-step means `250.0` and `6275.35`, or `5.0s` and `125.507s`.
 - Current synthesizer diagnostic command used for the regenerated artifact:
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `39.55`, test reward mean `64.8`. The tracked artifact uses the current
+  train reward mean `35.65`, test reward mean `47.2`; the same artifact records train/test
+  survived-step means `35.65` and `47.2`, or `0.713s` and `0.944s`. The tracked artifact uses the current
   CartPole PSM default loop-free teacher profile (`segment_steps = 1`, `segments_per_trace = 250`)
   so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
   `bootstrap_source = probabilistic_student_prior`, first-iteration source counts
   `{"bootstrap_student_sample": 3, "bootstrap_student_sample_refined": 1}`, final-iteration source
-  counts `{"student_sample": 2, "student_sample_refined": 2}`, and
+  counts `{"student_sample": 4}`, and
   `student_sample_segment_budget = chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
   gap, not a paper-level reproduction result.
@@ -221,9 +228,11 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   adaptive-teaching optimizer and paper-scale result reproduction. These values document the current
   partial implementation; they are not claimed as paper-specified constants.
 - PPO training runs can now write metrics JSON containing the full evaluation history, compact
-  per-update rollout diagnostics, selected result, config, and checkpoint-selection rule.
+  per-update rollout diagnostics, selected result, config, checkpoint-selection rule, and explicit
+  survived-step/survival-second means for train/test evaluation.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
-  `--include-ppo` rows, tying those local diagnostic results to concrete artifacts.
+  `--include-ppo` rows, tying those local diagnostic results to concrete artifacts. Runner rows and
+  summaries also report survived steps and survival seconds explicitly.
 - The orchestrated reproduction runner can include a bounded Direct-Opt diagnostic row through
   `--include-direct-opt`, writing a per-seed metrics JSON with the selected program, searched
   candidate count, exact search grids, bounded batch/restart diagnostics, and limitation note.
@@ -257,8 +266,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   match the uncapped selected search space. The runner writes a best-config summary for completed
   jobs, can resume interrupted sweeps by reusing only matching completed rows with existing checkpoint
   and metrics artifacts, writes a per-hyperparameter summary that marks the best completed sampled
-  config per policy by mean training success, and can optionally record failed jobs while continuing a
-  long sweep.
+  config per policy by mean training success, records survived-step/survival-second columns for
+  executed rows and summaries, and can optionally record failed jobs while continuing a long sweep.
 
 ## Verified PPO Invariants
 

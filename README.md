@@ -69,6 +69,8 @@ switches plus Boolean-tree CartPole switch candidates with one-hot metadata, not
 the paper's full two-hour parallel direct optimization protocol. The runner writes
 raw per-seed rows to `cartpole_results.csv`, grouped mean/std plus the best training seed to
 `cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
+Those rows and summaries report mean survived simulator steps and survival
+seconds explicitly, rather than using reward as an implicit survival-time proxy.
 Each PSM row records a metrics JSON path with the fitted probabilistic student
 and per-iteration teacher-trace provenance.
 When PPO is included, each PPO row also records its checkpoint path and metrics
@@ -256,7 +258,8 @@ stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`,
 the first summary selects the best completed single job per policy by train
 success, then train reward, while the hyperparameter summary aggregates completed
 seeds for each sampled config and marks the best completed config per policy by
-mean training success. The manifest records
+mean training success. Executed sweep rows and summaries also include explicit
+mean survived steps and survival seconds for train/test evaluation. The manifest records
 both the jobs actually planned and the uncapped job count for the selected
 search space, plus `paper_protocol_status` flags showing whether the plan is
 paper-scale, whether all planned jobs completed with zero failures, whether it
@@ -284,6 +287,7 @@ extension rather than the paper's sampled search.
   the abstract result, table, and PSM policy fragments; if PSM metrics with a
   linear switch exist, it writes the switch-boundary figure from that artifact,
   and if PPO metrics JSON files exist, it also writes a training-curve figure;
+  survival-reward plots prefer explicit survived-step fields when present;
   generated result fragments carry a local-diagnostic limitation note and reject
   rows whose explicit `test_horizon_steps` is not the paper 300-second horizon)
 - Paper fidelity audit: `docs/cartpole_paper_audit.md`
@@ -323,7 +327,8 @@ Recommended resume bullet:
 - Run PPO/PPO-LSTM for `10^7` timesteps.
 - Run five random seeds and report mean/std.
 - Run the paper's PPO hyperparameter search.
-- Add training curves and survival-time plots.
+- Regenerate training curves and survival-time plots from completed paper-scale
+  five-seed runs rather than local diagnostic artifacts.
 - Either tune pure PPO-LSTM until it solves train or report it as a carefully
   bounded negative result.
 - Replace the compact trace-based programmatic learner with the full

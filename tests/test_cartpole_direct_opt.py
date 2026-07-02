@@ -93,6 +93,10 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("train", metrics)
         self.assertIn("test", metrics)
+        self.assertIn("steps_mean", metrics["train"])
+        self.assertIn("survival_seconds_mean", metrics["train"])
+        self.assertIn("steps_mean", metrics["test"])
+        self.assertIn("survival_seconds_mean", metrics["test"])
 
     def test_direct_opt_can_disable_batch_refinement_for_grid_random_diagnostic(self):
         result = run_cartpole_direct_opt(
@@ -258,6 +262,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["config"]["restart_candidates_on_stall"], 1)
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
+        self.assertIn("steps_mean", metrics["train"])
+        self.assertIn("survival_seconds_mean", metrics["test"])
         self.assertEqual(metrics["algorithm_provenance"]["baseline"], "direct_opt")
         self.assertEqual(metrics["search_diagnostics"]["boolean_stump_candidates"], 24)
         self.assertGreater(metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
