@@ -91,7 +91,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
   stumps plus depth-2 conjunction and disjunction candidates over observation inequalities via a
   bounded greedy leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
-  against the Eq. (12)-style timing likelihood with a bounded grid initializer plus coordinate
+  against an elapsed-time-normalized Eq. (12)-style timing likelihood with a bounded grid initializer plus coordinate
   refinement, but the learner still does not fully optimize Eq. (12).
 - Complete as a local diagnostic baseline: feed-forward PPO reaches 100% success on the paper's
   5-second training split.
@@ -191,7 +191,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   and the student's discrete Eq. (12)-style switch timing likelihood, marginalizing over the latent
   mode sequence with a two-state forward pass. For scalar-threshold switches, that timing likelihood
   uses the learned Gaussian switch-parameter distribution with one sampled threshold shared across a
-  segment, matching the paper's probabilistic-state-machine sampling model.
+  segment, matching the paper's probabilistic-state-machine sampling model. Loop-free segment
+  durations are interpreted as elapsed time normalized to the CartPole simulator step, so the
+  teacher's per-segment time increments affect the bounded switch-timing likelihood.
 - The Cartpole student now refines action-only latent segment responsibilities with a bounded
   forward-backward pass over adjacent segment switch-timing probabilities before refitting the action
   distributions and switch. This moves Eq. (10) closer to the paper by using both `H` and `G` evidence,
@@ -342,11 +344,16 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   objective, not the full Eq. (12) implementation.
 - `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_rewards_transition_at_duration`
   verifies the transition-at-duration term in the discrete Eq. (12)-style switch likelihood.
+- `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_uses_elapsed_time_increment_duration`
+  verifies that the discrete Eq. (12)-style switch likelihood uses loop-free segment elapsed time,
+  normalized to the CartPole simulator step, rather than only raw simulator-step counts.
 - `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_penalizes_early_transition_when_staying`
   verifies the no-transition-before-duration term in the discrete Eq. (12)-style switch likelihood.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_improves_timing_likelihood`
   verifies that bounded switch-threshold refinement can improve the current timing likelihood
   without increasing hard segment-label mistakes.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_timing_loss_uses_elapsed_duration`
+  verifies that the Gaussian switch-parameter timing loss uses elapsed loop-free segment duration.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_can_improve_probabilistic_std`
   verifies that bounded Gaussian standard-deviation refinement can improve the current
   probabilistic timing objective.
@@ -438,6 +445,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_rollout_uses_segment_time_increments`
   verifies that the loop-free teacher can vary per-segment integration increments without changing
   the global CartPole environment timestep.
+- `tests/test_cartpole_paper.py::test_cartpole_student_segments_use_elapsed_time_increment_duration`
+  verifies that teacher trace segments expose normalized elapsed duration to the student timing
+  likelihood while preserving raw simulator-step duration for schedule accounting.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_preserves_action_sequence`
   verifies that duration-only refinement preserves the loop-free teacher's constant-action sequence.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_action_refinement_changes_one_action_at_a_time`

@@ -227,6 +227,30 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(segments), 2)
         self.assertEqual([segment.duration for segment in segments], [2, 2])
         self.assertEqual([segment.action_parameter for segment in segments], [2.0, 4.0])
+        self.assertEqual([segment.switch_timing_duration for segment in segments], [2.0, 2.0])
+        self.assertEqual([segment.timing_step_scale for segment in segments], [1.0, 1.0])
+
+    def test_cartpole_student_segments_use_elapsed_time_increment_duration(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0, 10.0],
+            mode_labels=[0, 0, 0, 1],
+            reward=2.5,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(3, 1),
+            segment_time_increments=(0.01, 0.02),
+        )
+
+        segments = _segments_from_traces([trace])[0]
+
+        self.assertEqual([segment.duration for segment in segments], [3, 1])
+        self.assertEqual([segment.switch_timing_duration for segment in segments], [1.5, 1.0])
+        self.assertEqual([segment.timing_step_scale for segment in segments], [0.5, 1.0])
 
     def test_cartpole_responsibility_refinement_uses_switch_timing(self):
         first_segment = CartpoleSegment(
@@ -384,6 +408,8 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(alignment["num_boundaries"], 1)
         self.assertEqual(alignment["at_boundary_count"], 1)
         self.assertEqual(alignment["early_switch_count"], 0)
+        self.assertEqual(alignment["elapsed_at_boundary_count"], 1)
+        self.assertEqual(alignment["elapsed_early_switch_count"], 0)
         self.assertEqual(selected["timing_loss_per_boundary"], selected["timing_loss_total"])
         self.assertEqual(
             selected["objective_tuple"][1],
@@ -427,9 +453,49 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(alignment["num_boundaries"], 1)
         self.assertEqual(alignment["enabled_boundary_count"], 0)
         self.assertEqual(alignment["never_enabled_count"], 1)
+        self.assertEqual(alignment["elapsed_at_boundary_count"], 0)
+        self.assertEqual(alignment["elapsed_early_switch_count"], 0)
+        self.assertEqual(alignment["elapsed_late_switch_count"], 0)
         self.assertIsNone(alignment["first_enabled_minus_duration_mean"])
         self.assertIsNone(alignment["first_enabled_minus_duration_min"])
         self.assertIsNone(alignment["first_enabled_minus_duration_max"])
+        self.assertIsNone(alignment["first_enabled_elapsed_minus_duration_mean"])
+        self.assertIsNone(alignment["first_enabled_elapsed_minus_duration_min"])
+        self.assertIsNone(alignment["first_enabled_elapsed_minus_duration_max"])
+
+    def test_cartpole_switch_fit_diagnostics_reports_elapsed_boundary_alignment(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0, 10.0],
+            mode_labels=[0, 0, 0, 1],
+            reward=2.5,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(3, 1),
+            segment_time_increments=(0.01, 0.02),
+        )
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.15),
+            switch_threshold_distribution=GaussianScalar(0.15, 0.1),
+            switch_parameter_distributions=[GaussianScalar(0.15, 0.1)],
+            responsibilities=[(1.0, 0.0), (0.0, 1.0)],
+        )
+
+        alignment = cartpole_switch_fit_diagnostics([trace], student)["candidates"]["selected_student_switch"][
+            "boundary_alignment"
+        ]
+
+        self.assertEqual(alignment["at_boundary_count"], 1)
+        self.assertEqual(alignment["elapsed_at_boundary_count"], 1)
+        self.assertAlmostEqual(alignment["first_enabled_elapsed_minus_duration_mean"], 0.0)
 
     def test_cartpole_eq12_likelihood_rewards_transition_at_duration(self):
         segment = CartpoleSegment(
@@ -448,6 +514,37 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(
             _eq12_switch_log_likelihood(boundary_switch, segment, (1.0, 0.0), (0.0, 1.0)),
             _eq12_switch_log_likelihood(early_switch, segment, (1.0, 0.0), (0.0, 1.0)),
+        )
+
+    def test_cartpole_eq12_likelihood_uses_elapsed_time_increment_duration(self):
+        default_timing = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        half_dt_timing = CartpoleSegment(
+            observations=default_timing.observations,
+            action_parameter=default_timing.action_parameter,
+            duration=default_timing.duration,
+            timing_duration=1.5,
+            timing_step_scale=0.5,
+            hard_mode=default_timing.hard_mode,
+        )
+        early_switch = Depth2Switch(1.0, 0.0, 0.0)
+        late_switch = Depth2Switch(1.0, 0.0, 0.25)
+
+        self.assertGreater(
+            _eq12_switch_log_likelihood(late_switch, half_dt_timing, (1.0, 0.0), (0.0, 1.0)),
+            _eq12_switch_log_likelihood(early_switch, half_dt_timing, (1.0, 0.0), (0.0, 1.0)),
+        )
+        self.assertGreater(
+            _eq12_switch_log_likelihood(late_switch, default_timing, (1.0, 0.0), (0.0, 1.0)),
+            _eq12_switch_log_likelihood(early_switch, default_timing, (1.0, 0.0), (0.0, 1.0)),
         )
 
     def test_cartpole_eq12_likelihood_penalizes_early_transition_when_staying(self):
@@ -512,6 +609,44 @@ class CartpolePaperTest(unittest.TestCase):
             _switch_timing_loss(initial_switch, segments_by_trace, responsibilities),
         )
         self.assertLessEqual(mistakes(refined_switch), mistakes(initial_switch))
+
+    def test_cartpole_switch_distribution_timing_loss_uses_elapsed_duration(self):
+        segments_by_trace = [[
+            CartpoleSegment(
+                observations=[
+                    [0.0, 0.0, -0.2, 0.0],
+                    [0.0, 0.0, 0.2, 0.0],
+                    [0.0, 0.0, 0.3, 0.0],
+                ],
+                action_parameter=-10.0,
+                duration=3,
+                timing_duration=1.5,
+                timing_step_scale=0.5,
+                hard_mode=0,
+            ),
+            CartpoleSegment(
+                observations=[[0.0, 0.0, 0.3, 0.0]],
+                action_parameter=10.0,
+                duration=1,
+                hard_mode=1,
+            ),
+        ]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0)]
+
+        self.assertLess(
+            _switch_distribution_timing_loss(
+                Depth2Switch(1.0, 0.0, 0.25),
+                [GaussianScalar(0.25, 0.001)],
+                segments_by_trace,
+                responsibilities,
+            ),
+            _switch_distribution_timing_loss(
+                Depth2Switch(1.0, 0.0, 0.0),
+                [GaussianScalar(0.0, 0.001)],
+                segments_by_trace,
+                responsibilities,
+            ),
+        )
 
     def test_cartpole_switch_distribution_refinement_can_improve_probabilistic_std(self):
         segment = CartpoleSegment(

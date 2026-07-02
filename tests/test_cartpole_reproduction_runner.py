@@ -114,6 +114,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 psm_metrics = json.load(handle)
             self.assertEqual(psm_metrics["config"]["teacher_theta_gain"], 12.5)
             self.assertEqual(psm_metrics["algorithm_provenance"]["switch_timing"]["std_steps"], 2.0)
+            self.assertEqual(
+                psm_metrics["algorithm_provenance"]["switch_timing"]["duration_units"],
+                "segment_elapsed_time_normalized_to_default_cartpole_dt",
+            )
             self.assertEqual(psm_metrics["paper_test_horizon_steps"], 15000)
             psm_status = psm_metrics["paper_protocol_status"]
             self.assertTrue(psm_status["cartpole_environment"])
@@ -184,6 +188,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
             self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
             self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
+            self.assertEqual(
+                provenance["switch_timing"]["duration_units"],
+                "segment_elapsed_time_normalized_to_default_cartpole_dt",
+            )
             self.assertEqual(
                 provenance["switch_timing"]["depth2_boolean_probability"],
                 "shared_threshold_rectangle_union",
@@ -297,6 +305,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "on_mode_entry",
             )
             self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
+            self.assertEqual(
+                row_provenance["switch_timing"]["duration_units"],
+                "segment_elapsed_time_normalized_to_default_cartpole_dt",
+            )
             self.assertEqual(
                 row_provenance["switch_timing"]["depth2_boolean_probability"],
                 "shared_threshold_rectangle_union",

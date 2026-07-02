@@ -149,7 +149,9 @@ before refinement. This still does not implement the paper's full CEM plus
 gradient optimizer.
 The student starts with action-likelihood responsibilities, then performs the
 configured number of bounded forward-backward refinements using the learned
-switch-timing likelihood.
+switch-timing likelihood. That timing likelihood now treats loop-free segment
+durations as elapsed time normalized to the CartPole simulator step, so
+per-segment time increments influence the bounded Eq. (12)-style timing terms.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
 plus bounded coordinate steps and finite-difference gradient polishing. Switch structures are

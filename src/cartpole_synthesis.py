@@ -128,6 +128,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         },
         "switch_timing": {
             "std_steps": SWITCH_TIMING_STD_STEPS,
+            "duration_units": "segment_elapsed_time_normalized_to_default_cartpole_dt",
             "scalar_threshold_uses_shared_sample": True,
             "depth2_boolean_probability": "shared_threshold_rectangle_union",
             "std_refinement_multipliers": list(SWITCH_STD_REFINEMENT_MULTIPLIERS),
@@ -339,10 +340,16 @@ class CartpoleSegment:
     action_parameter: float
     duration: int
     hard_mode: int
+    timing_duration: float | None = None
+    timing_step_scale: float = 1.0
 
     @property
     def end_observation(self) -> Observation:
         return self.observations[-1]
+
+    @property
+    def switch_timing_duration(self) -> float:
+        return float(self.duration if self.timing_duration is None else self.timing_duration)
 
 
 @dataclass(frozen=True)
@@ -356,6 +363,8 @@ class _SwitchTimingPair:
     observations: Tuple[Observation, ...]
     columns: Tuple[Tuple[float, ...], ...]
     duration: int
+    timing_duration: float
+    timing_step_scale: float
     transition_weight: float
     stay_weight: float
 
@@ -531,7 +540,11 @@ def _switch_boundary_alignment(
     at_boundary = 0
     late = 0
     never = 0
+    elapsed_early = 0
+    elapsed_at_boundary = 0
+    elapsed_late = 0
     deltas: List[int] = []
+    timing_deltas: List[float] = []
     for trace_segments in segments_by_trace:
         for segment in trace_segments[:-1]:
             first_enabled = _first_enabled_step(switch, segment.observations)
@@ -539,13 +552,21 @@ def _switch_boundary_alignment(
                 never += 1
                 continue
             delta = first_enabled - segment.duration
+            timing_delta = _enabled_step_elapsed_time(first_enabled, segment.timing_step_scale) - segment.switch_timing_duration
             deltas.append(delta)
+            timing_deltas.append(timing_delta)
             if first_enabled < segment.duration:
                 early += 1
             elif first_enabled == segment.duration:
                 at_boundary += 1
             else:
                 late += 1
+            if timing_delta < -MIN_GAUSSIAN_STD:
+                elapsed_early += 1
+            elif timing_delta > MIN_GAUSSIAN_STD:
+                elapsed_late += 1
+            else:
+                elapsed_at_boundary += 1
     return {
         "num_boundaries": _trace_boundary_count(segments_by_trace),
         "enabled_boundary_count": len(deltas),
@@ -553,9 +574,15 @@ def _switch_boundary_alignment(
         "at_boundary_count": at_boundary,
         "late_switch_count": late,
         "never_enabled_count": never,
+        "elapsed_early_switch_count": elapsed_early,
+        "elapsed_at_boundary_count": elapsed_at_boundary,
+        "elapsed_late_switch_count": elapsed_late,
         "first_enabled_minus_duration_mean": sum(deltas) / len(deltas) if deltas else None,
         "first_enabled_minus_duration_min": min(deltas) if deltas else None,
         "first_enabled_minus_duration_max": max(deltas) if deltas else None,
+        "first_enabled_elapsed_minus_duration_mean": sum(timing_deltas) / len(timing_deltas) if timing_deltas else None,
+        "first_enabled_elapsed_minus_duration_min": min(timing_deltas) if timing_deltas else None,
+        "first_enabled_elapsed_minus_duration_max": max(timing_deltas) if timing_deltas else None,
     }
 
 
@@ -1956,15 +1983,20 @@ def _teacher_schedule_segments(trace: CartpoleTrace) -> List[CartpoleSegment]:
 
     segments: List[CartpoleSegment] = []
     start = 0
-    for action, duration in zip(trace.segment_actions, trace.segment_durations):
+    increments = _distance_time_increments(trace.segment_time_increments, trace.segment_durations)
+    for index, (action, duration) in enumerate(zip(trace.segment_actions, trace.segment_durations)):
         end = min(start + max(1, int(duration)), len(trace.actions))
         if start >= end:
             break
+        increment = increments[index] if index < len(increments) else DEFAULT_CARTPOLE_TIME_INCREMENT
+        timing_step_scale = increment / DEFAULT_CARTPOLE_TIME_INCREMENT
         segments.append(
             CartpoleSegment(
                 observations=trace.observations[start:end],
                 action_parameter=float(action),
                 duration=end - start,
+                timing_duration=(end - start) * timing_step_scale,
+                timing_step_scale=timing_step_scale,
                 hard_mode=1 if action > 0.0 else 0,
             )
         )
@@ -2110,17 +2142,20 @@ def _switch_responsibility_pair_log_potentials(
     distributions: List[GaussianScalar],
     segment: CartpoleSegment,
 ) -> List[List[float]]:
+    duration = segment.switch_timing_duration
     transition_probability = _switch_transition_probability_at_duration(
         switch,
         distributions,
         segment.observations,
-        segment.duration,
+        duration,
+        segment.timing_step_scale,
     )
     stay_probability = _switch_no_transition_probability_before_duration(
         switch,
         distributions,
         segment.observations,
-        segment.duration,
+        duration,
+        segment.timing_step_scale,
     )
     # Different adjacent modes consume transition likelihood; equal modes
     # consume survival likelihood before the observed boundary.
@@ -2615,6 +2650,8 @@ def _switch_timing_pairs(
                     observations=observations,
                     columns=_observation_columns(observations),
                     duration=current_segment.duration,
+                    timing_duration=current_segment.switch_timing_duration,
+                    timing_step_scale=current_segment.timing_step_scale,
                     transition_weight=current_resp[0] * next_resp[1] + current_resp[1] * next_resp[0],
                     stay_weight=current_resp[0] * next_resp[0] + current_resp[1] * next_resp[1],
                 )
@@ -2641,11 +2678,16 @@ def _scalar_switch_timing_pairs(
         if scalar is None:
             return None
         values, relation = scalar
-        previous = values[: pair.duration - 1]
+        current_index = _timing_duration_step_index(
+            pair.timing_duration,
+            pair.timing_step_scale,
+            len(values),
+        )
+        previous = values[:current_index]
         previous_extreme = None
         if previous:
             previous_extreme = max(previous) if relation == ">=" else min(previous)
-        current_value = values[pair.duration - 1] if 0 < pair.duration <= len(values) else None
+        current_value = values[current_index] if current_index < len(values) else None
         scalar_pairs.append(
             _ScalarSwitchTimingPair(
                 relation=relation,
@@ -3399,9 +3441,11 @@ def _eq12_switch_log_likelihood(
     # Soft responsibilities split evidence between "switch now" and "stay in
     # the same latent mode" without committing to a hard segment label.
     first_enabled = _first_enabled_step(switch, segment.observations)
+    first_enabled_time = _enabled_step_elapsed_time(first_enabled, segment.timing_step_scale)
+    duration = segment.switch_timing_duration
     return (
-        transition_weight * _log_transition_at_duration(first_enabled, segment.duration)
-        + stay_weight * _log_no_transition_before_duration(first_enabled, segment.duration)
+        transition_weight * _log_transition_at_duration(first_enabled_time, duration)
+        + stay_weight * _log_no_transition_before_duration(first_enabled_time, duration)
     )
 
 
@@ -3409,14 +3453,18 @@ def _switch_transition_and_stay_probabilities(
     switch: SwitchProgram,
     distributions: List[GaussianScalar],
     observations: List[Observation],
-    duration: int,
+    duration: float,
+    timing_step_scale: float = 1.0,
 ) -> Tuple[float, float]:
     scalar = _single_threshold_view(switch, distributions, observations)
     if scalar is not None:
         values, distribution, relation = scalar
-        return (
-            _single_threshold_transition_probability(values, distribution, relation, duration),
-            _single_threshold_no_transition_probability(values, distribution, relation, duration),
+        return _single_threshold_transition_and_stay_probability(
+            tuple(values),
+            distribution,
+            relation,
+            duration,
+            timing_step_scale,
         )
     if isinstance(switch, BooleanTreeSwitch) and switch.second is not None and len(distributions) >= 2:
         enabled_by_step = _boolean_tree_enabled_cumulative_probabilities(
@@ -3424,9 +3472,9 @@ def _switch_transition_and_stay_probabilities(
             distributions,
             observations,
         )
-        return _cumulative_transition_and_stay_probability(enabled_by_step, duration)
+        return _cumulative_transition_and_stay_probability(enabled_by_step, duration, timing_step_scale)
     enabled_by_step = _switch_enabled_cumulative_probabilities(switch, distributions, observations)
-    return _cumulative_transition_and_stay_probability(enabled_by_step, duration)
+    return _cumulative_transition_and_stay_probability(enabled_by_step, duration, timing_step_scale)
 
 
 def _switch_transition_and_stay_probabilities_for_pair(
@@ -3441,30 +3489,41 @@ def _switch_transition_and_stay_probabilities_for_pair(
             values,
             distribution,
             relation,
-            pair.duration,
+            pair.timing_duration,
+            pair.timing_step_scale,
         )
     if isinstance(switch, BooleanTreeSwitch) and switch.second is not None and len(distributions) >= 2:
         enabled_by_step = _boolean_tree_pair_enabled_cumulative_probabilities(switch, distributions, pair)
-        return _cumulative_transition_and_stay_probability(enabled_by_step, pair.duration)
+        return _cumulative_transition_and_stay_probability(
+            enabled_by_step,
+            pair.timing_duration,
+            pair.timing_step_scale,
+        )
     enabled_by_step = _switch_enabled_cumulative_probabilities(
         switch,
         distributions,
         pair.observations,
     )
-    return _cumulative_transition_and_stay_probability(enabled_by_step, pair.duration)
+    return _cumulative_transition_and_stay_probability(
+        enabled_by_step,
+        pair.timing_duration,
+        pair.timing_step_scale,
+    )
 
 
 def _switch_transition_probability_at_duration(
     switch: SwitchProgram,
     distributions: List[GaussianScalar],
     observations: List[Observation],
-    duration: int,
+    duration: float,
+    timing_step_scale: float = 1.0,
 ) -> float:
     transition_probability, _ = _switch_transition_and_stay_probabilities(
         switch,
         distributions,
         observations,
         duration,
+        timing_step_scale,
     )
     return transition_probability
 
@@ -3473,13 +3532,15 @@ def _switch_no_transition_probability_before_duration(
     switch: SwitchProgram,
     distributions: List[GaussianScalar],
     observations: List[Observation],
-    duration: int,
+    duration: float,
+    timing_step_scale: float = 1.0,
 ) -> float:
     _, stay_probability = _switch_transition_and_stay_probabilities(
         switch,
         distributions,
         observations,
         duration,
+        timing_step_scale,
     )
     return stay_probability
 
@@ -3634,11 +3695,13 @@ def _single_threshold_transition_and_stay_probability(
     values: Tuple[float, ...],
     distribution: GaussianScalar,
     relation: str,
-    duration: int,
+    duration: float,
+    timing_step_scale: float = 1.0,
 ) -> Tuple[float, float]:
     if duration <= 0:
         return 0.0, 1.0
-    previous = values[: duration - 1]
+    current_index = _timing_duration_step_index(duration, timing_step_scale, len(values))
+    previous = values[:current_index]
     if not previous:
         previous_probability = 0.0 if relation == ">=" else 1.0
     elif relation == ">=":
@@ -3647,10 +3710,10 @@ def _single_threshold_transition_and_stay_probability(
         previous_probability = _gaussian_cdf(min(previous), distribution)
     else:
         raise ValueError(f"unknown relation: {relation}")
-    if duration > len(values):
+    if current_index >= len(values):
         return 0.0, _single_threshold_stay_probability(previous_probability, relation)
 
-    current_cdf = _gaussian_cdf(values[duration - 1], distribution)
+    current_cdf = _gaussian_cdf(values[current_index], distribution)
     if relation == ">=":
         transition_probability = max(current_cdf - previous_probability, 0.0)
     elif relation == "<=":
@@ -3670,20 +3733,30 @@ def _single_threshold_stay_probability(previous_probability: float, relation: st
 
 def _cumulative_transition_and_stay_probability(
     enabled_by_step: List[float],
-    duration: int,
+    duration: float,
+    timing_step_scale: float = 1.0,
 ) -> Tuple[float, float]:
     if duration <= 0:
         return 0.0, 1.0
-    previous_probability = (
-        enabled_by_step[duration - 2]
-        if duration > 1 and duration - 2 < len(enabled_by_step)
-        else 0.0
-    )
-    if duration > len(enabled_by_step):
+    current_index = _timing_duration_step_index(duration, timing_step_scale, len(enabled_by_step))
+    previous_index = current_index - 1
+    previous_probability = enabled_by_step[previous_index] if previous_index >= 0 else 0.0
+    if current_index >= len(enabled_by_step):
         return 0.0, max(1.0 - previous_probability, 0.0)
-    transition_probability = max(enabled_by_step[duration - 1] - previous_probability, 0.0)
+    transition_probability = max(enabled_by_step[current_index] - previous_probability, 0.0)
     stay_probability = max(1.0 - previous_probability, 0.0)
     return transition_probability, stay_probability
+
+
+def _timing_duration_step_index(duration: float, timing_step_scale: float, available_steps: int) -> int:
+    if available_steps <= 0:
+        return 0
+    step_scale = max(MIN_GAUSSIAN_STD, float(timing_step_scale))
+    return max(0, int(math.ceil(float(duration) / step_scale)) - 1)
+
+
+def _enabled_step_elapsed_time(first_enabled: int | float, timing_step_scale: float) -> float:
+    return float(first_enabled) * max(MIN_GAUSSIAN_STD, float(timing_step_scale))
 
 
 def _single_threshold_transition_probability(
@@ -3734,12 +3807,12 @@ def _switch_enabled_cumulative_probabilities(
         enabled_by_step.append(1.0 - no_enable_probability)
     return enabled_by_step
 
-def _log_transition_at_duration(first_enabled: int, duration: int) -> float:
+def _log_transition_at_duration(first_enabled: int, duration: float) -> float:
     z = (first_enabled - duration) / SWITCH_TIMING_STD_STEPS
     return -0.5 * z * z
 
 
-def _log_no_transition_before_duration(first_enabled: int, duration: int) -> float:
+def _log_no_transition_before_duration(first_enabled: int, duration: float) -> float:
     if first_enabled >= duration:
         return 0.0
     z = (duration - first_enabled) / SWITCH_TIMING_STD_STEPS

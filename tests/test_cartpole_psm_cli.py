@@ -123,6 +123,10 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
         self.assertEqual(provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
         self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
+        self.assertEqual(
+            provenance["switch_timing"]["duration_units"],
+            "segment_elapsed_time_normalized_to_default_cartpole_dt",
+        )
         self.assertTrue(provenance["switch_timing"]["scalar_threshold_uses_shared_sample"])
         self.assertEqual(
             provenance["switch_timing"]["depth2_boolean_probability"],
