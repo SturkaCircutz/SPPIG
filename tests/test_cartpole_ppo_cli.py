@@ -4,10 +4,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 SCRIPT = os.path.join(ROOT, "src", "train_cartpole_ppo.py")
+sys.path.insert(0, os.path.join(ROOT, "src"))
 
 try:
     import torch  # noqa: F401
@@ -16,8 +18,33 @@ try:
 except Exception:
     HAS_TORCH = False
 
+from ppo_cartpole import PAPER_PPO_TIMESTEPS  # noqa: E402
+import train_cartpole_ppo  # noqa: E402
+
 
 class CartpolePPOCliTest(unittest.TestCase):
+    def test_cli_defaults_to_paper_timestep_budget_without_running(self):
+        captured = {}
+
+        def fake_train(cfg, output=None):
+            captured["cfg"] = cfg
+            captured["output"] = output
+
+            class Result:
+                timesteps = cfg.total_timesteps
+                train_success_rate = 0.0
+                test_success_rate = 0.0
+                train_reward_mean = 0.0
+                test_reward_mean = 0.0
+
+            return None, Result()
+
+        with patch.object(sys, "argv", [SCRIPT]), patch.object(train_cartpole_ppo, "train_ppo_cartpole", fake_train):
+            train_cartpole_ppo.main()
+
+        self.assertEqual(captured["cfg"].total_timesteps, PAPER_PPO_TIMESTEPS)
+        self.assertEqual(captured["output"], "artifacts/cartpole_ppo.pt")
+
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_cli_writes_checkpoint_and_metrics_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:

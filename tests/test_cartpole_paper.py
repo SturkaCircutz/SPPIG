@@ -89,6 +89,7 @@ if HAS_TORCH:
     from ppo_cartpole import (
         LSTMActorCritic,
         MLPActorCritic,
+        PAPER_PPO_TIMESTEPS,
         PPOConfig,
         _collect_rollout,
         _update_lstm,
@@ -2926,6 +2927,11 @@ class CartpolePaperTest(unittest.TestCase):
             _teacher_objective(best, None, cfg),
             _teacher_objective(trace, None, cfg),
         )
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_config_defaults_to_paper_timestep_budget(self):
+        self.assertEqual(PPOConfig().total_timesteps, PAPER_PPO_TIMESTEPS)
+        self.assertEqual(PAPER_PPO_TIMESTEPS, 10_000_000)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_smoke_train_mlp(self):

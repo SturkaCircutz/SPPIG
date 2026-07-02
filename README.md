@@ -213,6 +213,10 @@ PPO MLP:
   --metrics-output artifacts/cartpole_ppo_mlp_metrics.json
 ```
 
+The standalone PPO CLI defaults to the paper `10^7` timestep budget when
+`--timesteps` is omitted. The shorter commands above are local diagnostic
+examples that override the default explicitly.
+
 PPO-LSTM diagnostic:
 
 ```bash

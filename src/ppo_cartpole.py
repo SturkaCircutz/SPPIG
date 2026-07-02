@@ -15,10 +15,13 @@ from torch.nn import functional as F
 from cartpole_env import BangBangCartpolePSM, CartpoleEnv, Observation, summarize_cartpole_results
 
 
+PAPER_PPO_TIMESTEPS = 10_000_000
+
+
 @dataclass
 class PPOConfig:
     policy_type: str = "mlp"
-    total_timesteps: int = 10_000
+    total_timesteps: int = PAPER_PPO_TIMESTEPS
     rollout_steps: int = 1024
     update_epochs: int = 8
     minibatches: int = 8

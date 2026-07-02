@@ -38,7 +38,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `src/cartpole_env.py`: continuous-force Cartpole with the train/test pole length and horizon split.
 - `src/ppo_cartpole.py`: local PyTorch PPO implementation with MLP and LSTM policy classes.
 - `src/train_cartpole_ppo.py`: CLI for PPO and PPO-LSTM experiments; with `--eval-interval`, it can
-  persist per-evaluation train/test metrics to JSON for checkpoint provenance.
+  persist per-evaluation train/test metrics to JSON for checkpoint provenance. Its default
+  `--timesteps` value is the paper PPO budget `10^7`; local diagnostic commands override that
+  default explicitly.
 - `src/evaluate_cartpole_psm.py`: two-mode constant-action/depth-2-switch programmatic policy evaluator.
 - `src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py`: bounded diagnostic Direct-Opt
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
@@ -289,6 +291,10 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_ppo_writes_eval_history_metrics_json` verifies that PPO
   interval evaluations and per-update rollout diagnostics are persisted to JSON instead of existing
   only in stdout.
+- `tests/test_cartpole_paper.py::test_ppo_config_defaults_to_paper_timestep_budget` and
+  `tests/test_cartpole_ppo_cli.py::test_cli_defaults_to_paper_timestep_budget_without_running`
+  verify that the standalone PPO config and CLI default to the paper's `10^7` timestep budget
+  without making smoke tests execute that budget.
 - `tests/test_cartpole_psm_cli.py::test_cli_writes_metrics_json` verifies that synthesized
   programmatic-policy metrics are persisted to JSON and that the file records the full paper test
   horizon even when a quick test cap is supplied. It also verifies that exposed teacher

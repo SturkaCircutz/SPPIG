@@ -3,13 +3,13 @@ from __future__ import annotations
 import argparse
 import os
 
-from ppo_cartpole import PPOConfig, train_ppo_cartpole
+from ppo_cartpole import PAPER_PPO_TIMESTEPS, PPOConfig, train_ppo_cartpole
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train paper-style Cartpole PPO baselines.")
     parser.add_argument("--policy", choices=("mlp", "lstm"), default="mlp")
-    parser.add_argument("--timesteps", type=int, default=10_000)
+    parser.add_argument("--timesteps", type=int, default=PAPER_PPO_TIMESTEPS)
     parser.add_argument("--rollout-steps", type=int, default=1024)
     parser.add_argument("--update-epochs", type=int, default=8)
     parser.add_argument("--minibatches", type=int, default=8)
