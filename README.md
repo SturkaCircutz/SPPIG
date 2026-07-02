@@ -216,10 +216,16 @@ PPO hyperparameter sweep plan/execution:
 ```
 
 Use `--dry-run` to write only `cartpole_ppo_sweep_plan.csv` and the manifest,
-or `--quick --max-configs 1` for a smoke execution. Executed sweeps also write
-`cartpole_ppo_sweep_results.csv` and `cartpole_ppo_sweep_summary.csv`; the
-summary selects the best completed config per policy by train success, then
-train reward. The sweep enumerates the paper's reported `nminibatches`,
+or `--quick --max-configs 1` for a smoke execution. Use `--resume` to continue
+an interrupted sweep; it skips only completed rows whose plan fields still
+match and whose checkpoint plus metrics artifacts still exist. Use
+`--continue-on-error` only when a long sweep should record failed jobs to
+`cartpole_ppo_sweep_failures.csv` and continue; by default, the first failed job
+stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`
+and `cartpole_ppo_sweep_summary.csv`; the summary selects the best completed
+config per policy by train success, then train reward. The manifest records
+both the jobs actually planned and the uncapped job count for the selected
+search space. The sweep enumerates the paper's reported `nminibatches`,
 `ent_coef`, `noptepochs`, and `cliprange` ranges, with PPO-LSTM fixed to
 `nminibatches=1`. The extracted paper text gives a learning-rate interval
 rather than exact samples, so the runner records the explicit sampled values in

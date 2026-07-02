@@ -67,6 +67,11 @@ SUMMARY_FIELDS = [
     "best_metrics_output",
 ]
 
+FAILURE_FIELDS = PLAN_FIELDS + [
+    "error_type",
+    "error_message",
+]
+
 
 def _parse_ints(value: str) -> List[int]:
     return [int(item) for item in value.split(",") if item]
@@ -133,6 +138,29 @@ def build_jobs(args: argparse.Namespace) -> List[Dict[str, Any]]:
     return jobs
 
 
+def count_uncapped_jobs(args: argparse.Namespace) -> int:
+    policies = [policy for policy in args.policies.split(",") if policy]
+    seeds = _parse_ints(args.seeds)
+    nminibatches = _parse_ints(args.nminibatches)
+    ent_coefs = _parse_floats(args.ent_coefs)
+    update_epochs = _parse_update_epochs(args.update_epochs)
+    clip_ranges = _parse_floats(args.clip_ranges)
+    learning_rates = _parse_floats(args.learning_rates)
+
+    total = 0
+    for policy in policies:
+        policy_minibatches = 1 if policy == "lstm" else len(nminibatches)
+        total += (
+            len(seeds)
+            * policy_minibatches
+            * len(ent_coefs)
+            * len(update_epochs)
+            * len(clip_ranges)
+            * len(learning_rates)
+        )
+    return total
+
+
 def write_csv(path: Path, fieldnames: List[str], rows: Iterable[Dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -186,6 +214,31 @@ def summarize_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return summary
 
 
+def read_existing_results(path: Path | str) -> Dict[int, Dict[str, str]]:
+    path = Path(path)
+    if not path.exists():
+        return {}
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    return {int(row["job_id"]): row for row in rows if row.get("job_id", "").isdigit()}
+
+
+def resumable_result_for_job(
+    job: Dict[str, Any],
+    existing_results: Dict[int, Dict[str, str]],
+) -> Dict[str, str] | None:
+    row = existing_results.get(int(job["job_id"]))
+    if row is None:
+        return None
+    for field in PLAN_FIELDS:
+        if str(row.get(field, "")) != str(job[field]):
+            return None
+    for field in ("output", "metrics_output"):
+        if not Path(str(row[field])).exists():
+            return None
+    return row
+
+
 def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
     from ppo_cartpole import PPOConfig, train_ppo_cartpole
 
@@ -218,15 +271,35 @@ def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def write_manifest(args: argparse.Namespace, jobs: List[Dict[str, Any]], completed: int) -> None:
+def failed_job_row(job: Dict[str, Any], error: Exception) -> Dict[str, Any]:
+    return {
+        **job,
+        "error_type": type(error).__name__,
+        "error_message": str(error),
+    }
+
+
+def write_manifest(
+    args: argparse.Namespace,
+    jobs: List[Dict[str, Any]],
+    completed: int,
+    skipped: int,
+    failed: int,
+) -> None:
     manifest = {
         "command": " ".join(sys.argv),
         "dry_run": args.dry_run,
         "quick": args.quick,
+        "resume": args.resume,
+        "continue_on_error": args.continue_on_error,
         "policies": [policy for policy in args.policies.split(",") if policy],
         "seeds": _parse_ints(args.seeds),
         "jobs_planned": len(jobs),
+        "jobs_uncapped_for_selected_space": count_uncapped_jobs(args),
         "jobs_completed": completed,
+        "jobs_failed": failed,
+        "jobs_skipped_existing": skipped,
+        "jobs_run_this_invocation": completed - skipped,
         "max_configs": args.max_configs,
         "paper_space": {
             "timesteps": PAPER_TIMESTEPS,
@@ -246,6 +319,7 @@ def write_manifest(args: argparse.Namespace, jobs: List[Dict[str, Any]], complet
             "plan": str(args.outdir / "cartpole_ppo_sweep_plan.csv"),
             "results": str(args.outdir / "cartpole_ppo_sweep_results.csv"),
             "summary": str(args.outdir / "cartpole_ppo_sweep_summary.csv"),
+            "failures": str(args.outdir / "cartpole_ppo_sweep_failures.csv"),
             "checkpoints": str(args.outdir / "checkpoints"),
             "metrics": str(args.outdir / "metrics"),
         },
@@ -277,6 +351,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--clip-ranges", default=",".join(str(value) for value in PAPER_CLIP_RANGES))
     parser.add_argument("--max-configs", type=int, default=None)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip completed jobs from an existing results CSV when plan fields and artifacts still match.",
+    )
+    parser.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        help="Record failed jobs to a failures CSV and continue. By default the first job failure stops the sweep.",
+    )
     parser.add_argument("--quick", action="store_true", help="Use tiny local settings; pair with --max-configs.")
     args = parser.parse_args()
     if args.quick:
@@ -295,12 +379,36 @@ def main() -> None:
     jobs = build_jobs(args)
     write_csv(args.outdir / "cartpole_ppo_sweep_plan.csv", PLAN_FIELDS, jobs)
     results: List[Dict[str, Any]] = []
+    failures: List[Dict[str, Any]] = []
+    skipped = 0
     if not args.dry_run:
+        existing_results = (
+            read_existing_results(args.outdir / "cartpole_ppo_sweep_results.csv")
+            if args.resume
+            else {}
+        )
         for job in jobs:
-            results.append(run_job(job))
+            existing = resumable_result_for_job(job, existing_results) if args.resume else None
+            if existing is not None:
+                results.append(existing)
+                skipped += 1
+            else:
+                try:
+                    results.append(run_job(job))
+                except Exception as exc:
+                    if not args.continue_on_error:
+                        raise
+                    failures.append(failed_job_row(job, exc))
+                    write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)
+                    continue
             write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
-            write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
-    write_manifest(args, jobs, len(results))
+            if results:
+                write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
+        write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
+        write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
+    if failures:
+        write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)
+    write_manifest(args, jobs, len(results), skipped, len(failures))
     print(f"wrote {args.outdir / 'cartpole_ppo_sweep_plan.csv'}")
     if not args.dry_run:
         print(f"wrote {args.outdir / 'cartpole_ppo_sweep_results.csv'}")

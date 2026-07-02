@@ -11,7 +11,16 @@ ROOT = os.path.dirname(os.path.dirname(__file__))
 SCRIPT = os.path.join(ROOT, "scripts", "run_cartpole_ppo_sweep.py")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from run_cartpole_ppo_sweep import PAPER_NMINIBATCHES, build_jobs, parse_args, summarize_results  # noqa: E402
+from run_cartpole_ppo_sweep import (  # noqa: E402
+    PAPER_NMINIBATCHES,
+    PLAN_FIELDS,
+    build_jobs,
+    count_uncapped_jobs,
+    parse_args,
+    read_existing_results,
+    resumable_result_for_job,
+    summarize_results,
+)
 
 
 class CartpolePPOSweepTest(unittest.TestCase):
@@ -94,6 +103,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(len(lstm_jobs), 1)
         self.assertEqual(lstm_jobs[0]["minibatches"], 1)
         self.assertEqual(mlp_jobs[0]["total_timesteps"], 10_000_000)
+        self.assertEqual(count_uncapped_jobs(args), len(PAPER_NMINIBATCHES) + 1)
 
     def test_dry_run_writes_plan_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -126,6 +136,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertTrue(manifest["dry_run"])
         self.assertTrue(manifest["quick"])
         self.assertEqual(manifest["jobs_planned"], 2)
+        self.assertGreater(manifest["jobs_uncapped_for_selected_space"], manifest["jobs_planned"])
         self.assertEqual(manifest["jobs_completed"], 0)
         self.assertEqual(manifest["paper_space"]["timesteps"], 10_000_000)
 
@@ -159,8 +170,153 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(len(summary_rows), 1)
         self.assertEqual(summary_rows[0]["best_job_id"], "0")
         self.assertEqual(manifest["jobs_completed"], 1)
+        self.assertEqual(manifest["jobs_failed"], 0)
+        self.assertEqual(manifest["jobs_skipped_existing"], 0)
+        self.assertEqual(manifest["jobs_run_this_invocation"], 1)
         self.assertIn("selection_rule", manifest)
         self.assertIn("summary", manifest["artifacts"])
+
+    def test_resume_skips_matching_completed_jobs_with_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--quick",
+                    "--max-configs",
+                    "1",
+                    "--outdir",
+                    tmpdir,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+            with open(os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv"), newline="", encoding="utf-8") as handle:
+                first_rows = list(csv.DictReader(handle))
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--quick",
+                    "--resume",
+                    "--max-configs",
+                    "2",
+                    "--outdir",
+                    tmpdir,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            with open(os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv"), newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+            with open(os.path.join(tmpdir, "cartpole_ppo_sweep_manifest.json"), encoding="utf-8") as handle:
+                manifest = json.load(handle)
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0], first_rows[0])
+        self.assertEqual(rows[1]["job_id"], "1")
+        self.assertTrue(manifest["resume"])
+        self.assertEqual(manifest["jobs_planned"], 2)
+        self.assertEqual(manifest["jobs_completed"], 2)
+        self.assertEqual(manifest["jobs_failed"], 0)
+        self.assertEqual(manifest["jobs_skipped_existing"], 1)
+        self.assertEqual(manifest["jobs_run_this_invocation"], 1)
+
+    def test_resume_rejects_rows_without_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_argv = sys.argv
+            try:
+                sys.argv = [
+                    SCRIPT,
+                    "--quick",
+                    "--max-configs",
+                    "1",
+                    "--outdir",
+                    tmpdir,
+                ]
+                args = parse_args()
+            finally:
+                sys.argv = original_argv
+            job = build_jobs(args)[0]
+            row = {
+                **{field: str(job[field]) for field in PLAN_FIELDS},
+                "train_success": "0.0",
+                "test_success": "0.0",
+                "train_reward": "1.0",
+                "test_reward": "1.0",
+                "selected_timesteps": "64",
+            }
+            results_path = os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv")
+            with open(results_path, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(row.keys()))
+                writer.writeheader()
+                writer.writerow(row)
+
+            existing = read_existing_results(os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv"))
+
+        self.assertIsNone(resumable_result_for_job(job, existing))
+
+    def test_continue_on_error_records_failed_jobs(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--quick",
+                    "--continue-on-error",
+                    "--policies",
+                    "bad",
+                    "--max-configs",
+                    "1",
+                    "--outdir",
+                    tmpdir,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            failures_path = os.path.join(tmpdir, "cartpole_ppo_sweep_failures.csv")
+            results_path = os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv")
+            manifest_path = os.path.join(tmpdir, "cartpole_ppo_sweep_manifest.json")
+            self.assertTrue(os.path.exists(failures_path))
+            self.assertTrue(os.path.exists(results_path))
+            with open(failures_path, newline="", encoding="utf-8") as handle:
+                failures = list(csv.DictReader(handle))
+            with open(results_path, newline="", encoding="utf-8") as handle:
+                results = list(csv.DictReader(handle))
+            with open(manifest_path, encoding="utf-8") as handle:
+                manifest = json.load(handle)
+
+        self.assertEqual(results, [])
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(failures[0]["policy"], "bad")
+        self.assertEqual(failures[0]["error_type"], "ValueError")
+        self.assertIn("policy_type", failures[0]["error_message"])
+        self.assertTrue(manifest["continue_on_error"])
+        self.assertEqual(manifest["jobs_completed"], 0)
+        self.assertEqual(manifest["jobs_failed"], 1)
+
+    def test_default_job_failure_stops_sweep(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--quick",
+                    "--policies",
+                    "bad",
+                    "--max-configs",
+                    "1",
+                    "--outdir",
+                    tmpdir,
+                ],
+                cwd=ROOT,
+                stderr=subprocess.DEVNULL,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":

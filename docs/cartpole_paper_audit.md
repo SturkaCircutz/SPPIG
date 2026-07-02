@@ -225,7 +225,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   boundary.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges and the chosen
-  learning-rate samples in a manifest, and writes a best-config summary for completed jobs.
+  learning-rate samples in a manifest, records the uncapped job count for the selected search space,
+  writes a best-config summary for completed jobs, can resume interrupted sweeps by reusing only
+  matching completed rows with existing checkpoint and metrics artifacts, and can optionally record
+  failed jobs while continuing a long sweep.
 
 ## Verified PPO Invariants
 
@@ -258,6 +261,15 @@ paper-scale PPO2 runs.
   the sweep summary selection rule.
 - `tests/test_cartpole_ppo_sweep.py::test_quick_execution_writes_results_summary_and_manifest`
   verifies that quick sweep execution writes results, summary, and manifest artifacts.
+- `tests/test_cartpole_ppo_sweep.py::test_resume_skips_matching_completed_jobs_with_artifacts`
+  verifies that resumable sweep execution skips a completed matching job and records skipped/run
+  counts in the manifest.
+- `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_without_artifacts` verifies that resume
+  does not trust result rows unless their checkpoint and metrics artifacts still exist.
+- `tests/test_cartpole_ppo_sweep.py::test_continue_on_error_records_failed_jobs` verifies that
+  opt-in sweep continuation records failed jobs to a failure artifact and manifest counters.
+- `tests/test_cartpole_ppo_sweep.py::test_default_job_failure_stops_sweep` verifies that job failures
+  still stop the sweep by default.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
   the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
   non-paper-scale provenance.
