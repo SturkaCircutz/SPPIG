@@ -243,7 +243,9 @@ the manifest.
   `cartpole_summary.csv` when present, otherwise raw result rows, and rewrites
   the abstract result, table, and PSM policy fragments; if PSM metrics with a
   linear switch exist, it writes the switch-boundary figure from that artifact,
-  and if PPO metrics JSON files exist, it also writes a training-curve figure)
+  and if PPO metrics JSON files exist, it also writes a training-curve figure;
+  generated result fragments carry a local-diagnostic limitation note and reject
+  rows whose explicit `test_horizon_steps` is not the paper 300-second horizon)
 - Paper fidelity audit: `docs/cartpole_paper_audit.md`
 - Result table: `artifacts/results/cartpole_results.csv`
 - Result metrics: `artifacts/results/metrics/`

@@ -222,7 +222,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `essay/cartpole_policy_fragment.tex` and plotting
   `programmatic_switch_boundary.png`; it writes an explicit fallback fragment and skips that figure
   when only non-linear/Boolean-tree switch descriptions are available instead of drawing a hard-coded
-  boundary.
+  boundary. Generated result fragments now carry an explicit local-diagnostic limitation note and
+  refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges and the chosen
   learning-rate samples in a manifest, records the uncapped job count for the selected search space,
@@ -419,7 +420,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   when present, falls back to raw result rows otherwise, and writes generated abstract-result and
   LaTeX result-table fragments. It also verifies PSM policy-fragment generation,
   switch-boundary parsing/plotting from synthetic metrics, fallback/skip behavior for non-linear
-  switches, PPO metrics-file discovery, and training-curve PNG generation.
+  switches, PPO metrics-file discovery, training-curve PNG generation, local-diagnostic limitation
+  notes, and rejection of explicit non-paper test horizons.
 
 ## Completion Criteria Still Required For Full Paper Claim
 

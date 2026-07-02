@@ -5,9 +5,40 @@
     {
       "filename": "project.tex",
       "usage": "toplevel"
+    },
+    {
+      "filename": "cartpole_abstract_results.tex",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated local-diagnostic abstract result fragment"
+    },
+    {
+      "filename": "cartpole_results_table.tex",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated local-diagnostic result table"
+    },
+    {
+      "filename": "cartpole_policy_fragment.tex",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated programmatic-policy fragment"
+    },
+    {
+      "filename": "figures/cartpole_success_rates.png",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated local-diagnostic success-rate figure"
+    },
+    {
+      "filename": "figures/cartpole_test_survival_reward.png",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated local-diagnostic test-survival figure"
+    },
+    {
+      "filename": "figures/programmatic_switch_boundary.png",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated programmatic switch-boundary figure"
     }
   ],
   "process": {
-    "compiler": "pdflatex"
+    "compiler": "pdflatex",
+    "regenerate_generated_artifacts": ".venv/bin/python scripts/make_paper_figures.py"
   }
 }
