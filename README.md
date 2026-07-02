@@ -294,6 +294,7 @@ extension rather than the paper's sampled search.
 - Result table: `artifacts/results/cartpole_results.csv`
 - Result metrics: `artifacts/results/metrics/`
 - Result summary: `artifacts/results/cartpole_summary.csv`
+- Result manifest: `artifacts/results/cartpole_manifest.json`
 - Programmatic policy metrics: `artifacts/cartpole_psm*_metrics.json`
 - PPO training metrics: `artifacts/cartpole_ppo_*_metrics.json`,
   `artifacts/results/metrics/*.json`, and `artifacts/ppo_sweep/metrics/*.json`

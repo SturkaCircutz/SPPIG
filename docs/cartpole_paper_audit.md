@@ -85,6 +85,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   plots PPO training curves when metrics JSON artifacts with `eval_history` are present. Its
   survival plot uses explicit survived-step fields when available and falls back to reward only for
   older artifacts.
+- `artifacts/results/cartpole_summary.csv` and `artifacts/results/cartpole_manifest.json`: checked-in
+  local diagnostic provenance for the current result bundle. The manifest records the command behind
+  each metrics artifact and explicitly keeps `paper_scale_result` false.
 
 ## Current Status
 
@@ -554,7 +557,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   LaTeX result-table fragments. It also verifies PSM policy-fragment generation,
   switch-boundary parsing/plotting from synthetic metrics, fallback/skip behavior for non-linear
   switches, PPO metrics-file discovery, training-curve PNG generation, local-diagnostic limitation
-  notes, and rejection of explicit non-paper test horizons.
+  notes, checked-in summary/manifest provenance, and rejection of explicit non-paper test horizons.
 
 ## Completion Criteria Still Required For Full Paper Claim
 

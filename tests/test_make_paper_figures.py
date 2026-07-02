@@ -17,7 +17,30 @@ class MakePaperFiguresTest(unittest.TestCase):
         rows = make_paper_figures.read_results()
 
         make_paper_figures.require_result_artifacts(rows)
-        self.assertTrue(all(row.get("metrics_output") for row in rows))
+        self.assertTrue(all(row.get("best_metrics_output") or row.get("metrics_output") for row in rows))
+        self.assertTrue(all(int(float(row["test_horizon_steps"])) == 15000 for row in rows))
+
+    def test_checked_in_result_manifest_matches_summary(self):
+        summary_path = os.path.join(ROOT, "artifacts", "results", "cartpole_summary.csv")
+        manifest_path = os.path.join(ROOT, "artifacts", "results", "cartpole_manifest.json")
+        self.assertTrue(os.path.exists(summary_path))
+        self.assertTrue(os.path.exists(manifest_path))
+
+        with open(summary_path, newline="", encoding="utf-8") as handle:
+            summary = list(csv.DictReader(handle))
+        with open(manifest_path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+
+        self.assertFalse(manifest["paper_scale_result"])
+        self.assertTrue(manifest["local_diagnostic_only"])
+        self.assertIn("10^7-timestep", manifest["limitation"])
+        self.assertEqual(manifest["row_count"], len(summary))
+        self.assertEqual(manifest["summary_csv"], "artifacts/results/cartpole_summary.csv")
+        self.assertEqual({row["policy"] for row in summary}, set(manifest["policies"]))
+        self.assertTrue(all(row["best_metrics_output"] for row in summary))
+        self.assertTrue(all(os.path.exists(os.path.join(ROOT, row["best_metrics_output"])) for row in summary))
+        self.assertIn("PPO MLP", manifest["reproduction_commands"])
+        self.assertIn("--test-max-steps 15000", manifest["reproduction_commands"]["PPO MLP"])
 
     def test_essay_manifest_lists_generated_cartpole_artifacts(self):
         with open(os.path.join(ROOT, "essay", "00README.json"), encoding="utf-8") as handle:
