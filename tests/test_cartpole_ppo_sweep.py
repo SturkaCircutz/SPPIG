@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
 from run_cartpole_ppo_sweep import (  # noqa: E402
     PAPER_NMINIBATCHES,
+    PAPER_HYPERPARAMETER_SAMPLES,
     PLAN_FIELDS,
     build_jobs,
     count_uncapped_jobs,
@@ -79,6 +80,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 SCRIPT,
                 "--policies",
                 "mlp,lstm",
+                "--hyperparam-mode",
+                "grid",
                 "--seeds",
                 "0",
                 "--learning-rates",
@@ -105,6 +108,25 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(lstm_jobs[0]["minibatches"], 1)
         self.assertEqual(mlp_jobs[0]["total_timesteps"], 10_000_000)
         self.assertEqual(count_uncapped_jobs(args), len(PAPER_NMINIBATCHES) + 1)
+
+    def test_build_jobs_defaults_to_paper_random_hyperparameter_samples(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--policies", "mlp,lstm", "--seeds", "0"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        jobs = build_jobs(args)
+        mlp_jobs = [job for job in jobs if job["policy"] == "mlp"]
+        lstm_jobs = [job for job in jobs if job["policy"] == "lstm"]
+
+        self.assertEqual(len(mlp_jobs), PAPER_HYPERPARAMETER_SAMPLES)
+        self.assertEqual(len(lstm_jobs), PAPER_HYPERPARAMETER_SAMPLES)
+        self.assertEqual({job["hyperparam_mode"] for job in jobs}, {"paper-random"})
+        self.assertEqual({int(job["minibatches"]) for job in lstm_jobs}, {1})
+        self.assertTrue(all(5e-6 <= float(job["learning_rate"]) <= 0.003 for job in jobs))
+        self.assertEqual(count_uncapped_jobs(args), 2 * PAPER_HYPERPARAMETER_SAMPLES)
 
     def test_dry_run_writes_plan_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -134,9 +156,13 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 manifest = json.load(handle)
 
         self.assertEqual(len(plan_rows), 2)
+        self.assertEqual(plan_rows[0]["hyperparam_mode"], "paper-random")
         self.assertTrue(manifest["dry_run"])
         self.assertTrue(manifest["quick"])
         self.assertEqual(manifest["jobs_planned"], 2)
+        self.assertEqual(manifest["hyperparam_mode"], "paper-random")
+        self.assertEqual(manifest["hyperparam_samples"], 10)
+        self.assertEqual(manifest["paper_space"]["hyperparameter_samples"], 10)
         self.assertGreater(manifest["jobs_uncapped_for_selected_space"], manifest["jobs_planned"])
         self.assertEqual(manifest["jobs_completed"], 0)
         self.assertEqual(manifest["paper_space"]["timesteps"], 10_000_000)
@@ -157,14 +183,63 @@ class CartpolePPOSweepTest(unittest.TestCase):
         status = paper_protocol_status(args)
 
         self.assertTrue(status["paper_timestep_budget"])
+        self.assertTrue(status["paper_test_horizon"])
         self.assertTrue(status["paper_seed_count"])
         self.assertTrue(status["full_baseline_policy_set"])
-        self.assertTrue(status["full_reported_mlp_grid"])
-        self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
+        self.assertEqual(status["hyperparam_mode"], "paper-random")
+        self.assertTrue(status["paper_random_hyperparameter_search"])
+        self.assertTrue(status["paper_random_sample_count"])
+        self.assertTrue(status["paper_random_learning_rate_values_within_reported_interval"])
         self.assertTrue(status["learning_rate_values_within_reported_interval"])
-        self.assertTrue(status["full_default_learning_rate_grid"])
+        self.assertFalse(status["grid_hyperparameter_search"])
+        self.assertFalse(status["full_reported_mlp_grid"])
+        self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
         self.assertTrue(status["paper_scale_plan"])
         self.assertFalse(status["paper_scale_execution"])
+
+    def test_paper_protocol_status_requires_full_test_horizon(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--test-max-steps", "1000"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertFalse(status["paper_test_horizon"])
+        self.assertEqual(status["selected_test_max_steps"], 1000)
+        self.assertFalse(status["paper_scale_plan"])
+        self.assertFalse(status["paper_scale_execution"])
+
+    def test_paper_protocol_status_rejects_grid_mode_as_paper_scale_plan(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--hyperparam-mode", "grid"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertTrue(status["grid_hyperparameter_search"])
+        self.assertTrue(status["full_reported_mlp_grid"])
+        self.assertTrue(status["full_default_learning_rate_grid"])
+        self.assertFalse(status["paper_random_hyperparameter_search"])
+        self.assertFalse(status["paper_scale_plan"])
+
+    def test_paper_protocol_status_requires_ten_random_hyperparameter_samples(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--hyperparam-samples", "9"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertFalse(status["paper_random_sample_count"])
+        self.assertFalse(status["paper_scale_plan"])
 
     def test_paper_protocol_status_rejects_duplicate_seed_list(self):
         original_argv = sys.argv
@@ -188,42 +263,70 @@ class CartpolePPOSweepTest(unittest.TestCase):
         finally:
             sys.argv = original_argv
 
-        incomplete_status = paper_protocol_status(args, jobs_planned=10, jobs_completed=9, jobs_failed=0)
-        failed_status = paper_protocol_status(args, jobs_planned=10, jobs_completed=9, jobs_failed=1)
-        completed_status = paper_protocol_status(args, jobs_planned=10, jobs_completed=10, jobs_failed=0)
+        expected_jobs = count_uncapped_jobs(args)
+
+        incomplete_status = paper_protocol_status(
+            args,
+            jobs_planned=expected_jobs,
+            jobs_completed=expected_jobs - 1,
+            jobs_failed=0,
+        )
+        failed_status = paper_protocol_status(
+            args,
+            jobs_planned=expected_jobs,
+            jobs_completed=expected_jobs - 1,
+            jobs_failed=1,
+        )
+        mismatched_count_status = paper_protocol_status(
+            args,
+            jobs_planned=10,
+            jobs_completed=10,
+            jobs_failed=0,
+        )
+        completed_status = paper_protocol_status(
+            args,
+            jobs_planned=expected_jobs,
+            jobs_completed=expected_jobs,
+            jobs_failed=0,
+        )
 
         self.assertTrue(incomplete_status["paper_scale_plan"])
+        self.assertTrue(incomplete_status["planned_job_count_matches_selected_space"])
         self.assertFalse(incomplete_status["all_planned_jobs_completed"])
         self.assertFalse(incomplete_status["paper_scale_execution"])
         self.assertFalse(failed_status["all_planned_jobs_completed"])
         self.assertFalse(failed_status["paper_scale_execution"])
+        self.assertFalse(mismatched_count_status["planned_job_count_matches_selected_space"])
+        self.assertTrue(mismatched_count_status["all_planned_jobs_completed"])
+        self.assertFalse(mismatched_count_status["paper_scale_execution"])
         self.assertTrue(completed_status["all_planned_jobs_completed"])
+        self.assertTrue(completed_status["planned_job_count_matches_selected_space"])
         self.assertTrue(completed_status["paper_scale_execution"])
 
     def test_paper_protocol_status_rejects_empty_learning_rate_list(self):
         original_argv = sys.argv
         try:
-            sys.argv = [SCRIPT, "--dry-run", "--learning-rates", ""]
+            sys.argv = [SCRIPT, "--dry-run", "--hyperparam-mode", "grid", "--learning-rates", ""]
             args = parse_args()
         finally:
             sys.argv = original_argv
 
         status = paper_protocol_status(args)
 
-        self.assertFalse(status["learning_rate_values_within_reported_interval"])
+        self.assertFalse(status["grid_learning_rate_values_within_reported_interval"])
         self.assertFalse(status["paper_scale_plan"])
 
     def test_paper_protocol_status_rejects_reduced_learning_rate_grid(self):
         original_argv = sys.argv
         try:
-            sys.argv = [SCRIPT, "--dry-run", "--learning-rates", "0.001"]
+            sys.argv = [SCRIPT, "--dry-run", "--hyperparam-mode", "grid", "--learning-rates", "0.001"]
             args = parse_args()
         finally:
             sys.argv = original_argv
 
         status = paper_protocol_status(args)
 
-        self.assertTrue(status["learning_rate_values_within_reported_interval"])
+        self.assertTrue(status["grid_learning_rate_values_within_reported_interval"])
         self.assertFalse(status["full_default_learning_rate_grid"])
         self.assertFalse(status["paper_scale_plan"])
 
@@ -279,13 +382,19 @@ class CartpolePPOSweepTest(unittest.TestCase):
             self.assertTrue(os.path.exists(results_path))
             self.assertTrue(os.path.exists(summary_path))
 
+            with open(results_path, newline="", encoding="utf-8") as handle:
+                result_rows = list(csv.DictReader(handle))
             with open(summary_path, newline="", encoding="utf-8") as handle:
                 summary_rows = list(csv.DictReader(handle))
             with open(manifest_path, encoding="utf-8") as handle:
                 manifest = json.load(handle)
 
+        self.assertEqual(result_rows[0]["hyperparam_mode"], "paper-random")
+        self.assertEqual(result_rows[0]["hyperparam_sample"], "0")
         self.assertEqual(len(summary_rows), 1)
         self.assertEqual(summary_rows[0]["best_job_id"], "0")
+        self.assertEqual(manifest["hyperparam_mode"], "paper-random")
+        self.assertEqual(manifest["hyperparam_samples"], 10)
         self.assertEqual(manifest["jobs_completed"], 1)
         self.assertEqual(manifest["jobs_failed"], 0)
         self.assertEqual(manifest["jobs_skipped_existing"], 0)

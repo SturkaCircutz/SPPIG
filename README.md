@@ -256,13 +256,15 @@ both the jobs actually planned and the uncapped job count for the selected
 search space, plus `paper_protocol_status` flags showing whether the plan is
 paper-scale, whether all planned jobs completed with zero failures, whether it
 is quick/truncated or dry-run only, and whether both PPO MLP and PPO-LSTM are
-included. The full-plan flag requires the runner's complete explicit
-learning-rate sample grid; the paper text reports only the interval, not the
-exact samples used by the authors. The sweep enumerates the paper's reported
-`nminibatches`, `ent_coef`, `noptepochs`, and `cliprange` ranges, with
-PPO-LSTM fixed to `nminibatches=1`. The extracted paper text gives a
-learning-rate interval rather than exact samples, so the runner records the
-explicit sampled values in the manifest.
+included. By default the sweep now uses `--hyperparam-mode paper-random`, which
+plans 10 uniformly sampled PPO hyperparameter configs per policy from the
+reported ranges and evaluates each config for every selected seed, with
+PPO-LSTM fixed to `nminibatches=1`.
+Use `--hyperparam-mode grid` for the older explicit Cartesian-grid diagnostic.
+The full-plan flag requires paper-random mode, 10 samples per policy, five
+seeds, both PPO MLP and PPO-LSTM, the `10^7` timestep budget, and the full
+15,000-step/300-second test horizon; grid mode is documented as a local
+extension rather than the paper's sampled search.
 
 ## Paper and Audit
 

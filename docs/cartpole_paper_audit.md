@@ -68,11 +68,12 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   contain intermediate train/test `eval_history` entries or only the selected final result.
   PPO metrics also contain compact `update_history` rows with rollout reward means and
   train-horizon termination counts.
-- `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that enumerates the
-  paper-reported search ranges, writes a plan/manifest, and can execute jobs with per-config
-  checkpoints and metrics JSON. It also writes a per-policy summary selecting the best completed
-  config by train success and train reward. This is search infrastructure; the full paper-scale
-  sweep has not been run.
+- `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that defaults to 10
+  uniformly sampled hyperparameter configs from the reported ranges per policy, evaluates each
+  config for every selected seed, writes a plan/manifest, and can execute jobs with per-config
+  checkpoints and metrics JSON. It also supports an explicit Cartesian-grid diagnostic mode and
+  writes a per-policy summary selecting the best completed config by train success and train reward.
+  This is search infrastructure; the full paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
   generated abstract-result, LaTeX table, and PSM policy fragments consumed by `essay/project.tex`,
@@ -244,15 +245,17 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   boundary. Generated result fragments now carry an explicit local-diagnostic limitation note and
   refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon.
 - PPO hyperparameter search can now be planned or executed through
-  `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges and the chosen
-  learning-rate samples in a manifest, records the uncapped job count for the selected search space,
-  writes machine-readable `paper_protocol_status` flags to distinguish full paper-scale plans from
-  quick/truncated or dry-run diagnostics and to mark paper-scale execution only when all planned jobs
-  complete with zero failures. The full-plan flag requires the runner's full explicit learning-rate
-  sample grid, while still documenting that the paper text reports only an interval rather than the
-  authors' exact samples. The runner writes a best-config summary for completed jobs, can resume
-  interrupted sweeps by reusing only matching completed rows with existing checkpoint and metrics
-  artifacts, and can optionally record failed jobs while continuing a long sweep.
+  `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges, reproducible
+  `paper-random` hyperparameter sample IDs, and the uncapped job count for the selected search space
+  in a manifest. It writes machine-readable `paper_protocol_status` flags to distinguish full
+  paper-scale plans from quick/truncated/grid-diagnostic or dry-run diagnostics and to mark
+  paper-scale execution only when all planned jobs complete with zero failures. The full-plan flag
+  now requires `paper-random` mode with 10 samples per policy, five seeds, both PPO MLP and PPO-LSTM,
+  `10^7` timesteps, and the full 15,000-step/300-second test horizon. Grid mode remains available as
+  a local diagnostic extension. Paper-scale execution additionally requires the planned job count to
+  match the uncapped selected search space. The runner writes a best-config summary for completed
+  jobs, can resume interrupted sweeps by reusing only matching completed rows with existing checkpoint
+  and metrics artifacts, and can optionally record failed jobs while continuing a long sweep.
 
 ## Verified PPO Invariants
 
@@ -279,17 +282,28 @@ paper-scale PPO2 runs.
   keep the full probabilistic adaptive-teaching and paper-scale result claims false.
 - `tests/test_cartpole_ppo_sweep.py::test_build_jobs_uses_paper_minibatch_rule_for_lstm` verifies
   that the sweep includes the paper's feed-forward minibatch grid while forcing PPO-LSTM to
-  `nminibatches = 1`.
+  `nminibatches = 1` in grid-diagnostic mode.
+- `tests/test_cartpole_ppo_sweep.py::test_build_jobs_defaults_to_paper_random_hyperparameter_samples`
+  verifies that default sweep planning uses 10 reproducible paper-random hyperparameter samples per
+  policy, evaluates them for each selected seed, and keeps PPO-LSTM minibatches fixed to one.
 - `tests/test_cartpole_ppo_sweep.py::test_dry_run_writes_plan_and_manifest` verifies that dry-run
   sweep planning writes a CSV plan and manifest with paper-space metadata.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_identifies_full_dry_run_plan`
   verifies that the manifest status flags distinguish a full paper-scale dry-run plan from completed
   paper-scale execution.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_grid_mode_as_paper_scale_plan`
+  verifies that the explicit Cartesian-grid diagnostic is not tagged as the paper's sampled
+  hyperparameter protocol.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_ten_random_hyperparameter_samples`
+  verifies that the paper-scale plan flag requires the paper's 10 random hyperparameter samples.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_full_test_horizon`
+  verifies that the paper-scale plan flag requires the paper's full 15,000-step/300-second test
+  horizon.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_duplicate_seed_list`
   verifies that five repeated seed entries are not tagged as the paper five-seed protocol.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_completed_jobs_for_execution`
-  verifies that paper-scale execution is not marked true unless all planned jobs completed and no
-  job failed.
+  verifies that paper-scale execution is not marked true unless the planned job count matches the
+  uncapped selected search space, all planned jobs completed, and no job failed.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_empty_learning_rate_list`
   verifies that an empty learning-rate list is not tagged as a paper-scale plan.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_reduced_learning_rate_grid`

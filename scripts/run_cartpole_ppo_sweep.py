@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import random
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -18,12 +19,18 @@ PAPER_NMINIBATCHES = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
 PAPER_ENT_COEFS = [0.0, 0.01, 0.05, 0.1]
 PAPER_UPDATE_EPOCHS = list(range(3, 37))
 PAPER_CLIP_RANGES = [0.1, 0.2, 0.3]
+PAPER_HYPERPARAMETER_SAMPLES = 10
+PAPER_LEARNING_RATE_MIN = 5e-6
+PAPER_LEARNING_RATE_MAX = 0.003
+PAPER_TEST_MAX_STEPS = 15_000
 DEFAULT_LEARNING_RATES = [5e-6, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3, 3e-3]
 
 PLAN_FIELDS = [
     "job_id",
     "policy",
     "seed",
+    "hyperparam_mode",
+    "hyperparam_sample",
     "total_timesteps",
     "rollout_steps",
     "num_envs",
@@ -92,73 +99,96 @@ def _job_name(job_id: int, policy: str, seed: int) -> str:
     return f"{job_id:05d}_{policy}_seed{seed}"
 
 
-def build_jobs(args: argparse.Namespace) -> List[Dict[str, Any]]:
-    policies = [policy for policy in args.policies.split(",") if policy]
-    seeds = _parse_ints(args.seeds)
-    learning_rates = _parse_floats(args.learning_rates)
+def _grid_hyperparameter_configs(args: argparse.Namespace, policy: str) -> List[Dict[str, Any]]:
     nminibatches = _parse_ints(args.nminibatches)
     ent_coefs = _parse_floats(args.ent_coefs)
     update_epochs = _parse_update_epochs(args.update_epochs)
     clip_ranges = _parse_floats(args.clip_ranges)
+    learning_rates = _parse_floats(args.learning_rates)
+    policy_minibatches = [1] if policy == "lstm" else nminibatches
+    configs: List[Dict[str, Any]] = []
+    for minibatches in policy_minibatches:
+        for entropy_coef in ent_coefs:
+            for epochs in update_epochs:
+                for clip_range in clip_ranges:
+                    for learning_rate in learning_rates:
+                        configs.append(
+                            {
+                                "minibatches": minibatches,
+                                "learning_rate": learning_rate,
+                                "entropy_coef": entropy_coef,
+                                "update_epochs": epochs,
+                                "clip_range": clip_range,
+                            }
+                        )
+    return configs
+
+
+def _paper_random_hyperparameter_configs(args: argparse.Namespace, policy: str) -> List[Dict[str, Any]]:
+    rng = random.Random(args.hyperparam_seed + (0 if policy == "mlp" else 1_000_003))
+    configs: List[Dict[str, Any]] = []
+    for _ in range(max(0, args.hyperparam_samples)):
+        configs.append(
+            {
+                "minibatches": 1 if policy == "lstm" else rng.choice(PAPER_NMINIBATCHES),
+                "learning_rate": rng.uniform(PAPER_LEARNING_RATE_MIN, PAPER_LEARNING_RATE_MAX),
+                "entropy_coef": rng.choice(PAPER_ENT_COEFS),
+                "update_epochs": rng.choice(PAPER_UPDATE_EPOCHS),
+                "clip_range": rng.choice(PAPER_CLIP_RANGES),
+            }
+        )
+    return configs
+
+
+def hyperparameter_configs(args: argparse.Namespace, policy: str) -> List[Dict[str, Any]]:
+    if args.hyperparam_mode == "paper-random":
+        return _paper_random_hyperparameter_configs(args, policy)
+    return _grid_hyperparameter_configs(args, policy)
+
+
+def build_jobs(args: argparse.Namespace) -> List[Dict[str, Any]]:
+    policies = [policy for policy in args.policies.split(",") if policy]
+    seeds = _parse_ints(args.seeds)
 
     jobs: List[Dict[str, Any]] = []
     for policy in policies:
-        policy_minibatches = [1] if policy == "lstm" else nminibatches
+        configs = hyperparameter_configs(args, policy)
         for seed in seeds:
-            for minibatches in policy_minibatches:
-                for entropy_coef in ent_coefs:
-                    for epochs in update_epochs:
-                        for clip_range in clip_ranges:
-                            for learning_rate in learning_rates:
-                                job_id = len(jobs)
-                                name = _job_name(job_id, policy, seed)
-                                jobs.append(
-                                    {
-                                        "job_id": job_id,
-                                        "policy": policy,
-                                        "seed": seed,
-                                        "total_timesteps": args.timesteps,
-                                        "rollout_steps": args.rollout_steps,
-                                        "num_envs": args.num_envs,
-                                        "hidden_size": args.hidden_size,
-                                        "update_epochs": epochs,
-                                        "minibatches": minibatches,
-                                        "learning_rate": learning_rate,
-                                        "entropy_coef": entropy_coef,
-                                        "clip_range": clip_range,
-                                        "eval_rollouts": args.eval_rollouts,
-                                        "test_max_steps": args.test_max_steps,
-                                        "eval_interval": args.eval_interval,
-                                        "output": str(args.outdir / "checkpoints" / f"{name}.pt"),
-                                        "metrics_output": str(args.outdir / "metrics" / f"{name}.json"),
-                                    }
-                                )
-                                if args.max_configs is not None and len(jobs) >= args.max_configs:
-                                    return jobs
+            for sample_index, config in enumerate(configs):
+                job_id = len(jobs)
+                name = _job_name(job_id, policy, seed)
+                jobs.append(
+                    {
+                        "job_id": job_id,
+                        "policy": policy,
+                        "seed": seed,
+                        "hyperparam_mode": args.hyperparam_mode,
+                        "hyperparam_sample": sample_index,
+                        "total_timesteps": args.timesteps,
+                        "rollout_steps": args.rollout_steps,
+                        "num_envs": args.num_envs,
+                        "hidden_size": args.hidden_size,
+                        "update_epochs": config["update_epochs"],
+                        "minibatches": config["minibatches"],
+                        "learning_rate": config["learning_rate"],
+                        "entropy_coef": config["entropy_coef"],
+                        "clip_range": config["clip_range"],
+                        "eval_rollouts": args.eval_rollouts,
+                        "test_max_steps": args.test_max_steps,
+                        "eval_interval": args.eval_interval,
+                        "output": str(args.outdir / "checkpoints" / f"{name}.pt"),
+                        "metrics_output": str(args.outdir / "metrics" / f"{name}.json"),
+                    }
+                )
+                if args.max_configs is not None and len(jobs) >= args.max_configs:
+                    return jobs
     return jobs
 
 
 def count_uncapped_jobs(args: argparse.Namespace) -> int:
     policies = [policy for policy in args.policies.split(",") if policy]
     seeds = _parse_ints(args.seeds)
-    nminibatches = _parse_ints(args.nminibatches)
-    ent_coefs = _parse_floats(args.ent_coefs)
-    update_epochs = _parse_update_epochs(args.update_epochs)
-    clip_ranges = _parse_floats(args.clip_ranges)
-    learning_rates = _parse_floats(args.learning_rates)
-
-    total = 0
-    for policy in policies:
-        policy_minibatches = 1 if policy == "lstm" else len(nminibatches)
-        total += (
-            len(seeds)
-            * policy_minibatches
-            * len(ent_coefs)
-            * len(update_epochs)
-            * len(clip_ranges)
-            * len(learning_rates)
-        )
-    return total
+    return sum(len(seeds) * len(hyperparameter_configs(args, policy)) for policy in policies)
 
 
 def paper_protocol_status(
@@ -176,28 +206,43 @@ def paper_protocol_status(
     learning_rates = _parse_floats(args.learning_rates)
     requested_policy_set = set(policies)
     full_baseline_policy_set = requested_policy_set == {"mlp", "lstm"} and len(policies) == 2
+    grid_mode = args.hyperparam_mode == "grid"
+    paper_random_mode = args.hyperparam_mode == "paper-random"
+    jobs_expected_for_selected_space = count_uncapped_jobs(args)
     has_full_mlp_grid = (
-        "mlp" in policies
+        grid_mode
+        and "mlp" in policies
         and nminibatches == PAPER_NMINIBATCHES
         and ent_coefs == PAPER_ENT_COEFS
         and update_epochs == PAPER_UPDATE_EPOCHS
         and clip_ranges == PAPER_CLIP_RANGES
     )
     paper_timestep_budget = int(args.timesteps) == PAPER_TIMESTEPS
+    paper_test_horizon = int(args.test_max_steps) == PAPER_TEST_MAX_STEPS
     paper_seed_count = len(seeds) == 5 and len(set(seeds)) == 5
-    learning_rates_in_interval = bool(learning_rates) and all(5e-6 <= value <= 0.003 for value in learning_rates)
+    grid_learning_rates_in_interval = (
+        grid_mode
+        and bool(learning_rates)
+        and all(PAPER_LEARNING_RATE_MIN <= value <= PAPER_LEARNING_RATE_MAX for value in learning_rates)
+    )
+    paper_random_learning_rates_in_interval = paper_random_mode and int(args.hyperparam_samples) > 0
+    learning_rates_in_interval = grid_learning_rates_in_interval or paper_random_learning_rates_in_interval
     full_default_learning_rate_grid = (
-        len(learning_rates) == len(DEFAULT_LEARNING_RATES)
+        grid_mode
+        and len(learning_rates) == len(DEFAULT_LEARNING_RATES)
         and set(learning_rates) == set(DEFAULT_LEARNING_RATES)
+    )
+    paper_random_sample_count = (
+        paper_random_mode
+        and int(args.hyperparam_samples) == PAPER_HYPERPARAMETER_SAMPLES
     )
     truncated = args.max_configs is not None
     paper_scale_plan = (
         paper_timestep_budget
+        and paper_test_horizon
         and paper_seed_count
         and full_baseline_policy_set
-        and has_full_mlp_grid
-        and learning_rates_in_interval
-        and full_default_learning_rate_grid
+        and paper_random_sample_count
         and not truncated
         and not args.quick
     )
@@ -209,24 +254,44 @@ def paper_protocol_status(
         and jobs_completed == jobs_planned
         and jobs_failed == 0
     )
+    planned_job_count_matches_selected_space = (
+        jobs_planned is not None and jobs_planned == jobs_expected_for_selected_space
+    )
     return {
         "paper_timestep_budget": paper_timestep_budget,
+        "paper_test_horizon": paper_test_horizon,
+        "paper_test_horizon_steps": PAPER_TEST_MAX_STEPS,
+        "selected_test_max_steps": int(args.test_max_steps),
         "paper_seed_count": paper_seed_count,
         "selected_seed_count": len(seeds),
         "includes_ppo_mlp": "mlp" in requested_policy_set,
         "includes_ppo_lstm": "lstm" in requested_policy_set,
         "full_baseline_policy_set": full_baseline_policy_set,
+        "hyperparam_mode": args.hyperparam_mode,
+        "grid_hyperparameter_search": grid_mode,
+        "paper_random_hyperparameter_search": paper_random_mode,
+        "paper_random_hyperparameter_samples": int(args.hyperparam_samples),
+        "paper_random_sample_count": paper_random_sample_count,
         "full_reported_mlp_grid": has_full_mlp_grid,
         "ppo_lstm_minibatches_fixed_to_one": "lstm" in requested_policy_set,
         "learning_rate_interval_only": True,
+        "grid_learning_rate_values_within_reported_interval": grid_learning_rates_in_interval,
+        "paper_random_learning_rate_values_within_reported_interval": paper_random_learning_rates_in_interval,
         "learning_rate_values_within_reported_interval": learning_rates_in_interval,
         "full_default_learning_rate_grid": full_default_learning_rate_grid,
         "truncated_by_max_configs": truncated,
         "quick_diagnostic": bool(args.quick),
         "dry_run_only": bool(args.dry_run),
+        "jobs_expected_for_selected_space": jobs_expected_for_selected_space,
+        "planned_job_count_matches_selected_space": planned_job_count_matches_selected_space,
         "all_planned_jobs_completed": all_planned_jobs_completed,
         "paper_scale_plan": paper_scale_plan,
-        "paper_scale_execution": paper_scale_plan and not args.dry_run and all_planned_jobs_completed,
+        "paper_scale_execution": (
+            paper_scale_plan
+            and not args.dry_run
+            and planned_job_count_matches_selected_space
+            and all_planned_jobs_completed
+        ),
     }
 
 
@@ -370,19 +435,28 @@ def write_manifest(
         "jobs_skipped_existing": skipped,
         "jobs_run_this_invocation": completed - skipped,
         "max_configs": args.max_configs,
+        "hyperparam_mode": args.hyperparam_mode,
+        "hyperparam_samples": args.hyperparam_samples,
+        "hyperparam_seed": args.hyperparam_seed,
         "paper_protocol_status": paper_protocol_status(args, len(jobs), completed, failed),
         "paper_space": {
             "timesteps": PAPER_TIMESTEPS,
+            "test_max_steps": PAPER_TEST_MAX_STEPS,
+            "hyperparameter_sampling": (
+                "10 uniformly sampled configs from the reported space per policy, evaluated for each seed"
+            ),
+            "hyperparameter_samples": PAPER_HYPERPARAMETER_SAMPLES,
             "nminibatches": PAPER_NMINIBATCHES,
             "lstm_nminibatches": [1],
             "ent_coef": PAPER_ENT_COEFS,
             "noptepochs": [3, 36],
             "cliprange": PAPER_CLIP_RANGES,
-            "learning_rate_interval": [5e-6, 0.003],
+            "learning_rate_interval": [PAPER_LEARNING_RATE_MIN, PAPER_LEARNING_RATE_MAX],
             "learning_rate_values_used": _parse_floats(args.learning_rates),
             "learning_rate_note": (
-                "The extracted paper text reports a learning-rate interval, not the exact samples. "
-                "This runner uses the explicit --learning-rates values within that interval."
+                "The paper reports uniform sampling from this interval, not the exact sampled values. "
+                "Use --hyperparam-mode paper-random for reproducible local samples; grid mode is "
+                "a local diagnostic extension."
             ),
         },
         "artifacts": {
@@ -414,6 +488,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-rollouts", type=int, default=20)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--eval-interval", type=int, default=0)
+    parser.add_argument(
+        "--hyperparam-mode",
+        choices=("paper-random", "grid"),
+        default="paper-random",
+        help=(
+            "paper-random samples the paper's 10 hyperparameter instances from the reported ranges; "
+            "grid enumerates the explicit local grids below."
+        ),
+    )
+    parser.add_argument("--hyperparam-samples", type=int, default=PAPER_HYPERPARAMETER_SAMPLES)
+    parser.add_argument("--hyperparam-seed", type=int, default=0)
     parser.add_argument("--learning-rates", default=",".join(str(value) for value in DEFAULT_LEARNING_RATES))
     parser.add_argument("--nminibatches", default=",".join(str(value) for value in PAPER_NMINIBATCHES))
     parser.add_argument("--ent-coefs", default=",".join(str(value) for value in PAPER_ENT_COEFS))
