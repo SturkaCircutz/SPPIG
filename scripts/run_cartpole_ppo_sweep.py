@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import random
 import sys
 from pathlib import Path
@@ -72,6 +73,38 @@ SUMMARY_FIELDS = [
     "best_clip_range",
     "best_output",
     "best_metrics_output",
+]
+
+HYPERPARAMETER_SUMMARY_FIELDS = [
+    "policy",
+    "hyperparam_mode",
+    "hyperparam_sample",
+    "jobs_completed",
+    "seed_count",
+    "seeds_completed",
+    "train_success_mean",
+    "train_success_std",
+    "test_success_mean",
+    "test_success_std",
+    "train_reward_mean",
+    "train_reward_std",
+    "test_reward_mean",
+    "test_reward_std",
+    "minibatches",
+    "learning_rate",
+    "entropy_coef",
+    "update_epochs",
+    "clip_range",
+    "best_job_id",
+    "best_seed",
+    "best_train_success",
+    "best_test_success",
+    "best_train_reward",
+    "best_test_reward",
+    "best_selected_timesteps",
+    "best_output",
+    "best_metrics_output",
+    "is_best_hyperparam_for_policy",
 ]
 
 FAILURE_FIELDS = PLAN_FIELDS + [
@@ -348,6 +381,107 @@ def summarize_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return summary
 
 
+def _mean(values: List[float]) -> float:
+    return sum(values) / len(values) if values else 0.0
+
+
+def _sample_std(values: List[float]) -> float:
+    if len(values) <= 1:
+        return 0.0
+    mean = _mean(values)
+    variance = sum((value - mean) ** 2 for value in values) / (len(values) - 1)
+    return math.sqrt(max(variance, 0.0))
+
+
+def _best_completed_job(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    return max(
+        rows,
+        key=lambda row: (
+            float(row["train_success"]),
+            float(row["train_reward"]),
+            -int(row["job_id"]),
+        ),
+    )
+
+
+def _hyperparameter_summary_rank(row: Dict[str, Any]) -> tuple[float, float, int, int]:
+    return (
+        float(row["train_success_mean"]),
+        float(row["train_reward_mean"]),
+        int(row["seed_count"]),
+        -int(row["hyperparam_sample"]),
+    )
+
+
+def summarize_hyperparameter_configs(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    grouped: Dict[tuple[str, str, int], List[Dict[str, Any]]] = {}
+    order: List[tuple[str, str, int]] = []
+    for row in results:
+        key = (
+            str(row["policy"]),
+            str(row["hyperparam_mode"]),
+            int(row["hyperparam_sample"]),
+        )
+        if key not in grouped:
+            grouped[key] = []
+            order.append(key)
+        grouped[key].append(row)
+
+    summary: List[Dict[str, Any]] = []
+    for policy, hyperparam_mode, hyperparam_sample in order:
+        group = grouped[(policy, hyperparam_mode, hyperparam_sample)]
+        first = min(group, key=lambda row: int(row["job_id"]))
+        best = _best_completed_job(group)
+        seeds = sorted({int(row["seed"]) for row in group})
+        train_success = [float(row["train_success"]) for row in group]
+        test_success = [float(row["test_success"]) for row in group]
+        train_reward = [float(row["train_reward"]) for row in group]
+        test_reward = [float(row["test_reward"]) for row in group]
+        summary.append(
+            {
+                "policy": policy,
+                "hyperparam_mode": hyperparam_mode,
+                "hyperparam_sample": hyperparam_sample,
+                "jobs_completed": len(group),
+                "seed_count": len(seeds),
+                "seeds_completed": ",".join(str(seed) for seed in seeds),
+                "train_success_mean": _mean(train_success),
+                "train_success_std": _sample_std(train_success),
+                "test_success_mean": _mean(test_success),
+                "test_success_std": _sample_std(test_success),
+                "train_reward_mean": _mean(train_reward),
+                "train_reward_std": _sample_std(train_reward),
+                "test_reward_mean": _mean(test_reward),
+                "test_reward_std": _sample_std(test_reward),
+                "minibatches": int(first["minibatches"]),
+                "learning_rate": float(first["learning_rate"]),
+                "entropy_coef": float(first["entropy_coef"]),
+                "update_epochs": int(first["update_epochs"]),
+                "clip_range": float(first["clip_range"]),
+                "best_job_id": int(best["job_id"]),
+                "best_seed": int(best["seed"]),
+                "best_train_success": float(best["train_success"]),
+                "best_test_success": float(best["test_success"]),
+                "best_train_reward": float(best["train_reward"]),
+                "best_test_reward": float(best["test_reward"]),
+                "best_selected_timesteps": int(best["selected_timesteps"]),
+                "best_output": best["output"],
+                "best_metrics_output": best["metrics_output"],
+                "is_best_hyperparam_for_policy": False,
+            }
+        )
+
+    best_by_policy: Dict[str, Dict[str, Any]] = {}
+    for row in summary:
+        policy = str(row["policy"])
+        current_best = best_by_policy.get(policy)
+        if current_best is None or _hyperparameter_summary_rank(row) > _hyperparameter_summary_rank(current_best):
+            best_by_policy[policy] = row
+    for row in summary:
+        row["is_best_hyperparam_for_policy"] = row is best_by_policy[str(row["policy"])]
+    return summary
+
+
 def read_existing_results(path: Path | str) -> Dict[int, Dict[str, str]]:
     path = Path(path)
     if not path.exists():
@@ -463,11 +597,16 @@ def write_manifest(
             "plan": str(args.outdir / "cartpole_ppo_sweep_plan.csv"),
             "results": str(args.outdir / "cartpole_ppo_sweep_results.csv"),
             "summary": str(args.outdir / "cartpole_ppo_sweep_summary.csv"),
+            "hyperparameter_summary": str(args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv"),
             "failures": str(args.outdir / "cartpole_ppo_sweep_failures.csv"),
             "checkpoints": str(args.outdir / "checkpoints"),
             "metrics": str(args.outdir / "metrics"),
         },
-        "selection_rule": "per policy: max train_success, then train_reward, then lower job_id",
+        "selection_rule": "single completed job per policy: max train_success, then train_reward, then lower job_id",
+        "hyperparameter_selection_rule": (
+            "per policy and hyperparameter sample: aggregate completed seeds by mean train_success, "
+            "then mean train_reward, then completed seed count, then lower sample id"
+        ),
     }
     args.outdir.mkdir(parents=True, exist_ok=True)
     (args.outdir / "cartpole_ppo_sweep_manifest.json").write_text(
@@ -559,8 +698,18 @@ def main() -> None:
             write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
             if results:
                 write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
+                write_csv(
+                    args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv",
+                    HYPERPARAMETER_SUMMARY_FIELDS,
+                    summarize_hyperparameter_configs(results),
+                )
         write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
         write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
+        write_csv(
+            args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv",
+            HYPERPARAMETER_SUMMARY_FIELDS,
+            summarize_hyperparameter_configs(results),
+        )
     if failures:
         write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)
     write_manifest(args, jobs, len(results), skipped, len(failures))
@@ -568,6 +717,7 @@ def main() -> None:
     if not args.dry_run:
         print(f"wrote {args.outdir / 'cartpole_ppo_sweep_results.csv'}")
         print(f"wrote {args.outdir / 'cartpole_ppo_sweep_summary.csv'}")
+        print(f"wrote {args.outdir / 'cartpole_ppo_sweep_hyperparam_summary.csv'}")
     print(f"wrote {args.outdir / 'cartpole_ppo_sweep_manifest.json'}")
 
 

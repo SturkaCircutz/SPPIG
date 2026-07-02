@@ -21,6 +21,7 @@ from run_cartpole_ppo_sweep import (  # noqa: E402
     paper_protocol_status,
     read_existing_results,
     resumable_result_for_job,
+    summarize_hyperparameter_configs,
     summarize_results,
 )
 
@@ -72,6 +73,84 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(summary[0]["best_job_id"], 1)
         self.assertEqual(summary[0]["best_minibatches"], 8)
         self.assertAlmostEqual(summary[0]["best_learning_rate"], 0.0003)
+
+    def test_summarize_hyperparameter_configs_aggregates_completed_seeds(self):
+        rows = [
+            {
+                "job_id": 0,
+                "policy": "mlp",
+                "seed": 0,
+                "hyperparam_mode": "paper-random",
+                "hyperparam_sample": 0,
+                "train_success": 1.0,
+                "test_success": 0.0,
+                "train_reward": 200.0,
+                "test_reward": 50.0,
+                "selected_timesteps": 64,
+                "minibatches": 1,
+                "learning_rate": 0.001,
+                "entropy_coef": 0.0,
+                "update_epochs": 3,
+                "clip_range": 0.1,
+                "output": "a.pt",
+                "metrics_output": "a.json",
+            },
+            {
+                "job_id": 1,
+                "policy": "mlp",
+                "seed": 1,
+                "hyperparam_mode": "paper-random",
+                "hyperparam_sample": 0,
+                "train_success": 0.0,
+                "test_success": 1.0,
+                "train_reward": 100.0,
+                "test_reward": 70.0,
+                "selected_timesteps": 64,
+                "minibatches": 1,
+                "learning_rate": 0.001,
+                "entropy_coef": 0.0,
+                "update_epochs": 3,
+                "clip_range": 0.1,
+                "output": "b.pt",
+                "metrics_output": "b.json",
+            },
+            {
+                "job_id": 2,
+                "policy": "mlp",
+                "seed": 0,
+                "hyperparam_mode": "paper-random",
+                "hyperparam_sample": 1,
+                "train_success": 0.75,
+                "test_success": 0.5,
+                "train_reward": 175.0,
+                "test_reward": 60.0,
+                "selected_timesteps": 64,
+                "minibatches": 4,
+                "learning_rate": 0.0003,
+                "entropy_coef": 0.01,
+                "update_epochs": 8,
+                "clip_range": 0.2,
+                "output": "c.pt",
+                "metrics_output": "c.json",
+            },
+        ]
+
+        summary = summarize_hyperparameter_configs(rows)
+
+        self.assertEqual(len(summary), 2)
+        first = summary[0]
+        second = summary[1]
+        self.assertEqual(first["hyperparam_sample"], 0)
+        self.assertEqual(first["jobs_completed"], 2)
+        self.assertEqual(first["seed_count"], 2)
+        self.assertEqual(first["seeds_completed"], "0,1")
+        self.assertAlmostEqual(first["train_success_mean"], 0.5)
+        self.assertAlmostEqual(first["train_success_std"], 0.7071067811865476)
+        self.assertEqual(first["best_job_id"], 0)
+        self.assertFalse(first["is_best_hyperparam_for_policy"])
+        self.assertEqual(second["hyperparam_sample"], 1)
+        self.assertEqual(second["seed_count"], 1)
+        self.assertTrue(second["is_best_hyperparam_for_policy"])
 
     def test_build_jobs_uses_paper_minibatch_rule_for_lstm(self):
         original_argv = sys.argv
@@ -378,14 +457,18 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
             results_path = os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv")
             summary_path = os.path.join(tmpdir, "cartpole_ppo_sweep_summary.csv")
+            hyperparam_summary_path = os.path.join(tmpdir, "cartpole_ppo_sweep_hyperparam_summary.csv")
             manifest_path = os.path.join(tmpdir, "cartpole_ppo_sweep_manifest.json")
             self.assertTrue(os.path.exists(results_path))
             self.assertTrue(os.path.exists(summary_path))
+            self.assertTrue(os.path.exists(hyperparam_summary_path))
 
             with open(results_path, newline="", encoding="utf-8") as handle:
                 result_rows = list(csv.DictReader(handle))
             with open(summary_path, newline="", encoding="utf-8") as handle:
                 summary_rows = list(csv.DictReader(handle))
+            with open(hyperparam_summary_path, newline="", encoding="utf-8") as handle:
+                hyperparam_summary_rows = list(csv.DictReader(handle))
             with open(manifest_path, encoding="utf-8") as handle:
                 manifest = json.load(handle)
 
@@ -393,6 +476,9 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(result_rows[0]["hyperparam_sample"], "0")
         self.assertEqual(len(summary_rows), 1)
         self.assertEqual(summary_rows[0]["best_job_id"], "0")
+        self.assertEqual(len(hyperparam_summary_rows), 1)
+        self.assertEqual(hyperparam_summary_rows[0]["hyperparam_sample"], "0")
+        self.assertEqual(hyperparam_summary_rows[0]["is_best_hyperparam_for_policy"], "True")
         self.assertEqual(manifest["hyperparam_mode"], "paper-random")
         self.assertEqual(manifest["hyperparam_samples"], 10)
         self.assertEqual(manifest["jobs_completed"], 1)
@@ -400,7 +486,9 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(manifest["jobs_skipped_existing"], 0)
         self.assertEqual(manifest["jobs_run_this_invocation"], 1)
         self.assertIn("selection_rule", manifest)
+        self.assertIn("hyperparameter_selection_rule", manifest)
         self.assertIn("summary", manifest["artifacts"])
+        self.assertIn("hyperparameter_summary", manifest["artifacts"])
 
     def test_resume_skips_matching_completed_jobs_with_artifacts(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -437,10 +525,17 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
             with open(os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv"), newline="", encoding="utf-8") as handle:
                 rows = list(csv.DictReader(handle))
+            with open(
+                os.path.join(tmpdir, "cartpole_ppo_sweep_hyperparam_summary.csv"),
+                newline="",
+                encoding="utf-8",
+            ) as handle:
+                hyperparam_summary = list(csv.DictReader(handle))
             with open(os.path.join(tmpdir, "cartpole_ppo_sweep_manifest.json"), encoding="utf-8") as handle:
                 manifest = json.load(handle)
 
         self.assertEqual(len(rows), 2)
+        self.assertEqual(len(hyperparam_summary), 2)
         self.assertEqual(rows[0], first_rows[0])
         self.assertEqual(rows[1]["job_id"], "1")
         self.assertTrue(manifest["resume"])

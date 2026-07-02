@@ -249,9 +249,12 @@ an interrupted sweep; it skips only completed rows whose plan fields still
 match and whose checkpoint plus metrics artifacts still exist. Use
 `--continue-on-error` only when a long sweep should record failed jobs to
 `cartpole_ppo_sweep_failures.csv` and continue; by default, the first failed job
-stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`
-and `cartpole_ppo_sweep_summary.csv`; the summary selects the best completed
-config per policy by train success, then train reward. The manifest records
+stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`,
+`cartpole_ppo_sweep_summary.csv`, and `cartpole_ppo_sweep_hyperparam_summary.csv`;
+the first summary selects the best completed single job per policy by train
+success, then train reward, while the hyperparameter summary aggregates completed
+seeds for each sampled config and marks the best completed config per policy by
+mean training success. The manifest records
 both the jobs actually planned and the uncapped job count for the selected
 search space, plus `paper_protocol_status` flags showing whether the plan is
 paper-scale, whether all planned jobs completed with zero failures, whether it

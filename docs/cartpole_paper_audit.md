@@ -72,8 +72,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   uniformly sampled hyperparameter configs from the reported ranges per policy, evaluates each
   config for every selected seed, writes a plan/manifest, and can execute jobs with per-config
   checkpoints and metrics JSON. It also supports an explicit Cartesian-grid diagnostic mode and
-  writes a per-policy summary selecting the best completed config by train success and train reward.
-  This is search infrastructure; the full paper-scale sweep has not been run.
+  writes both a single-best-job summary and a per-hyperparameter summary aggregating completed seeds
+  for each sampled config. This is search infrastructure; the full paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
   generated abstract-result, LaTeX table, and PSM policy fragments consumed by `essay/project.tex`,
@@ -255,7 +255,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   a local diagnostic extension. Paper-scale execution additionally requires the planned job count to
   match the uncapped selected search space. The runner writes a best-config summary for completed
   jobs, can resume interrupted sweeps by reusing only matching completed rows with existing checkpoint
-  and metrics artifacts, and can optionally record failed jobs while continuing a long sweep.
+  and metrics artifacts, writes a per-hyperparameter summary that marks the best completed sampled
+  config per policy by mean training success, and can optionally record failed jobs while continuing a
+  long sweep.
 
 ## Verified PPO Invariants
 
@@ -288,6 +290,9 @@ paper-scale PPO2 runs.
   policy, evaluates them for each selected seed, and keeps PPO-LSTM minibatches fixed to one.
 - `tests/test_cartpole_ppo_sweep.py::test_dry_run_writes_plan_and_manifest` verifies that dry-run
   sweep planning writes a CSV plan and manifest with paper-space metadata.
+- `tests/test_cartpole_ppo_sweep.py::test_summarize_hyperparameter_configs_aggregates_completed_seeds`
+  verifies that completed PPO sweep rows are grouped by policy and sampled hyperparameter config,
+  with seed-level mean/std metrics and a best-config flag.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_identifies_full_dry_run_plan`
   verifies that the manifest status flags distinguish a full paper-scale dry-run plan from completed
   paper-scale execution.
