@@ -4,13 +4,24 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 SCRIPT = os.path.join(ROOT, "src", "train_cartpole_direct_opt.py")
 
-from cartpole_direct_opt import DirectOptConfig, direct_opt_metrics, run_cartpole_direct_opt  # noqa: E402
+from cartpole_direct_opt import (  # noqa: E402
+    DirectOptConfig,
+    DirectOptCandidate,
+    _boolean_local_neighbor_candidates,
+    _boolean_tree_candidates,
+    _candidate_policy,
+    direct_opt_metrics,
+    run_cartpole_direct_opt,
+)
+from cartpole_synthesis import BooleanTreeSwitch, ObservationPredicate  # noqa: E402
+from cartpole_env import CartpoleEnv  # noqa: E402
 
 
 class CartpoleDirectOptTest(unittest.TestCase):
@@ -31,6 +42,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         expected_evaluations = (
             diagnostics["grid_candidates"]
             + diagnostics["random_candidates"]
+            + diagnostics["boolean_stump_candidates"]
+            + diagnostics["boolean_depth2_candidates"]
             + diagnostics["batch_refinement_candidates"]
             + diagnostics["batch_seed_evaluations"]
             + diagnostics["batch_local_evaluations"]
@@ -44,9 +57,25 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["algorithm_provenance"]["paper_parallel_threads"], 10)
         self.assertEqual(metrics["algorithm_provenance"]["paper_time_limit_seconds"], 7200)
         self.assertEqual(metrics["algorithm_provenance"]["local_parallel_threads"], 1)
-        self.assertIn("bounded batch/restart", metrics["algorithm_provenance"]["limitations"])
+        self.assertEqual(
+            metrics["algorithm_provenance"]["policy_class"],
+            "two_mode_constant_action_linear_or_depth2_boolean_tree_switch",
+        )
+        self.assertEqual(
+            metrics["algorithm_provenance"]["switch_search_space"],
+            "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates",
+        )
+        self.assertEqual(metrics["algorithm_provenance"]["boolean_tree_depth"], 2)
+        self.assertEqual(
+            metrics["algorithm_provenance"]["boolean_tree_features"],
+            ["x", "cart_velocity", "theta", "omega"],
+        )
+        self.assertIn("bounded Boolean-tree", metrics["algorithm_provenance"]["limitations"])
         self.assertEqual(diagnostics["grid_candidates"], 156)
         self.assertEqual(diagnostics["random_candidates"], 4)
+        self.assertEqual(diagnostics["boolean_stump_candidates"], 24)
+        self.assertGreater(diagnostics["boolean_depth2_candidates"], 0)
+        self.assertEqual(diagnostics["boolean_top_stumps_for_depth2"], 4)
         self.assertEqual(diagnostics["batch_count"], 1)
         self.assertEqual(diagnostics["batch_rounds"], 1)
         self.assertEqual(diagnostics["batch_refinement_candidates"], 1)
@@ -71,11 +100,86 @@ class CartpoleDirectOptTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(result.searched_candidates, 160)
+        diagnostics = result.search_diagnostics
+        expected_evaluations = (
+            diagnostics["grid_candidates"]
+            + diagnostics["random_candidates"]
+            + diagnostics["boolean_stump_candidates"]
+            + diagnostics["boolean_depth2_candidates"]
+        )
+        self.assertEqual(result.searched_candidates, expected_evaluations)
         self.assertEqual(result.search_diagnostics["batch_refinement_candidates"], 0)
         self.assertEqual(result.search_diagnostics["batch_seed_evaluations"], 0)
         self.assertEqual(result.search_diagnostics["batch_local_evaluations"], 0)
         self.assertEqual(result.search_diagnostics["restart_evaluations"], 0)
+
+    def test_direct_opt_boolean_tree_candidates_use_cartpole_switch_grammar(self):
+        env = CartpoleEnv.train_env(seed=0)
+        train_states = [env.reset() for _ in range(2)]
+
+        candidates, diagnostics = _boolean_tree_candidates(train_states)
+        depth2 = next(candidate for candidate in candidates if candidate.source == "boolean_depth2")
+        policy = _candidate_policy(depth2)
+
+        self.assertEqual(diagnostics["boolean_stump_candidates"], 24)
+        self.assertGreater(diagnostics["boolean_depth2_candidates"], 0)
+        self.assertEqual(depth2.switch_kind, "boolean_tree")
+        self.assertIsNotNone(depth2.first_feature)
+        self.assertIsNotNone(depth2.second_feature)
+        self.assertIn(depth2.operator, {"and", "or"})
+        self.assertIn(" o[", policy.describe())
+
+    def test_direct_opt_boolean_local_refinement_dedupes_before_evaluation(self):
+        candidate = DirectOptCandidate(
+            theta_weight=0.0,
+            omega_weight=0.0,
+            threshold=0.0,
+            left_force=-10.0,
+            right_force=10.0,
+            train_reward_mean=1.0,
+            train_success_rate=0.0,
+            switch_kind="boolean_tree",
+            first_feature=2,
+            first_relation=">=",
+            first_threshold=0.0,
+        )
+        evaluated: list[tuple[str, float, float]] = []
+
+        def fake_evaluate(switch, left_force, right_force, *_args):
+            evaluated.append((switch.describe(), left_force, right_force))
+            return DirectOptCandidate(
+                theta_weight=0.0,
+                omega_weight=0.0,
+                threshold=0.0,
+                left_force=left_force,
+                right_force=right_force,
+                train_reward_mean=1.0,
+                train_success_rate=0.0,
+                source="batch_local_refinement",
+                switch_kind="boolean_tree",
+                first_feature=switch.first.feature_index,
+                first_relation=switch.first.relation,
+                first_threshold=switch.first.threshold,
+            )
+
+        with patch("cartpole_direct_opt._evaluate_boolean_candidate", side_effect=fake_evaluate):
+            neighbors = _boolean_local_neighbor_candidates(
+                candidate,
+                [[0.0, 0.0, 0.0, 0.0]],
+                DirectOptConfig(local_step_fraction=0.25),
+            )
+
+        self.assertEqual(len(evaluated), len(neighbors))
+        self.assertEqual(len(evaluated), len(set(evaluated)))
+        raw_switches = [
+            BooleanTreeSwitch(ObservationPredicate(2, ">=", 0.0)),
+            BooleanTreeSwitch(ObservationPredicate(2, ">=", -0.025)),
+            BooleanTreeSwitch(ObservationPredicate(2, ">=", 0.025)),
+        ]
+        self.assertLess(
+            len(neighbors),
+            len(raw_switches) * 5,
+        )
 
     def test_direct_opt_batch_refinement_preserves_full_train_best_so_far(self):
         base_cfg = DirectOptConfig(
@@ -140,6 +244,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["algorithm_provenance"]["baseline"], "direct_opt")
+        self.assertEqual(metrics["search_diagnostics"]["boolean_stump_candidates"], 24)
+        self.assertGreater(metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
         self.assertIn("search_diagnostics", metrics)
         self.assertIn("best_candidate", metrics)
 

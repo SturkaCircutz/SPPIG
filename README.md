@@ -64,9 +64,9 @@ Use `--quick` for a small diagnostic run, add `--include-ppo` to include
 PPO/PPO-LSTM, and add `--include-direct-opt` to include the bounded Direct-Opt
 diagnostic baseline. Without `--quick`, PPO uses the paper-scale `10^7`
 timestep budget per seed; the runner still does not perform the paper's
-hyperparameter search. The Direct-Opt path is a local bounded search over the
-two-mode CartPole PSM grammar, not the paper's full two-hour parallel direct
-optimization protocol. The runner writes raw per-seed rows to
+hyperparameter search. The Direct-Opt path is a local bounded search over linear
+switches plus explicit Boolean-tree CartPole switch candidates, not the paper's
+full two-hour parallel direct optimization protocol. The runner writes raw per-seed rows to
 `cartpole_results.csv`, grouped mean/std plus the best training seed to
 `cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
 Each PSM row records a metrics JSON path with the fitted probabilistic student
@@ -179,8 +179,9 @@ Direct-Opt diagnostic:
   --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json
 ```
 
-This baseline searches a bounded two-mode constant-action/depth-2 linear-switch
-CartPole PSM directly on the 5-second training split, then applies a bounded
+This baseline searches a bounded two-mode constant-action CartPole PSM directly
+on the 5-second training split, including the previous linear switch grid plus
+bounded depth-1/depth-2 Boolean-tree switch predicates. It then applies a bounded
 batch/restart local refinement seeded from the best candidate so far, and
 reevaluates the selected program on the full paper test horizon. Its metrics
 JSON records the exact grid, batch/restart diagnostics, selected program, and
