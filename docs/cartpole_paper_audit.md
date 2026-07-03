@@ -56,7 +56,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   candidates and a local batch/restart refinement over forces, thresholds, and continuous one-hot
   `alpha_s`/feature weights seeded from the best candidate so far.
   Candidate selection optimizes mean train-horizon reward over the selected initial states, then
-  success as a tie-breaker. This records exact search grids, search diagnostics, and selected program
+  success as a tie-breaker. This records exact selected training initial states, search grids,
+  search diagnostics, compact per-batch seed/local/restart/full-train reevaluation trace, and selected program
   provenance, and can evaluate candidate pools with a configurable local thread count and optional
   wall-clock stop. It is still not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
   `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, bounded versus full continuous
@@ -222,7 +223,9 @@ These are implementation diagnostics, not paper-scale reproduced results.
   implementation optimizes mean reward over all selected finite initial states, evaluates bounded
   Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
   candidates, and records bounded `alpha_s`/feature-weight/threshold/force local-refinement diagnostics to
-  mirror part of the paper baseline's grammar and batch seeding structure. Candidate pools can now be evaluated with configurable local parallel threads and an
+  mirror part of the paper baseline's grammar and batch seeding structure. Metrics now also persist
+  the selected training initial states and compact per-batch seed/local/restart/full-train
+  reevaluation trace used by the bounded batch refinement. Candidate pools can now be evaluated with configurable local parallel threads and an
   optional wall-clock stop, and diagnostics record the selected thread count and time-limit status.
   Its diagnostics separate candidate evaluation calls from individual selected-state train rollout
   evaluations, while keeping `not_paper_scale` true.
@@ -536,8 +539,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
   the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
   non-paper-scale provenance, including local batch/restart diagnostics, Appendix B.3 one-hot vertex
-  metadata, candidate-call versus train-rollout accounting, configurable parallel-candidate
-  evaluation/time-limit metadata, and Direct-Opt protocol-status flags.
+  metadata, selected training initial states, compact batch-refinement trace, candidate-call
+  versus train-rollout accounting, configurable parallel-candidate evaluation/time-limit metadata,
+  and Direct-Opt protocol-status flags.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_marks_quick_diagnostic_limits`
   verifies that quick Direct-Opt diagnostics do not claim the paper batch size, full test horizon,
   `1000`-rollout metric, restart/batch optimization, or paper-scale Direct-Opt protocol.

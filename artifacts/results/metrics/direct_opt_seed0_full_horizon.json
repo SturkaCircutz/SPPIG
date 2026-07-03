@@ -103,6 +103,7 @@
       10.0
     ],
     "one_hot_switch_encoding": "evaluates a bounded Appendix B.3 continuous leaf/depth2 feature-mixture candidate family and records continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not optimize the paper's full continuous one-hot relaxation",
+    "optimization_trace": "metrics record the exact selected train initial states and a compact batch-refinement trace with batch seed, local-neighbor, restart, and full-train reevaluation decisions",
     "paper_baseline": "Direct-Opt",
     "paper_batch_size": 10,
     "paper_parallel_threads": 10,
@@ -231,6 +232,95 @@
     "batch_local_evaluations": 9,
     "batch_local_rollout_evaluations": 90,
     "batch_refinement_candidates": 1,
+    "batch_refinement_trace": [
+      {
+        "accepted_full_train_improvement": false,
+        "batch_index": 0,
+        "batch_seed_result": {
+          "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
+          "rank_key": [
+            250.0,
+            1.0,
+            -0.0
+          ],
+          "source": "batch_seed",
+          "switch_kind": "linear",
+          "train_reward_mean": 250.0,
+          "train_success_rate": 1.0
+        },
+        "full_train_reevaluation": {
+          "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
+          "rank_key": [
+            250.0,
+            1.0,
+            -0.0
+          ],
+          "source": "batch_refinement",
+          "switch_kind": "linear",
+          "train_reward_mean": 250.0,
+          "train_success_rate": 1.0
+        },
+        "local_steps": [
+          {
+            "accepted_local_improvement": false,
+            "accepted_restart": false,
+            "best_local_candidate": {
+              "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.250*theta + 0.250*omega >= 0.000, else mode=0",
+              "rank_key": [
+                250.0,
+                1.0,
+                -0.0
+              ],
+              "source": "batch_local_refinement",
+              "switch_kind": "linear",
+              "train_reward_mean": 250.0,
+              "train_success_rate": 1.0
+            },
+            "best_restart_candidate": {
+              "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if -5.000*theta + 5.000*omega >= -0.184, else mode=0",
+              "rank_key": [
+                84.0,
+                0.0,
+                -0.1839356950813011
+              ],
+              "source": "batch_random_restart",
+              "switch_kind": "linear",
+              "train_reward_mean": 84.0,
+              "train_success_rate": 0.0
+            },
+            "local_evaluations": 9,
+            "restart_evaluations": 1,
+            "step_index": 0,
+            "stopped_after_no_improvement": true
+          }
+        ],
+        "round_index": 0,
+        "seed_from_full_train_best": {
+          "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
+          "rank_key": [
+            250.0,
+            1.0,
+            -0.0
+          ],
+          "source": "grid",
+          "switch_kind": "linear",
+          "train_reward_mean": 250.0,
+          "train_success_rate": 1.0
+        },
+        "selected_initial_state_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    ],
     "batch_rollout_evaluations": 110,
     "batch_rounds": 1,
     "batch_seed_evaluations": 1,
@@ -262,6 +352,68 @@
     "uses_parallel_candidate_evaluation": false
   },
   "searched_candidates": 856,
+  "selected_train_initial_states": [
+    [
+      0.034442185152504814,
+      0.025795440294030247,
+      -0.007942841916915501,
+      -0.024108324970703667
+    ],
+    [
+      0.0011274721368608534,
+      -0.009506586254958573,
+      0.02837985890347726,
+      -0.019668727392107257
+    ],
+    [
+      -0.002340304584764419,
+      0.008338203945503123,
+      0.040811288519533515,
+      0.0004686855817390284
+    ],
+    [
+      -0.02181621556002962,
+      0.025580420415722394,
+      0.011836899667533166,
+      -0.024949365863755946
+    ],
+    [
+      0.04097462559682401,
+      0.04827854760376531,
+      0.031021723599658962,
+      0.040216595043958275
+    ],
+    [
+      -0.01898524306806674,
+      0.022983174826012864,
+      0.039883828796799345,
+      0.018398393191544127
+    ],
+    [
+      -0.0027857284547286656,
+      -0.039929879193163424,
+      -0.00658281645462163,
+      0.011088697344380158
+    ],
+    [
+      0.04130110532378982,
+      0.04666063677707588,
+      -0.0022990223447282992,
+      0.03653099277716401
+    ],
+    [
+      -0.02395076896080406,
+      0.03050278270130223,
+      0.004869930383558929,
+      -0.048595829983598106
+    ],
+    [
+      0.02197046864039541,
+      -0.010117645777573125,
+      0.0324844977148233,
+      0.016815320123185082
+    ]
+  ],
   "space_spec": {
     "action_dimension": 1,
     "action_dimension_source": "paper_figure_8",

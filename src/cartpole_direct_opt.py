@@ -154,6 +154,7 @@ class DirectOptCandidate:
 class DirectOptResult:
     policy: SynthesizedCartpolePSM
     candidate: DirectOptCandidate
+    selected_train_initial_states: List[Sequence[float]]
     train_success_rate: float
     test_success_rate: float
     train_reward_mean: float
@@ -186,6 +187,11 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "candidate_accounting": (
             "searched_candidates and evaluated_candidates count candidate evaluation calls; "
             "train_rollout_evaluations counts individual selected-state train rollouts"
+        ),
+        "optimization_trace": (
+            "metrics record the exact selected train initial states and a compact "
+            "batch-refinement trace with batch seed, local-neighbor, restart, and full-train "
+            "reevaluation decisions"
         ),
         "boolean_tree_depth": 2,
         "boolean_tree_features": list(DIRECT_OPT_OBSERVATION_FEATURES),
@@ -299,6 +305,7 @@ def run_cartpole_direct_opt(cfg: DirectOptConfig) -> DirectOptResult:
     return DirectOptResult(
         policy=policy,
         candidate=best,
+        selected_train_initial_states=train_states,
         train_success_rate=train["success_rate"],
         test_success_rate=test["success_rate"],
         train_reward_mean=train["reward_mean"],
@@ -320,6 +327,7 @@ def direct_opt_metrics(result: DirectOptResult) -> Dict[str, object]:
         "algorithm_provenance": result.algorithm_provenance,
         "paper_protocol_status": cartpole_direct_opt_protocol_status(result.config),
         "search_diagnostics": result.search_diagnostics,
+        "selected_train_initial_states": _serialize_initial_states(result.selected_train_initial_states),
         "policy_description": result.policy.describe(),
         "best_candidate": asdict(result.candidate),
         "searched_candidates": result.searched_candidates,
@@ -477,7 +485,7 @@ def _empty_batch_diagnostics(
     batch_count: int,
     rounds: int,
     deadline: "_DirectOptDeadline | None" = None,
-) -> Dict[str, int | bool]:
+) -> Dict[str, object]:
     return {
         "batch_count": batch_count,
         "batch_rounds": rounds,
@@ -490,6 +498,7 @@ def _empty_batch_diagnostics(
         "accepted_batch_improvements": 0,
         "accepted_restarts": 0,
         "batch_time_limit_reached": bool(deadline and deadline.expired()),
+        "batch_refinement_trace": [],
     }
 
 
@@ -749,7 +758,7 @@ def _batch_restart_refinement_candidates(
     cfg: DirectOptConfig,
     rng: random.Random,
     deadline: _DirectOptDeadline | None = None,
-) -> Tuple[List[DirectOptCandidate], Dict[str, int]]:
+) -> Tuple[List[DirectOptCandidate], Dict[str, object]]:
     batches = _direct_opt_batches(train_states, max(1, cfg.batch_size))
     rounds = max(0, cfg.batch_refinement_rounds)
     if rounds == 0 or not batches:
@@ -765,8 +774,9 @@ def _batch_restart_refinement_candidates(
     batch_local_rollout_evaluations = 0
     accepted_improvements = 0
     accepted_restarts = 0
-    for _ in range(rounds):
-        for batch in batches:
+    batch_trace: List[Dict[str, object]] = []
+    for round_index in range(rounds):
+        for batch_index, batch in enumerate(batches):
             if deadline is not None and deadline.expired():
                 return candidates, {
                     "batch_count": len(batches),
@@ -780,20 +790,51 @@ def _batch_restart_refinement_candidates(
                     "accepted_batch_improvements": accepted_improvements,
                     "accepted_restarts": accepted_restarts,
                     "batch_time_limit_reached": True,
+                    "batch_refinement_trace": batch_trace,
                 }
             batch_seed_evaluations += 1
             batch_seed_rollout_evaluations += len(batch)
             batch_best = _reevaluate_candidate(current, batch, "batch_seed")
-            for _ in range(max(0, cfg.local_refinement_steps)):
+            trace_entry: Dict[str, object] = {
+                "round_index": round_index,
+                "batch_index": batch_index,
+                "selected_initial_state_indices": list(
+                    range(
+                        batch_index * max(1, cfg.batch_size),
+                        min(len(train_states), batch_index * max(1, cfg.batch_size) + len(batch)),
+                    )
+                ),
+                "seed_from_full_train_best": _candidate_trace_summary(current),
+                "batch_seed_result": _candidate_trace_summary(batch_best),
+                "local_steps": [],
+            }
+            local_step_traces: List[Dict[str, object]] = []
+            for local_step_index in range(max(0, cfg.local_refinement_steps)):
                 if deadline is not None and deadline.expired():
                     break
                 neighbors = _local_neighbor_candidates(batch_best, batch, cfg, deadline)
                 local_evaluations += len(neighbors)
                 batch_local_rollout_evaluations += len(neighbors) * len(batch)
                 local_best = max(neighbors, key=_candidate_rank_key) if neighbors else batch_best
+                step_trace: Dict[str, object] = {
+                    "step_index": local_step_index,
+                    "local_evaluations": len(neighbors),
+                    "best_local_candidate": (
+                        _candidate_trace_summary(local_best)
+                        if neighbors
+                        else None
+                    ),
+                    "accepted_local_improvement": False,
+                    "restart_evaluations": 0,
+                    "best_restart_candidate": None,
+                    "accepted_restart": False,
+                    "stopped_after_no_improvement": False,
+                }
                 if _candidate_rank_key(local_best) > _candidate_rank_key(batch_best):
                     batch_best = local_best
                     accepted_improvements += 1
+                    step_trace["accepted_local_improvement"] = True
+                    local_step_traces.append(step_trace)
                     continue
                 restarts = _evaluate_candidate_params(
                     [
@@ -807,16 +848,33 @@ def _batch_restart_refinement_candidates(
                 restart_evaluations += len(restarts)
                 restart_rollout_evaluations += len(restarts) * len(batch)
                 restart_best = max(restarts, key=_candidate_rank_key) if restarts else batch_best
+                step_trace["restart_evaluations"] = len(restarts)
+                step_trace["best_restart_candidate"] = (
+                    _candidate_trace_summary(restart_best)
+                    if restarts
+                    else None
+                )
                 if _candidate_rank_key(restart_best) > _candidate_rank_key(batch_best):
                     batch_best = restart_best
                     accepted_restarts += 1
+                    step_trace["accepted_restart"] = True
+                    local_step_traces.append(step_trace)
                     continue
+                step_trace["stopped_after_no_improvement"] = True
+                local_step_traces.append(step_trace)
                 break
+            trace_entry["local_steps"] = local_step_traces
             if deadline is not None and deadline.expired():
+                trace_entry["full_train_reevaluation_skipped_due_to_time_limit"] = True
+                batch_trace.append(trace_entry)
                 continue
             full_candidate = _reevaluate_candidate(batch_best, train_states, "batch_refinement")
             candidates.append(full_candidate)
-            if _candidate_rank_key(full_candidate) > _candidate_rank_key(current):
+            accepted_full_train = _candidate_rank_key(full_candidate) > _candidate_rank_key(current)
+            trace_entry["full_train_reevaluation"] = _candidate_trace_summary(full_candidate)
+            trace_entry["accepted_full_train_improvement"] = accepted_full_train
+            batch_trace.append(trace_entry)
+            if accepted_full_train:
                 current = full_candidate
     return candidates, {
         "batch_count": len(batches),
@@ -830,6 +888,7 @@ def _batch_restart_refinement_candidates(
         "accepted_batch_improvements": accepted_improvements,
         "accepted_restarts": accepted_restarts,
         "batch_time_limit_reached": bool(deadline and deadline.expired()),
+        "batch_refinement_trace": batch_trace,
     }
 
 
@@ -1139,6 +1198,21 @@ def _candidate_rank_key(candidate: DirectOptCandidate) -> Tuple[float, float, fl
 
 def _clamp(value: float, lower: float, upper: float) -> float:
     return max(lower, min(upper, value))
+
+
+def _serialize_initial_states(states: Sequence[Sequence[float]]) -> List[List[float]]:
+    return [[float(value) for value in state] for state in states]
+
+
+def _candidate_trace_summary(candidate: DirectOptCandidate) -> Dict[str, object]:
+    return {
+        "source": candidate.source,
+        "switch_kind": candidate.switch_kind,
+        "train_reward_mean": candidate.train_reward_mean,
+        "train_success_rate": candidate.train_success_rate,
+        "rank_key": list(_candidate_rank_key(candidate)),
+        "policy_description": _candidate_policy(candidate).describe(),
+    }
 
 
 def _evaluate_candidate(

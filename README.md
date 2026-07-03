@@ -272,9 +272,11 @@ seeded from the best candidate so far, optimizing
 mean reward over all selected finite initial states, not the full initial-state
 distribution, before reevaluating the selected program on the full paper test
 horizon.
-Its metrics JSON records the exact grid, Boolean/continuous one-hot leaf/depth-2 counts,
-candidate-evaluation-call counts, train-rollout-evaluation counts,
-batch/restart diagnostics, bounded continuous `alpha_s`/feature-weight refinement,
+Its metrics JSON records the exact selected training initial states, grid,
+Boolean/continuous one-hot leaf/depth-2 counts, candidate-evaluation-call counts,
+train-rollout-evaluation counts, batch/restart diagnostics with compact
+per-batch seed/local/restart/full-train reevaluation trace, bounded continuous
+`alpha_s`/feature-weight refinement,
 configurable local parallel-candidate evaluation and
 time-limit metadata, selected program, and limitation note. This is still not
 the paper's two-hour, ten-thread Direct-Opt protocol over the optimized
