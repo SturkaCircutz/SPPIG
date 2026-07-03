@@ -152,9 +152,11 @@ later teacher candidate pools are sampled from the current probabilistic
 student before top-rho local refinement, matching the paper's sampled-teacher
 phase more closely than the earlier gain-sampled bootstrap search. Trace
 summaries record the selected source and sampled-trace log-probability when
-available. If a sampled closed-loop rollout is projected back into the
-loop-free teacher budget, that likelihood is recomputed on the projected trace
-before teacher-objective ranking.
+available. Selected teacher traces also record the direct Eq. (8)-style
+teacher objective and the bounded top-rho refinement objective used for local
+selection. If a sampled closed-loop rollout is projected back into the loop-free
+teacher budget, that likelihood is recomputed on the projected trace before
+teacher-objective ranking.
 Local refinement can vary teacher gains, one segment duration, one segment
 time increment, or one
 constant-action segment at a time, accepting only improvements under the

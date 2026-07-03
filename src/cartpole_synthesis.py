@@ -121,6 +121,8 @@ class CartpoleTrace:
     segment_time_increments: Tuple[float, ...] = ()
     teacher_source: str = "gain_sample"
     student_log_probability: float | None = None
+    teacher_objective: float | None = None
+    teacher_refinement_objective: float | None = None
 
 
 def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
@@ -216,6 +218,10 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             ),
             "elite_refinement_elite_set": "refreshed_top_rho_after_distribution_rounds",
             "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
+            "selected_trace_objective_metrics": [
+                "teacher_objective",
+                "teacher_refinement_objective",
+            ],
             "elite_distance_metric": "l2_over_teacher_gains_segment_actions_durations_and_time_increments",
             "elite_distance_duration_scale_floor": TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR,
             "bootstrap_source": "probabilistic_student_prior",
@@ -869,10 +875,27 @@ def _optimize_loop_free_trace(
         for candidate in refinement_seeds
         if candidate.segment_actions and candidate.segment_durations
     ]
-    return max(
+    selected = max(
         refinement_seeds + refined,
         key=lambda trace: _teacher_refinement_objective(trace, scoring_student, cfg, refinement_elites),
     )
+    return _record_selected_teacher_objectives(selected, scoring_student, cfg, refinement_elites)
+
+
+def _record_selected_teacher_objectives(
+    trace: CartpoleTrace,
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+    refinement_elites: List[CartpoleTrace],
+) -> CartpoleTrace:
+    trace.teacher_objective = _teacher_objective(trace, student, cfg)
+    trace.teacher_refinement_objective = _teacher_refinement_objective(
+        trace,
+        student,
+        cfg,
+        refinement_elites,
+    )
+    return trace
 
 
 def _teacher_candidate_traces(

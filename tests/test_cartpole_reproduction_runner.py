@@ -191,6 +191,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertLessEqual(adaptive_summary["recorded_student_log_probability_fraction"], 1.0)
             self.assertIn("recorded_teacher_objective_mean", adaptive_summary)
+            self.assertEqual(adaptive_summary["recorded_teacher_objective_direct_count"], psm_metrics["num_traces"])
+            self.assertEqual(
+                adaptive_summary["recorded_teacher_refinement_objective_count"],
+                psm_metrics["num_traces"],
+            )
             self.assertEqual(len(psm_metrics["synthesis_history"]), 1)
             self.assertEqual(psm_metrics["synthesis_history"][0]["iteration"], 1)
             self.assertEqual(
@@ -214,6 +219,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 psm_metrics["switch_fit_diagnostics"]["candidates"],
             )
             self.assertEqual(psm_metrics["trace_summary"]["count"], psm_metrics["num_traces"])
+            self.assertIn("teacher_objective", psm_metrics["trace_summary"]["examples"][0])
+            self.assertIn("teacher_refinement_objective", psm_metrics["trace_summary"]["examples"][0])
 
             with open(summary_path, newline="", encoding="utf-8") as handle:
                 summary = list(csv.DictReader(handle))

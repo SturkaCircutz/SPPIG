@@ -571,6 +571,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   first student fit.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_optimization_bootstrap_returns_prior_sample`
   verifies that first-iteration optimized teacher traces retain bootstrap-sampling provenance.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_optimization_records_selected_refinement_objective`
+  verifies that the selected loop-free teacher trace records both the Eq. (8)-style teacher objective
+  and the bounded top-rho refinement objective used for selection.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_can_refine_student_sampled_trace` verifies
   that a sampled-student loop-free trace can be locally refined without reducing the current
   elite-kernel refinement objective.

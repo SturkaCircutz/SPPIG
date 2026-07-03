@@ -109,6 +109,8 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
                 "segment_time_increments": list(trace.segment_time_increments),
                 "teacher_source": trace.teacher_source,
                 "student_log_probability": trace.student_log_probability,
+                "teacher_objective": trace.teacher_objective,
+                "teacher_refinement_objective": trace.teacher_refinement_objective,
                 "first_observation": trace.observations[0] if trace.observations else None,
                 "last_observation": trace.observations[-1] if trace.observations else None,
                 "mode_prefix": trace.mode_labels[: min(8, len(trace.mode_labels))],
@@ -132,6 +134,16 @@ def summarize_adaptive_teacher_iteration(
         trace.student_log_probability
         for trace in traces
         if trace.student_log_probability is not None
+    ]
+    teacher_objectives = [
+        trace.teacher_objective
+        for trace in traces
+        if trace.teacher_objective is not None
+    ]
+    teacher_refinement_objectives = [
+        trace.teacher_refinement_objective
+        for trace in traces
+        if trace.teacher_refinement_objective is not None
     ]
     recorded_objectives = [
         cfg.teacher_reward_lambda * trace.reward
@@ -171,6 +183,28 @@ def summarize_adaptive_teacher_iteration(
         ),
         "recorded_student_log_probability_max": (
             max(log_probabilities) if log_probabilities else None
+        ),
+        "recorded_teacher_objective_direct_count": len(teacher_objectives),
+        "recorded_teacher_objective_direct_fraction": (
+            len(teacher_objectives) / len(traces) if traces else 0.0
+        ),
+        "recorded_teacher_objective_direct_mean": _mean_or_none(teacher_objectives),
+        "recorded_teacher_objective_direct_min": (
+            min(teacher_objectives) if teacher_objectives else None
+        ),
+        "recorded_teacher_objective_direct_max": (
+            max(teacher_objectives) if teacher_objectives else None
+        ),
+        "recorded_teacher_refinement_objective_count": len(teacher_refinement_objectives),
+        "recorded_teacher_refinement_objective_fraction": (
+            len(teacher_refinement_objectives) / len(traces) if traces else 0.0
+        ),
+        "recorded_teacher_refinement_objective_mean": _mean_or_none(teacher_refinement_objectives),
+        "recorded_teacher_refinement_objective_min": (
+            min(teacher_refinement_objectives) if teacher_refinement_objectives else None
+        ),
+        "recorded_teacher_refinement_objective_max": (
+            max(teacher_refinement_objectives) if teacher_refinement_objectives else None
         ),
         "recorded_teacher_objective_mean": _mean_or_none(recorded_objectives),
         "recorded_teacher_objective_min": (

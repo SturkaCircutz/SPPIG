@@ -253,6 +253,10 @@ class CartpolePSMCliTest(unittest.TestCase):
             "reward_plus_top_rho_log_probability_distance_kernel",
         )
         self.assertEqual(
+            provenance["teacher_search"]["selected_trace_objective_metrics"],
+            ["teacher_objective", "teacher_refinement_objective"],
+        )
+        self.assertEqual(
             provenance["teacher_search"]["elite_distance_metric"],
             "l2_over_teacher_gains_segment_actions_durations_and_time_increments",
         )
@@ -305,9 +309,14 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertGreaterEqual(first_teacher_summary["recorded_student_log_probability_count"], 0)
         self.assertLessEqual(first_teacher_summary["recorded_student_log_probability_fraction"], 1.0)
         self.assertIn("recorded_teacher_objective_mean", first_teacher_summary)
+        self.assertEqual(first_teacher_summary["recorded_teacher_objective_direct_count"], 2)
+        self.assertEqual(first_teacher_summary["recorded_teacher_refinement_objective_count"], 2)
+        self.assertIn("recorded_teacher_refinement_objective_mean", first_teacher_summary)
         self.assertEqual(second_teacher_summary["trace_count"], 2)
         self.assertGreaterEqual(second_teacher_summary["recorded_student_log_probability_count"], 1)
         self.assertGreater(second_teacher_summary["recorded_student_log_probability_fraction"], 0.0)
+        self.assertEqual(second_teacher_summary["recorded_teacher_objective_direct_count"], 2)
+        self.assertEqual(second_teacher_summary["recorded_teacher_refinement_objective_count"], 2)
         status = metrics["paper_protocol_status"]
         self.assertTrue(status["cartpole_environment"])
         self.assertEqual(status["train_horizon_seconds"], 5.0)
@@ -369,6 +378,8 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("segment_time_increments", metrics["trace_summary"]["examples"][0])
         self.assertIn("teacher_source", metrics["trace_summary"]["examples"][0])
         self.assertIn("student_log_probability", metrics["trace_summary"]["examples"][0])
+        self.assertIn("teacher_objective", metrics["trace_summary"]["examples"][0])
+        self.assertIn("teacher_refinement_objective", metrics["trace_summary"]["examples"][0])
         self.assertIn("probabilistic_student", metrics)
         self.assertIn("action_distributions", metrics["probabilistic_student"])
         self.assertIn("switch_parameter_distributions", metrics["probabilistic_student"])

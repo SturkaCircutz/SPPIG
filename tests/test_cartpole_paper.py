@@ -2405,6 +2405,60 @@ class CartpolePaperTest(unittest.TestCase):
             },
         )
         self.assertIsNotNone(trace.student_log_probability)
+        self.assertIsNotNone(trace.teacher_objective)
+        self.assertIsNotNone(trace.teacher_refinement_objective)
+        self.assertAlmostEqual(
+            trace.teacher_objective,
+            _teacher_objective(trace, _bootstrap_probabilistic_student(cfg), cfg),
+        )
+
+    def test_cartpole_teacher_optimization_records_selected_refinement_objective(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=1,
+            segment_steps=2,
+            segments_per_trace=2,
+            teacher_top_rho=1,
+            teacher_refinement_steps=0,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        student = _bootstrap_probabilistic_student(cfg)
+        candidate = CartpoleTrace(
+            observations=[],
+            actions=[10.0],
+            mode_labels=[1],
+            reward=3.0,
+            segment_actions=(10.0,),
+            segment_durations=(1,),
+            teacher_source="student_sample",
+            student_log_probability=0.0,
+        )
+
+        with patch(
+            "cartpole_synthesis._teacher_candidate_traces",
+            return_value=[candidate],
+        ), patch(
+            "cartpole_synthesis._elite_centroid_trace",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._refresh_teacher_elites_with_distribution",
+            return_value=([candidate], []),
+        ):
+            trace = _optimize_loop_free_trace(
+                [0.0, 0.0, 0.05, 0.0],
+                env.cfg,
+                cfg,
+                random.Random(0),
+                student,
+            )
+
+        self.assertEqual(trace, candidate)
+        self.assertEqual(trace.teacher_objective, _teacher_objective(trace, student, cfg))
+        self.assertEqual(
+            trace.teacher_refinement_objective,
+            _teacher_refinement_objective(trace, student, cfg, [candidate]),
+        )
 
     def test_cartpole_teacher_can_refine_student_sampled_trace(self):
         env = CartpoleEnv.train_env(seed=0)
