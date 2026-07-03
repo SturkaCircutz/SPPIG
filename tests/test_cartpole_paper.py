@@ -1958,6 +1958,26 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertGreater(_loop_free_trace_distance(reference, same_schedule_different_gains), 0.0)
 
+    def test_cartpole_teacher_elite_distance_normalizes_actions(self):
+        left = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            segment_actions=(-10.0,),
+            segment_durations=(1,),
+        )
+        right = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            segment_actions=(10.0,),
+            segment_durations=(1,),
+        )
+
+        self.assertAlmostEqual(_loop_free_trace_distance(left, right), 2.0)
+
     def test_cartpole_teacher_elite_kernel_uses_normalized_top_rho_distance(self):
         student = ProbabilisticCartpoleStudent(
             action_distributions={

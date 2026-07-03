@@ -160,18 +160,18 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `33.65`, test reward mean `41.75`; the same artifact records train/test
-  survived-step means `33.65` and `41.75`, or `0.673s` and `0.835s`. The tracked artifact was
-  regenerated after the action-before-transition PSM mode-order correction and records
+  train reward mean `28.8`, test reward mean `39.8`; the same artifact records train/test
+  survived-step means `28.8` and `39.8`, or `0.576s` and `0.796s`. The tracked artifact was
+  regenerated after normalizing the elite-distance action component and records
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`)
   so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
   elite-distribution refresh, first-iteration source counts
-  `{"bootstrap_elite_centroid": 1, "bootstrap_student_sample": 1, "bootstrap_student_sample_refined": 2}`,
+  `{"bootstrap_elite_centroid": 1, "bootstrap_student_sample_refined": 3}`,
   final-iteration source counts `{"student_elite_centroid": 1, "student_sample": 3}`, and policy
-  `m0 action=-1.881; m1 action=0.133; mode=1 if 20.000*theta + -5.000*omega >= -0.298, else mode=0`; it also records
+  `m0 action=-0.330; m1 action=0.790; mode=1 if o[1] >= -0.046 and o[3] >= -1.163, else mode=0`; it also records
   `student_sample_segment_budget =
   chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
@@ -246,7 +246,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   selection. These sampled rollouts now resample action and switch parameters whenever execution
   enters a mode segment, matching the paper's probabilistic PSM execution model more closely. The
   teacher locally refines top sampled loop-free traces by duration/time-increment/action coordinate search under a
-  top-rho elite-distance kernel approximation, adds one bounded finite-difference teacher-gain
+  top-rho elite-distance kernel approximation with action differences normalized by the larger sampled
+  force magnitude, adds one bounded finite-difference teacher-gain
   candidate, one bounded finite-difference action candidate, one bounded finite-difference
   integer-duration candidate, and one bounded finite-difference time-increment candidate per
   refinement iteration with a short backtracking line search, evaluates one centroid recombination of the
@@ -561,6 +562,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distance_includes_teacher_gains`
   verifies that the elite-distance kernel includes loop-free teacher gains as well as segment
   action, duration, and time-increment schedules.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distance_normalizes_actions`
+  verifies that action differences are scaled by the compared traces' maximum absolute segment
+  action before contributing to the loop-free elite distance.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_centroid_recombines_loop_free_schedules`
   verifies that the teacher can evaluate one deterministic top-rho centroid of segment actions and
   durations before local refinement. This is only a bounded recombination approximation, not the
@@ -740,7 +744,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   candidate plus configurable bounded rounds of fitted teacher-gain and per-segment
   distribution mean candidates and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the
-  previous student, with the elite-distance kernel including teacher gains plus segment action,
+  previous student, with the elite-distance kernel including teacher gains plus normalized segment action,
   duration, and time-increment schedules, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.

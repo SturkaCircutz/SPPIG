@@ -224,7 +224,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
                 "teacher_objective",
                 "teacher_refinement_objective",
             ],
-            "elite_distance_metric": "l2_over_teacher_gains_segment_actions_durations_and_time_increments",
+            "elite_distance_metric": "normalized_l2_over_teacher_gains_segment_actions_durations_and_time_increments",
+            "elite_distance_action_scale": "max_abs_segment_action_floor_1",
             "elite_distance_duration_scale_floor": TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR,
             "bootstrap_source": "probabilistic_student_prior",
             "bootstrap_action_means": "min_and_max_configured_force_values",
@@ -2136,6 +2137,11 @@ def _loop_free_trace_distance(left: CartpoleTrace, right: CartpoleTrace) -> floa
         max(left_increments or (0.0,)),
         max(right_increments or (0.0,)),
     )
+    action_scale = max(
+        1.0,
+        max((abs(action) for action in left_actions), default=0.0),
+        max((abs(action) for action in right_actions), default=0.0),
+    )
     theta_gain_scale = max(1.0, abs(left.theta_gain), abs(right.theta_gain))
     omega_gain_scale = max(1.0, abs(left.omega_gain), abs(right.omega_gain))
     total = 0.0
@@ -2148,7 +2154,7 @@ def _loop_free_trace_distance(left: CartpoleTrace, right: CartpoleTrace) -> floa
         right_duration = right_durations[index] if index < len(right_durations) else 0
         left_increment = left_increments[index] if index < len(left_increments) else 0.0
         right_increment = right_increments[index] if index < len(right_increments) else 0.0
-        total += (left_action - right_action) ** 2
+        total += ((left_action - right_action) / action_scale) ** 2
         total += ((left_duration - right_duration) / duration_scale) ** 2
         total += ((left_increment - right_increment) / increment_scale) ** 2
     return math.sqrt(total)
