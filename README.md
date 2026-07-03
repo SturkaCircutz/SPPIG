@@ -138,7 +138,10 @@ The top-level
 model, teacher-source counts, reward summary, recorded student log-probability
 coverage, and the recorded reward-plus-student-likelihood objective components
 when available, including reward-term, student-regularizer-term, direct-objective,
-and refinement-objective summaries.
+and refinement-objective summaries. It also summarizes, for selected teacher
+traces, the refreshed top-rho elite set used by the bounded refinement objective:
+elite counts, source counts, nearest-elite distances, and kernel log-probability
+terms when a probabilistic student is available.
 Pass `--traces-output path/to/traces.json` to write the full selected teacher
 traces and per-iteration teacher-trace history as a sidecar artifact;
 orchestrated reproduction runs write this sidecar for each PSM row automatically.
@@ -177,7 +180,8 @@ phase more closely than the earlier gain-sampled bootstrap search. Trace
 summaries record the selected source and sampled-trace log-probability when
 available. Selected teacher traces also record the direct Eq. (8)-style
 teacher objective and the bounded top-rho refinement objective used for local
-selection. If a sampled closed-loop rollout is projected back into the loop-free
+selection, plus a compact summary of the refreshed elite set that defined that
+top-rho kernel approximation. If a sampled closed-loop rollout is projected back into the loop-free
 teacher budget, that likelihood is recomputed on the projected trace before
 teacher-objective ranking. Teacher scoring also recomputes likelihoods against
 the current probabilistic student whenever raw trace actions are available, so

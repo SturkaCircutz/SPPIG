@@ -126,6 +126,7 @@ class CartpoleTrace:
     teacher_objective: float | None = None
     teacher_refinement_objective: float | None = None
     elite_distribution_fit: Dict[str, object] | None = None
+    teacher_refinement_elite_summary: Dict[str, object] | None = None
 
 
 def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
@@ -241,6 +242,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             ),
             "elite_refinement_elite_set": "refreshed_top_rho_after_distribution_rounds",
             "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
+            "elite_refinement_selected_trace_diagnostics": (
+                "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms"
+            ),
             "selected_trace_objective_metrics": [
                 "teacher_objective",
                 "teacher_refinement_objective",
@@ -1016,7 +1020,64 @@ def _record_selected_teacher_objectives(
         cfg,
         refinement_elites,
     )
+    trace.teacher_refinement_elite_summary = _teacher_refinement_elite_summary(
+        trace,
+        student,
+        cfg,
+        refinement_elites,
+    )
     return trace
+
+
+def _teacher_refinement_elite_summary(
+    trace: CartpoleTrace,
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+    refinement_elites: List[CartpoleTrace],
+) -> Dict[str, object] | None:
+    if not refinement_elites:
+        return None
+    elite_objectives = [_teacher_objective(elite, student, cfg) for elite in refinement_elites]
+    elite_refinement_objectives = [
+        _teacher_refinement_objective(elite, student, cfg, refinement_elites)
+        for elite in refinement_elites
+    ]
+    source_counts: Dict[str, int] = {}
+    for elite in refinement_elites:
+        source_counts[elite.teacher_source] = source_counts.get(elite.teacher_source, 0) + 1
+    distances = [_loop_free_trace_distance(trace, elite) for elite in refinement_elites]
+    nearest_index = min(range(len(distances)), key=lambda index: distances[index])
+    summary: Dict[str, object] = {
+        "elite_count": len(refinement_elites),
+        "top_rho": max(1, cfg.teacher_top_rho),
+        "source_counts": source_counts,
+        "reward_mean": sum(elite.reward for elite in refinement_elites) / len(refinement_elites),
+        "reward_min": min(elite.reward for elite in refinement_elites),
+        "reward_max": max(elite.reward for elite in refinement_elites),
+        "teacher_objective_mean": sum(elite_objectives) / len(elite_objectives),
+        "teacher_objective_min": min(elite_objectives),
+        "teacher_objective_max": max(elite_objectives),
+        "teacher_refinement_objective_mean": sum(elite_refinement_objectives) / len(elite_refinement_objectives),
+        "teacher_refinement_objective_min": min(elite_refinement_objectives),
+        "teacher_refinement_objective_max": max(elite_refinement_objectives),
+        "selected_distance_to_nearest_elite": distances[nearest_index],
+        "selected_distance_to_elite_mean": sum(distances) / len(distances),
+        "selected_distance_to_elite_min": min(distances),
+        "selected_distance_to_elite_max": max(distances),
+        "nearest_elite_source": refinement_elites[nearest_index].teacher_source,
+        "nearest_elite_reward": refinement_elites[nearest_index].reward,
+        "nearest_elite_teacher_objective": elite_objectives[nearest_index],
+    }
+    if student is not None:
+        elite_log_normalizer = _elite_kernel_log_normalizer(student, refinement_elites)
+        summary["kernel_log_normalizer"] = elite_log_normalizer
+        summary["selected_elite_kernel_log_probability"] = _elite_kernel_log_probability(
+            trace,
+            student,
+            refinement_elites,
+            elite_log_normalizer,
+        )
+    return summary
 
 
 def _teacher_candidate_traces(

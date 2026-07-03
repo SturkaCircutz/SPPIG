@@ -310,6 +310,10 @@ class CartpolePSMCliTest(unittest.TestCase):
             "serialized_on_distribution_mean_and_sample_traces_with_source_weights_objectives_and_gaussian_parameters",
         )
         self.assertEqual(
+            provenance["teacher_search"]["elite_refinement_selected_trace_diagnostics"],
+            "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms",
+        )
+        self.assertEqual(
             provenance["teacher_search"]["elite_refinement_elite_set"],
             "refreshed_top_rho_after_distribution_rounds",
         )
@@ -372,6 +376,12 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("segment_time_increments", first_trace)
         self.assertIn("teacher_objective", first_trace)
         self.assertIn("teacher_refinement_objective", first_trace)
+        self.assertIn("teacher_refinement_elite_summary", first_trace)
+        first_elite_summary = first_trace["teacher_refinement_elite_summary"]
+        self.assertEqual(first_elite_summary["top_rho"], metrics["config"]["teacher_top_rho"])
+        self.assertGreaterEqual(first_elite_summary["elite_count"], 1)
+        self.assertIn("source_counts", first_elite_summary)
+        self.assertIn("selected_distance_to_nearest_elite", first_elite_summary)
         serialized_distribution_fits = [
             trace.get("elite_distribution_fit")
             for history_entry in trace_artifact["trace_history"]
@@ -410,6 +420,12 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(first_teacher_summary["trace_count"], 2)
         self.assertIn("teacher_source_counts", first_teacher_summary)
+        self.assertIn("refinement_elite_summary", first_teacher_summary)
+        self.assertEqual(first_teacher_summary["refinement_elite_summary"]["count"], 2)
+        self.assertEqual(
+            first_teacher_summary["refinement_elite_summary"]["elite_count"]["count"],
+            2,
+        )
         first_components = first_teacher_summary["objective_component_summary"]
         self.assertEqual(first_components["reward_term"]["count"], 2)
         self.assertIn("direct_objective", first_components)
@@ -552,6 +568,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("student_log_probability", metrics["trace_summary"]["examples"][0])
         self.assertIn("teacher_objective", metrics["trace_summary"]["examples"][0])
         self.assertIn("teacher_refinement_objective", metrics["trace_summary"]["examples"][0])
+        self.assertIn("teacher_refinement_elite_summary", metrics["trace_summary"]["examples"][0])
         trace_summary_distribution_fits = [
             example.get("elite_distribution_fit")
             for example in metrics["trace_summary"]["examples"]

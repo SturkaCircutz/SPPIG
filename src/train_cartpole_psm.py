@@ -143,6 +143,8 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
             "last_observation": trace.observations[-1] if trace.observations else None,
             "mode_prefix": trace.mode_labels[: min(8, len(trace.mode_labels))],
         }
+        if trace.teacher_refinement_elite_summary is not None:
+            example["teacher_refinement_elite_summary"] = trace.teacher_refinement_elite_summary
         if trace.elite_distribution_fit is not None:
             example["elite_distribution_fit"] = trace.elite_distribution_fit
         examples.append(example)
@@ -171,6 +173,8 @@ def serialize_trace(trace: CartpoleTrace):
         "teacher_objective": trace.teacher_objective,
         "teacher_refinement_objective": trace.teacher_refinement_objective,
     }
+    if trace.teacher_refinement_elite_summary is not None:
+        payload["teacher_refinement_elite_summary"] = trace.teacher_refinement_elite_summary
     if trace.elite_distribution_fit is not None:
         payload["elite_distribution_fit"] = trace.elite_distribution_fit
     return payload
@@ -306,6 +310,26 @@ def summarize_adaptive_teacher_iteration(
         if trace.teacher_refinement_objective is not None
         and trace.teacher_objective is not None
     ]
+    refinement_elite_summaries = [
+        trace.teacher_refinement_elite_summary
+        for trace in traces
+        if trace.teacher_refinement_elite_summary is not None
+    ]
+    refinement_elite_counts = [
+        float(summary["elite_count"])
+        for summary in refinement_elite_summaries
+        if isinstance(summary.get("elite_count"), (int, float))
+    ]
+    refinement_nearest_distances = [
+        summary["selected_distance_to_nearest_elite"]
+        for summary in refinement_elite_summaries
+        if isinstance(summary.get("selected_distance_to_nearest_elite"), (int, float))
+    ]
+    refinement_kernel_probabilities = [
+        summary["selected_elite_kernel_log_probability"]
+        for summary in refinement_elite_summaries
+        if isinstance(summary.get("selected_elite_kernel_log_probability"), (int, float))
+    ]
     source_counts: dict[str, int] = {}
     for trace in traces:
         source_counts[trace.teacher_source] = source_counts.get(trace.teacher_source, 0) + 1
@@ -325,6 +349,12 @@ def summarize_adaptive_teacher_iteration(
         "teacher_student_regularizer": cfg.teacher_student_regularizer,
         "trace_count": len(traces),
         "teacher_source_counts": source_counts,
+        "refinement_elite_summary": {
+            "count": len(refinement_elite_summaries),
+            "elite_count": _summary_stats(refinement_elite_counts),
+            "selected_distance_to_nearest_elite": _summary_stats(refinement_nearest_distances),
+            "selected_elite_kernel_log_probability": _summary_stats(refinement_kernel_probabilities),
+        },
         "objective_component_summary": {
             "reward_term": _summary_stats(reward_terms),
             "student_log_probability": _summary_stats(log_probabilities),

@@ -45,6 +45,180 @@
     "Programmatic state machine",
     "Synthesized PSM diagnostic"
   ],
+  "psm_algorithm_provenance": {
+    "probabilistic_student": {
+      "default_em_iters": 4,
+      "default_switch_responsibility_passes": 1,
+      "initial_mode": 0,
+      "initial_mode_prior": "fixed_mode_0",
+      "log_probability_floor": 1e-12,
+      "min_gaussian_std": 0.001,
+      "mode_update_order": "act_with_current_mode_then_update_next_mode",
+      "responsibility_evidence": "action_likelihood_initialization_then_alternating_switch_timing_forward_backward",
+      "rollout_parameter_resampling": "on_mode_entry",
+      "switch_responsibility_passes_are_per_em_iteration": true
+    },
+    "switch_search": {
+      "boolean_tree_depth": 2,
+      "default_threshold_candidate": 0.0,
+      "distribution_rescore_top_k": 32,
+      "greedy_second_predicate_expands_switch_and_no_switch_leaves": true,
+      "greedy_second_predicate_prefilter_top_k": 32,
+      "max_threshold_candidates": 64,
+      "oblique_omega_weights": [
+        -10.0,
+        -5.0,
+        -2.0,
+        -1.0,
+        -0.5,
+        -0.25,
+        0.0,
+        0.25,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "oblique_theta_weights": [
+        -50.0,
+        -20.0,
+        -10.0,
+        -5.0,
+        -2.0,
+        -1.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0,
+        50.0
+      ],
+      "prefilter_objective_order": [
+        "hard_label_mistakes",
+        "eq12_style_timing_loss",
+        "program_complexity",
+        "description"
+      ],
+      "selection_objective_order": [
+        "responsibility_weighted_label_loss",
+        "bounded_eq12_style_distribution_loss",
+        "program_complexity",
+        "description"
+      ],
+      "structure_label_objective": "responsibility_weighted_expected_label_loss_when_available_else_hard_label_mistakes",
+      "structure_label_observations": "nonboundary_segment_observations_boundary_observations_scored_by_timing_loss"
+    },
+    "switch_timing": {
+      "coordinate_log_std_initial_step": 0.6931471805599453,
+      "coordinate_mean_step_fraction": 0.25,
+      "coordinate_refinement_steps": 3,
+      "coordinate_step_decay": 0.5,
+      "depth2_boolean_probability": "shared_threshold_rectangle_union",
+      "duration_units": "segment_elapsed_time_normalized_to_default_cartpole_dt",
+      "final_segment_stay_evidence": true,
+      "finite_difference_gradient_backtracking_factors": [
+        1.0,
+        0.5,
+        0.25,
+        0.125
+      ],
+      "finite_difference_gradient_epsilon_fraction": 0.25,
+      "finite_difference_gradient_log_std_step": 0.25,
+      "finite_difference_gradient_mean_step_fraction": 0.5,
+      "finite_difference_gradient_refinement_steps": 2,
+      "scalar_threshold_uses_shared_sample": true,
+      "std_refinement_multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "std_steps": 2.0,
+      "structure_rescore_uses_pair_posteriors": true
+    },
+    "teacher_search": {
+      "action_gradient_epsilon_fraction": 0.05,
+      "action_gradient_step_fraction": 0.1,
+      "action_refinement_max_candidates_per_segment": 2,
+      "action_refinement_step_fraction": 0.25,
+      "bootstrap_action_means": "min_and_max_configured_force_values",
+      "bootstrap_action_std": 10.0,
+      "bootstrap_source": "probabilistic_student_prior",
+      "bootstrap_switch_mean": {
+        "omega_weight": 0.25,
+        "theta_weight": 1.0,
+        "threshold": 0.0
+      },
+      "bootstrap_switch_std": 1.0,
+      "default_elite_distribution_resamples": 1,
+      "default_elite_distribution_rounds": 1,
+      "duration_gradient_epsilon": 1,
+      "duration_gradient_step": 1,
+      "duration_refinement_deltas": [
+        -1,
+        1
+      ],
+      "elite_distance_action_scale": "max_abs_segment_action_floor_1",
+      "elite_distance_duration_scale_floor": 1.0,
+      "elite_distance_metric": "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments",
+      "elite_distribution_fit_diagnostics": "serialized_on_distribution_mean_and_sample_traces_with_source_weights_objectives_and_gaussian_parameters",
+      "elite_distribution_mean_candidate_per_round": 1,
+      "elite_distribution_min_action_std": 0.001,
+      "elite_distribution_parameters": [
+        "teacher_gain_schedule",
+        "segment_action_schedule",
+        "integer_segment_duration_schedule",
+        "segment_time_increment_schedule",
+        "majority_segment_mode_schedule"
+      ],
+      "elite_distribution_phase": "bounded_cem_style_distribution_refit_top_rho_refresh",
+      "elite_distribution_samples_teacher_gains": true,
+      "elite_distribution_selection_objective": "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_student_log_probability",
+      "elite_distribution_update": "fit_objective_weighted_gaussian_schedule_distribution_from_current_top_rho_each_round",
+      "elite_distribution_weighting": "softmax_teacher_objective_when_student_available_else_uniform",
+      "elite_recombination": "top_rho_segment_mode_action_duration_time_increment_centroid",
+      "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
+      "elite_refinement_elite_set": "refreshed_top_rho_after_distribution_rounds",
+      "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
+      "elite_refinement_selected_trace_diagnostics": "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms",
+      "finite_difference_candidates_per_refinement_iteration": {
+        "action_schedule": 1,
+        "duration_schedule": 1,
+        "joint_gain_action_duration_time_increment_schedule": 1,
+        "teacher_gain_schedule": 1,
+        "time_increment_schedule": 1
+      },
+      "finite_difference_gradient_backtracking_factors": [
+        1.0,
+        0.5,
+        0.25,
+        0.125
+      ],
+      "gain_gradient_epsilon_fraction": 0.025,
+      "gain_gradient_step_fraction": 0.05,
+      "gain_refinement_delta_fraction": 0.05,
+      "gain_sample_min_std": 1e-06,
+      "gain_sample_std_fraction": 0.1,
+      "omega_refinement_min_delta": 0.05,
+      "refinement_delta_decay": 0.5,
+      "selected_trace_objective_metrics": [
+        "teacher_objective",
+        "teacher_refinement_objective"
+      ],
+      "student_log_probability_cache_policy": "recompute_from_trace_actions_for_current_student_else_use_cached_segment_only_value",
+      "student_sample_fraction_after_first_iteration": 1.0,
+      "student_sample_local_refinement": "mode_preserving_duration_time_increment_continuous_action_gain_and_finite_difference_schedule_search",
+      "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
+      "student_sample_segment_budget": "preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
+      "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
+      "theta_refinement_min_delta": 0.1,
+      "time_increment_gradient_epsilon_fraction": 0.05,
+      "time_increment_gradient_step_fraction": 0.1,
+      "time_increment_parameterization": "per_segment_delta_i_with_default_environment_dt",
+      "time_increment_refinement_fraction": 0.25,
+      "time_increment_reward_accounting": "elapsed_time_normalized_to_environment_dt"
+    }
+  },
   "reproduction_commands": {
     "Direct-Opt diagnostic": "src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
     "PPO MLP": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/progress_mlp_128k_seed0.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
@@ -899,6 +1073,27 @@
           "recorded_teacher_refinement_objective_max": 5899.937231241086,
           "recorded_teacher_refinement_objective_mean": 3749.983752694556,
           "recorded_teacher_refinement_objective_min": 2300.0,
+          "refinement_elite_summary": {
+            "count": 4,
+            "elite_count": {
+              "count": 4,
+              "max": 2.0,
+              "mean": 2.0,
+              "min": 2.0
+            },
+            "selected_distance_to_nearest_elite": {
+              "count": 4,
+              "max": 0.0,
+              "mean": 0.0,
+              "min": 0.0
+            },
+            "selected_elite_kernel_log_probability": {
+              "count": 4,
+              "max": 0.0,
+              "mean": -0.016247305443890525,
+              "min": -0.06276875891373379
+            }
+          },
           "reward_max": 59.0,
           "reward_mean": 37.5,
           "reward_min": 23.0,
@@ -977,6 +1172,27 @@
           "recorded_teacher_refinement_objective_max": 2900.0,
           "recorded_teacher_refinement_objective_mean": 2600.0,
           "recorded_teacher_refinement_objective_min": 2300.0,
+          "refinement_elite_summary": {
+            "count": 4,
+            "elite_count": {
+              "count": 4,
+              "max": 2.0,
+              "mean": 2.0,
+              "min": 2.0
+            },
+            "selected_distance_to_nearest_elite": {
+              "count": 4,
+              "max": 0.0,
+              "mean": 0.0,
+              "min": 0.0
+            },
+            "selected_elite_kernel_log_probability": {
+              "count": 4,
+              "max": 0.0,
+              "mean": 0.0,
+              "min": 0.0
+            }
+          },
           "reward_max": 29.0,
           "reward_mean": 26.0,
           "reward_min": 23.0,
@@ -1125,6 +1341,7 @@
           "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
           "elite_refinement_elite_set": "refreshed_top_rho_after_distribution_rounds",
           "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
+          "elite_refinement_selected_trace_diagnostics": "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms",
           "finite_difference_candidates_per_refinement_iteration": {
             "action_schedule": 1,
             "duration_schedule": 1,
@@ -1602,6 +1819,27 @@
             "recorded_teacher_refinement_objective_max": 5899.937231241086,
             "recorded_teacher_refinement_objective_mean": 3749.983752694556,
             "recorded_teacher_refinement_objective_min": 2300.0,
+            "refinement_elite_summary": {
+              "count": 4,
+              "elite_count": {
+                "count": 4,
+                "max": 2.0,
+                "mean": 2.0,
+                "min": 2.0
+              },
+              "selected_distance_to_nearest_elite": {
+                "count": 4,
+                "max": 0.0,
+                "mean": 0.0,
+                "min": 0.0
+              },
+              "selected_elite_kernel_log_probability": {
+                "count": 4,
+                "max": 0.0,
+                "mean": -0.016247305443890525,
+                "min": -0.06276875891373379
+              }
+            },
             "reward_max": 59.0,
             "reward_mean": 37.5,
             "reward_min": 23.0,
@@ -2142,6 +2380,32 @@
                 "student_log_probability": -77.12972341991554,
                 "switches": 1,
                 "teacher_objective": 2222.8702765800845,
+                "teacher_refinement_elite_summary": {
+                  "elite_count": 2,
+                  "kernel_log_normalizer": -76.43657623935559,
+                  "nearest_elite_reward": 23.0,
+                  "nearest_elite_source": "bootstrap_student_sample",
+                  "nearest_elite_teacher_objective": 2222.8702765800845,
+                  "reward_max": 23.0,
+                  "reward_mean": 23.0,
+                  "reward_min": 23.0,
+                  "selected_distance_to_elite_max": 0.0,
+                  "selected_distance_to_elite_mean": 0.0,
+                  "selected_distance_to_elite_min": 0.0,
+                  "selected_distance_to_nearest_elite": 0.0,
+                  "selected_elite_kernel_log_probability": 0.0,
+                  "source_counts": {
+                    "bootstrap_elite_distribution_mean": 1,
+                    "bootstrap_student_sample": 1
+                  },
+                  "teacher_objective_max": 2222.8702765800845,
+                  "teacher_objective_mean": 2222.8702765800845,
+                  "teacher_objective_min": 2222.8702765800845,
+                  "teacher_refinement_objective_max": 2300.0,
+                  "teacher_refinement_objective_mean": 2300.0,
+                  "teacher_refinement_objective_min": 2300.0,
+                  "top_rho": 2
+                },
                 "teacher_refinement_objective": 2300.0,
                 "teacher_source": "bootstrap_student_sample",
                 "theta_gain": 0.0
@@ -2221,6 +2485,27 @@
             "recorded_teacher_refinement_objective_max": 2900.0,
             "recorded_teacher_refinement_objective_mean": 2600.0,
             "recorded_teacher_refinement_objective_min": 2300.0,
+            "refinement_elite_summary": {
+              "count": 4,
+              "elite_count": {
+                "count": 4,
+                "max": 2.0,
+                "mean": 2.0,
+                "min": 2.0
+              },
+              "selected_distance_to_nearest_elite": {
+                "count": 4,
+                "max": 0.0,
+                "mean": 0.0,
+                "min": 0.0
+              },
+              "selected_elite_kernel_log_probability": {
+                "count": 4,
+                "max": 0.0,
+                "mean": 0.0,
+                "min": 0.0
+              }
+            },
             "reward_max": 29.0,
             "reward_mean": 26.0,
             "reward_min": 23.0,
@@ -2774,6 +3059,32 @@
                 "student_log_probability": -54.15424125457897,
                 "switches": 0,
                 "teacher_objective": 2845.845758745421,
+                "teacher_refinement_elite_summary": {
+                  "elite_count": 2,
+                  "kernel_log_normalizer": -53.46109407401902,
+                  "nearest_elite_reward": 29.0,
+                  "nearest_elite_source": "student_sample",
+                  "nearest_elite_teacher_objective": 2845.845758745421,
+                  "reward_max": 29.0,
+                  "reward_mean": 29.0,
+                  "reward_min": 29.0,
+                  "selected_distance_to_elite_max": 0.0,
+                  "selected_distance_to_elite_mean": 0.0,
+                  "selected_distance_to_elite_min": 0.0,
+                  "selected_distance_to_nearest_elite": 0.0,
+                  "selected_elite_kernel_log_probability": 0.0,
+                  "source_counts": {
+                    "student_elite_distribution_mean": 1,
+                    "student_sample": 1
+                  },
+                  "teacher_objective_max": 2845.845758745421,
+                  "teacher_objective_mean": 2845.845758745421,
+                  "teacher_objective_min": 2845.845758745421,
+                  "teacher_refinement_objective_max": 2900.0,
+                  "teacher_refinement_objective_mean": 2900.0,
+                  "teacher_refinement_objective_min": 2900.0,
+                  "top_rho": 2
+                },
                 "teacher_refinement_objective": 2900.0,
                 "teacher_source": "student_sample",
                 "theta_gain": 0.0
@@ -2925,6 +3236,32 @@
             "student_log_probability": -54.15424125457897,
             "switches": 0,
             "teacher_objective": 2845.845758745421,
+            "teacher_refinement_elite_summary": {
+              "elite_count": 2,
+              "kernel_log_normalizer": -53.46109407401902,
+              "nearest_elite_reward": 29.0,
+              "nearest_elite_source": "student_sample",
+              "nearest_elite_teacher_objective": 2845.845758745421,
+              "reward_max": 29.0,
+              "reward_mean": 29.0,
+              "reward_min": 29.0,
+              "selected_distance_to_elite_max": 0.0,
+              "selected_distance_to_elite_mean": 0.0,
+              "selected_distance_to_elite_min": 0.0,
+              "selected_distance_to_nearest_elite": 0.0,
+              "selected_elite_kernel_log_probability": 0.0,
+              "source_counts": {
+                "student_elite_distribution_mean": 1,
+                "student_sample": 1
+              },
+              "teacher_objective_max": 2845.845758745421,
+              "teacher_objective_mean": 2845.845758745421,
+              "teacher_objective_min": 2845.845758745421,
+              "teacher_refinement_objective_max": 2900.0,
+              "teacher_refinement_objective_mean": 2900.0,
+              "teacher_refinement_objective_min": 2900.0,
+              "top_rho": 2
+            },
             "teacher_refinement_objective": 2900.0,
             "teacher_source": "student_sample",
             "theta_gain": 0.0
@@ -3048,6 +3385,32 @@
             "student_log_probability": -65.37846653178197,
             "switches": 0,
             "teacher_objective": 2734.621533468218,
+            "teacher_refinement_elite_summary": {
+              "elite_count": 2,
+              "kernel_log_normalizer": -64.68531935122202,
+              "nearest_elite_reward": 28.0,
+              "nearest_elite_source": "student_sample",
+              "nearest_elite_teacher_objective": 2734.621533468218,
+              "reward_max": 28.0,
+              "reward_mean": 28.0,
+              "reward_min": 28.0,
+              "selected_distance_to_elite_max": 0.0,
+              "selected_distance_to_elite_mean": 0.0,
+              "selected_distance_to_elite_min": 0.0,
+              "selected_distance_to_nearest_elite": 0.0,
+              "selected_elite_kernel_log_probability": 0.0,
+              "source_counts": {
+                "student_elite_distribution_mean": 1,
+                "student_sample": 1
+              },
+              "teacher_objective_max": 2734.621533468218,
+              "teacher_objective_mean": 2734.621533468218,
+              "teacher_objective_min": 2734.621533468218,
+              "teacher_refinement_objective_max": 2800.0,
+              "teacher_refinement_objective_mean": 2800.0,
+              "teacher_refinement_objective_min": 2800.0,
+              "top_rho": 2
+            },
             "teacher_refinement_objective": 2800.0,
             "teacher_source": "student_sample",
             "theta_gain": 0.0
@@ -3159,6 +3522,32 @@
             "student_log_probability": -45.98484736673004,
             "switches": 0,
             "teacher_objective": 2354.01515263327,
+            "teacher_refinement_elite_summary": {
+              "elite_count": 2,
+              "kernel_log_normalizer": -45.29170018617009,
+              "nearest_elite_reward": 24.0,
+              "nearest_elite_source": "student_sample",
+              "nearest_elite_teacher_objective": 2354.01515263327,
+              "reward_max": 24.0,
+              "reward_mean": 24.0,
+              "reward_min": 24.0,
+              "selected_distance_to_elite_max": 0.0,
+              "selected_distance_to_elite_mean": 0.0,
+              "selected_distance_to_elite_min": 0.0,
+              "selected_distance_to_nearest_elite": 0.0,
+              "selected_elite_kernel_log_probability": 0.0,
+              "source_counts": {
+                "student_elite_distribution_mean": 1,
+                "student_sample": 1
+              },
+              "teacher_objective_max": 2354.01515263327,
+              "teacher_objective_mean": 2354.01515263327,
+              "teacher_objective_min": 2354.01515263327,
+              "teacher_refinement_objective_max": 2400.0,
+              "teacher_refinement_objective_mean": 2400.0,
+              "teacher_refinement_objective_min": 2400.0,
+              "top_rho": 2
+            },
             "teacher_refinement_objective": 2400.0,
             "teacher_source": "student_sample",
             "theta_gain": 0.0

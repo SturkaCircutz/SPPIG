@@ -75,6 +75,7 @@ from cartpole_synthesis import (
     _refresh_teacher_elites_with_distribution,
     _duration_gradient_refinement_candidate,
     _elite_kernel_log_probability,
+    _teacher_refinement_elite_summary,
     _limit_loop_free_trace_segment_budget,
     _mode_responsibilities,
     _mode_run_lengths,
@@ -3892,6 +3893,59 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIs(refined, improved)
         self.assertEqual(refined.teacher_source, "student_elite_distribution_sample_refined")
         self.assertEqual(refined.elite_distribution_fit, trace.elite_distribution_fit)
+
+    def test_cartpole_teacher_records_refreshed_elite_summary_for_selected_trace(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=2,
+            segment_steps=4,
+            segments_per_trace=1,
+            teacher_top_rho=2,
+            teacher_refinement_steps=0,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        low = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(0.0,),
+            segment_durations=(1,),
+            segment_time_increments=(env.cfg.dt,),
+            teacher_source="student_sample",
+        )
+        high = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=3.0,
+            theta_gain=10.0,
+            omega_gain=2.0,
+            segment_actions=(10.0,),
+            segment_durations=(3,),
+            segment_time_increments=(env.cfg.dt,),
+            teacher_source="student_elite_distribution_sample",
+        )
+
+        summary = _teacher_refinement_elite_summary(high, None, cfg, [low, high])
+
+        self.assertIsNotNone(summary)
+        assert summary is not None
+        self.assertEqual(summary["elite_count"], 2)
+        self.assertEqual(summary["top_rho"], 2)
+        self.assertEqual(summary["source_counts"]["student_sample"], 1)
+        self.assertEqual(summary["source_counts"]["student_elite_distribution_sample"], 1)
+        self.assertEqual(summary["reward_min"], 1.0)
+        self.assertEqual(summary["reward_max"], 3.0)
+        self.assertEqual(summary["teacher_objective_min"], 1.0)
+        self.assertEqual(summary["teacher_objective_max"], 3.0)
+        self.assertEqual(summary["nearest_elite_source"], "student_elite_distribution_sample")
+        self.assertEqual(summary["nearest_elite_reward"], 3.0)
+        self.assertAlmostEqual(summary["selected_distance_to_nearest_elite"], 0.0)
+        self.assertNotIn("selected_elite_kernel_log_probability", summary)
 
     def test_cartpole_teacher_elite_distribution_sample_trace_uses_student_weights(self):
         env = CartpoleEnv.train_env(seed=0)

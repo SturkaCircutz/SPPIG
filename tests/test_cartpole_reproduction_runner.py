@@ -558,6 +558,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "serialized_on_distribution_mean_and_sample_traces_with_source_weights_objectives_and_gaussian_parameters",
             )
             self.assertEqual(
+                provenance["teacher_search"]["elite_refinement_selected_trace_diagnostics"],
+                "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms",
+            )
+            self.assertEqual(
                 provenance["teacher_search"]["elite_refinement_elite_set"],
                 "refreshed_top_rho_after_distribution_rounds",
             )
@@ -713,6 +717,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distribution_fit_diagnostics"],
                 "serialized_on_distribution_mean_and_sample_traces_with_source_weights_objectives_and_gaussian_parameters",
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["elite_refinement_selected_trace_diagnostics"],
+                "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_refinement_elite_set"],
