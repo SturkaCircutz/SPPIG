@@ -201,6 +201,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
                 "action_schedule": 1,
                 "duration_schedule": 1,
                 "time_increment_schedule": 1,
+                "joint_action_duration_time_increment_schedule": 1,
             },
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
@@ -1875,6 +1876,10 @@ def _refine_loop_free_trace(
         if candidate is not None and objective(candidate) > objective(best):
             best = candidate
             improved = True
+        candidate = _schedule_gradient_refinement_candidate(best, initial_state, env_cfg, cfg, objective)
+        if candidate is not None and objective(candidate) > objective(best):
+            best = candidate
+            improved = True
         if not improved:
             theta_delta *= TEACHER_REFINEMENT_DELTA_DECAY
             omega_delta *= TEACHER_REFINEMENT_DELTA_DECAY
@@ -2322,6 +2327,190 @@ def _time_increment_gradient_refinement_candidate(
             trace.omega_gain,
             durations,
             actions,
+            updated_increments,
+            modes,
+        )
+        if objective(candidate) > current_objective:
+            return candidate
+    return None
+
+
+def _schedule_gradient_refinement_candidate(
+    trace: CartpoleTrace,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    objective,
+) -> CartpoleTrace | None:
+    actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
+    durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
+    increments = trace.segment_time_increments or tuple(env_cfg.dt for _ in durations)
+    modes = _segment_modes_from_trace(trace, actions, durations)
+    length = min(len(actions), len(durations), len(increments), len(modes))
+    if length <= 0:
+        return None
+    actions = tuple(actions[:length])
+    durations = tuple(durations[:length])
+    increments = tuple(increments[:length])
+    modes = tuple(modes[:length])
+
+    lower = max(min(cfg.force_values), -env_cfg.force_limit)
+    upper = min(max(cfg.force_values), env_cfg.force_limit)
+    action_span = max(MIN_GAUSSIAN_STD, upper - lower)
+    action_epsilon = max(MIN_GAUSSIAN_STD, action_span * TEACHER_ACTION_GRADIENT_EPS_FRACTION)
+    action_step = action_span * TEACHER_ACTION_GRADIENT_STEP_FRACTION
+    max_duration = max(1, cfg.segment_steps)
+    duration_epsilon = max(1, TEACHER_DURATION_GRADIENT_EPS)
+    increment_epsilon = max(MIN_GAUSSIAN_STD, env_cfg.dt * TEACHER_TIME_INCREMENT_GRADIENT_EPS_FRACTION)
+    increment_step = env_cfg.dt * TEACHER_TIME_INCREMENT_GRADIENT_STEP_FRACTION
+
+    action_gradients: List[float] = []
+    for index, current_action in enumerate(actions):
+        minus_action = max(lower, min(upper, current_action - action_epsilon))
+        plus_action = max(lower, min(upper, current_action + action_epsilon))
+        if abs(plus_action - minus_action) < MIN_GAUSSIAN_STD:
+            action_gradients.append(0.0)
+            continue
+        minus_actions = list(actions)
+        plus_actions = list(actions)
+        minus_actions[index] = minus_action
+        plus_actions[index] = plus_action
+        minus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            durations,
+            tuple(minus_actions),
+            increments,
+            modes,
+        )
+        plus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            durations,
+            tuple(plus_actions),
+            increments,
+            modes,
+        )
+        action_gradients.append((objective(plus) - objective(minus)) / (plus_action - minus_action))
+
+    duration_gradients: List[float] = []
+    for index, current_duration in enumerate(durations):
+        minus_duration = max(1, current_duration - duration_epsilon)
+        plus_duration = min(max_duration, current_duration + duration_epsilon)
+        if plus_duration == minus_duration:
+            duration_gradients.append(0.0)
+            continue
+        minus_durations = list(durations)
+        plus_durations = list(durations)
+        minus_durations[index] = minus_duration
+        plus_durations[index] = plus_duration
+        minus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            tuple(minus_durations),
+            actions,
+            increments,
+            modes,
+        )
+        plus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            tuple(plus_durations),
+            actions,
+            increments,
+            modes,
+        )
+        duration_gradients.append((objective(plus) - objective(minus)) / float(plus_duration - minus_duration))
+
+    increment_gradients: List[float] = []
+    for index, current_increment in enumerate(increments):
+        minus_increment = _clamp_time_increment(env_cfg, current_increment - increment_epsilon)
+        plus_increment = _clamp_time_increment(env_cfg, current_increment + increment_epsilon)
+        if abs(plus_increment - minus_increment) < MIN_GAUSSIAN_STD:
+            increment_gradients.append(0.0)
+            continue
+        minus_increments = list(increments)
+        plus_increments = list(increments)
+        minus_increments[index] = minus_increment
+        plus_increments[index] = plus_increment
+        minus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            durations,
+            actions,
+            tuple(minus_increments),
+            modes,
+        )
+        plus = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            durations,
+            actions,
+            tuple(plus_increments),
+            modes,
+        )
+        increment_gradients.append((objective(plus) - objective(minus)) / (plus_increment - minus_increment))
+
+    scaled_action_gradients = [gradient * action_step for gradient in action_gradients]
+    scaled_duration_gradients = [gradient * TEACHER_DURATION_GRADIENT_STEP for gradient in duration_gradients]
+    scaled_increment_gradients = [gradient * increment_step for gradient in increment_gradients]
+    norm = math.sqrt(
+        sum(gradient * gradient for gradient in scaled_action_gradients)
+        + sum(gradient * gradient for gradient in scaled_duration_gradients)
+        + sum(gradient * gradient for gradient in scaled_increment_gradients)
+    )
+    if norm < MIN_GAUSSIAN_STD:
+        return None
+
+    current_objective = objective(trace)
+    for backtrack in TEACHER_GRADIENT_BACKTRACK_FACTORS:
+        updated_actions = tuple(
+            max(lower, min(upper, action + backtrack * action_step * gradient / norm))
+            for action, gradient in zip(actions, scaled_action_gradients)
+        )
+        updated_durations = tuple(
+            min(
+                max_duration,
+                max(1, int(math.floor(duration + backtrack * TEACHER_DURATION_GRADIENT_STEP * gradient / norm + 0.5))),
+            )
+            for duration, gradient in zip(durations, scaled_duration_gradients)
+        )
+        updated_increments = tuple(
+            _clamp_time_increment(env_cfg, increment + backtrack * increment_step * gradient / norm)
+            for increment, gradient in zip(increments, scaled_increment_gradients)
+        )
+        if (
+            all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_actions, actions))
+            and updated_durations == durations
+            and all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_increments, increments))
+        ):
+            continue
+        candidate = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            updated_durations,
+            updated_actions,
             updated_increments,
             modes,
         )

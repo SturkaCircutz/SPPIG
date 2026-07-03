@@ -88,6 +88,7 @@ from cartpole_synthesis import (
     _rollout_student_sampled_trace,
     _rollout_with_teacher_gains,
     _sample_switch,
+    _schedule_gradient_refinement_candidate,
     _scalar_switch_timing_pairs,
     _scalar_timing_pair_probabilities,
     _single_threshold_transition_probability,
@@ -3881,6 +3882,9 @@ class CartpolePaperTest(unittest.TestCase):
         ), patch(
             "cartpole_synthesis._time_increment_gradient_refinement_candidate",
             return_value=None,
+        ), patch(
+            "cartpole_synthesis._schedule_gradient_refinement_candidate",
+            return_value=None,
         ):
             refined = _refine_loop_free_trace(trace, initial_state, env.cfg, cfg, None)
 
@@ -4003,6 +4007,15 @@ class CartpolePaperTest(unittest.TestCase):
         ), patch(
             "cartpole_synthesis._action_gradient_refinement_candidate",
             return_value=gradient_candidate,
+        ), patch(
+            "cartpole_synthesis._duration_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._time_increment_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._schedule_gradient_refinement_candidate",
+            return_value=None,
         ):
             refined = _refine_loop_free_trace(trace, initial_state, env.cfg, cfg, None)
 
@@ -4128,6 +4141,12 @@ class CartpolePaperTest(unittest.TestCase):
         ), patch(
             "cartpole_synthesis._duration_gradient_refinement_candidate",
             return_value=gradient_candidate,
+        ), patch(
+            "cartpole_synthesis._time_increment_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._schedule_gradient_refinement_candidate",
+            return_value=None,
         ):
             refined = _refine_loop_free_trace(trace, initial_state, env.cfg, cfg, None)
 
@@ -4210,6 +4229,158 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertTrue(any(abs(value - 0.024) < 1e-12 for value in evaluated_increments))
         self.assertTrue(any(abs(value - 0.022) < 1e-12 for value in evaluated_increments))
 
+    def test_cartpole_teacher_schedule_gradient_uses_joint_central_differences(self):
+        env = CartpoleEnv(CartpoleConfig(pole_length=0.5, horizon_seconds=5.0, dt=0.04), seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=4, segments_per_trace=1)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(0.0,),
+            segment_durations=(2,),
+            segment_time_increments=(0.02,),
+            segment_modes=(0,),
+        )
+        seen_actions = []
+        seen_durations = []
+        seen_increments = []
+
+        def objective(candidate):
+            seen_actions.append(candidate.segment_actions)
+            seen_durations.append(candidate.segment_durations)
+            seen_increments.append(candidate.segment_time_increments)
+            return (
+                candidate.segment_actions[0]
+                + 5.0 * candidate.segment_durations[0]
+                + 100.0 * candidate.segment_time_increments[0]
+            )
+
+        candidate = _schedule_gradient_refinement_candidate(
+            trace,
+            initial_state,
+            env.cfg,
+            cfg,
+            objective,
+        )
+
+        self.assertIsNotNone(candidate)
+        self.assertIn((-1.0,), seen_actions)
+        self.assertIn((1.0,), seen_actions)
+        self.assertIn((1,), seen_durations)
+        self.assertIn((3,), seen_durations)
+        self.assertTrue(any(abs(increments[0] - 0.018) < 1e-12 for increments in seen_increments))
+        self.assertTrue(any(abs(increments[0] - 0.022) < 1e-12 for increments in seen_increments))
+        assert candidate is not None
+        self.assertGreater(candidate.segment_actions[0], trace.segment_actions[0])
+        self.assertGreater(candidate.segment_durations[0], trace.segment_durations[0])
+        self.assertGreater(candidate.segment_time_increments[0], trace.segment_time_increments[0])
+
+    def test_cartpole_teacher_schedule_gradient_backtracks_to_improving_step(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=4, segments_per_trace=1)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(0.0,),
+            segment_durations=(2,),
+            segment_time_increments=(env.cfg.dt,),
+            segment_modes=(0,),
+        )
+        evaluated_actions = []
+
+        def objective(candidate):
+            action = candidate.segment_actions[0]
+            evaluated_actions.append(action)
+            return 1.0 - abs(action - 1.0)
+
+        candidate = _schedule_gradient_refinement_candidate(
+            trace,
+            initial_state,
+            env.cfg,
+            cfg,
+            objective,
+        )
+
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertAlmostEqual(candidate.segment_actions[0], 1.0)
+        self.assertIn(2.0, evaluated_actions)
+        self.assertIn(1.0, evaluated_actions)
+
+    def test_cartpole_teacher_schedule_gradient_refinement_can_be_accepted(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            segment_steps=4,
+            segments_per_trace=3,
+            teacher_refinement_steps=1,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = CartpoleTrace(
+            observations=[],
+            actions=[-10.0],
+            mode_labels=[0],
+            reward=1.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(-10.0, -10.0, -10.0),
+            segment_durations=(1, 1, 1),
+            segment_time_increments=(env.cfg.dt, env.cfg.dt, env.cfg.dt),
+            teacher_source="student_sample",
+        )
+        gradient_candidate = CartpoleTrace(
+            observations=[],
+            actions=[0.0, -10.0],
+            mode_labels=[0, 0],
+            reward=5.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(0.0, -10.0, -10.0),
+            segment_durations=(2, 1, 1),
+            segment_time_increments=(env.cfg.dt, env.cfg.dt, env.cfg.dt),
+            teacher_source="gain_sample",
+        )
+
+        with patch(
+            "cartpole_synthesis._duration_refinement_candidates",
+            return_value=[],
+        ), patch(
+            "cartpole_synthesis._time_increment_refinement_candidates",
+            return_value=[],
+        ), patch(
+            "cartpole_synthesis._action_refinement_candidates",
+            return_value=[],
+        ), patch(
+            "cartpole_synthesis._action_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._duration_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._time_increment_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._schedule_gradient_refinement_candidate",
+            return_value=gradient_candidate,
+        ):
+            refined = _refine_loop_free_trace(trace, initial_state, env.cfg, cfg, None)
+
+        self.assertEqual(refined.teacher_source, "student_sample_refined")
+        self.assertEqual(refined.segment_actions, gradient_candidate.segment_actions)
+        self.assertEqual(refined.segment_durations, gradient_candidate.segment_durations)
+        self.assertGreaterEqual(
+            _teacher_objective(refined, None, cfg),
+            _teacher_objective(trace, None, cfg),
+        )
+
     def test_cartpole_teacher_finite_difference_refinement_rejects_worse_candidates(self):
         env = CartpoleEnv.train_env(seed=0)
         cfg = CartpoleSynthesisConfig(
@@ -4266,6 +4437,12 @@ class CartpolePaperTest(unittest.TestCase):
         ), patch(
             "cartpole_synthesis._duration_gradient_refinement_candidate",
             return_value=worse_duration,
+        ), patch(
+            "cartpole_synthesis._time_increment_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._schedule_gradient_refinement_candidate",
+            return_value=None,
         ):
             refined = _refine_loop_free_trace(trace, initial_state, env.cfg, cfg, None)
 

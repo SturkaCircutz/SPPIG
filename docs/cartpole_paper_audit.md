@@ -278,8 +278,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   top-rho elite-distance kernel approximation with action differences normalized by the larger sampled
   force magnitude, adds one bounded finite-difference teacher-gain
   candidate, one bounded finite-difference action candidate, one bounded finite-difference
-  integer-duration candidate, and one bounded finite-difference time-increment candidate per
-  refinement iteration with a short backtracking line search, evaluates one centroid recombination of the
+  integer-duration candidate, one bounded finite-difference time-increment candidate, and one bounded
+  joint action/duration/time-increment schedule candidate per refinement iteration with a short
+  backtracking line search, evaluates one centroid recombination of the
   elite action/duration/time-increment schedules plus configurable bounded rounds that fit a Gaussian
   schedule distribution over teacher gains and per-segment actions, durations, and time increments
   from the current top-rho set. Each bounded round evaluates the fitted distribution mean, samples
@@ -720,6 +721,15 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_time_increment_gradient_backtracks_to_improving_step`
   verifies that time-increment finite-difference refinement can backtrack to a smaller improving step
   when the full normalized step is worse.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_schedule_gradient_uses_joint_central_differences`
+  verifies that bounded teacher refinement can estimate one joint finite-difference direction across
+  loop-free actions, integer durations, and time increments.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_schedule_gradient_backtracks_to_improving_step`
+  verifies that the joint schedule-gradient candidate can backtrack when the full normalized step is
+  worse.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_schedule_gradient_refinement_can_be_accepted`
+  verifies that the joint schedule-gradient candidate can be accepted by the local teacher refinement
+  loop when it improves the objective.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_finite_difference_refinement_rejects_worse_candidates`
   verifies that worse action and duration finite-difference candidates are rejected.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_does_not_reduce_objective`

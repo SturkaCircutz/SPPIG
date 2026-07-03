@@ -242,6 +242,7 @@ class CartpolePSMCliTest(unittest.TestCase):
                 "action_schedule": 1,
                 "duration_schedule": 1,
                 "time_increment_schedule": 1,
+                "joint_action_duration_time_increment_schedule": 1,
             },
         )
         self.assertTrue(provenance["teacher_search"]["elite_distribution_samples_teacher_gains"])

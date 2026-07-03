@@ -406,6 +406,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "action_schedule": 1,
                     "duration_schedule": 1,
                     "time_increment_schedule": 1,
+                    "joint_action_duration_time_increment_schedule": 1,
                 },
             )
             self.assertEqual(
@@ -554,6 +555,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "action_schedule": 1,
                     "duration_schedule": 1,
                     "time_increment_schedule": 1,
+                    "joint_action_duration_time_increment_schedule": 1,
                 },
             )
             self.assertEqual(
