@@ -23,6 +23,13 @@ def current_synthesized_psm_algorithm_provenance() -> dict:
     }
 
 
+def current_synthesized_psm_status() -> dict:
+    return {
+        "paper_scale_result": False,
+        "synthesized_by_current_algorithm": True,
+    }
+
+
 class MakePaperFiguresTest(unittest.TestCase):
     def test_checked_in_results_reference_existing_artifacts(self):
         rows = make_paper_figures.read_results()
@@ -82,6 +89,13 @@ class MakePaperFiguresTest(unittest.TestCase):
         synthesized_psm_row = next(row for row in manifest["rows"] if row["policy"] == "Synthesized PSM diagnostic")
         with open(os.path.join(ROOT, synthesized_psm_row["metrics_output"]), encoding="utf-8") as handle:
             synthesized_psm_metrics = json.load(handle)
+        self.assertEqual(
+            synthesized_psm_row["paper_protocol_status"],
+            synthesized_psm_metrics["paper_protocol_status"],
+        )
+        self.assertTrue(
+            synthesized_psm_row["paper_protocol_status"]["synthesized_by_current_algorithm"]
+        )
         self.assertEqual(synthesized_psm_row["traces_output"], synthesized_psm_metrics["traces_output"])
         self.assertTrue(os.path.exists(os.path.join(ROOT, synthesized_psm_row["traces_output"])))
         self.assertIn("--traces-output", synthesized_psm_row["command"])
@@ -225,7 +239,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,
@@ -261,7 +275,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,
@@ -298,7 +312,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python scripts/run_cartpole_reproduction.py --quick",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "synthesis_history": [{"iteration": 1}],
                         "traces_output": traces_path,
                     },
@@ -325,6 +339,44 @@ class MakePaperFiguresTest(unittest.TestCase):
                     }
                 ]
             )
+
+    def test_require_result_artifacts_rejects_synthesized_psm_missing_current_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python scripts/run_cartpole_reproduction.py --quick",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "synthesis_history": [{"iteration": 1}],
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": 1},
+                        "num_traces": 1,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "current-synthesis protocol status"):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Programmatic state machine",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
 
     def test_require_result_artifacts_accepts_fixed_psm_without_synthesis_traces(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -361,7 +413,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,
@@ -398,7 +450,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,
@@ -435,7 +487,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,
@@ -472,7 +524,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,
@@ -509,7 +561,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,
@@ -548,7 +600,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": os.path.join(tmpdir, "missing_traces.json"),
                     },
                     handle,
@@ -574,7 +626,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python scripts/run_cartpole_reproduction.py --quick",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "synthesis_history": [{"iteration": 1}],
                     },
                     handle,
@@ -601,7 +653,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python train.py --traces-output traces.json",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,
@@ -630,7 +682,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     {
                         "command": "python scripts/run_cartpole_reproduction.py --quick",
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "synthesis_history": [{"iteration": 1}],
                         "traces_output": traces_path,
                     },
@@ -669,7 +721,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                                 }
                             }
                         },
-                        "paper_protocol_status": {"paper_scale_result": False},
+                        "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                     },
                     handle,

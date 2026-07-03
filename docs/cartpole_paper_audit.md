@@ -68,7 +68,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   duration schedules, latent responsibility confidence/entropy summaries, sampled-trace log-probability provenance, and switch-fit diagnostics comparing
   the selected switch objective tuple to a fixed local reference switch; this is failure-analysis
   provenance, not a controller selection rule. PSM metrics also include `paper_protocol_status`, a
-  compact machine-readable block that records matched CartPole horizons and keeps the full
+  compact machine-readable block that records matched CartPole horizons, marks current synthesis
+  artifacts with `synthesized_by_current_algorithm = true`, and keeps the full
   probabilistic adaptive-teaching, full continuous switch-M-step, full CEM teacher optimizer, and
   paper-scale result flags false for the current bounded implementation. The metrics now include a
   compact `adaptive_teacher_summary` for each teacher/student iteration, recording the teacher

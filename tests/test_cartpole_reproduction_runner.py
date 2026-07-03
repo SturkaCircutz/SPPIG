@@ -227,6 +227,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(psm_status["reward_spec"]["reward_equals_survived_steps"])
             self.assertEqual(psm_status["space_spec"]["action_dimension"], 1)
             self.assertEqual(psm_status["space_spec"]["initial_state_distribution"]["high"], 0.05)
+            self.assertTrue(psm_status["synthesized_by_current_algorithm"])
             self.assertFalse(psm_status["full_probabilistic_adaptive_teaching"])
             self.assertFalse(psm_status["full_continuous_switch_m_step"])
             self.assertFalse(psm_status["full_cem_teacher_optimizer"])

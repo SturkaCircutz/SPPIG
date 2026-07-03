@@ -295,6 +295,7 @@ def cartpole_synthesis_protocol_status(
         "student_switch_responsibility_passes": cfg.student_switch_responsibility_passes,
         "teacher_elite_distribution_resamples": cfg.teacher_elite_distribution_resamples,
         "teacher_elite_distribution_rounds": cfg.teacher_elite_distribution_rounds,
+        "synthesized_by_current_algorithm": True,
         "full_probabilistic_adaptive_teaching": False,
         "full_continuous_switch_m_step": False,
         "full_cem_teacher_optimizer": False,

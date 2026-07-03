@@ -342,6 +342,7 @@
     },
     "student_em_iters": 4,
     "student_switch_responsibility_passes": 1,
+    "synthesized_by_current_algorithm": true,
     "teacher_elite_distribution_resamples": 1,
     "teacher_elite_distribution_rounds": 1,
     "test_horizon_seconds": 300.0,

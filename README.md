@@ -88,6 +88,7 @@ the full selected teacher traces and per-iteration teacher-trace history for tha
 The checked-in fixed-program reevaluation metrics instead record
 `paper_protocol_status` with `synthesized_by_current_algorithm` false, so that
 the full-horizon fixed PSM row is not confused with a current synthesis result.
+Current synthesis metrics record the same flag as true.
 When PPO is included, each PPO row also records its checkpoint path and metrics
 JSON path under the output directory. Use `--ppo-eval-interval N` to record
 intermediate train/test evaluations in each PPO metrics JSON; quick runs default

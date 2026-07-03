@@ -418,6 +418,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["student_switch_responsibility_passes"], 2)
         self.assertEqual(status["teacher_elite_distribution_resamples"], 3)
         self.assertEqual(status["teacher_elite_distribution_rounds"], 2)
+        self.assertTrue(status["synthesized_by_current_algorithm"])
         self.assertFalse(status["full_probabilistic_adaptive_teaching"])
         self.assertFalse(status["full_continuous_switch_m_step"])
         self.assertFalse(status["full_cem_teacher_optimizer"])
