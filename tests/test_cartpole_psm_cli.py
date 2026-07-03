@@ -182,6 +182,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"],
             {"action_schedule": 1, "duration_schedule": 1, "time_increment_schedule": 1},
         )
+        self.assertTrue(provenance["teacher_search"]["elite_distribution_samples_teacher_gains"])
         self.assertEqual(
             provenance["teacher_search"]["student_sample_fraction_after_first_iteration"],
             1.0,

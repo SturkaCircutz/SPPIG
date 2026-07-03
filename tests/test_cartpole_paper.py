@@ -1827,8 +1827,8 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertTrue(all(1 <= duration <= cfg.segment_steps for duration in sample.segment_durations))
         self.assertTrue(all(0.0 < increment <= env.cfg.dt for increment in sample.segment_time_increments))
         self.assertTrue(all(-env.cfg.force_limit <= action <= env.cfg.force_limit for action in sample.segment_actions))
-        self.assertEqual(sample.theta_gain, 15.0)
-        self.assertEqual(sample.omega_gain, 2.0)
+        self.assertNotEqual(sample.theta_gain, 15.0)
+        self.assertNotEqual(sample.omega_gain, 2.0)
         self.assertIsNotNone(sample.student_log_probability)
 
     def test_cartpole_teacher_elite_distribution_sample_uses_gaussian_statistics(self):
@@ -1889,12 +1889,70 @@ class CartpolePaperTest(unittest.TestCase):
                 (10.0, 0.001),
                 (3.0, 2.0),
                 (0.015, 0.005),
+                (0.0, 1e-06),
+                (0.0, 1e-06),
             ],
         )
         assert sample is not None
         self.assertEqual(sample.segment_actions, (10.0, 10.0))
         self.assertEqual(sample.segment_durations, (5, 5))
         self.assertEqual(sample.segment_time_increments, (0.02, 0.02))
+        self.assertEqual(sample.theta_gain, 1e-06)
+        self.assertEqual(sample.omega_gain, 1e-06)
+
+    def test_cartpole_teacher_elite_distribution_sample_fits_gain_statistics(self):
+        class RecordingRng:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def gauss(self, mean, std):
+                self.calls.append((mean, std))
+                return mean + std
+
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=5, segments_per_trace=1)
+        left = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=10.0,
+            omega_gain=1.0,
+            segment_actions=(-10.0,),
+            segment_durations=(1,),
+            segment_time_increments=(0.01,),
+            teacher_source="student_sample",
+        )
+        right = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            theta_gain=20.0,
+            omega_gain=3.0,
+            segment_actions=(10.0,),
+            segment_durations=(5,),
+            segment_time_increments=(0.02,),
+            teacher_source="student_sample",
+        )
+        rng = RecordingRng()
+
+        sample = _elite_distribution_sample_trace(
+            [
+                (left.segment_actions, left.segment_durations, left.segment_time_increments, left),
+                (right.segment_actions, right.segment_durations, right.segment_time_increments, right),
+            ],
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            rng,
+        )
+
+        self.assertIsNotNone(sample)
+        self.assertEqual(rng.calls[-2:], [(15.0, 5.0), (2.0, 1.0)])
+        assert sample is not None
+        self.assertEqual(sample.theta_gain, 20.0)
+        self.assertEqual(sample.omega_gain, 3.0)
 
     def test_cartpole_teacher_elite_distribution_mean_uses_fitted_statistics(self):
         env = CartpoleEnv.train_env(seed=0)

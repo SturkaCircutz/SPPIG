@@ -156,14 +156,16 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `35.65`, test reward mean `47.2`; the same artifact records train/test
-  survived-step means `35.65` and `47.2`, or `0.713s` and `0.944s`. The tracked artifact uses the current
+  train reward mean `25.9`, test reward mean `35.85`; the same artifact records train/test
+  survived-step means `25.9` and `35.85`, or `0.518s` and `0.717s`. The tracked artifact uses the current
   CartPole PSM default loop-free teacher profile (`segment_steps = 1`, `segments_per_trace = 250`)
   so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
-  `bootstrap_source = probabilistic_student_prior`, first-iteration source counts
-  `{"bootstrap_student_sample": 3, "bootstrap_student_sample_refined": 1}`, final-iteration source
-  counts `{"student_sample": 4}`, and
+  `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
+  elite-distribution refresh, first-iteration source counts
+  `{"bootstrap_elite_centroid": 3, "bootstrap_student_sample": 1}`, final-iteration source
+  counts `{"student_sample": 4}`, and policy
+  `m0 action=-1.360; m1 action=0.733; mode=1 if -10.000*theta + -10.000*omega >= -0.440, else mode=0`; it also records
   `student_sample_segment_budget = chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
   gap, not a paper-level reproduction result.
@@ -517,6 +519,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that the teacher can sample one loop-free candidate from per-segment action/duration
   statistics fit to the top-rho traces. This is a bounded CEM-like sample, not an iterative CEM
   optimizer.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_sample_fits_gain_statistics`
+  verifies that the bounded elite-distribution sample also fits and samples teacher-gain
+  statistics from the top-rho traces.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_mean_uses_fitted_statistics`
   verifies that the teacher can evaluate the deterministic per-segment fitted-distribution mean
   candidate before local refinement.
@@ -654,8 +659,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   segment durations, per-segment time increments, one-segment local continuous constant-action
   steps, and one action plus one integer-duration plus one time-increment finite-difference
   candidate per refinement iteration, evaluates one deterministic top-rho centroid recombination
-  candidate plus configurable bounded rounds of fitted per-segment distribution mean candidates
-  and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
+  candidate plus configurable bounded rounds of fitted teacher-gain and per-segment
+  distribution mean candidates and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the
   previous student, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.

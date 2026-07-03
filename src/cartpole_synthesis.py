@@ -192,6 +192,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
             "default_elite_distribution_resamples": TEACHER_ELITE_DISTRIBUTION_RESAMPLES,
             "default_elite_distribution_rounds": TEACHER_ELITE_DISTRIBUTION_ROUNDS,
+            "elite_distribution_samples_teacher_gains": True,
             "elite_distribution_mean_candidate_per_round": 1,
             "elite_distribution_min_action_std": TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD,
             "elite_distribution_phase": "bounded_cem_style_top_rho_refresh",
@@ -1004,8 +1005,8 @@ def _elite_distribution_mean_trace(
     if not mean_actions or not mean_durations or not mean_increments:
         return None
 
-    theta_gain = sum(trace.theta_gain for _, _, _, trace in schedules) / len(schedules)
-    omega_gain = sum(trace.omega_gain for _, _, _, trace in schedules) / len(schedules)
+    theta_gain, _ = _mean_and_std([trace.theta_gain for _, _, _, trace in schedules], TEACHER_GAIN_SAMPLE_MIN_STD)
+    omega_gain, _ = _mean_and_std([trace.omega_gain for _, _, _, trace in schedules], TEACHER_GAIN_SAMPLE_MIN_STD)
     mean_trace = _rollout_with_teacher_gains(
         initial_state,
         env_cfg,
@@ -1122,14 +1123,20 @@ def _elite_distribution_sample_trace(
     if not sampled_actions or not sampled_durations or not sampled_increments:
         return None
 
-    theta_gain = sum(trace.theta_gain for _, _, _, trace in schedules) / len(schedules)
-    omega_gain = sum(trace.omega_gain for _, _, _, trace in schedules) / len(schedules)
+    theta_gain_mean, theta_gain_std = _mean_and_std(
+        [trace.theta_gain for _, _, _, trace in schedules],
+        TEACHER_GAIN_SAMPLE_MIN_STD,
+    )
+    omega_gain_mean, omega_gain_std = _mean_and_std(
+        [trace.omega_gain for _, _, _, trace in schedules],
+        TEACHER_GAIN_SAMPLE_MIN_STD,
+    )
     sample = _rollout_with_teacher_gains(
         initial_state,
         env_cfg,
         cfg,
-        theta_gain,
-        omega_gain,
+        rng.gauss(theta_gain_mean, theta_gain_std),
+        rng.gauss(omega_gain_mean, omega_gain_std),
         tuple(sampled_durations),
         tuple(sampled_actions),
         tuple(sampled_increments),

@@ -163,10 +163,11 @@ finite-difference action candidate, one bounded finite-difference
 integer-duration candidate, and one bounded finite-difference time-increment
 candidate per refinement iteration. The teacher also evaluates one deterministic
 centroid recombination of the top-rho loop-free action/duration/time-increment schedules
-and configurable bounded rounds of fitted per-segment action/duration/time-increment
-distribution means plus samples, refreshing the top-rho set between rounds
-and using the refreshed top-rho set for the refinement objective. This is only
-a bounded CEM-style refresh, not the paper's full CEM plus gradient optimizer.
+and configurable bounded rounds of fitted teacher-gain plus per-segment
+action/duration/time-increment distribution means and samples, refreshing the
+top-rho set between rounds and using the refreshed top-rho set for the
+refinement objective. This is only a bounded CEM-style refresh, not the paper's
+full CEM plus gradient optimizer.
 The student starts with action-likelihood responsibilities, then performs the
 configured number of bounded forward-backward refinements using the learned
 switch-timing likelihood. That timing likelihood now treats selector-off to
