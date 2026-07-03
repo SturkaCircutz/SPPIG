@@ -402,6 +402,22 @@ class CartpolePSMCliTest(unittest.TestCase):
                 entry["adaptive_teacher_summary"],
                 metrics["adaptive_teacher_summary"][index - 1],
             )
+            self.assertEqual(len(entry["student_fit_history"]), 5)
+            self.assertEqual(entry["student_fit_history"][0]["em_iteration"], 1)
+            self.assertEqual(entry["student_fit_history"][0]["responsibility_pass"], 0)
+            self.assertEqual(
+                entry["student_fit_history"][0]["phase"],
+                "action_likelihood_initialization",
+            )
+            self.assertEqual(entry["student_fit_history"][-1]["em_iteration"], 2)
+            self.assertEqual(entry["student_fit_history"][-1]["responsibility_pass"], 2)
+            self.assertEqual(
+                entry["student_fit_history"][-1]["phase"],
+                "switch_timing_refinement",
+            )
+            self.assertIn("action_distributions", entry["student_fit_history"][-1])
+            self.assertIn("switch_parameter_distributions", entry["student_fit_history"][-1])
+            self.assertIn("mean_entropy_nats", entry["student_fit_history"][-1]["responsibility_summary"])
             self.assertIn("evaluation", entry)
             self.assertIn("success_rate", entry["evaluation"]["train"])
             self.assertIn("reward_mean", entry["evaluation"]["train"])
@@ -413,6 +429,10 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(history_entry["evaluation"]["test"], metrics["test"])
         self.assertIn("teacher_source_counts", history_entry["trace_summary"])
         self.assertIn("probabilistic_student", history_entry)
+        self.assertEqual(
+            history_entry["student_fit_history"][-1]["responsibility_summary"],
+            history_entry["probabilistic_student"]["responsibility_summary"],
+        )
         self.assertIn("switch_fit_diagnostics", history_entry)
         self.assertEqual(
             history_entry["switch_fit_diagnostics"]["diagnostic_scope"],

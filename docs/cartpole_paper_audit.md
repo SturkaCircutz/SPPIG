@@ -73,7 +73,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   paper-scale result flags false for the current bounded implementation. The metrics now include a
   compact `adaptive_teacher_summary` for each teacher/student iteration, recording the teacher
   sampling model, selected trace-source counts, reward summary, student log-probability coverage, and
-  the recorded reward-plus-student-likelihood objective components when available.
+  the recorded reward-plus-student-likelihood objective components when available. Each
+  `synthesis_history` row also records `student_fit_history`, a compact trace of the inner
+  action-likelihood initialization and switch-timing responsibility/refit passes that produced that
+  iteration's probabilistic student.
 - `src/cartpole_env.py::cartpole_space_spec`: records CartPole action/observation space provenance.
   The paper-derived claims are limited to Figure 8's `#A = 1` and `#O = 4` plus Appendix B.4's
   statement that RL baselines used the same action spaces, observation spaces, and set of initial
@@ -511,6 +514,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_student_alternates_switch_responsibility_passes_per_em_iteration`
   verifies that switch-timing responsibility refinements are applied inside each configured EM
   iteration rather than only after action-only EM has completed.
+- `tests/test_cartpole_paper.py::test_cartpole_student_fit_history_records_inner_em_steps`
+  verifies that the fitted Cartpole student can expose a compact per-EM/pass training history whose
+  final row matches the returned probabilistic student.
 - `tests/test_cartpole_paper.py::test_cartpole_synthesis_can_return_probabilistic_student` verifies
   that synthesis can expose the fitted probabilistic student directly for metrics/provenance without
   re-fitting from traces.

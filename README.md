@@ -125,8 +125,11 @@ Trace examples include the loop-free segment action
 sequence, duration sequence, and per-segment time increments used by the teacher. It also records
 `synthesis_history`, a compact row for each teacher/student iteration with
 trace summaries, fitted student parameters, local switch-fit diagnostics,
-adaptive-teacher objective summaries, and train/test evaluation under the
-requested diagnostic rollout budget. The top-level
+per-EM student-fit history, adaptive-teacher objective summaries, and train/test
+evaluation under the requested diagnostic rollout budget. Each
+`student_fit_history` row records the EM iteration, responsibility pass, fit
+phase, Gaussian action/switch summaries, and latent responsibility confidence.
+The top-level
 `adaptive_teacher_summary` array records each iteration's teacher sampling
 model, teacher-source counts, reward summary, recorded student log-probability
 coverage, and the recorded reward-plus-student-likelihood objective components

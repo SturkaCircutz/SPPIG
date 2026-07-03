@@ -719,6 +719,18 @@ class CartpoleSynthesisIteration:
     iteration: int
     traces: List[CartpoleTrace]
     student: ProbabilisticCartpoleStudent
+    student_fit_history: List["CartpoleStudentFitStep"]
+
+
+@dataclass
+class CartpoleStudentFitStep:
+    em_iteration: int
+    responsibility_pass: int
+    phase: str
+    responsibilities: List[Tuple[float, float]]
+    action_distributions: Dict[int, GaussianScalar]
+    switch: SwitchProgram
+    switch_parameter_distributions: List[GaussianScalar]
 
 
 def synthesize_cartpole_policy(cfg: CartpoleSynthesisConfig) -> tuple[SynthesizedCartpolePSM, List[CartpoleTrace]]:
@@ -747,8 +759,8 @@ def synthesize_cartpole_student_with_history(
             _optimize_loop_free_trace(initial_state, env.cfg, cfg, rng, student)
             for initial_state in initial_states
         ]
-        student = fit_probabilistic_cartpole_student(traces, cfg)
-        history.append(CartpoleSynthesisIteration(iteration + 1, traces, student))
+        student, student_fit_history = fit_probabilistic_cartpole_student_with_history(traces, cfg)
+        history.append(CartpoleSynthesisIteration(iteration + 1, traces, student, student_fit_history))
     if student is None:
         raise RuntimeError("Cartpole synthesis did not produce a student policy")
     return student, traces, history
@@ -758,6 +770,14 @@ def fit_probabilistic_cartpole_student(
     traces: List[CartpoleTrace],
     cfg: CartpoleSynthesisConfig,
 ) -> ProbabilisticCartpoleStudent:
+    student, _ = fit_probabilistic_cartpole_student_with_history(traces, cfg)
+    return student
+
+
+def fit_probabilistic_cartpole_student_with_history(
+    traces: List[CartpoleTrace],
+    cfg: CartpoleSynthesisConfig,
+) -> tuple[ProbabilisticCartpoleStudent, List[CartpoleStudentFitStep]]:
     """Fit the Cartpole student using Gaussian action-parameter distributions.
 
     This implements the action-distribution part of the paper's EM-style
@@ -780,6 +800,7 @@ def fit_probabilistic_cartpole_student(
     responsibilities: List[Tuple[float, float]] = []
     switch: SwitchProgram | None = None
     switch_parameter_distributions: List[GaussianScalar] = []
+    fit_history: List[CartpoleStudentFitStep] = []
 
     for iteration in range(max(1, cfg.student_em_iters)):
         if iteration == 0 or cfg.student_switch_responsibility_passes <= 0:
@@ -796,12 +817,23 @@ def fit_probabilistic_cartpole_student(
                 segments_by_trace,
                 responsibilities,
             )
+            fit_history.append(
+                _student_fit_step(
+                    iteration + 1,
+                    0,
+                    "action_likelihood_initialization" if iteration == 0 else "action_likelihood_refit",
+                    responsibilities,
+                    action_distributions,
+                    switch,
+                    switch_parameter_distributions,
+                )
+            )
 
         if cfg.student_switch_responsibility_passes <= 0:
             continue
         if switch is None:
             raise RuntimeError("Cartpole student EM requires an initialized switch")
-        for _ in range(cfg.student_switch_responsibility_passes):
+        for pass_index in range(cfg.student_switch_responsibility_passes):
             responsibilities = _refine_responsibilities_with_switch_timing(
                 segments_by_trace,
                 action_distributions,
@@ -819,6 +851,17 @@ def fit_probabilistic_cartpole_student(
                 segments_by_trace,
                 responsibilities,
             )
+            fit_history.append(
+                _student_fit_step(
+                    iteration + 1,
+                    pass_index + 1,
+                    "switch_timing_refinement",
+                    responsibilities,
+                    action_distributions,
+                    switch,
+                    switch_parameter_distributions,
+                )
+            )
 
     if switch is None:
         switch, switch_parameter_distributions = _fit_student_switch(
@@ -832,12 +875,33 @@ def fit_probabilistic_cartpole_student(
         if switch_parameter_distributions
         else GaussianScalar(_switch_default_threshold(switch), 1.0)
     )
-    return ProbabilisticCartpoleStudent(
+    student = ProbabilisticCartpoleStudent(
         action_distributions,
         switch,
         threshold_distribution,
         switch_parameter_distributions,
         responsibilities,
+    )
+    return student, fit_history
+
+
+def _student_fit_step(
+    em_iteration: int,
+    responsibility_pass: int,
+    phase: str,
+    responsibilities: List[Tuple[float, float]],
+    action_distributions: Dict[int, GaussianScalar],
+    switch: SwitchProgram,
+    switch_parameter_distributions: List[GaussianScalar],
+) -> CartpoleStudentFitStep:
+    return CartpoleStudentFitStep(
+        em_iteration=em_iteration,
+        responsibility_pass=responsibility_pass,
+        phase=phase,
+        responsibilities=list(responsibilities),
+        action_distributions=dict(action_distributions),
+        switch=switch,
+        switch_parameter_distributions=list(switch_parameter_distributions),
     )
 
 

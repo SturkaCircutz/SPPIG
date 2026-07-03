@@ -17,6 +17,7 @@ from cartpole_env import (
 from cartpole_synthesis import (
     CartpoleSynthesisIteration,
     CartpoleSynthesisConfig,
+    CartpoleStudentFitStep,
     CartpoleTrace,
     ProbabilisticCartpoleStudent,
     cartpole_synthesis_algorithm_provenance,
@@ -48,7 +49,32 @@ def summarize_policy_evaluation(
 
 
 def summarize_student(student: ProbabilisticCartpoleStudent):
-    responsibilities = student.responsibilities
+    return {
+        "description": student.describe(),
+        "action_distributions": {
+            str(mode): {
+                "mean": distribution.mean,
+                "std": distribution.std,
+            }
+            for mode, distribution in sorted(student.action_distributions.items())
+        },
+        "switch": student.switch.describe(),
+        "switch_threshold_distribution": {
+            "mean": student.switch_threshold_distribution.mean,
+            "std": student.switch_threshold_distribution.std,
+        },
+        "switch_parameter_distributions": [
+            {
+                "mean": distribution.mean,
+                "std": distribution.std,
+            }
+            for distribution in student.switch_parameter_distributions
+        ],
+        "responsibility_summary": summarize_responsibilities(student.responsibilities),
+    }
+
+
+def summarize_responsibilities(responsibilities):
     if responsibilities:
         mean_left = sum(left for left, _ in responsibilities) / len(responsibilities)
         mean_right = sum(right for _, right in responsibilities) / len(responsibilities)
@@ -75,39 +101,17 @@ def summarize_student(student: ProbabilisticCartpoleStudent):
         mean_entropy = 0.0
         max_entropy = 0.0
     return {
-        "description": student.describe(),
-        "action_distributions": {
-            str(mode): {
-                "mean": distribution.mean,
-                "std": distribution.std,
-            }
-            for mode, distribution in sorted(student.action_distributions.items())
-        },
-        "switch": student.switch.describe(),
-        "switch_threshold_distribution": {
-            "mean": student.switch_threshold_distribution.mean,
-            "std": student.switch_threshold_distribution.std,
-        },
-        "switch_parameter_distributions": [
-            {
-                "mean": distribution.mean,
-                "std": distribution.std,
-            }
-            for distribution in student.switch_parameter_distributions
-        ],
-        "responsibility_summary": {
-            "segments": len(responsibilities),
-            "mean_mode_0": mean_left,
-            "mean_mode_1": mean_right,
-            "hard_mode_0_count": hard_mode_0,
-            "hard_mode_1_count": hard_mode_1,
-            "ambiguous_segment_count": ambiguous_segments,
-            "ambiguous_segment_threshold": 0.75,
-            "mean_max_responsibility": mean_max_weight,
-            "min_max_responsibility": min_max_weight,
-            "mean_entropy_nats": mean_entropy,
-            "max_entropy_nats": max_entropy,
-        },
+        "segments": len(responsibilities),
+        "mean_mode_0": mean_left,
+        "mean_mode_1": mean_right,
+        "hard_mode_0_count": hard_mode_0,
+        "hard_mode_1_count": hard_mode_1,
+        "ambiguous_segment_count": ambiguous_segments,
+        "ambiguous_segment_threshold": 0.75,
+        "mean_max_responsibility": mean_max_weight,
+        "min_max_responsibility": min_max_weight,
+        "mean_entropy_nats": mean_entropy,
+        "max_entropy_nats": max_entropy,
     }
 
 
@@ -146,6 +150,34 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
             for trace in traces[:max_examples]
         ],
     }
+
+
+def summarize_student_fit_step(step: CartpoleStudentFitStep):
+    return {
+        "em_iteration": step.em_iteration,
+        "responsibility_pass": step.responsibility_pass,
+        "phase": step.phase,
+        "action_distributions": {
+            str(mode): {
+                "mean": distribution.mean,
+                "std": distribution.std,
+            }
+            for mode, distribution in sorted(step.action_distributions.items())
+        },
+        "switch": step.switch.describe(),
+        "switch_parameter_distributions": [
+            {
+                "mean": distribution.mean,
+                "std": distribution.std,
+            }
+            for distribution in step.switch_parameter_distributions
+        ],
+        "responsibility_summary": summarize_responsibilities(step.responsibilities),
+    }
+
+
+def summarize_student_fit_history(history: list[CartpoleStudentFitStep]):
+    return [summarize_student_fit_step(step) for step in history]
 
 
 def _mean_or_none(values: list[float]):
@@ -268,6 +300,7 @@ def summarize_synthesis_history(
             "iteration": entry.iteration,
             "trace_summary": summarize_traces(entry.traces, max_examples=1),
             "probabilistic_student": summarize_student(entry.student),
+            "student_fit_history": summarize_student_fit_history(entry.student_fit_history),
             "switch_fit_diagnostics": cartpole_switch_fit_diagnostics(entry.traces, entry.student),
         }
         if cfg is not None:

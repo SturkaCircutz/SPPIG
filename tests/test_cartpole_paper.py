@@ -46,6 +46,7 @@ from cartpole_synthesis import (
     SynthesizedCartpolePSM,
     cartpole_switch_fit_diagnostics,
     fit_probabilistic_cartpole_student,
+    fit_probabilistic_cartpole_student_with_history,
     synthesize_cartpole_policy,
     synthesize_cartpole_student,
     synthesize_cartpole_student_with_history,
@@ -296,6 +297,11 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(history[-1].traces, traces)
         self.assertEqual(len(history[0].traces), 2)
         self.assertGreaterEqual(len(history[0].student.responsibilities), 1)
+        self.assertGreaterEqual(len(history[0].student_fit_history), 1)
+        self.assertEqual(
+            history[-1].student_fit_history[-1].responsibilities,
+            student.responsibilities,
+        )
 
     def test_cartpole_probabilistic_student_uses_gaussian_modes(self):
         cfg = CartpoleSynthesisConfig(
@@ -527,6 +533,47 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(student.responsibilities), 2)
         for left_weight, right_weight in student.responsibilities:
             self.assertAlmostEqual(left_weight + right_weight, 1.0)
+
+    def test_cartpole_student_fit_history_records_inner_em_steps(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, -0.3, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-1.0, -1.0, -1.0, 1.0, 1.0],
+            mode_labels=[0, 0, 0, 1, 1],
+            reward=5.0,
+            segment_actions=(-1.0, 1.0),
+            segment_durations=(3, 2),
+        )
+        cfg = CartpoleSynthesisConfig(
+            student_em_iters=2,
+            student_switch_responsibility_passes=2,
+        )
+
+        student, fit_history = fit_probabilistic_cartpole_student_with_history([trace], cfg)
+
+        self.assertEqual(
+            [(step.em_iteration, step.responsibility_pass, step.phase) for step in fit_history],
+            [
+                (1, 0, "action_likelihood_initialization"),
+                (1, 1, "switch_timing_refinement"),
+                (1, 2, "switch_timing_refinement"),
+                (2, 1, "switch_timing_refinement"),
+                (2, 2, "switch_timing_refinement"),
+            ],
+        )
+        self.assertEqual(fit_history[-1].responsibilities, student.responsibilities)
+        self.assertEqual(fit_history[-1].switch.describe(), student.switch.describe())
+        for step in fit_history:
+            self.assertEqual(len(step.responsibilities), 2)
+            self.assertEqual(set(step.action_distributions), {0, 1})
+            self.assertTrue(step.switch_parameter_distributions)
+            for left_weight, right_weight in step.responsibilities:
+                self.assertAlmostEqual(left_weight + right_weight, 1.0)
 
     def test_cartpole_probabilistic_student_projects_to_policy(self):
         cfg = CartpoleSynthesisConfig(
