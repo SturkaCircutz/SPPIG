@@ -12,6 +12,17 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import make_paper_figures  # noqa: E402
 
 
+def current_synthesized_psm_algorithm_provenance() -> dict:
+    current_provenance = make_paper_figures.cartpole_synthesis_algorithm_provenance()
+    return {
+        "teacher_search": {
+            "finite_difference_candidates_per_refinement_iteration": current_provenance["teacher_search"][
+                "finite_difference_candidates_per_refinement_iteration"
+            ]
+        }
+    }
+
+
 class MakePaperFiguresTest(unittest.TestCase):
     def test_checked_in_results_reference_existing_artifacts(self):
         rows = make_paper_figures.read_results()
@@ -83,8 +94,8 @@ class MakePaperFiguresTest(unittest.TestCase):
             "act_with_current_mode_then_update_next_mode",
         )
         self.assertEqual(
-            synthesized_psm_row["algorithm_provenance"]["probabilistic_student"]["mode_update_order"],
-            synthesized_psm_metrics["algorithm_provenance"]["probabilistic_student"]["mode_update_order"],
+            synthesized_psm_row["algorithm_provenance"],
+            synthesized_psm_metrics["algorithm_provenance"],
         )
         self.assertIn("current probabilistic adaptive-teaching diagnostic", synthesized_psm_row["notes"])
         self.assertIn("PPO MLP", manifest["reproduction_commands"])
@@ -213,6 +224,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -248,6 +260,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -284,6 +297,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -320,6 +334,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -356,6 +371,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -392,6 +408,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -428,6 +445,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -466,6 +484,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": os.path.join(tmpdir, "missing_traces.json"),
                     },
@@ -492,6 +511,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump(
                     {
                         "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -499,6 +519,52 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
             with open(traces_path, "w", encoding="utf-8") as handle:
                 json.dump({"config": {"teacher_student_iters": 1}, "num_traces": 1, "traces": [{"reward": 1}]}, handle)
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Synthesized PSM diagnostic",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_stale_synthesized_psm_algorithm_provenance(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python train.py --traces-output traces.json",
+                        "algorithm_provenance": {
+                            "teacher_search": {
+                                "finite_difference_candidates_per_refinement_iteration": {
+                                    "teacher_gain_schedule": 1,
+                                    "action_schedule": 1,
+                                    "duration_schedule": 1,
+                                    "time_increment_schedule": 1,
+                                }
+                            }
+                        },
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": 1},
+                        "num_traces": 1,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
 
             with self.assertRaises(ValueError):
                 make_paper_figures.require_result_artifacts(

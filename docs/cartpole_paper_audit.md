@@ -128,7 +128,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   plots the PSM switch-boundary figure from a linear-switch PSM metrics artifact when available, and
   plots PPO training curves when metrics JSON artifacts with `eval_history` are present. Its
   survival plot uses explicit survived-step fields when available and falls back to reward only for
-  older artifacts.
+  older artifacts. The artifact gate rejects synthesized PSM metrics whose teacher-search
+  finite-difference candidate provenance is stale relative to the current synthesis code.
 - `artifacts/results/cartpole_summary.csv` and `artifacts/results/cartpole_manifest.json`: checked-in
   local diagnostic provenance for the current result bundle. The manifest records the command behind
   each metrics artifact and explicitly keeps `paper_scale_result` false. Its bundle-level
@@ -796,8 +797,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   switches, Figure 19 reference-fragment generation only from manual-reference metrics provenance,
   PPO metrics-file discovery, training-curve PNG generation, local-diagnostic limitation notes,
   checked-in summary/manifest provenance, rejection of metrics without command provenance, rejection
-  of explicit non-paper test horizons, and rejection of paper-scale result rows that do not use the
-  paper's 1000 evaluation rollouts.
+  of stale synthesized PSM teacher-search provenance, rejection of explicit non-paper test horizons,
+  and rejection of paper-scale result rows that do not use the paper's 1000 evaluation rollouts.
 
 ## Completion Criteria Still Required For Full Paper Claim
 

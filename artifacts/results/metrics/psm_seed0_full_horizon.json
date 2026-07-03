@@ -204,6 +204,7 @@
       "finite_difference_candidates_per_refinement_iteration": {
         "action_schedule": 1,
         "duration_schedule": 1,
+        "joint_action_duration_time_increment_schedule": 1,
         "teacher_gain_schedule": 1,
         "time_increment_schedule": 1
       },

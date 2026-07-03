@@ -17,6 +17,7 @@ if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
 from cartpole_env import PAPER_EVAL_ROLLOUTS  # noqa: E402
+from cartpole_synthesis import cartpole_synthesis_algorithm_provenance  # noqa: E402
 
 RESULTS_CSV = os.path.join(ROOT, "artifacts", "results", "cartpole_results.csv")
 SUMMARY_CSV = os.path.join(ROOT, "artifacts", "results", "cartpole_summary.csv")
@@ -175,15 +176,29 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         )
     missing_psm_trace_artifacts: list[str] = []
     incomplete_psm_trace_artifacts: list[str] = []
+    stale_psm_algorithm_provenance: list[str] = []
+    current_psm_provenance = cartpole_synthesis_algorithm_provenance()
+    current_teacher_candidates = (
+        current_psm_provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"]
+    )
     for row in rows:
         if row.get("policy") != "Synthesized PSM diagnostic":
             continue
         metrics_path = row_metrics_path(row)
+        metrics = {}
+        if metrics_path:
+            with open(artifact_path(metrics_path), encoding="utf-8") as handle:
+                metrics = json.load(handle)
+        metric_teacher_candidates = (
+            metrics.get("algorithm_provenance", {})
+            .get("teacher_search", {})
+            .get("finite_difference_candidates_per_refinement_iteration")
+        )
+        if metric_teacher_candidates != current_teacher_candidates:
+            stale_psm_algorithm_provenance.append(row["policy"])
         trace_path = row_traces_path(row)
         if not trace_path:
-            if metrics_path:
-                with open(artifact_path(metrics_path), encoding="utf-8") as handle:
-                    trace_path = json.load(handle).get("traces_output") or ""
+            trace_path = metrics.get("traces_output") or ""
         if not trace_path or not os.path.exists(artifact_path(trace_path)):
             missing_psm_trace_artifacts.append(row["policy"])
             continue
@@ -200,6 +215,11 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         raise ValueError(
             "synthesized PSM trace artifacts lack per-iteration trace history: "
             + ", ".join(incomplete_psm_trace_artifacts)
+        )
+    if stale_psm_algorithm_provenance:
+        raise ValueError(
+            "synthesized PSM metrics stale against current synthesis provenance: "
+            + ", ".join(stale_psm_algorithm_provenance)
         )
     paper_scale_rollout_mismatch = [
         row["policy"]
