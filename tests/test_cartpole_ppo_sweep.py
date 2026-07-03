@@ -21,6 +21,7 @@ from run_cartpole_ppo_sweep import (  # noqa: E402
     paper_protocol_status,
     read_existing_results,
     resumable_result_for_job,
+    sampled_hyperparameter_manifest,
     summarize_hyperparameter_configs,
     summarize_results,
 )
@@ -225,6 +226,31 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertTrue(all(5e-6 <= float(job["learning_rate"]) <= 0.003 for job in jobs))
         self.assertEqual(count_uncapped_jobs(args), 2 * PAPER_HYPERPARAMETER_SAMPLES)
 
+    def test_sampled_hyperparameter_manifest_records_each_policy_config_once(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--policies", "mlp,lstm", "--seeds", "0,1"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        jobs = build_jobs(args)
+        samples = sampled_hyperparameter_manifest(args)
+
+        self.assertEqual(len(samples), 2 * PAPER_HYPERPARAMETER_SAMPLES)
+        self.assertEqual({sample["hyperparam_mode"] for sample in samples}, {"paper-random"})
+        self.assertEqual({sample["minibatches"] for sample in samples if sample["policy"] == "lstm"}, {1})
+        for sample in samples:
+            matching_jobs = [
+                job
+                for job in jobs
+                if job["policy"] == sample["policy"]
+                and job["hyperparam_sample"] == sample["hyperparam_sample"]
+            ]
+            self.assertEqual(len(matching_jobs), 2)
+            for field in ("minibatches", "learning_rate", "entropy_coef", "update_epochs", "clip_range"):
+                self.assertTrue(all(job[field] == sample[field] for job in matching_jobs))
+
     def test_dry_run_writes_plan_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(
@@ -259,6 +285,12 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(manifest["jobs_planned"], 2)
         self.assertEqual(manifest["hyperparam_mode"], "paper-random")
         self.assertEqual(manifest["hyperparam_samples"], 10)
+        self.assertEqual(len(manifest["sampled_hyperparameters"]), 20)
+        self.assertEqual({row["policy"] for row in manifest["sampled_hyperparameters"]}, {"mlp", "lstm"})
+        self.assertEqual(
+            {row["minibatches"] for row in manifest["sampled_hyperparameters"] if row["policy"] == "lstm"},
+            {1},
+        )
         self.assertEqual(manifest["paper_space"]["hyperparameter_samples"], 10)
         self.assertGreater(manifest["jobs_uncapped_for_selected_space"], manifest["jobs_planned"])
         self.assertEqual(manifest["jobs_completed"], 0)

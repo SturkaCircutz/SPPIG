@@ -246,6 +246,25 @@ def count_uncapped_jobs(args: argparse.Namespace) -> int:
     return sum(len(seeds) * len(hyperparameter_configs(args, policy)) for policy in policies)
 
 
+def sampled_hyperparameter_manifest(args: argparse.Namespace) -> List[Dict[str, Any]]:
+    configs: List[Dict[str, Any]] = []
+    for policy in [policy for policy in args.policies.split(",") if policy]:
+        for sample_index, config in enumerate(hyperparameter_configs(args, policy)):
+            configs.append(
+                {
+                    "policy": policy,
+                    "hyperparam_mode": args.hyperparam_mode,
+                    "hyperparam_sample": sample_index,
+                    "minibatches": int(config["minibatches"]),
+                    "learning_rate": float(config["learning_rate"]),
+                    "entropy_coef": float(config["entropy_coef"]),
+                    "update_epochs": int(config["update_epochs"]),
+                    "clip_range": float(config["clip_range"]),
+                }
+            )
+    return configs
+
+
 def paper_protocol_status(
     args: argparse.Namespace,
     jobs_planned: int | None = None,
@@ -623,6 +642,7 @@ def write_manifest(
         "hyperparam_mode": args.hyperparam_mode,
         "hyperparam_samples": args.hyperparam_samples,
         "hyperparam_seed": args.hyperparam_seed,
+        "sampled_hyperparameters": sampled_hyperparameter_manifest(args),
         "paper_protocol_status": paper_protocol_status(args, len(jobs), completed, failed),
         "paper_space": {
             "timesteps": PAPER_TIMESTEPS,

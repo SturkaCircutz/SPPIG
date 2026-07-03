@@ -99,10 +99,11 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   for short or warm-started local checkpoints.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that defaults to 10
   uniformly sampled hyperparameter configs from the reported ranges per policy, evaluates each
-  config for every selected seed, writes a plan/manifest, and can execute jobs with per-config
-  checkpoints and metrics JSON. It also supports an explicit Cartesian-grid diagnostic mode and
-  writes both a single-best-job summary and a per-hyperparameter summary aggregating completed seeds
-  for each sampled config, including survived-step, survival-second, and evaluation-rollout
+  config for every selected seed, writes a plan/manifest that includes the concrete sampled
+  hyperparameter configs, and can execute jobs with per-config checkpoints and metrics JSON. It also
+  supports an explicit Cartesian-grid diagnostic mode and writes both a single-best-job summary and a
+  per-hyperparameter summary aggregating completed seeds for each sampled config, including
+  survived-step, survival-second, and evaluation-rollout
   provenance for executed rows. Its paper-scale plan/execution flags require the paper's
   `1000` evaluation rollouts and its manifest records the standard CartPole reward spec. This is
   search infrastructure; the full paper-scale sweep has not been run.
@@ -303,8 +304,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges, reproducible
-  `paper-random` hyperparameter sample IDs, and the uncapped job count for the selected search space
-  in a manifest. It writes machine-readable `paper_protocol_status` flags to distinguish full
+  `paper-random` hyperparameter sample IDs, the concrete sampled hyperparameter configs, and the
+  uncapped job count for the selected search space in a manifest. It writes machine-readable
+  `paper_protocol_status` flags to distinguish full
   paper-scale plans from quick/truncated/grid-diagnostic or dry-run diagnostics and to mark
   paper-scale execution only when all planned jobs complete with zero failures. The full-plan flag
   now requires `paper-random` mode with 10 samples per policy, five seeds, both PPO MLP and PPO-LSTM,
@@ -365,6 +367,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_ppo_sweep.py::test_build_jobs_defaults_to_paper_random_hyperparameter_samples`
   verifies that default sweep planning uses 10 reproducible paper-random hyperparameter samples per
   policy, evaluates them for each selected seed, and keeps PPO-LSTM minibatches fixed to one.
+- `tests/test_cartpole_ppo_sweep.py::test_sampled_hyperparameter_manifest_records_each_policy_config_once`
+  verifies that sampled PPO sweep manifest entries record each policy-level hyperparameter config
+  once and match every per-seed job generated from that config.
 - `tests/test_cartpole_ppo_sweep.py::test_dry_run_writes_plan_and_manifest` verifies that dry-run
   sweep planning writes a CSV plan and manifest with paper-space metadata.
 - `tests/test_cartpole_ppo_sweep.py::test_summarize_hyperparameter_configs_aggregates_completed_seeds`

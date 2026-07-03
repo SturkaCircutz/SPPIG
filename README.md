@@ -303,10 +303,11 @@ seeds for each sampled config and marks the best completed config per policy by
 mean training success. Executed sweep rows and summaries also include explicit
 mean survived steps and survival seconds for train/test evaluation. The manifest records
 both the jobs actually planned and the uncapped job count for the selected
-search space, plus `paper_protocol_status` flags showing whether the plan is
-paper-scale, whether all planned jobs completed with zero failures, whether it
-is quick/truncated or dry-run only, and whether both PPO MLP and PPO-LSTM are
-included. By default the sweep now uses `--hyperparam-mode paper-random`, which
+search space, the concrete sampled hyperparameter configs, plus
+`paper_protocol_status` flags showing whether the plan is paper-scale, whether
+all planned jobs completed with zero failures, whether it is quick/truncated or
+dry-run only, and whether both PPO MLP and PPO-LSTM are included. By default the
+sweep now uses `--hyperparam-mode paper-random`, which
 plans 10 uniformly sampled PPO hyperparameter configs per policy from the
 reported ranges and evaluates each config for every selected seed, with
 PPO-LSTM fixed to `nminibatches=1`.
