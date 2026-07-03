@@ -131,8 +131,9 @@ def run_psm(
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     traces_path = outdir / "traces" / f"psm_seed{seed}_teacher_traces.json"
     traces_path.parent.mkdir(parents=True, exist_ok=True)
+    command = " ".join(sys.argv)
     metrics = {
-        "command": " ".join(sys.argv),
+        "command": command,
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
         "paper_protocol_status": cartpole_synthesis_protocol_status(
@@ -169,21 +170,21 @@ def run_psm(
         "train": train,
         "test": test,
     }
+    trace_payload = {
+        "command": command,
+        "config": asdict(cfg),
+        "seed": seed,
+        "num_traces": len(traces),
+        "metrics_output": str(metrics_path),
+        "traces": serialize_traces(traces),
+        "trace_history": serialize_trace_history(synthesis_history),
+    }
+    artifact_consistency = validate_psm_artifact_consistency(metrics, trace_payload)
+    metrics["artifact_consistency"] = artifact_consistency
+    trace_payload["artifact_consistency"] = artifact_consistency
     metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True), encoding="utf-8")
     traces_path.write_text(
-        json.dumps(
-            {
-                "command": " ".join(sys.argv),
-                "config": asdict(cfg),
-                "seed": seed,
-                "num_traces": len(traces),
-                "metrics_output": str(metrics_path),
-                "traces": serialize_traces(traces),
-                "trace_history": serialize_trace_history(synthesis_history),
-            },
-            indent=2,
-            sort_keys=True,
-        ),
+        json.dumps(trace_payload, indent=2, sort_keys=True),
         encoding="utf-8",
     )
     return {
@@ -213,6 +214,94 @@ def run_psm(
         ),
         "policy_description": policy.describe(),
         "num_traces": len(traces),
+    }
+
+
+def validate_psm_artifact_consistency(
+    metrics: Dict[str, Any],
+    trace_payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    config = metrics.get("config")
+    if not isinstance(config, dict):
+        raise ValueError("PSM metrics config must be a JSON object")
+    teacher_student_iters = config.get("teacher_student_iters")
+    if type(teacher_student_iters) is not int or teacher_student_iters < 1:
+        raise ValueError("PSM metrics config must record a positive teacher_student_iters")
+    if trace_payload.get("config") != config:
+        raise ValueError("PSM trace sidecar config disagrees with metrics config")
+    if trace_payload.get("command") != metrics.get("command"):
+        raise ValueError("PSM trace sidecar command disagrees with metrics command")
+
+    num_traces = metrics.get("num_traces")
+    traces = trace_payload.get("traces")
+    trace_history = trace_payload.get("trace_history")
+    synthesis_history = metrics.get("synthesis_history")
+    adaptive_teacher_summary = metrics.get("adaptive_teacher_summary")
+    if type(num_traces) is not int:
+        raise ValueError("PSM metrics num_traces must be an integer")
+    if not isinstance(traces, list) or len(traces) != num_traces:
+        raise ValueError("PSM trace sidecar trace count disagrees with metrics num_traces")
+    if trace_payload.get("num_traces") != num_traces:
+        raise ValueError("PSM trace sidecar num_traces disagrees with metrics num_traces")
+    if not isinstance(trace_history, list) or len(trace_history) != teacher_student_iters:
+        raise ValueError("PSM trace sidecar must record every teacher/student iteration")
+    if not isinstance(synthesis_history, list) or len(synthesis_history) != teacher_student_iters:
+        raise ValueError("PSM metrics synthesis_history must record every teacher/student iteration")
+    if not isinstance(adaptive_teacher_summary, list) or len(adaptive_teacher_summary) != teacher_student_iters:
+        raise ValueError("PSM metrics adaptive_teacher_summary must record every teacher/student iteration")
+
+    expected_iterations = list(range(1, teacher_student_iters + 1))
+    trace_iterations = [entry.get("iteration") if isinstance(entry, dict) else None for entry in trace_history]
+    synthesis_iterations = [
+        entry.get("iteration") if isinstance(entry, dict) else None for entry in synthesis_history
+    ]
+    adaptive_iterations = [
+        entry.get("iteration") if isinstance(entry, dict) else None for entry in adaptive_teacher_summary
+    ]
+    if trace_iterations != expected_iterations:
+        raise ValueError("PSM trace sidecar iteration sequence disagrees with config")
+    if synthesis_iterations != expected_iterations:
+        raise ValueError("PSM metrics synthesis_history iteration sequence disagrees with config")
+    if adaptive_iterations != expected_iterations:
+        raise ValueError("PSM metrics adaptive_teacher_summary iteration sequence disagrees with config")
+
+    for index, history_entry in enumerate(trace_history):
+        history_traces = history_entry.get("traces") if isinstance(history_entry, dict) else None
+        history_num_traces = history_entry.get("num_traces") if isinstance(history_entry, dict) else None
+        if not isinstance(history_traces, list) or history_num_traces != len(history_traces):
+            raise ValueError("PSM trace sidecar history trace counts are inconsistent")
+        synthesis_entry = synthesis_history[index]
+        trace_summary = synthesis_entry.get("trace_summary") if isinstance(synthesis_entry, dict) else None
+        if not isinstance(trace_summary, dict) or trace_summary.get("count") != history_num_traces:
+            raise ValueError("PSM metrics synthesis_history trace counts disagree with trace sidecar")
+        adaptive_entry = adaptive_teacher_summary[index]
+        if not isinstance(adaptive_entry, dict) or adaptive_entry.get("trace_count") != history_num_traces:
+            raise ValueError("PSM metrics adaptive_teacher_summary trace counts disagree with trace sidecar")
+
+    if trace_history[-1].get("traces") != traces:
+        raise ValueError("PSM final trace_history traces disagree with the top-level trace sidecar traces")
+    if metrics.get("trace_summary", {}).get("count") != num_traces:
+        raise ValueError("PSM metrics trace_summary count disagrees with metrics num_traces")
+    final_evaluation = synthesis_history[-1].get("evaluation") if isinstance(synthesis_history[-1], dict) else None
+    if (
+        not isinstance(final_evaluation, dict)
+        or final_evaluation.get("train") != metrics.get("train")
+        or final_evaluation.get("test") != metrics.get("test")
+    ):
+        raise ValueError("PSM final synthesis_history evaluation disagrees with top-level metrics")
+
+    status = metrics.get("paper_protocol_status", {})
+    if not isinstance(status, dict) or status.get("synthesized_by_current_algorithm") is not True:
+        raise ValueError("PSM metrics must mark runner-generated rows as current synthesized artifacts")
+    return {
+        "validated_by_runner": True,
+        "num_traces": num_traces,
+        "teacher_student_iters": teacher_student_iters,
+        "trace_history_iterations": trace_iterations,
+        "synthesis_history_iterations": synthesis_iterations,
+        "adaptive_teacher_summary_iterations": adaptive_iterations,
+        "final_trace_history_matches_traces": True,
+        "final_evaluation_matches_top_level": True,
     }
 
 

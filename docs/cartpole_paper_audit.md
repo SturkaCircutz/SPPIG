@@ -359,6 +359,11 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   currently separates the fixed two-mode programmatic diagnostic from the current
   synthesized-student diagnostic because the current
   synthesizer does not reproduce the fixed-program row.
+- Runner-produced synthesized PSM artifacts are now checked for metrics/trace-sidecar consistency
+  before a result row is returned. The check rejects mismatched commands/configs, missing
+  per-iteration trace history, stale final trace lists, and final per-iteration evaluations that
+  disagree with the top-level train/test metrics; the metrics JSON and trace sidecar both record the
+  resulting `artifact_consistency` block.
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
   not paper-scale learning curves. It discovers standalone PPO metrics, reproduction-runner metrics
@@ -816,7 +821,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   a per-seed PSM metrics JSON artifact whose final per-iteration evaluation matches the top-level PSM
   row. It also verifies the PSM full-trace sidecar path, per-iteration trace-history serialization,
   iteration-sequence provenance, trace-count consistency, metrics/trace command provenance, and the
-  manifest-level paper-protocol status block.
+  recorded runner `artifact_consistency` block plus manifest-level paper-protocol status block.
+- `tests/test_cartpole_reproduction_runner.py::test_psm_artifact_consistency_rejects_trace_sidecar_mismatch`
+  verifies that runner PSM artifact validation fails if the top-level selected traces disagree with
+  the final per-iteration trace history.
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale`
   verifies that a five-seed, full-horizon, 1000-rollout fixed-config runner setup is still not tagged
   as paper-scale because it lacks PPO hyperparameter search, full probabilistic adaptive teaching, and

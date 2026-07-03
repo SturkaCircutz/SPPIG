@@ -17,7 +17,14 @@ SCRIPT = os.path.join(ROOT, "scripts", "run_cartpole_reproduction.py")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
 import run_cartpole_reproduction  # noqa: E402
-from run_cartpole_reproduction import HAS_TORCH, reproduction_protocol_status, run_ppo, run_psm, summarize_rows  # noqa: E402
+from run_cartpole_reproduction import (  # noqa: E402
+    HAS_TORCH,
+    reproduction_protocol_status,
+    run_ppo,
+    run_psm,
+    summarize_rows,
+    validate_psm_artifact_consistency,
+)
 
 
 @dataclass
@@ -275,6 +282,16 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("survival_seconds_mean", psm_metrics["test"])
             self.assertEqual(psm_metrics["traces_output"], rows[0]["traces_output"])
             self.assertEqual(psm_traces["metrics_output"], rows[0]["metrics_output"])
+            self.assertEqual(psm_metrics["artifact_consistency"], psm_traces["artifact_consistency"])
+            artifact_consistency = psm_metrics["artifact_consistency"]
+            self.assertTrue(artifact_consistency["validated_by_runner"])
+            self.assertEqual(artifact_consistency["num_traces"], psm_metrics["num_traces"])
+            self.assertEqual(artifact_consistency["teacher_student_iters"], 1)
+            self.assertEqual(artifact_consistency["trace_history_iterations"], [1])
+            self.assertEqual(artifact_consistency["synthesis_history_iterations"], [1])
+            self.assertEqual(artifact_consistency["adaptive_teacher_summary_iterations"], [1])
+            self.assertTrue(artifact_consistency["final_trace_history_matches_traces"])
+            self.assertTrue(artifact_consistency["final_evaluation_matches_top_level"])
             self.assertEqual(psm_traces["num_traces"], psm_metrics["num_traces"])
             self.assertEqual(len(psm_traces["traces"]), psm_metrics["num_traces"])
             self.assertEqual(
@@ -707,6 +724,44 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 {"theta_weight": 1.0, "omega_weight": 0.25, "threshold": 0.0},
             )
             self.assertTrue(os.path.exists(manifest["rows"][0]["metrics_output"]))
+
+    def test_psm_artifact_consistency_rejects_trace_sidecar_mismatch(self):
+        metrics = {
+            "command": "python runner.py",
+            "config": {"teacher_student_iters": 1},
+            "num_traces": 1,
+            "trace_summary": {"count": 1},
+            "adaptive_teacher_summary": [{"iteration": 1, "trace_count": 1}],
+            "synthesis_history": [
+                {
+                    "iteration": 1,
+                    "trace_summary": {"count": 1},
+                    "evaluation": {
+                        "train": {"success_rate": 1.0},
+                        "test": {"success_rate": 0.0},
+                    },
+                }
+            ],
+            "paper_protocol_status": {"synthesized_by_current_algorithm": True},
+            "train": {"success_rate": 1.0},
+            "test": {"success_rate": 0.0},
+        }
+        trace_payload = {
+            "command": "python runner.py",
+            "config": {"teacher_student_iters": 1},
+            "num_traces": 1,
+            "traces": [{"actions": [1.0]}],
+            "trace_history": [
+                {
+                    "iteration": 1,
+                    "num_traces": 1,
+                    "traces": [{"actions": [-1.0]}],
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "final trace_history traces disagree"):
+            validate_psm_artifact_consistency(metrics, trace_payload)
 
     def test_nonquick_psm_profile_uses_full_training_horizon_loop_free_segments(self):
         with tempfile.TemporaryDirectory() as tmpdir:
