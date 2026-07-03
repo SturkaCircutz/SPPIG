@@ -50,7 +50,7 @@
     "PPO MLP": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/progress_mlp_128k_seed0.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
     "PPO-LSTM warm started": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
     "Programmatic state machine": "scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
-    "Synthesized PSM diagnostic": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json"
+    "Synthesized PSM diagnostic": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json"
   },
   "reward_spec": {
     "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
@@ -928,6 +928,7 @@
           "coordinate_step_decay": 0.5,
           "depth2_boolean_probability": "shared_threshold_rectangle_union",
           "duration_units": "segment_elapsed_time_normalized_to_default_cartpole_dt",
+          "final_segment_stay_evidence": true,
           "finite_difference_gradient_backtracking_factors": [
             1.0,
             0.5,
@@ -1025,7 +1026,7 @@
         }
       },
       "checkpoint": "",
-      "command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json",
+      "command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "config": {
         "candidate_rollouts": 8,
         "force_values": [
@@ -1050,7 +1051,7 @@
       },
       "eval_rollouts": 20,
       "metrics_output": "artifacts/results/metrics/psm_seed0_full_horizon.json",
-      "notes": "current probabilistic adaptive-teaching diagnostic regenerated after fixed initial-mode likelihood; not paper-scale synthesis",
+      "notes": "current probabilistic adaptive-teaching diagnostic regenerated with full teacher-trace sidecar; not paper-scale synthesis",
       "num_traces": 4,
       "paper_eval_rollouts": 1000,
       "paper_protocol_status": {
@@ -1159,8 +1160,16 @@
         },
         "description": "H0=N(-0.018, 0.594); H1=N(1.124, 2.773); threshold=N(-0.334, 1.400); G=[N(-0.334, 1.400), N(0.713, 0.724)]",
         "responsibility_summary": {
+          "ambiguous_segment_count": 33,
+          "ambiguous_segment_threshold": 0.75,
+          "hard_mode_0_count": 199,
+          "hard_mode_1_count": 5,
+          "max_entropy_nats": 0.6878490451434435,
+          "mean_entropy_nats": 0.36184529223926937,
+          "mean_max_responsibility": 0.8549340509461265,
           "mean_mode_0": 0.8321036006637081,
           "mean_mode_1": 0.16789639933629197,
+          "min_max_responsibility": 0.55142359399877,
           "segments": 204
         },
         "switch": "mode=1 if o[1] <= -0.334 or o[1] >= 0.713, else mode=0",
@@ -1455,8 +1464,16 @@
             },
             "description": "H0=N(-1.648, 1.853); H1=N(6.825, 9.252); threshold=N(0.229, 0.233); G=[N(0.229, 0.233), N(-0.437, 8.128)]",
             "responsibility_summary": {
+              "ambiguous_segment_count": 2,
+              "ambiguous_segment_threshold": 0.75,
+              "hard_mode_0_count": 109,
+              "hard_mode_1_count": 41,
+              "max_entropy_nats": 0.6874558316673994,
+              "mean_entropy_nats": 0.1703440939866034,
+              "mean_max_responsibility": 0.9500708701672018,
               "mean_mode_0": 0.6984507894652304,
               "mean_mode_1": 0.3015492105347696,
+              "min_max_responsibility": 0.5532942000622435,
               "segments": 150
             },
             "switch": "mode=1 if o[2] >= 0.229 or o[3] <= -0.437, else mode=0",
@@ -1475,6 +1492,203 @@
               "std": 0.23267994790641816
             }
           },
+          "student_fit_history": [
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -2.102242179649242,
+                  "std": 2.708013524923635
+                },
+                "1": {
+                  "mean": 10.784184779492502,
+                  "std": 5.8495169841265175
+                }
+              },
+              "em_iteration": 1,
+              "phase": "action_likelihood_initialization",
+              "responsibility_pass": 0,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 0,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 115,
+                "hard_mode_1_count": 35,
+                "max_entropy_nats": 0.004511591245075421,
+                "mean_entropy_nats": 0.001533992997660493,
+                "mean_max_responsibility": 0.9998205117623424,
+                "mean_mode_0": 0.7664871848396912,
+                "mean_mode_1": 0.23351281516030872,
+                "min_max_responsibility": 0.9994721028461279,
+                "segments": 150
+              },
+              "switch": "mode=1 if o[0] <= 0.072 or o[0] >= 0.067, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": 0.07160900030725642,
+                  "std": 0.15043631548621578
+                },
+                {
+                  "mean": 0.06741860944492056,
+                  "std": 0.0023505674294721215
+                }
+              ]
+            },
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -1.900363726533432,
+                  "std": 2.1528607688242003
+                },
+                "1": {
+                  "mean": 9.814288350617538,
+                  "std": 7.859712989776511
+                }
+              },
+              "em_iteration": 1,
+              "phase": "switch_timing_refinement",
+              "responsibility_pass": 1,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 0,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 116,
+                "hard_mode_1_count": 34,
+                "max_entropy_nats": 0.5265119703811824,
+                "mean_entropy_nats": 0.0596064543009093,
+                "mean_max_responsibility": 0.9861412673936933,
+                "mean_mode_0": 0.7603627179891621,
+                "mean_mode_1": 0.23963728201083792,
+                "min_max_responsibility": 0.7803126464829834,
+                "segments": 150
+              },
+              "switch": "mode=1 if o[2] >= 0.054 or o[3] <= -0.236, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": 0.054290565306983535,
+                  "std": 0.037388354896567354
+                },
+                {
+                  "mean": -0.2361493622240833,
+                  "std": 8.714571841028334
+                }
+              ]
+            },
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -1.8139308022746994,
+                  "std": 2.0235188795084778
+                },
+                "1": {
+                  "mean": 8.396601824897957,
+                  "std": 8.652865775290255
+                }
+              },
+              "em_iteration": 2,
+              "phase": "switch_timing_refinement",
+              "responsibility_pass": 1,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 1,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 115,
+                "hard_mode_1_count": 35,
+                "max_entropy_nats": 0.6074517846922346,
+                "mean_entropy_nats": 0.12812513826104768,
+                "mean_max_responsibility": 0.9665518000218045,
+                "mean_mode_0": 0.7335266867497633,
+                "mean_mode_1": 0.2664733132502368,
+                "min_max_responsibility": 0.7039828401345165,
+                "segments": 150
+              },
+              "switch": "mode=1 if o[2] >= 0.208 or o[3] <= -0.656, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": 0.20777148155140018,
+                  "std": 0.21785386211597638
+                },
+                {
+                  "mean": -0.6561035064592788,
+                  "std": 8.956135831076844
+                }
+              ]
+            },
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -1.7205447659591315,
+                  "std": 1.9306924765023945
+                },
+                "1": {
+                  "mean": 7.4018279706618335,
+                  "std": 9.054673991545732
+                }
+              },
+              "em_iteration": 3,
+              "phase": "switch_timing_refinement",
+              "responsibility_pass": 1,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 6,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 112,
+                "hard_mode_1_count": 38,
+                "max_entropy_nats": 0.6931465624981614,
+                "mean_entropy_nats": 0.1638730466219043,
+                "mean_max_responsibility": 0.9476435184242675,
+                "mean_mode_0": 0.7119775195822559,
+                "mean_mode_1": 0.2880224804177441,
+                "min_max_responsibility": 0.5005559054130532,
+                "segments": 150
+              },
+              "switch": "mode=1 if o[2] >= 0.210 or o[3] <= -0.503, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": 0.2102246655145128,
+                  "std": 0.22084139028254585
+                },
+                {
+                  "mean": -0.5027660918121707,
+                  "std": 8.037669820624474
+                }
+              ]
+            },
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -1.6482431113911171,
+                  "std": 1.8526389965268661
+                },
+                "1": {
+                  "mean": 6.825155853233742,
+                  "std": 9.252254970934779
+                }
+              },
+              "em_iteration": 4,
+              "phase": "switch_timing_refinement",
+              "responsibility_pass": 1,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 2,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 109,
+                "hard_mode_1_count": 41,
+                "max_entropy_nats": 0.6874558316673994,
+                "mean_entropy_nats": 0.1703440939866034,
+                "mean_max_responsibility": 0.9500708701672018,
+                "mean_mode_0": 0.6984507894652304,
+                "mean_mode_1": 0.3015492105347696,
+                "min_max_responsibility": 0.5532942000622435,
+                "segments": 150
+              },
+              "switch": "mode=1 if o[2] >= 0.229 or o[3] <= -0.437, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": 0.22901144030872989,
+                  "std": 0.23267994790641816
+                },
+                {
+                  "mean": -0.4369871926860947,
+                  "std": 8.128102089934128
+                }
+              ]
+            }
+          ],
           "switch_fit_diagnostics": {
             "candidates": {
               "fixed_local_reference_switch": {
@@ -1810,8 +2024,16 @@
             },
             "description": "H0=N(-0.018, 0.594); H1=N(1.124, 2.773); threshold=N(-0.334, 1.400); G=[N(-0.334, 1.400), N(0.713, 0.724)]",
             "responsibility_summary": {
+              "ambiguous_segment_count": 33,
+              "ambiguous_segment_threshold": 0.75,
+              "hard_mode_0_count": 199,
+              "hard_mode_1_count": 5,
+              "max_entropy_nats": 0.6878490451434435,
+              "mean_entropy_nats": 0.36184529223926937,
+              "mean_max_responsibility": 0.8549340509461265,
               "mean_mode_0": 0.8321036006637081,
               "mean_mode_1": 0.16789639933629197,
+              "min_max_responsibility": 0.55142359399877,
               "segments": 204
             },
             "switch": "mode=1 if o[1] <= -0.334 or o[1] >= 0.713, else mode=0",
@@ -1830,6 +2052,195 @@
               "std": 1.3996083382203501
             }
           },
+          "student_fit_history": [
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -0.33593432711463833,
+                  "std": 0.4681790684717928
+                },
+                "1": {
+                  "mean": 0.9407725288248278,
+                  "std": 1.764829183255859
+                }
+              },
+              "em_iteration": 1,
+              "phase": "action_likelihood_initialization",
+              "responsibility_pass": 0,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 0,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 126,
+                "hard_mode_1_count": 78,
+                "max_entropy_nats": 0.1639559157852183,
+                "mean_entropy_nats": 0.0719395179676241,
+                "mean_max_responsibility": 0.9830431144380988,
+                "mean_mode_0": 0.6007910911206031,
+                "mean_mode_1": 0.39920890887939686,
+                "min_max_responsibility": 0.9612484781683072,
+                "segments": 204
+              },
+              "switch": "mode=1 if o[1] >= -0.387 and o[1] >= -0.074, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": -0.38656796214674055,
+                  "std": 0.017050269689005793
+                },
+                {
+                  "mean": -0.07379180148281417,
+                  "std": 0.3331484241284576
+                }
+              ]
+            },
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -0.22661304787329895,
+                  "std": 0.5172160447512851
+                },
+                "1": {
+                  "mean": 0.9188989961052552,
+                  "std": 1.9239337501311582
+                }
+              },
+              "em_iteration": 1,
+              "phase": "switch_timing_refinement",
+              "responsibility_pass": 1,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 34,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 134,
+                "hard_mode_1_count": 70,
+                "max_entropy_nats": 0.6930764987914495,
+                "mean_entropy_nats": 0.3051400148124947,
+                "mean_max_responsibility": 0.8842699811159033,
+                "mean_mode_0": 0.6505043541169476,
+                "mean_mode_1": 0.3494956458830524,
+                "min_max_responsibility": 0.5059447499180341,
+                "segments": 204
+              },
+              "switch": "mode=1 if o[1] >= -0.161 and o[1] <= 0.633, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": -0.16090894819546253,
+                  "std": 2.2225409691366917
+                },
+                {
+                  "mean": 0.6332672094709041,
+                  "std": 0.276600348185932
+                }
+              ]
+            },
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -0.12951145073802917,
+                  "std": 0.5553506459064086
+                },
+                "1": {
+                  "mean": 0.977846708381417,
+                  "std": 2.1772886640268307
+                }
+              },
+              "em_iteration": 2,
+              "phase": "switch_timing_refinement",
+              "responsibility_pass": 1,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 37,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 167,
+                "hard_mode_1_count": 37,
+                "max_entropy_nats": 0.692942767531707,
+                "mean_entropy_nats": 0.3746205184220866,
+                "mean_max_responsibility": 0.8498639998231141,
+                "mean_mode_0": 0.726150142079623,
+                "mean_mode_1": 0.2738498579203769,
+                "min_max_responsibility": 0.5101093792991952,
+                "segments": 204
+              },
+              "switch": "mode=1 if -1.000*theta + -10.000*omega >= 6.242, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": 6.241673973902227,
+                  "std": 65.37510938948236
+                }
+              ]
+            },
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -0.060632650339256515,
+                  "std": 0.5800001770220157
+                },
+                "1": {
+                  "mean": 1.0484725666420294,
+                  "std": 2.476189352221161
+                }
+              },
+              "em_iteration": 3,
+              "phase": "switch_timing_refinement",
+              "responsibility_pass": 1,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 39,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 170,
+                "hard_mode_1_count": 34,
+                "max_entropy_nats": 0.686648886551601,
+                "mean_entropy_nats": 0.382657105785237,
+                "mean_max_responsibility": 0.8446643293424043,
+                "mean_mode_0": 0.7886845444826607,
+                "mean_mode_1": 0.21131545551733924,
+                "min_max_responsibility": 0.5569394670826587,
+                "segments": 204
+              },
+              "switch": "mode=1 if -1.000*theta + -10.000*omega >= 6.224, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": 6.224293104574138,
+                  "std": 74.27791762303984
+                }
+              ]
+            },
+            {
+              "action_distributions": {
+                "0": {
+                  "mean": -0.01795675665109322,
+                  "std": 0.593572669658852
+                },
+                "1": {
+                  "mean": 1.1237900658697055,
+                  "std": 2.7726469290230167
+                }
+              },
+              "em_iteration": 4,
+              "phase": "switch_timing_refinement",
+              "responsibility_pass": 1,
+              "responsibility_summary": {
+                "ambiguous_segment_count": 33,
+                "ambiguous_segment_threshold": 0.75,
+                "hard_mode_0_count": 199,
+                "hard_mode_1_count": 5,
+                "max_entropy_nats": 0.6878490451434435,
+                "mean_entropy_nats": 0.36184529223926937,
+                "mean_max_responsibility": 0.8549340509461265,
+                "mean_mode_0": 0.8321036006637081,
+                "mean_mode_1": 0.16789639933629197,
+                "min_max_responsibility": 0.55142359399877,
+                "segments": 204
+              },
+              "switch": "mode=1 if o[1] <= -0.334 or o[1] >= 0.713, else mode=0",
+              "switch_parameter_distributions": [
+                {
+                  "mean": -0.3338903357341711,
+                  "std": 1.3996083382203501
+                },
+                {
+                  "mean": 0.7127518105428198,
+                  "std": 0.7239531342258803
+                }
+              ]
+            }
+          ],
           "switch_fit_diagnostics": {
             "candidates": {
               "fixed_local_reference_switch": {
@@ -2622,6 +3033,7 @@
           "student_sample_refined": 1
         }
       },
+      "traces_output": "artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "train": {
         "reward_mean": 47.1,
         "steps_mean": 47.1,
@@ -2825,34 +3237,35 @@
       "best_checkpoint": "",
       "best_metrics_output": "artifacts/results/metrics/psm_seed0_full_horizon.json",
       "best_seed_by_train": 0,
-      "best_test_reward": 55.9,
-      "best_test_steps": 55.9,
+      "best_test_reward": 60.05,
+      "best_test_steps": 60.05,
       "best_test_success": 0.0,
-      "best_test_survival_seconds": 1.118,
+      "best_test_survival_seconds": 1.201,
       "best_timesteps": 0,
-      "best_train_reward": 41.15,
-      "best_train_steps": 41.15,
+      "best_traces_output": "artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
+      "best_train_reward": 47.1,
+      "best_train_steps": 47.1,
       "best_train_success": 0.0,
-      "best_train_survival_seconds": 0.823,
+      "best_train_survival_seconds": 0.9420000000000001,
       "eval_rollouts": 20,
       "n": 1,
       "policy": "Synthesized PSM diagnostic",
       "test_horizon_steps": 15000,
-      "test_reward_mean": 55.9,
+      "test_reward_mean": 60.05,
       "test_reward_std": 0.0,
-      "test_steps_mean": 55.9,
+      "test_steps_mean": 60.05,
       "test_steps_std": 0.0,
       "test_success_mean": 0.0,
       "test_success_std": 0.0,
-      "test_survival_seconds_mean": 1.118,
+      "test_survival_seconds_mean": 1.201,
       "test_survival_seconds_std": 0.0,
-      "train_reward_mean": 41.15,
+      "train_reward_mean": 47.1,
       "train_reward_std": 0.0,
-      "train_steps_mean": 41.15,
+      "train_steps_mean": 47.1,
       "train_steps_std": 0.0,
       "train_success_mean": 0.0,
       "train_success_std": 0.0,
-      "train_survival_seconds_mean": 0.823,
+      "train_survival_seconds_mean": 0.9420000000000001,
       "train_survival_seconds_std": 0.0
     }
   ],

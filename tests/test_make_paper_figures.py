@@ -71,6 +71,11 @@ class MakePaperFiguresTest(unittest.TestCase):
         synthesized_psm_row = next(row for row in manifest["rows"] if row["policy"] == "Synthesized PSM diagnostic")
         with open(os.path.join(ROOT, synthesized_psm_row["metrics_output"]), encoding="utf-8") as handle:
             synthesized_psm_metrics = json.load(handle)
+        self.assertEqual(synthesized_psm_row["traces_output"], synthesized_psm_metrics["traces_output"])
+        self.assertTrue(os.path.exists(os.path.join(ROOT, synthesized_psm_row["traces_output"])))
+        self.assertIn("--traces-output", synthesized_psm_row["command"])
+        self.assertIn("--traces-output", manifest["reproduction_commands"]["Synthesized PSM diagnostic"])
+        self.assertIn("student_fit_history", synthesized_psm_metrics["synthesis_history"][0])
         self.assertNotIn("artifact_status", synthesized_psm_metrics)
         self.assertNotIn("artifact_status", synthesized_psm_row)
         self.assertEqual(
@@ -192,6 +197,56 @@ class MakePaperFiguresTest(unittest.TestCase):
                     }
                 ]
             )
+
+    def test_require_result_artifacts_accepts_synthesized_psm_trace_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump({"traces": []}, handle)
+
+            make_paper_figures.require_result_artifacts(
+                [
+                    {
+                        "policy": "Synthesized PSM diagnostic",
+                        "metrics_output": metrics_path,
+                        "eval_rollouts": "20",
+                        "test_horizon_steps": "15000",
+                    }
+                ]
+            )
+
+    def test_require_result_artifacts_rejects_missing_synthesized_psm_trace_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "traces_output": os.path.join(tmpdir, "missing_traces.json"),
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(FileNotFoundError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Synthesized PSM diagnostic",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
 
     def test_require_result_artifacts_rejects_missing_protocol_status(self):
         with tempfile.TemporaryDirectory() as tmpdir:

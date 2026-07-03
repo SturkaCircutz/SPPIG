@@ -179,12 +179,12 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python scripts/evaluate_cartpole_program.py --paper-figure19 ...`, and its metrics mark
   `policy_source = paper_figure19_manual_transcription` and `synthesized_by_current_algorithm = false`.
 - Current synthesizer diagnostic command:
-  `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
+  `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `41.15`, test reward mean `55.9`; the same artifact records train/test
-  survived-step means `41.15` and `55.9`, or `0.823s` and `1.118s`. The tracked artifact was
-  regenerated after conditioning the probabilistic student likelihood on the fixed initial mode and records
+  train reward mean `47.1`, test reward mean `60.05`; the same artifact records train/test
+  survived-step means `47.1` and `60.05`, or `0.942s` and `1.201s`. The tracked artifact was
+  regenerated with the full selected-teacher-trace sidecar, inner student fit history, fixed initial-mode likelihood, and
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`)
   so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
