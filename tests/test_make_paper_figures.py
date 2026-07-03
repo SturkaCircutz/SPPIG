@@ -289,6 +289,69 @@ class MakePaperFiguresTest(unittest.TestCase):
                     ]
                 )
 
+    def test_require_result_artifacts_accepts_runner_named_synthesized_psm_trace_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python scripts/run_cartpole_reproduction.py --quick",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "synthesis_history": [{"iteration": 1}],
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": 1},
+                        "num_traces": 1,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
+
+            make_paper_figures.require_result_artifacts(
+                [
+                    {
+                        "policy": "Programmatic state machine",
+                        "metrics_output": metrics_path,
+                        "eval_rollouts": "20",
+                        "test_horizon_steps": "15000",
+                    }
+                ]
+            )
+
+    def test_require_result_artifacts_accepts_fixed_psm_without_synthesis_traces(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python scripts/evaluate_cartpole_program.py",
+                        "paper_protocol_status": {
+                            "paper_scale_result": False,
+                            "synthesized_by_current_algorithm": False,
+                        },
+                    },
+                    handle,
+                )
+
+            make_paper_figures.require_result_artifacts(
+                [
+                    {
+                        "policy": "Programmatic state machine",
+                        "metrics_output": metrics_path,
+                        "eval_rollouts": "20",
+                        "test_horizon_steps": "15000",
+                    }
+                ]
+            )
+
     def test_require_result_artifacts_rejects_synthesized_psm_boolean_trace_count(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
@@ -503,6 +566,32 @@ class MakePaperFiguresTest(unittest.TestCase):
                     ]
                 )
 
+    def test_require_result_artifacts_rejects_runner_named_synthesized_psm_missing_trace_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python scripts/run_cartpole_reproduction.py --quick",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "synthesis_history": [{"iteration": 1}],
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(FileNotFoundError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Programmatic state machine",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
     def test_require_result_artifacts_rejects_stale_synthesized_psm_trace_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
@@ -525,6 +614,36 @@ class MakePaperFiguresTest(unittest.TestCase):
                     [
                         {
                             "policy": "Synthesized PSM diagnostic",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_runner_named_synthesized_psm_stale_trace_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python scripts/run_cartpole_reproduction.py --quick",
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "synthesis_history": [{"iteration": 1}],
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump({"config": {"teacher_student_iters": 1}, "num_traces": 1, "traces": [{"reward": 1}]}, handle)
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Programmatic state machine",
                             "metrics_output": metrics_path,
                             "eval_rollouts": "20",
                             "test_horizon_steps": "15000",

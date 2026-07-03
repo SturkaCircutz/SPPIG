@@ -122,6 +122,15 @@ def psm_trace_payload_is_complete(trace_payload: object) -> bool:
     return trace_history[-1].get("traces") == traces
 
 
+def metrics_payload_is_synthesized_psm(metrics: object) -> bool:
+    if not isinstance(metrics, dict):
+        return False
+    status = metrics.get("paper_protocol_status", {})
+    if isinstance(status, dict) and status.get("synthesized_by_current_algorithm") is False:
+        return False
+    return isinstance(metrics.get("synthesis_history"), list)
+
+
 def require_result_artifacts(rows: list[dict[str, str]]) -> None:
     missing = [row["policy"] for row in rows if not row_has_result_artifact(row)]
     if missing:
@@ -182,13 +191,13 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         current_psm_provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"]
     )
     for row in rows:
-        if row.get("policy") != "Synthesized PSM diagnostic":
-            continue
         metrics_path = row_metrics_path(row)
         metrics = {}
         if metrics_path:
             with open(artifact_path(metrics_path), encoding="utf-8") as handle:
                 metrics = json.load(handle)
+        if row.get("policy") != "Synthesized PSM diagnostic" and not metrics_payload_is_synthesized_psm(metrics):
+            continue
         metric_teacher_candidates = (
             metrics.get("algorithm_provenance", {})
             .get("teacher_search", {})
