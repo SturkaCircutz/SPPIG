@@ -355,7 +355,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   boundary. It also writes `essay/cartpole_figure19_reference_fragment.tex` only from a metrics
   artifact whose protocol status marks `policy_source = paper_figure19_manual_transcription`, keeping
   the paper reference policy separate from synthesized local diagnostics. Generated result fragments now carry an explicit local-diagnostic limitation note and
-  refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon.
+  refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon. Synthesized
+  PSM rows are also rejected unless their full-trace sidecar contains per-iteration trace history.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges, reproducible
   `paper-random` hyperparameter sample IDs, the concrete sampled hyperparameter configs, and the

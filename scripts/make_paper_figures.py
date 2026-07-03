@@ -130,6 +130,7 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
             + ", ".join(missing_protocol_status)
         )
     missing_psm_trace_artifacts: list[str] = []
+    incomplete_psm_trace_artifacts: list[str] = []
     for row in rows:
         if row.get("policy") != "Synthesized PSM diagnostic":
             continue
@@ -141,10 +142,25 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
                     trace_path = json.load(handle).get("traces_output") or ""
         if not trace_path or not os.path.exists(artifact_path(trace_path)):
             missing_psm_trace_artifacts.append(row["policy"])
+            continue
+        with open(artifact_path(trace_path), encoding="utf-8") as handle:
+            trace_payload = json.load(handle)
+        trace_history = trace_payload.get("trace_history")
+        if (
+            not isinstance(trace_history, list)
+            or not trace_history
+            or trace_history[-1].get("traces") != trace_payload.get("traces")
+        ):
+            incomplete_psm_trace_artifacts.append(row["policy"])
     if missing_psm_trace_artifacts:
         raise FileNotFoundError(
             "synthesized PSM rows lack full teacher-trace artifacts: "
             + ", ".join(missing_psm_trace_artifacts)
+        )
+    if incomplete_psm_trace_artifacts:
+        raise ValueError(
+            "synthesized PSM trace artifacts lack per-iteration trace history: "
+            + ", ".join(incomplete_psm_trace_artifacts)
         )
     paper_scale_rollout_mismatch = [
         row["policy"]
