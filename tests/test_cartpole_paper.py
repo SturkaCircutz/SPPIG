@@ -70,6 +70,7 @@ from cartpole_synthesis import (
     _switch_distribution_std_candidates,
     _switch_distribution_timing_loss,
     _gradient_switch_parameter_candidate_distributions,
+    _gain_gradient_refinement_candidate,
     _rollout_student_sampled_trace,
     _rollout_with_teacher_gains,
     _sample_switch,
@@ -2834,6 +2835,104 @@ class CartpolePaperTest(unittest.TestCase):
 
         refined = _refine_loop_free_trace(trace, initial_state, env.cfg, cfg, None)
 
+        self.assertGreaterEqual(
+            _teacher_objective(refined, None, cfg),
+            _teacher_objective(trace, None, cfg),
+        )
+
+    def test_cartpole_teacher_gain_gradient_uses_central_differences(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.01, -0.049]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=5.0,
+            omega_gain=2.0,
+        )
+        seen_gains = []
+
+        def objective(candidate):
+            seen_gains.append((candidate.theta_gain, candidate.omega_gain))
+            return candidate.theta_gain
+
+        candidate = _gain_gradient_refinement_candidate(
+            trace,
+            initial_state,
+            env.cfg,
+            cfg,
+            objective,
+        )
+
+        self.assertIsNotNone(candidate)
+        self.assertIn((4.875, 2.0), seen_gains)
+        self.assertIn((5.125, 2.0), seen_gains)
+        self.assertIn((5.0, 1.95), seen_gains)
+        self.assertIn((5.0, 2.05), seen_gains)
+        assert candidate is not None
+        self.assertGreater(candidate.theta_gain, trace.theta_gain)
+        self.assertEqual(candidate.omega_gain, trace.omega_gain)
+
+    def test_cartpole_teacher_gain_gradient_refinement_can_be_accepted(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            segment_steps=2,
+            segments_per_trace=3,
+            teacher_refinement_steps=1,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = CartpoleTrace(
+            observations=[],
+            actions=[-10.0],
+            mode_labels=[0],
+            reward=1.0,
+            theta_gain=10.0,
+            omega_gain=2.0,
+            segment_actions=(-10.0,),
+            segment_durations=(1,),
+            teacher_source="gain_sample",
+        )
+        gradient_candidate = CartpoleTrace(
+            observations=[],
+            actions=[10.0],
+            mode_labels=[1],
+            reward=5.0,
+            theta_gain=11.0,
+            omega_gain=2.0,
+            segment_actions=(10.0,),
+            segment_durations=(1,),
+            teacher_source="gain_sample",
+        )
+
+        with patch(
+            "cartpole_synthesis._duration_refinement_candidates",
+            return_value=[],
+        ), patch(
+            "cartpole_synthesis._time_increment_refinement_candidates",
+            return_value=[],
+        ), patch(
+            "cartpole_synthesis._action_refinement_candidates",
+            return_value=[],
+        ), patch(
+            "cartpole_synthesis._gain_gradient_refinement_candidate",
+            return_value=gradient_candidate,
+        ), patch(
+            "cartpole_synthesis._action_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._duration_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._time_increment_gradient_refinement_candidate",
+            return_value=None,
+        ):
+            refined = _refine_loop_free_trace(trace, initial_state, env.cfg, cfg, None)
+
+        self.assertEqual(refined.teacher_source, "gain_refined")
+        self.assertEqual(refined.theta_gain, gradient_candidate.theta_gain)
         self.assertGreaterEqual(
             _teacher_objective(refined, None, cfg),
             _teacher_objective(trace, None, cfg),

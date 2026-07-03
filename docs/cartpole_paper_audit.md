@@ -553,6 +553,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that local refinement of Cartpole loop-free teacher gains does not reduce the teacher
   objective after top-candidate sampling. This is a bounded coordinate refinement over the diagnostic
   teacher gains, not the paper's continuous gradient-based trajectory optimizer.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_gain_gradient_uses_central_differences`
+  verifies that bounded teacher-gain refinement can estimate a central finite-difference direction.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_gain_gradient_refinement_can_be_accepted`
+  verifies that the finite-difference gain update is only accepted when it does not reduce the
+  current teacher objective.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_rollout_records_segment_durations` verifies
   that loop-free teacher traces persist the segment-action, segment-duration, and time-increment
   schedules used to generate them.
@@ -660,8 +665,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   from the current probabilistic student, resampling action/switch parameters on mode entry, refines
   top loop-free candidates with bounded coordinate search over teacher gains when available, integer
   segment durations, per-segment time increments, one-segment local continuous constant-action
-  steps, and one action plus one integer-duration plus one time-increment finite-difference
-  candidate per refinement iteration, evaluates one deterministic top-rho centroid recombination
+  steps, and one teacher-gain plus one action plus one integer-duration plus one time-increment
+  finite-difference candidate per refinement iteration, evaluates one deterministic top-rho centroid recombination
   candidate plus configurable bounded rounds of fitted teacher-gain and per-segment
   distribution mean candidates and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the

@@ -176,11 +176,18 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(provenance["teacher_search"]["action_gradient_step_fraction"], 0.10)
         self.assertEqual(provenance["teacher_search"]["action_gradient_epsilon_fraction"], 0.05)
+        self.assertEqual(provenance["teacher_search"]["gain_gradient_step_fraction"], 0.05)
+        self.assertEqual(provenance["teacher_search"]["gain_gradient_epsilon_fraction"], 0.025)
         self.assertEqual(provenance["teacher_search"]["duration_gradient_step"], 1)
         self.assertEqual(provenance["teacher_search"]["duration_gradient_epsilon"], 1)
         self.assertEqual(
             provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"],
-            {"action_schedule": 1, "duration_schedule": 1, "time_increment_schedule": 1},
+            {
+                "teacher_gain_schedule": 1,
+                "action_schedule": 1,
+                "duration_schedule": 1,
+                "time_increment_schedule": 1,
+            },
         )
         self.assertTrue(provenance["teacher_search"]["elite_distribution_samples_teacher_gains"])
         self.assertEqual(

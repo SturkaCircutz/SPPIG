@@ -35,6 +35,8 @@ TEACHER_GAIN_REFINEMENT_DELTA_FRACTION = 0.05
 TEACHER_THETA_REFINEMENT_MIN_DELTA = 0.1
 TEACHER_OMEGA_REFINEMENT_MIN_DELTA = 0.05
 TEACHER_REFINEMENT_DELTA_DECAY = 0.5
+TEACHER_GAIN_GRADIENT_STEP_FRACTION = 0.05
+TEACHER_GAIN_GRADIENT_EPS_FRACTION = 0.025
 TEACHER_DURATION_REFINEMENT_DELTAS = (-1, 1)
 TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT = 2
 TEACHER_ACTION_REFINEMENT_STEP_FRACTION = 0.25
@@ -164,6 +166,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "theta_refinement_min_delta": TEACHER_THETA_REFINEMENT_MIN_DELTA,
             "omega_refinement_min_delta": TEACHER_OMEGA_REFINEMENT_MIN_DELTA,
             "refinement_delta_decay": TEACHER_REFINEMENT_DELTA_DECAY,
+            "gain_gradient_step_fraction": TEACHER_GAIN_GRADIENT_STEP_FRACTION,
+            "gain_gradient_epsilon_fraction": TEACHER_GAIN_GRADIENT_EPS_FRACTION,
             "duration_refinement_deltas": list(TEACHER_DURATION_REFINEMENT_DELTAS),
             "action_refinement_max_candidates_per_segment": TEACHER_ACTION_REFINEMENT_CANDIDATES_PER_SEGMENT,
             "action_refinement_step_fraction": TEACHER_ACTION_REFINEMENT_STEP_FRACTION,
@@ -177,6 +181,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "time_increment_gradient_step_fraction": TEACHER_TIME_INCREMENT_GRADIENT_STEP_FRACTION,
             "time_increment_gradient_epsilon_fraction": TEACHER_TIME_INCREMENT_GRADIENT_EPS_FRACTION,
             "finite_difference_candidates_per_refinement_iteration": {
+                "teacher_gain_schedule": 1,
                 "action_schedule": 1,
                 "duration_schedule": 1,
                 "time_increment_schedule": 1,
@@ -1443,11 +1448,13 @@ def _refine_loop_free_trace(
 ) -> CartpoleTrace:
     best = trace
     objective_elites = elites or [trace]
-    objective_cache: Dict[Tuple[Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], float], float] = {}
+    objective_cache: Dict[Tuple[float, float, Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], float], float] = {}
     elite_log_normalizer = _elite_kernel_log_normalizer(student, objective_elites)
 
     def objective(candidate: CartpoleTrace) -> float:
         key = (
+            candidate.theta_gain,
+            candidate.omega_gain,
             tuple(candidate.segment_actions or _mode_run_actions(candidate.actions, candidate.mode_labels)),
             tuple(candidate.segment_durations or _mode_run_lengths(candidate.mode_labels)),
             tuple(candidate.segment_time_increments),
@@ -1495,6 +1502,10 @@ def _refine_loop_free_trace(
                 if objective(candidate) > objective(best):
                     best = candidate
                     improved = True
+            candidate = _gain_gradient_refinement_candidate(best, initial_state, env_cfg, cfg, objective)
+            if candidate is not None and objective(candidate) > objective(best):
+                best = candidate
+                improved = True
         for candidate in _duration_refinement_candidates(best, initial_state, env_cfg, cfg):
             if objective(candidate) > objective(best):
                 best = candidate
@@ -1650,6 +1661,80 @@ def _action_refinement_candidates(
                 )
             )
     return candidates
+
+
+def _gain_gradient_refinement_candidate(
+    trace: CartpoleTrace,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    objective,
+) -> CartpoleTrace | None:
+    durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
+    increments = trace.segment_time_increments or tuple(env_cfg.dt for _ in durations)
+    theta_scale = max(1.0, abs(trace.theta_gain))
+    omega_scale = max(1.0, abs(trace.omega_gain))
+    theta_epsilon = max(MIN_GAUSSIAN_STD, theta_scale * TEACHER_GAIN_GRADIENT_EPS_FRACTION)
+    omega_epsilon = max(MIN_GAUSSIAN_STD, omega_scale * TEACHER_GAIN_GRADIENT_EPS_FRACTION)
+
+    theta_minus = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain - theta_epsilon,
+        trace.omega_gain,
+        durations,
+        None,
+        increments or None,
+    )
+    theta_plus = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain + theta_epsilon,
+        trace.omega_gain,
+        durations,
+        None,
+        increments or None,
+    )
+    omega_minus = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain,
+        trace.omega_gain - omega_epsilon,
+        durations,
+        None,
+        increments or None,
+    )
+    omega_plus = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain,
+        trace.omega_gain + omega_epsilon,
+        durations,
+        None,
+        increments or None,
+    )
+    theta_gradient = (objective(theta_plus) - objective(theta_minus)) / (2.0 * theta_epsilon)
+    omega_gradient = (objective(omega_plus) - objective(omega_minus)) / (2.0 * omega_epsilon)
+    norm = math.sqrt(theta_gradient * theta_gradient + omega_gradient * omega_gradient)
+    if norm < MIN_GAUSSIAN_STD:
+        return None
+
+    return _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain
+        + TEACHER_GAIN_GRADIENT_STEP_FRACTION * theta_scale * theta_gradient / norm,
+        trace.omega_gain
+        + TEACHER_GAIN_GRADIENT_STEP_FRACTION * omega_scale * omega_gradient / norm,
+        durations,
+        None,
+        increments or None,
+    )
 
 
 def _action_gradient_refinement_candidate(
