@@ -196,8 +196,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `42.5`, test reward mean `55.0`; the same artifact records train/test
-  survived-step means `42.5` and `55.0`, or `0.85s` and `1.1s`. The tracked artifact was
+  train reward mean `27.15`, test reward mean `33.2`; the same artifact records train/test
+  survived-step means `27.15` and `33.2`, or `0.543s` and `0.664s`. The tracked artifact was
   regenerated with the full selected-teacher-trace sidecar, inner student fit history, fixed initial-mode likelihood, and
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`)
@@ -206,9 +206,10 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `initial_mode_prior = fixed_mode_0`,
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
   elite-distribution refresh, first-iteration source counts
-  `{"bootstrap_elite_centroid": 1, "bootstrap_student_sample_refined": 3}`,
-  final-iteration source counts `{"student_elite_centroid": 2, "student_sample_refined": 2}`, and policy
-  `m0 action=-0.223; m1 action=0.236; mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0`; it also records
+  `{"bootstrap_elite_distribution_mean": 2, "bootstrap_student_sample": 2}`,
+  final-iteration source counts `{"student_sample": 4}`, compact adaptive-teacher
+  objective-component summaries, and policy
+  `m0 action=-0.778; m1 action=1.059; mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0`; it also records
   `student_sample_segment_budget =
   preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
@@ -392,9 +393,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   the paper reference policy separate from synthesized local diagnostics. Generated result fragments now carry an explicit local-diagnostic limitation note and
   refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon, and require
   each metrics artifact to carry the command that produced it. Synthesized PSM rows are also rejected
-  unless their full-trace sidecar contains per-iteration trace history whose iteration sequence
-  matches the configured teacher/student loop count and whose recorded trace counts match the
-  serialized trace lists.
+  unless their metrics include adaptive-teacher objective-component summaries and their full-trace
+  sidecar contains per-iteration trace history whose iteration sequence matches the configured
+  teacher/student loop count and whose recorded trace counts match the serialized trace lists.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges, reproducible
   `paper-random` hyperparameter sample IDs, the concrete sampled hyperparameter configs, and the

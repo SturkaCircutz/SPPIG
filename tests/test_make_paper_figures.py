@@ -35,6 +35,29 @@ def current_synthesized_psm_status() -> dict:
     }
 
 
+def minimal_objective_component_summary() -> dict:
+    return {
+        key: {"count": 1, "min": 1.0, "max": 1.0, "mean": 1.0}
+        for key in make_paper_figures.EXPECTED_PSM_OBJECTIVE_COMPONENT_KEYS
+    }
+
+
+def one_iteration_objective_component_metrics() -> dict:
+    adaptive_summary = {
+        "iteration": 1,
+        "objective_component_summary": minimal_objective_component_summary(),
+    }
+    return {
+        "adaptive_teacher_summary": [adaptive_summary],
+        "synthesis_history": [
+            {
+                "iteration": 1,
+                "adaptive_teacher_summary": adaptive_summary,
+            }
+        ],
+    }
+
+
 def artifact_row(
     policy: str,
     metrics_path: str,
@@ -146,6 +169,16 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertIn("--traces-output", synthesized_psm_row["command"])
         self.assertIn("--traces-output", manifest["reproduction_commands"]["Synthesized PSM diagnostic"])
         self.assertIn("student_fit_history", synthesized_psm_metrics["synthesis_history"][0])
+        self.assertEqual(
+            synthesized_psm_row["adaptive_teacher_summary"],
+            synthesized_psm_metrics["adaptive_teacher_summary"],
+        )
+        self.assertEqual(
+            synthesized_psm_row["synthesis_history"],
+            synthesized_psm_metrics["synthesis_history"],
+        )
+        for adaptive_summary in synthesized_psm_metrics["adaptive_teacher_summary"]:
+            self.assertIn("objective_component_summary", adaptive_summary)
         self.assertNotIn("artifact_status", synthesized_psm_metrics)
         self.assertNotIn("artifact_status", synthesized_psm_row)
         self.assertEqual(
@@ -279,6 +312,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -308,6 +342,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -325,6 +360,39 @@ class MakePaperFiguresTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
+    def test_require_result_artifacts_rejects_synthesized_psm_empty_objective_components(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            empty_summary = {"iteration": 1, "objective_component_summary": {}}
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": PSM_TRACE_COMMAND,
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": current_synthesized_psm_status(),
+                        "adaptive_teacher_summary": [empty_summary],
+                        "synthesis_history": [
+                            {"iteration": 1, "adaptive_teacher_summary": empty_summary}
+                        ],
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": 1},
+                        "num_traces": 1,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "objective components"):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
+
     def test_require_result_artifacts_accepts_runner_named_synthesized_psm_trace_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
@@ -335,8 +403,8 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "command": RUNNER_QUICK_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
-                        "synthesis_history": [{"iteration": 1}],
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -414,6 +482,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -442,6 +511,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -470,6 +540,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -498,6 +569,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -526,6 +598,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -556,6 +629,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": os.path.join(tmpdir, "missing_traces.json"),
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -572,7 +646,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "command": RUNNER_QUICK_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
-                        "synthesis_history": [{"iteration": 1}],
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -591,6 +665,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -610,8 +685,8 @@ class MakePaperFiguresTest(unittest.TestCase):
                         "command": RUNNER_QUICK_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
-                        "synthesis_history": [{"iteration": 1}],
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
@@ -641,6 +716,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                         },
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )

@@ -139,6 +139,41 @@ def metrics_payload_is_synthesized_psm(metrics: object) -> bool:
     return isinstance(status, dict) and status.get("synthesized_by_current_algorithm") is True
 
 
+EXPECTED_PSM_OBJECTIVE_COMPONENT_KEYS = (
+    "direct_objective",
+    "direct_objective_formula_residual",
+    "refinement_minus_direct_objective",
+    "refinement_objective",
+    "reward_term",
+    "student_log_probability",
+    "student_regularizer_term",
+)
+
+
+def psm_metrics_payload_has_objective_components(metrics: object) -> bool:
+    if not isinstance(metrics, dict):
+        return False
+    adaptive_summary = metrics.get("adaptive_teacher_summary")
+    synthesis_history = metrics.get("synthesis_history")
+    if not isinstance(adaptive_summary, list) or not adaptive_summary:
+        return False
+    if not isinstance(synthesis_history, list) or len(synthesis_history) != len(adaptive_summary):
+        return False
+    for index, summary in enumerate(adaptive_summary):
+        components = summary.get("objective_component_summary") if isinstance(summary, dict) else None
+        if not isinstance(components, dict):
+            return False
+        if any(
+            key not in components or not isinstance(components[key], dict)
+            for key in EXPECTED_PSM_OBJECTIVE_COMPONENT_KEYS
+        ):
+            return False
+        history_summary = synthesis_history[index].get("adaptive_teacher_summary") if isinstance(synthesis_history[index], dict) else None
+        if not isinstance(history_summary, dict) or history_summary != summary:
+            return False
+    return True
+
+
 def require_result_artifacts(rows: list[dict[str, str]]) -> None:
     missing = [row["policy"] for row in rows if not row_has_result_artifact(row)]
     if missing:
@@ -212,6 +247,7 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
     incomplete_psm_trace_artifacts: list[str] = []
     stale_psm_algorithm_provenance: list[str] = []
     missing_psm_synthesis_status: list[str] = []
+    missing_psm_objective_components: list[str] = []
     current_psm_provenance = cartpole_synthesis_algorithm_provenance()
     current_teacher_candidates = (
         current_psm_provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"]
@@ -227,6 +263,8 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         if not metrics_payload_is_synthesized_psm(metrics):
             missing_psm_synthesis_status.append(row["policy"])
             continue
+        if not psm_metrics_payload_has_objective_components(metrics):
+            missing_psm_objective_components.append(row["policy"])
         metric_teacher_candidates = (
             metrics.get("algorithm_provenance", {})
             .get("teacher_search", {})
@@ -253,6 +291,11 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         raise FileNotFoundError(
             "synthesized PSM rows lack full teacher-trace artifacts: "
             + ", ".join(missing_psm_trace_artifacts)
+        )
+    if missing_psm_objective_components:
+        raise ValueError(
+            "synthesized PSM metrics lack adaptive-teacher objective components: "
+            + ", ".join(missing_psm_objective_components)
         )
     if incomplete_psm_trace_artifacts:
         raise ValueError(

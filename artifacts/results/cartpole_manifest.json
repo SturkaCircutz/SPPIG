@@ -836,25 +836,69 @@
       "adaptive_teacher_summary": [
         {
           "iteration": 1,
+          "objective_component_summary": {
+            "direct_objective": {
+              "count": 4,
+              "max": 5702.053962273661,
+              "mean": 3626.026355301821,
+              "min": 2222.8702765800845
+            },
+            "direct_objective_formula_residual": {
+              "count": 4,
+              "max": 0.0,
+              "mean": 0.0,
+              "min": 0.0
+            },
+            "refinement_minus_direct_objective": {
+              "count": 4,
+              "max": 197.88326896742456,
+              "mean": 123.95739739273529,
+              "min": 77.12972341991554
+            },
+            "refinement_objective": {
+              "count": 4,
+              "max": 5899.937231241086,
+              "mean": 3749.983752694556,
+              "min": 2300.0
+            },
+            "reward_term": {
+              "count": 4,
+              "max": 5900.0,
+              "mean": 3750.0,
+              "min": 2300.0
+            },
+            "student_log_probability": {
+              "count": 4,
+              "max": -77.12972341991554,
+              "mean": -123.9736446981793,
+              "min": -197.9460377263389
+            },
+            "student_regularizer_term": {
+              "count": 4,
+              "max": -77.12972341991554,
+              "mean": -123.9736446981793,
+              "min": -197.9460377263389
+            }
+          },
           "recorded_student_log_probability_count": 4,
           "recorded_student_log_probability_fraction": 1.0,
-          "recorded_student_log_probability_max": -76.68980283914641,
-          "recorded_student_log_probability_mean": -125.36689043773272,
-          "recorded_student_log_probability_min": -199.58422964369547,
+          "recorded_student_log_probability_max": -77.12972341991554,
+          "recorded_student_log_probability_mean": -123.9736446981793,
+          "recorded_student_log_probability_min": -197.9460377263389,
           "recorded_teacher_objective_covers_all_traces": true,
           "recorded_teacher_objective_direct_count": 4,
           "recorded_teacher_objective_direct_fraction": 1.0,
-          "recorded_teacher_objective_direct_max": 5700.415770356304,
-          "recorded_teacher_objective_direct_mean": 3624.6331095622672,
-          "recorded_teacher_objective_direct_min": 2223.3101971608535,
-          "recorded_teacher_objective_max": 5700.415770356304,
-          "recorded_teacher_objective_mean": 3624.6331095622672,
-          "recorded_teacher_objective_min": 2223.3101971608535,
+          "recorded_teacher_objective_direct_max": 5702.053962273661,
+          "recorded_teacher_objective_direct_mean": 3626.026355301821,
+          "recorded_teacher_objective_direct_min": 2222.8702765800845,
+          "recorded_teacher_objective_max": 5702.053962273661,
+          "recorded_teacher_objective_mean": 3626.026355301821,
+          "recorded_teacher_objective_min": 2222.8702765800845,
           "recorded_teacher_refinement_objective_count": 4,
           "recorded_teacher_refinement_objective_fraction": 1.0,
-          "recorded_teacher_refinement_objective_max": 5892.111767633619,
-          "recorded_teacher_refinement_objective_mean": 3744.390779259133,
-          "recorded_teacher_refinement_objective_min": 2299.5090605217956,
+          "recorded_teacher_refinement_objective_max": 5899.937231241086,
+          "recorded_teacher_refinement_objective_mean": 3749.983752694556,
+          "recorded_teacher_refinement_objective_min": 2300.0,
           "reward_max": 59.0,
           "reward_mean": 37.5,
           "reward_min": 23.0,
@@ -862,42 +906,85 @@
           "teacher_reward_lambda": 100.0,
           "teacher_sampling_model": "bootstrap_probabilistic_prior",
           "teacher_source_counts": {
-            "bootstrap_elite_centroid": 1,
-            "bootstrap_student_sample_refined": 3
+            "bootstrap_elite_distribution_mean": 2,
+            "bootstrap_student_sample": 2
           },
           "teacher_student_regularizer": 1.0,
           "trace_count": 4
         },
         {
           "iteration": 2,
+          "objective_component_summary": {
+            "direct_objective": {
+              "count": 4,
+              "max": 2845.845758745421,
+              "mean": 2548.011778859828,
+              "min": 2257.564670592404
+            },
+            "direct_objective_formula_residual": {
+              "count": 4,
+              "max": 0.0,
+              "mean": 0.0,
+              "min": 0.0
+            },
+            "refinement_minus_direct_objective": {
+              "count": 4,
+              "max": 65.37846653178212,
+              "mean": 51.98822114017173,
+              "min": 42.43532940759587
+            },
+            "refinement_objective": {
+              "count": 4,
+              "max": 2900.0,
+              "mean": 2600.0,
+              "min": 2300.0
+            },
+            "reward_term": {
+              "count": 4,
+              "max": 2900.0,
+              "mean": 2600.0,
+              "min": 2300.0
+            },
+            "student_log_probability": {
+              "count": 4,
+              "max": -42.43532940759578,
+              "mean": -51.98822114017169,
+              "min": -65.37846653178197
+            },
+            "student_regularizer_term": {
+              "count": 4,
+              "max": -42.43532940759578,
+              "mean": -51.98822114017169,
+              "min": -65.37846653178197
+            }
+          },
           "recorded_student_log_probability_count": 4,
           "recorded_student_log_probability_fraction": 1.0,
-          "recorded_student_log_probability_max": -59.03820076492541,
-          "recorded_student_log_probability_mean": -97.11750585802658,
-          "recorded_student_log_probability_min": -169.14853226350036,
+          "recorded_student_log_probability_max": -42.43532940759578,
+          "recorded_student_log_probability_mean": -51.98822114017169,
+          "recorded_student_log_probability_min": -65.37846653178197,
           "recorded_teacher_objective_covers_all_traces": true,
           "recorded_teacher_objective_direct_count": 4,
           "recorded_teacher_objective_direct_fraction": 1.0,
-          "recorded_teacher_objective_direct_max": 9030.8514677365,
-          "recorded_teacher_objective_direct_mean": 5027.882494141973,
-          "recorded_teacher_objective_direct_min": 3040.9617992350745,
-          "recorded_teacher_objective_max": 9030.8514677365,
-          "recorded_teacher_objective_mean": 5027.882494141973,
-          "recorded_teacher_objective_min": 3040.9617992350745,
+          "recorded_teacher_objective_direct_max": 2845.845758745421,
+          "recorded_teacher_objective_direct_mean": 2548.011778859828,
+          "recorded_teacher_objective_direct_min": 2257.564670592404,
+          "recorded_teacher_objective_max": 2845.845758745421,
+          "recorded_teacher_objective_mean": 2548.011778859828,
+          "recorded_teacher_objective_min": 2257.564670592404,
           "recorded_teacher_refinement_objective_count": 4,
           "recorded_teacher_refinement_objective_fraction": 1.0,
-          "recorded_teacher_refinement_objective_max": 9187.704187553449,
-          "recorded_teacher_refinement_objective_mean": 5120.771985277186,
-          "recorded_teacher_refinement_objective_min": 3099.999998648944,
-          "reward_max": 92.0,
-          "reward_mean": 51.25,
-          "reward_min": 31.0,
+          "recorded_teacher_refinement_objective_max": 2900.0,
+          "recorded_teacher_refinement_objective_mean": 2600.0,
+          "recorded_teacher_refinement_objective_min": 2300.0,
+          "reward_max": 29.0,
+          "reward_mean": 26.0,
+          "reward_min": 23.0,
           "teacher_objective_formula": "teacher_reward_lambda * reward + teacher_student_regularizer * recorded_student_log_probability",
           "teacher_reward_lambda": 100.0,
           "teacher_sampling_model": "previous_iteration_student",
           "teacher_source_counts": {
-            "student_elite_centroid": 2,
-            "student_sample_refined": 2
+            "student_sample": 4
           },
           "teacher_student_regularizer": 1.0,
           "trace_count": 4
@@ -991,7 +1078,8 @@
             1.0,
             2.0
           ],
-          "std_steps": 2.0
+          "std_steps": 2.0,
+          "structure_rescore_uses_pair_posteriors": true
         },
         "teacher_search": {
           "action_gradient_epsilon_fraction": 0.05,
@@ -1030,7 +1118,8 @@
           "elite_distribution_phase": "bounded_cem_style_distribution_refit_top_rho_refresh",
           "elite_distribution_samples_teacher_gains": true,
           "elite_distribution_selection_objective": "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_student_log_probability",
-          "elite_distribution_update": "fit_gaussian_schedule_distribution_from_current_top_rho_each_round",
+          "elite_distribution_update": "fit_objective_weighted_gaussian_schedule_distribution_from_current_top_rho_each_round",
+          "elite_distribution_weighting": "softmax_teacher_objective_when_student_available_else_uniform",
           "elite_recombination": "top_rho_segment_mode_action_duration_time_increment_centroid",
           "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
           "elite_refinement_elite_set": "refreshed_top_rho_after_distribution_rounds",
@@ -1195,42 +1284,42 @@
       },
       "paper_test_horizon_steps": 15000,
       "policy": "Synthesized PSM diagnostic",
-      "policy_description": "m0 action=-0.223; m1 action=0.236; mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0",
+      "policy_description": "m0 action=-0.778; m1 action=1.059; mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
       "probabilistic_student": {
         "action_distributions": {
           "0": {
-            "mean": -0.2226491098011723,
-            "std": 0.5601658114504675
+            "mean": -0.7778538425227122,
+            "std": 0.3424970529863721
           },
           "1": {
-            "mean": 0.23610238749021914,
-            "std": 2.2804519854677587
+            "mean": 1.059421706362373,
+            "std": 0.001
           }
         },
-        "description": "H0=N(-0.223, 0.560); H1=N(0.236, 2.280); threshold=N(-0.676, 21.119); G=[N(-0.676, 21.119)]",
+        "description": "H0=N(-0.778, 0.342); H1=N(1.059, 0.001); threshold=N(-0.345, 0.006); G=[N(-0.345, 0.006)]",
         "responsibility_summary": {
-          "ambiguous_segment_count": 83,
+          "ambiguous_segment_count": 0,
           "ambiguous_segment_threshold": 0.75,
-          "hard_mode_0_count": 177,
-          "hard_mode_1_count": 28,
-          "max_entropy_nats": 0.6931470248762956,
-          "mean_entropy_nats": 0.44159000458083675,
-          "mean_max_responsibility": 0.789426022716627,
-          "mean_mode_0": 0.730202253511213,
-          "mean_mode_1": 0.26979774648878707,
-          "min_max_responsibility": 0.5002790014709406,
-          "segments": 205
+          "hard_mode_0_count": 77,
+          "hard_mode_1_count": 27,
+          "max_entropy_nats": 3.495258528424043e-08,
+          "mean_entropy_nats": 7.847539730588127e-10,
+          "mean_max_responsibility": 0.9999999999642191,
+          "mean_mode_0": 0.7403846154203964,
+          "mean_mode_1": 0.25961538457960365,
+          "min_max_responsibility": 0.9999999983531905,
+          "segments": 104
         },
-        "switch": "mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0",
+        "switch": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
         "switch_parameter_distributions": [
           {
-            "mean": -0.6759948538500515,
-            "std": 21.119246793687715
+            "mean": -0.3452394325774337,
+            "std": 0.00565685424949238
           }
         ],
         "switch_threshold_distribution": {
-          "mean": -0.6759948538500515,
-          "std": 21.119246793687715
+          "mean": -0.3452394325774337,
+          "std": 0.00565685424949238
         }
       },
       "reward_spec": {
@@ -1297,12 +1386,12 @@
         "candidates": {
           "fixed_local_reference_switch": {
             "boundary_alignment": {
-              "at_boundary_count": 102,
+              "at_boundary_count": 75,
               "early_switch_count": 0,
-              "elapsed_at_boundary_count": 102,
+              "elapsed_at_boundary_count": 75,
               "elapsed_early_switch_count": 0,
               "elapsed_late_switch_count": 0,
-              "enabled_boundary_count": 102,
+              "enabled_boundary_count": 75,
               "first_enabled_elapsed_minus_duration_max": 0.0,
               "first_enabled_elapsed_minus_duration_mean": 0.0,
               "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -1310,32 +1399,32 @@
               "first_enabled_minus_duration_mean": 0.0,
               "first_enabled_minus_duration_min": 0,
               "late_switch_count": 0,
-              "never_enabled_count": 99,
-              "num_boundaries": 201
+              "never_enabled_count": 25,
+              "num_boundaries": 100
             },
-            "bounded_eq12_style_distribution_loss": 44.274403782919784,
+            "bounded_eq12_style_distribution_loss": 5.7318052039590585e-08,
             "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
-            "deterministic_eq12_style_timing_loss": 3.9594855553570403,
-            "deterministic_hard_label_mistakes": 105,
-            "deterministic_label_error_rate": 0.5121951219512195,
+            "deterministic_eq12_style_timing_loss": 3.616792457259388e-10,
+            "deterministic_hard_label_mistakes": 78,
+            "deterministic_label_error_rate": 0.75,
             "deterministic_objective_tuple": [
-              105,
-              3.9594855553570403,
+              78,
+              3.616792457259388e-10,
               1,
               "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
             ],
-            "eq12_style_timing_loss": 3.9594855553570403,
-            "hard_label_mistake_rate": 0.8,
-            "hard_label_mistakes": 164,
-            "label_error_rate": 0.8,
-            "label_mistakes": 164,
+            "eq12_style_timing_loss": 3.616792457259388e-10,
+            "hard_label_mistake_rate": 1.0,
+            "hard_label_mistakes": 104,
+            "label_error_rate": 1.0,
+            "label_mistakes": 104,
             "objective_boundary_alignment": {
-              "at_boundary_count": 163,
+              "at_boundary_count": 100,
               "early_switch_count": 0,
-              "elapsed_at_boundary_count": 163,
+              "elapsed_at_boundary_count": 100,
               "elapsed_early_switch_count": 0,
               "elapsed_late_switch_count": 0,
-              "enabled_boundary_count": 163,
+              "enabled_boundary_count": 100,
               "first_enabled_elapsed_minus_duration_max": 0.0,
               "first_enabled_elapsed_minus_duration_mean": 0.0,
               "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -1343,29 +1432,29 @@
               "first_enabled_minus_duration_mean": 0.0,
               "first_enabled_minus_duration_min": 0,
               "late_switch_count": 0,
-              "never_enabled_count": 38,
-              "num_boundaries": 201
+              "never_enabled_count": 0,
+              "num_boundaries": 100
             },
-            "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= -0.204, else mode=0",
+            "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= -4.428, else mode=0",
             "objective_tuple": [
-              2.8097196195732312,
-              44.274403782919784,
+              3.0,
+              5.7318052039590585e-08,
               1,
-              "mode=1 if 10.000*theta + 1.000*omega >= -0.204, else mode=0"
+              "mode=1 if 10.000*theta + 1.000*omega >= -4.428, else mode=0"
             ],
             "program_complexity": 1,
-            "responsibility_weighted_label_loss": 2.8097196195732312,
-            "timing_loss_per_boundary": 0.22027066558666558,
-            "timing_loss_total": 44.274403782919784
+            "responsibility_weighted_label_loss": 3.0,
+            "timing_loss_per_boundary": 5.731805203959058e-10,
+            "timing_loss_total": 5.7318052039590585e-08
           },
           "selected_student_switch": {
             "boundary_alignment": {
-              "at_boundary_count": 158,
+              "at_boundary_count": 69,
               "early_switch_count": 0,
-              "elapsed_at_boundary_count": 158,
+              "elapsed_at_boundary_count": 69,
               "elapsed_early_switch_count": 0,
               "elapsed_late_switch_count": 0,
-              "enabled_boundary_count": 158,
+              "enabled_boundary_count": 69,
               "first_enabled_elapsed_minus_duration_max": 0.0,
               "first_enabled_elapsed_minus_duration_mean": 0.0,
               "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -1373,32 +1462,32 @@
               "first_enabled_minus_duration_mean": 0.0,
               "first_enabled_minus_duration_min": 0,
               "late_switch_count": 0,
-              "never_enabled_count": 43,
-              "num_boundaries": 201
+              "never_enabled_count": 31,
+              "num_boundaries": 100
             },
-            "bounded_eq12_style_distribution_loss": 44.3040668796849,
-            "description": "mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0",
-            "deterministic_eq12_style_timing_loss": 3.926966792729926,
-            "deterministic_hard_label_mistakes": 158,
-            "deterministic_label_error_rate": 0.7707317073170732,
+            "bounded_eq12_style_distribution_loss": 2.6338075959255594e-09,
+            "description": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
+            "deterministic_eq12_style_timing_loss": 1.7401432179037964e-10,
+            "deterministic_hard_label_mistakes": 70,
+            "deterministic_label_error_rate": 0.6730769230769231,
             "deterministic_objective_tuple": [
-              158,
-              3.926966792729926,
+              70,
+              1.7401432179037964e-10,
               1,
-              "mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0"
+              "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0"
             ],
-            "eq12_style_timing_loss": 3.926966792729926,
-            "hard_label_mistake_rate": 0.7268292682926829,
-            "hard_label_mistakes": 149,
-            "label_error_rate": 0.7268292682926829,
-            "label_mistakes": 149,
+            "eq12_style_timing_loss": 1.7401432179037964e-10,
+            "hard_label_mistake_rate": 0.6730769230769231,
+            "hard_label_mistakes": 70,
+            "label_error_rate": 0.6730769230769231,
+            "label_mistakes": 70,
             "objective_boundary_alignment": {
-              "at_boundary_count": 149,
+              "at_boundary_count": 69,
               "early_switch_count": 0,
-              "elapsed_at_boundary_count": 149,
+              "elapsed_at_boundary_count": 69,
               "elapsed_early_switch_count": 0,
               "elapsed_late_switch_count": 0,
-              "enabled_boundary_count": 149,
+              "enabled_boundary_count": 69,
               "first_enabled_elapsed_minus_duration_max": 0.0,
               "first_enabled_elapsed_minus_duration_mean": 0.0,
               "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -1406,30 +1495,30 @@
               "first_enabled_minus_duration_mean": 0.0,
               "first_enabled_minus_duration_min": 0,
               "late_switch_count": 0,
-              "never_enabled_count": 52,
-              "num_boundaries": 201
+              "never_enabled_count": 31,
+              "num_boundaries": 100
             },
-            "objective_description": "mode=1 if 10.000*theta + -5.000*omega >= -0.518, else mode=0",
+            "objective_description": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
             "objective_tuple": [
-              1.3176319503682898,
-              44.3040668796849,
+              1.6468330853122183e-21,
+              2.6338075959255594e-09,
               1,
-              "mode=1 if 10.000*theta + -5.000*omega >= -0.518, else mode=0"
+              "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0"
             ],
             "program_complexity": 1,
-            "responsibility_weighted_label_loss": 1.3176319503682898,
-            "timing_loss_per_boundary": 0.22041824318251196,
-            "timing_loss_total": 44.3040668796849
+            "responsibility_weighted_label_loss": 1.6468330853122183e-21,
+            "timing_loss_per_boundary": 2.6338075959255594e-11,
+            "timing_loss_total": 2.6338075959255594e-09
           }
         },
         "diagnostic_scope": "local_teacher_trace_fit",
         "distribution_rescore_top_k": 32,
-        "example_count": 205,
+        "example_count": 104,
         "not_paper_reproduction": true,
         "note": "Trace-fit diagnostics for the current local synthesizer. These costs are not paper-scale reproduction results or closed-loop evaluations.",
-        "num_boundaries": 201,
-        "num_segments": 205,
-        "num_trace_steps": 205,
+        "num_boundaries": 100,
+        "num_segments": 104,
+        "num_trace_steps": 104,
         "prefilter_objective_order": [
           "hard_label_mistakes",
           "eq12_style_timing_loss",
@@ -1437,7 +1526,7 @@
           "description"
         ],
         "responsibility_segment_count_match": true,
-        "segment_count": 205,
+        "segment_count": 104,
         "selection_objective_order": [
           "responsibility_weighted_label_loss",
           "bounded_eq12_style_distribution_loss",
@@ -1449,25 +1538,69 @@
         {
           "adaptive_teacher_summary": {
             "iteration": 1,
+            "objective_component_summary": {
+              "direct_objective": {
+                "count": 4,
+                "max": 5702.053962273661,
+                "mean": 3626.026355301821,
+                "min": 2222.8702765800845
+              },
+              "direct_objective_formula_residual": {
+                "count": 4,
+                "max": 0.0,
+                "mean": 0.0,
+                "min": 0.0
+              },
+              "refinement_minus_direct_objective": {
+                "count": 4,
+                "max": 197.88326896742456,
+                "mean": 123.95739739273529,
+                "min": 77.12972341991554
+              },
+              "refinement_objective": {
+                "count": 4,
+                "max": 5899.937231241086,
+                "mean": 3749.983752694556,
+                "min": 2300.0
+              },
+              "reward_term": {
+                "count": 4,
+                "max": 5900.0,
+                "mean": 3750.0,
+                "min": 2300.0
+              },
+              "student_log_probability": {
+                "count": 4,
+                "max": -77.12972341991554,
+                "mean": -123.9736446981793,
+                "min": -197.9460377263389
+              },
+              "student_regularizer_term": {
+                "count": 4,
+                "max": -77.12972341991554,
+                "mean": -123.9736446981793,
+                "min": -197.9460377263389
+              }
+            },
             "recorded_student_log_probability_count": 4,
             "recorded_student_log_probability_fraction": 1.0,
-            "recorded_student_log_probability_max": -76.68980283914641,
-            "recorded_student_log_probability_mean": -125.36689043773272,
-            "recorded_student_log_probability_min": -199.58422964369547,
+            "recorded_student_log_probability_max": -77.12972341991554,
+            "recorded_student_log_probability_mean": -123.9736446981793,
+            "recorded_student_log_probability_min": -197.9460377263389,
             "recorded_teacher_objective_covers_all_traces": true,
             "recorded_teacher_objective_direct_count": 4,
             "recorded_teacher_objective_direct_fraction": 1.0,
-            "recorded_teacher_objective_direct_max": 5700.415770356304,
-            "recorded_teacher_objective_direct_mean": 3624.6331095622672,
-            "recorded_teacher_objective_direct_min": 2223.3101971608535,
-            "recorded_teacher_objective_max": 5700.415770356304,
-            "recorded_teacher_objective_mean": 3624.6331095622672,
-            "recorded_teacher_objective_min": 2223.3101971608535,
+            "recorded_teacher_objective_direct_max": 5702.053962273661,
+            "recorded_teacher_objective_direct_mean": 3626.026355301821,
+            "recorded_teacher_objective_direct_min": 2222.8702765800845,
+            "recorded_teacher_objective_max": 5702.053962273661,
+            "recorded_teacher_objective_mean": 3626.026355301821,
+            "recorded_teacher_objective_min": 2222.8702765800845,
             "recorded_teacher_refinement_objective_count": 4,
             "recorded_teacher_refinement_objective_fraction": 1.0,
-            "recorded_teacher_refinement_objective_max": 5892.111767633619,
-            "recorded_teacher_refinement_objective_mean": 3744.390779259133,
-            "recorded_teacher_refinement_objective_min": 2299.5090605217956,
+            "recorded_teacher_refinement_objective_max": 5899.937231241086,
+            "recorded_teacher_refinement_objective_mean": 3749.983752694556,
+            "recorded_teacher_refinement_objective_min": 2300.0,
             "reward_max": 59.0,
             "reward_mean": 37.5,
             "reward_min": 23.0,
@@ -1475,78 +1608,74 @@
             "teacher_reward_lambda": 100.0,
             "teacher_sampling_model": "bootstrap_probabilistic_prior",
             "teacher_source_counts": {
-              "bootstrap_elite_centroid": 1,
-              "bootstrap_student_sample_refined": 3
+              "bootstrap_elite_distribution_mean": 2,
+              "bootstrap_student_sample": 2
             },
             "teacher_student_regularizer": 1.0,
             "trace_count": 4
           },
           "evaluation": {
             "test": {
-              "reward_mean": 29.7,
-              "steps_mean": 29.7,
+              "reward_mean": 14.2,
+              "steps_mean": 14.2,
               "success_rate": 0.0,
-              "survival_seconds_mean": 0.594
+              "survival_seconds_mean": 0.284
             },
             "train": {
-              "reward_mean": 20.85,
-              "steps_mean": 20.85,
+              "reward_mean": 10.9,
+              "steps_mean": 10.9,
               "success_rate": 0.0,
-              "survival_seconds_mean": 0.41700000000000004
+              "survival_seconds_mean": 0.218
             }
           },
           "iteration": 1,
           "probabilistic_student": {
             "action_distributions": {
               "0": {
-                "mean": -1.6486028784905817,
-                "std": 1.8530616256706771
+                "mean": -1.439849042360315,
+                "std": 2.5062271070537356
               },
               "1": {
-                "mean": 6.827218270257389,
-                "std": 9.251376607997605
+                "mean": 9.22572411939602,
+                "std": 0.5073437344462179
               }
             },
-            "description": "H0=N(-1.649, 1.853); H1=N(6.827, 9.251); threshold=N(0.201, 0.222); G=[N(0.201, 0.222), N(-0.500, 7.587)]",
+            "description": "H0=N(-1.440, 2.506); H1=N(9.226, 0.507); threshold=N(-0.940, 3.650); G=[N(-0.940, 3.650)]",
             "responsibility_summary": {
-              "ambiguous_segment_count": 3,
+              "ambiguous_segment_count": 0,
               "ambiguous_segment_threshold": 0.75,
-              "hard_mode_0_count": 109,
-              "hard_mode_1_count": 41,
-              "max_entropy_nats": 0.6876883994731986,
-              "mean_entropy_nats": 0.17041996932254955,
-              "mean_max_responsibility": 0.9500212174286544,
-              "mean_mode_0": 0.6984945186336643,
-              "mean_mode_1": 0.30150548136633565,
-              "min_max_responsibility": 0.5521959819817069,
+              "hard_mode_0_count": 119,
+              "hard_mode_1_count": 31,
+              "max_entropy_nats": 0.004807199237390461,
+              "mean_entropy_nats": 0.0004506045399881181,
+              "mean_max_responsibility": 0.9999548723385988,
+              "mean_mode_0": 0.7933056392856379,
+              "mean_mode_1": 0.2066943607143621,
+              "min_max_responsibility": 0.9994327392080812,
               "segments": 150
             },
-            "switch": "mode=1 if o[2] >= 0.201 or o[3] <= -0.500, else mode=0",
+            "switch": "mode=1 if -10.000*theta + 0.500*omega >= -0.940, else mode=0",
             "switch_parameter_distributions": [
               {
-                "mean": 0.2010687859282697,
-                "std": 0.22220854999344436
-              },
-              {
-                "mean": -0.4997670069771105,
-                "std": 7.586633616256454
+                "mean": -0.940241244612394,
+                "std": 3.650370162044734
               }
             ],
             "switch_threshold_distribution": {
-              "mean": 0.2010687859282697,
-              "std": 0.22220854999344436
+              "mean": -0.940241244612394,
+              "std": 3.650370162044734
             }
           },
           "student_fit_history": [
             {
               "action_distributions": {
                 "0": {
-                  "mean": -2.102242179649242,
-                  "std": 2.708013524923635
+                  "mean": -1.937387059285544,
+                  "std": 2.5236459258238435
                 },
                 "1": {
-                  "mean": 10.784184779492502,
-                  "std": 5.8495169841265175
+                  "mean": 5.706047728948621,
+                  "std": 4.194418639306883
                 }
               },
               "em_iteration": 1,
@@ -1555,17 +1684,17 @@
               "responsibility_summary": {
                 "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 115,
-                "hard_mode_1_count": 35,
+                "hard_mode_0_count": 97,
+                "hard_mode_1_count": 53,
                 "max_entropy_nats": 0.004511591245075421,
-                "mean_entropy_nats": 0.001533992997660493,
-                "mean_max_responsibility": 0.9998205117623424,
-                "mean_mode_0": 0.7664871848396912,
-                "mean_mode_1": 0.23351281516030872,
+                "mean_entropy_nats": 0.0015346349192806572,
+                "mean_max_responsibility": 0.9998204716970845,
+                "mean_mode_0": 0.6464872249049491,
+                "mean_mode_1": 0.35351277509505086,
                 "min_max_responsibility": 0.9994721028461279,
                 "segments": 150
               },
-              "switch": "mode=1 if o[0] <= 0.072 or o[0] >= 0.067, else mode=0",
+              "switch": "mode=1 if o[0] >= 0.047 or o[2] <= 0.164, else mode=0",
               "switch_pair_responsibility_summary": {
                 "off_to_on_mass": 0.0,
                 "on_to_off_mass": 0.0,
@@ -1575,196 +1704,180 @@
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": 0.07160900030725642,
-                  "std": 0.15043631548621578
+                  "mean": 0.04744290636081293,
+                  "std": 0.1085881211880311
                 },
                 {
-                  "mean": 0.06741860944492056,
-                  "std": 0.0023505674294721215
+                  "mean": 0.16448085723131348,
+                  "std": 1.4353112028519777
                 }
               ]
             },
             {
               "action_distributions": {
                 "0": {
-                  "mean": -1.900363726533432,
-                  "std": 2.1528607688242003
+                  "mean": -1.511656757762369,
+                  "std": 2.500732172306423
                 },
                 "1": {
-                  "mean": 9.814288350617538,
-                  "std": 7.859712989776511
+                  "mean": 7.084445564589469,
+                  "std": 4.215213195631533
                 }
               },
               "em_iteration": 1,
               "phase": "switch_timing_refinement",
               "responsibility_pass": 1,
               "responsibility_summary": {
-                "ambiguous_segment_count": 0,
+                "ambiguous_segment_count": 3,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 116,
-                "hard_mode_1_count": 34,
-                "max_entropy_nats": 0.5265119703811824,
-                "mean_entropy_nats": 0.0596064543009093,
-                "mean_max_responsibility": 0.9861412673936933,
-                "mean_mode_0": 0.7603627179891621,
-                "mean_mode_1": 0.23963728201083792,
-                "min_max_responsibility": 0.7803126464829834,
+                "hard_mode_0_count": 119,
+                "hard_mode_1_count": 31,
+                "max_entropy_nats": 0.690143836740041,
+                "mean_entropy_nats": 0.1828323548442301,
+                "mean_max_responsibility": 0.9418387488597222,
+                "mean_mode_0": 0.735191432539771,
+                "mean_mode_1": 0.26480856746022896,
+                "min_max_responsibility": 0.5387320017709065,
                 "segments": 150
               },
-              "switch": "mode=1 if o[2] >= 0.052 or o[3] <= -0.249, else mode=0",
+              "switch": "mode=1 if -10.000*theta + 0.500*omega >= -0.791, else mode=0",
               "switch_pair_responsibility_summary": {
-                "off_to_on_mass": 6.319378265363764,
-                "on_to_off_mass": 4.130673611218456,
+                "off_to_on_mass": 9.210369846950156,
+                "on_to_off_mass": 6.711069006475358,
                 "pairs": 146,
-                "stay_mass": 135.54994812341778,
-                "transition_mass": 10.45005187658222
+                "stay_mass": 130.0785611465745,
+                "transition_mass": 15.921438853425514
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": 0.05217635478282874,
-                  "std": 0.03748682509792656
-                },
-                {
-                  "mean": -0.2489468905922081,
-                  "std": 8.707716649663668
+                  "mean": -0.7907565004860335,
+                  "std": 5.609912663896453
                 }
               ]
             },
             {
               "action_distributions": {
                 "0": {
-                  "mean": -1.8140614699250197,
-                  "std": 2.023617848518439
+                  "mean": -1.4755089800030312,
+                  "std": 2.5024672174614784
                 },
                 "1": {
-                  "mean": 8.397754486593216,
-                  "std": 8.65222723849589
+                  "mean": 7.88669919380736,
+                  "std": 3.523184952717034
                 }
               },
               "em_iteration": 2,
               "phase": "switch_timing_refinement",
               "responsibility_pass": 1,
               "responsibility_summary": {
-                "ambiguous_segment_count": 1,
+                "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 115,
-                "hard_mode_1_count": 35,
-                "max_entropy_nats": 0.6084690514431004,
-                "mean_entropy_nats": 0.12803570818760387,
-                "mean_max_responsibility": 0.966575879838508,
-                "mean_mode_0": 0.7335473789922877,
-                "mean_mode_1": 0.26645262100771233,
-                "min_max_responsibility": 0.7028047829069926,
+                "hard_mode_0_count": 119,
+                "hard_mode_1_count": 31,
+                "max_entropy_nats": 0.48738256252243206,
+                "mean_entropy_nats": 0.124235985266187,
+                "mean_max_responsibility": 0.9673562588744482,
+                "mean_mode_0": 0.7607216457511802,
+                "mean_mode_1": 0.23927835424881985,
+                "min_max_responsibility": 0.8091988463838503,
                 "segments": 150
               },
-              "switch": "mode=1 if o[2] >= 0.176 or o[3] <= -0.688, else mode=0",
+              "switch": "mode=1 if -10.000*theta + 0.500*omega >= -0.893, else mode=0",
               "switch_pair_responsibility_summary": {
-                "off_to_on_mass": 7.612927060269075,
-                "on_to_off_mass": 5.394237860115552,
+                "off_to_on_mass": 7.580410605158753,
+                "on_to_off_mass": 5.37020219464502,
                 "pairs": 146,
-                "stay_mass": 132.9928350796154,
-                "transition_mass": 13.007164920384627
+                "stay_mass": 133.04938720019624,
+                "transition_mass": 12.950612799803773
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": 0.17582973166719085,
-                  "std": 0.22065752805619404
-                },
-                {
-                  "mean": -0.6883748897250672,
-                  "std": 10.09387175197272
+                  "mean": -0.8925884991521965,
+                  "std": 6.120487418913703
                 }
               ]
             },
             {
               "action_distributions": {
                 "0": {
-                  "mean": -1.7209376094020754,
-                  "std": 1.9310003603001298
+                  "mean": -1.4611863988831553,
+                  "std": 2.5140720672208303
                 },
                 "1": {
-                  "mean": 7.409507453416057,
-                  "std": 9.05332748359333
+                  "mean": 8.77541795351645,
+                  "std": 2.0476033087693293
                 }
               },
               "em_iteration": 3,
               "phase": "switch_timing_refinement",
               "responsibility_pass": 1,
               "responsibility_summary": {
-                "ambiguous_segment_count": 6,
+                "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 113,
-                "hard_mode_1_count": 37,
-                "max_entropy_nats": 0.6931437126867473,
-                "mean_entropy_nats": 0.1633025180637298,
-                "mean_max_responsibility": 0.9478594427025312,
-                "mean_mode_0": 0.7121891377408245,
-                "mean_mode_1": 0.28781086225917546,
-                "min_max_responsibility": 0.501316789502768,
+                "hard_mode_0_count": 119,
+                "hard_mode_1_count": 31,
+                "max_entropy_nats": 0.29918142860665276,
+                "mean_entropy_nats": 0.05151014714243413,
+                "mean_max_responsibility": 0.9891982530560953,
+                "mean_mode_0": 0.7825596158434558,
+                "mean_mode_1": 0.2174403841565443,
+                "min_max_responsibility": 0.9114451641214432,
                 "segments": 150
               },
-              "switch": "mode=1 if o[2] >= 0.227 or o[3] <= -0.492, else mode=0",
+              "switch": "mode=1 if -10.000*theta + 0.500*omega >= -0.884, else mode=0",
               "switch_pair_responsibility_summary": {
-                "off_to_on_mass": 8.710492098807464,
-                "on_to_off_mass": 6.462560566452563,
+                "off_to_on_mass": 5.465059849282031,
+                "on_to_off_mass": 3.373325787233947,
                 "pairs": 146,
-                "stay_mass": 130.82694733474,
-                "transition_mass": 15.173052665260027
+                "stay_mass": 137.16161436348403,
+                "transition_mass": 8.838385636515977
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": 0.22730560442447562,
-                  "std": 0.2220915639740376
-                },
-                {
-                  "mean": -0.49160485182677377,
-                  "std": 8.849071283647445
+                  "mean": -0.884037811794972,
+                  "std": 4.899226464643101
                 }
               ]
             },
             {
               "action_distributions": {
                 "0": {
-                  "mean": -1.6486028784905817,
-                  "std": 1.8530616256706771
+                  "mean": -1.439849042360315,
+                  "std": 2.5062271070537356
                 },
                 "1": {
-                  "mean": 6.827218270257389,
-                  "std": 9.251376607997605
+                  "mean": 9.22572411939602,
+                  "std": 0.5073437344462179
                 }
               },
               "em_iteration": 4,
               "phase": "switch_timing_refinement",
               "responsibility_pass": 1,
               "responsibility_summary": {
-                "ambiguous_segment_count": 3,
+                "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 109,
-                "hard_mode_1_count": 41,
-                "max_entropy_nats": 0.6876883994731986,
-                "mean_entropy_nats": 0.17041996932254955,
-                "mean_max_responsibility": 0.9500212174286544,
-                "mean_mode_0": 0.6984945186336643,
-                "mean_mode_1": 0.30150548136633565,
-                "min_max_responsibility": 0.5521959819817069,
+                "hard_mode_0_count": 119,
+                "hard_mode_1_count": 31,
+                "max_entropy_nats": 0.004807199237390461,
+                "mean_entropy_nats": 0.0004506045399881181,
+                "mean_max_responsibility": 0.9999548723385988,
+                "mean_mode_0": 0.7933056392856379,
+                "mean_mode_1": 0.2066943607143621,
+                "min_max_responsibility": 0.9994327392080812,
                 "segments": 150
               },
-              "switch": "mode=1 if o[2] >= 0.201 or o[3] <= -0.500, else mode=0",
+              "switch": "mode=1 if -10.000*theta + 0.500*omega >= -0.940, else mode=0",
               "switch_pair_responsibility_summary": {
-                "off_to_on_mass": 8.982606200882945,
-                "on_to_off_mass": 6.721567650877023,
+                "off_to_on_mass": 4.006151184433027,
+                "on_to_off_mass": 2.005666631995776,
                 "pairs": 146,
-                "stay_mass": 130.29582614824005,
-                "transition_mass": 15.704173851759968
+                "stay_mass": 139.9881821835712,
+                "transition_mass": 6.0118178164288025
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": 0.2010687859282697,
-                  "std": 0.22220854999344436
-                },
-                {
-                  "mean": -0.4997670069771105,
-                  "std": 7.586633616256454
+                  "mean": -0.940241244612394,
+                  "std": 3.650370162044734
                 }
               ]
             }
@@ -1789,29 +1902,29 @@
                   "never_enabled_count": 109,
                   "num_boundaries": 146
                 },
-                "bounded_eq12_style_distribution_loss": 11.957782026879602,
+                "bounded_eq12_style_distribution_loss": 3.6813010959821195,
                 "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
-                "deterministic_eq12_style_timing_loss": 0.9702124367806526,
-                "deterministic_hard_label_mistakes": 99,
-                "deterministic_label_error_rate": 0.66,
+                "deterministic_eq12_style_timing_loss": 0.2507733905303216,
+                "deterministic_hard_label_mistakes": 117,
+                "deterministic_label_error_rate": 0.78,
                 "deterministic_objective_tuple": [
-                  99,
-                  0.9702124367806526,
+                  117,
+                  0.2507733905303216,
                   1,
                   "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
                 ],
-                "eq12_style_timing_loss": 0.9702124367806526,
-                "hard_label_mistake_rate": 0.23333333333333334,
-                "hard_label_mistakes": 35,
-                "label_error_rate": 0.23333333333333334,
-                "label_mistakes": 35,
+                "eq12_style_timing_loss": 0.2507733905303216,
+                "hard_label_mistake_rate": 0.10666666666666667,
+                "hard_label_mistakes": 16,
+                "label_error_rate": 0.10666666666666667,
+                "label_mistakes": 16,
                 "objective_boundary_alignment": {
-                  "at_boundary_count": 115,
+                  "at_boundary_count": 144,
                   "early_switch_count": 0,
-                  "elapsed_at_boundary_count": 115,
+                  "elapsed_at_boundary_count": 144,
                   "elapsed_early_switch_count": 0,
                   "elapsed_late_switch_count": 0,
-                  "enabled_boundary_count": 115,
+                  "enabled_boundary_count": 144,
                   "first_enabled_elapsed_minus_duration_max": 0.0,
                   "first_enabled_elapsed_minus_duration_mean": 0.0,
                   "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -1819,29 +1932,29 @@
                   "first_enabled_minus_duration_mean": 0.0,
                   "first_enabled_minus_duration_min": 0,
                   "late_switch_count": 0,
-                  "never_enabled_count": 31,
+                  "never_enabled_count": 2,
                   "num_boundaries": 146
                 },
-                "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= -1.176, else mode=0",
+                "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= -3.255, else mode=0",
                 "objective_tuple": [
-                  3.080681711769066,
-                  11.957782026879602,
+                  2.999369654347001,
+                  3.6813010959821195,
                   1,
-                  "mode=1 if 10.000*theta + 1.000*omega >= -1.176, else mode=0"
+                  "mode=1 if 10.000*theta + 1.000*omega >= -3.255, else mode=0"
                 ],
                 "program_complexity": 1,
-                "responsibility_weighted_label_loss": 3.080681711769066,
-                "timing_loss_per_boundary": 0.08190261662246304,
-                "timing_loss_total": 11.957782026879602
+                "responsibility_weighted_label_loss": 2.999369654347001,
+                "timing_loss_per_boundary": 0.025214391068370683,
+                "timing_loss_total": 3.6813010959821195
               },
               "selected_student_switch": {
                 "boundary_alignment": {
-                  "at_boundary_count": 25,
+                  "at_boundary_count": 130,
                   "early_switch_count": 0,
-                  "elapsed_at_boundary_count": 25,
+                  "elapsed_at_boundary_count": 130,
                   "elapsed_early_switch_count": 0,
                   "elapsed_late_switch_count": 0,
-                  "enabled_boundary_count": 25,
+                  "enabled_boundary_count": 130,
                   "first_enabled_elapsed_minus_duration_max": 0.0,
                   "first_enabled_elapsed_minus_duration_mean": 0.0,
                   "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -1849,32 +1962,32 @@
                   "first_enabled_minus_duration_mean": 0.0,
                   "first_enabled_minus_duration_min": 0,
                   "late_switch_count": 0,
-                  "never_enabled_count": 121,
+                  "never_enabled_count": 16,
                   "num_boundaries": 146
                 },
-                "bounded_eq12_style_distribution_loss": 12.082401279723854,
-                "description": "mode=1 if o[2] >= 0.201 or o[3] <= -0.500, else mode=0",
-                "deterministic_eq12_style_timing_loss": 1.365422253173799,
-                "deterministic_hard_label_mistakes": 100,
-                "deterministic_label_error_rate": 0.6666666666666666,
+                "bounded_eq12_style_distribution_loss": 3.857138465410272,
+                "description": "mode=1 if -10.000*theta + 0.500*omega >= -0.940, else mode=0",
+                "deterministic_eq12_style_timing_loss": 0.2507081703873173,
+                "deterministic_hard_label_mistakes": 30,
+                "deterministic_label_error_rate": 0.2,
                 "deterministic_objective_tuple": [
-                  100,
-                  1.365422253173799,
-                  2,
-                  "mode=1 if o[2] >= 0.201 or o[3] <= -0.500, else mode=0"
+                  30,
+                  0.2507081703873173,
+                  1,
+                  "mode=1 if -10.000*theta + 0.500*omega >= -0.940, else mode=0"
                 ],
-                "eq12_style_timing_loss": 1.365422253173799,
-                "hard_label_mistake_rate": 0.36666666666666664,
-                "hard_label_mistakes": 55,
-                "label_error_rate": 0.36666666666666664,
-                "label_mistakes": 55,
+                "eq12_style_timing_loss": 0.2507081703873173,
+                "hard_label_mistake_rate": 0.2,
+                "hard_label_mistakes": 30,
+                "label_error_rate": 0.2,
+                "label_mistakes": 30,
                 "objective_boundary_alignment": {
-                  "at_boundary_count": 112,
+                  "at_boundary_count": 130,
                   "early_switch_count": 0,
-                  "elapsed_at_boundary_count": 112,
+                  "elapsed_at_boundary_count": 130,
                   "elapsed_early_switch_count": 0,
                   "elapsed_late_switch_count": 0,
-                  "enabled_boundary_count": 112,
+                  "enabled_boundary_count": 130,
                   "first_enabled_elapsed_minus_duration_max": 0.0,
                   "first_enabled_elapsed_minus_duration_mean": 0.0,
                   "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -1882,20 +1995,20 @@
                   "first_enabled_minus_duration_mean": 0.0,
                   "first_enabled_minus_duration_min": 0,
                   "late_switch_count": 0,
-                  "never_enabled_count": 34,
+                  "never_enabled_count": 16,
                   "num_boundaries": 146
                 },
-                "objective_description": "mode=1 if o[2] >= 0.264 or o[3] <= 0.009, else mode=0",
+                "objective_description": "mode=1 if -10.000*theta + 0.500*omega >= -0.940, else mode=0",
                 "objective_tuple": [
-                  0.26103947718954246,
-                  12.082401279723854,
-                  2,
-                  "mode=1 if o[2] >= 0.264 or o[3] <= 0.009, else mode=0"
+                  0.9995155110364052,
+                  3.857138465410272,
+                  1,
+                  "mode=1 if -10.000*theta + 0.500*omega >= -0.940, else mode=0"
                 ],
-                "program_complexity": 2,
-                "responsibility_weighted_label_loss": 0.26103947718954246,
-                "timing_loss_per_boundary": 0.08275617314879352,
-                "timing_loss_total": 12.082401279723854
+                "program_complexity": 1,
+                "responsibility_weighted_label_loss": 0.9995155110364052,
+                "timing_loss_per_boundary": 0.026418756612399123,
+                "timing_loss_total": 3.857138465410272
               }
             },
             "diagnostic_scope": "local_teacher_trace_fit",
@@ -1932,46 +2045,46 @@
                   -0.024108324970703667
                 ],
                 "last_observation": [
-                  0.0707293922546295,
-                  -0.3416892632338164,
-                  -0.12937785737046587,
-                  0.010472476921089591
+                  0.13641859001435738,
+                  0.41778964253388773,
+                  -0.2049753984546704,
+                  -1.0539943837944772
                 ],
                 "mode_prefix": [
                   0,
                   1,
                   1,
-                  0,
                   1,
-                  0,
-                  0,
-                  0
+                  1,
+                  1,
+                  1,
+                  1
                 ],
                 "omega_gain": 0.0,
                 "reward": 23.0,
                 "segment_actions": [
-                  -0.011456767820790859,
-                  10.0,
-                  10.0,
-                  -2.1059447354784435,
-                  0.7749366434613298,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
-                  -2.2813461061070717,
+                  3.246786624104562,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
+                  0.7518099652580652,
                   0.7518099652580652
                 ],
                 "segment_durations": [
@@ -2025,119 +2138,162 @@
                   0.02
                 ],
                 "steps": 23,
-                "student_log_probability": -76.68980283914641,
-                "switches": 5,
-                "teacher_objective": 2223.3101971608535,
-                "teacher_refinement_objective": 2299.5090605217956,
-                "teacher_source": "bootstrap_elite_centroid",
+                "student_log_probability": -77.12972341991554,
+                "switches": 1,
+                "teacher_objective": 2222.8702765800845,
+                "teacher_refinement_objective": 2300.0,
+                "teacher_source": "bootstrap_student_sample",
                 "theta_gain": 0.0
               }
             ],
             "length_mean": 37.5,
             "reward_mean": 37.5,
             "teacher_source_counts": {
-              "bootstrap_elite_centroid": 1,
-              "bootstrap_student_sample_refined": 3
+              "bootstrap_elite_distribution_mean": 2,
+              "bootstrap_student_sample": 2
             }
           }
         },
         {
           "adaptive_teacher_summary": {
             "iteration": 2,
+            "objective_component_summary": {
+              "direct_objective": {
+                "count": 4,
+                "max": 2845.845758745421,
+                "mean": 2548.011778859828,
+                "min": 2257.564670592404
+              },
+              "direct_objective_formula_residual": {
+                "count": 4,
+                "max": 0.0,
+                "mean": 0.0,
+                "min": 0.0
+              },
+              "refinement_minus_direct_objective": {
+                "count": 4,
+                "max": 65.37846653178212,
+                "mean": 51.98822114017173,
+                "min": 42.43532940759587
+              },
+              "refinement_objective": {
+                "count": 4,
+                "max": 2900.0,
+                "mean": 2600.0,
+                "min": 2300.0
+              },
+              "reward_term": {
+                "count": 4,
+                "max": 2900.0,
+                "mean": 2600.0,
+                "min": 2300.0
+              },
+              "student_log_probability": {
+                "count": 4,
+                "max": -42.43532940759578,
+                "mean": -51.98822114017169,
+                "min": -65.37846653178197
+              },
+              "student_regularizer_term": {
+                "count": 4,
+                "max": -42.43532940759578,
+                "mean": -51.98822114017169,
+                "min": -65.37846653178197
+              }
+            },
             "recorded_student_log_probability_count": 4,
             "recorded_student_log_probability_fraction": 1.0,
-            "recorded_student_log_probability_max": -59.03820076492541,
-            "recorded_student_log_probability_mean": -97.11750585802658,
-            "recorded_student_log_probability_min": -169.14853226350036,
+            "recorded_student_log_probability_max": -42.43532940759578,
+            "recorded_student_log_probability_mean": -51.98822114017169,
+            "recorded_student_log_probability_min": -65.37846653178197,
             "recorded_teacher_objective_covers_all_traces": true,
             "recorded_teacher_objective_direct_count": 4,
             "recorded_teacher_objective_direct_fraction": 1.0,
-            "recorded_teacher_objective_direct_max": 9030.8514677365,
-            "recorded_teacher_objective_direct_mean": 5027.882494141973,
-            "recorded_teacher_objective_direct_min": 3040.9617992350745,
-            "recorded_teacher_objective_max": 9030.8514677365,
-            "recorded_teacher_objective_mean": 5027.882494141973,
-            "recorded_teacher_objective_min": 3040.9617992350745,
+            "recorded_teacher_objective_direct_max": 2845.845758745421,
+            "recorded_teacher_objective_direct_mean": 2548.011778859828,
+            "recorded_teacher_objective_direct_min": 2257.564670592404,
+            "recorded_teacher_objective_max": 2845.845758745421,
+            "recorded_teacher_objective_mean": 2548.011778859828,
+            "recorded_teacher_objective_min": 2257.564670592404,
             "recorded_teacher_refinement_objective_count": 4,
             "recorded_teacher_refinement_objective_fraction": 1.0,
-            "recorded_teacher_refinement_objective_max": 9187.704187553449,
-            "recorded_teacher_refinement_objective_mean": 5120.771985277186,
-            "recorded_teacher_refinement_objective_min": 3099.999998648944,
-            "reward_max": 92.0,
-            "reward_mean": 51.25,
-            "reward_min": 31.0,
+            "recorded_teacher_refinement_objective_max": 2900.0,
+            "recorded_teacher_refinement_objective_mean": 2600.0,
+            "recorded_teacher_refinement_objective_min": 2300.0,
+            "reward_max": 29.0,
+            "reward_mean": 26.0,
+            "reward_min": 23.0,
             "teacher_objective_formula": "teacher_reward_lambda * reward + teacher_student_regularizer * recorded_student_log_probability",
             "teacher_reward_lambda": 100.0,
             "teacher_sampling_model": "previous_iteration_student",
             "teacher_source_counts": {
-              "student_elite_centroid": 2,
-              "student_sample_refined": 2
+              "student_sample": 4
             },
             "teacher_student_regularizer": 1.0,
             "trace_count": 4
           },
           "evaluation": {
             "test": {
-              "reward_mean": 55.0,
-              "steps_mean": 55.0,
+              "reward_mean": 33.2,
+              "steps_mean": 33.2,
               "success_rate": 0.0,
-              "survival_seconds_mean": 1.1
+              "survival_seconds_mean": 0.664
             },
             "train": {
-              "reward_mean": 42.5,
-              "steps_mean": 42.5,
+              "reward_mean": 27.15,
+              "steps_mean": 27.15,
               "success_rate": 0.0,
-              "survival_seconds_mean": 0.85
+              "survival_seconds_mean": 0.543
             }
           },
           "iteration": 2,
           "probabilistic_student": {
             "action_distributions": {
               "0": {
-                "mean": -0.2226491098011723,
-                "std": 0.5601658114504675
+                "mean": -0.7778538425227122,
+                "std": 0.3424970529863721
               },
               "1": {
-                "mean": 0.23610238749021914,
-                "std": 2.2804519854677587
+                "mean": 1.059421706362373,
+                "std": 0.001
               }
             },
-            "description": "H0=N(-0.223, 0.560); H1=N(0.236, 2.280); threshold=N(-0.676, 21.119); G=[N(-0.676, 21.119)]",
+            "description": "H0=N(-0.778, 0.342); H1=N(1.059, 0.001); threshold=N(-0.345, 0.006); G=[N(-0.345, 0.006)]",
             "responsibility_summary": {
-              "ambiguous_segment_count": 83,
+              "ambiguous_segment_count": 0,
               "ambiguous_segment_threshold": 0.75,
-              "hard_mode_0_count": 177,
-              "hard_mode_1_count": 28,
-              "max_entropy_nats": 0.6931470248762956,
-              "mean_entropy_nats": 0.44159000458083675,
-              "mean_max_responsibility": 0.789426022716627,
-              "mean_mode_0": 0.730202253511213,
-              "mean_mode_1": 0.26979774648878707,
-              "min_max_responsibility": 0.5002790014709406,
-              "segments": 205
+              "hard_mode_0_count": 77,
+              "hard_mode_1_count": 27,
+              "max_entropy_nats": 3.495258528424043e-08,
+              "mean_entropy_nats": 7.847539730588127e-10,
+              "mean_max_responsibility": 0.9999999999642191,
+              "mean_mode_0": 0.7403846154203964,
+              "mean_mode_1": 0.25961538457960365,
+              "min_max_responsibility": 0.9999999983531905,
+              "segments": 104
             },
-            "switch": "mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0",
+            "switch": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
             "switch_parameter_distributions": [
               {
-                "mean": -0.6759948538500515,
-                "std": 21.119246793687715
+                "mean": -0.3452394325774337,
+                "std": 0.00565685424949238
               }
             ],
             "switch_threshold_distribution": {
-              "mean": -0.6759948538500515,
-              "std": 21.119246793687715
+              "mean": -0.3452394325774337,
+              "std": 0.00565685424949238
             }
           },
           "student_fit_history": [
             {
               "action_distributions": {
                 "0": {
-                  "mean": -0.56477207106362,
-                  "std": 0.6384038950670257
+                  "mean": -0.7778665096947364,
+                  "std": 0.34249753211954387
                 },
                 "1": {
-                  "mean": 1.0155024632737852,
-                  "std": 1.7149491820260405
+                  "mean": 1.0592565286443898,
+                  "std": 0.015779861070911203
                 }
               },
               "em_iteration": 1,
@@ -2146,17 +2302,17 @@
               "responsibility_summary": {
                 "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 148,
-                "hard_mode_1_count": 57,
-                "max_entropy_nats": 0.16390714153152192,
-                "mean_entropy_nats": 0.07155567350040415,
-                "mean_max_responsibility": 0.9831342601651313,
-                "mean_mode_0": 0.7051821874574681,
-                "mean_mode_1": 0.294817812542532,
-                "min_max_responsibility": 0.961263666645818,
-                "segments": 205
+                "hard_mode_0_count": 77,
+                "hard_mode_1_count": 27,
+                "max_entropy_nats": 0.0012802968358983165,
+                "mean_entropy_nats": 0.0002834432230876888,
+                "mean_max_responsibility": 0.9999715523738407,
+                "mean_mode_0": 0.7403561680845484,
+                "mean_mode_1": 0.25964383191545165,
+                "min_max_responsibility": 0.9998714443200449,
+                "segments": 104
               },
-              "switch": "mode=1 if o[0] >= -0.187 and o[2] <= 0.065, else mode=0",
+              "switch": "mode=1 if -2.000*theta + -10.000*omega >= -5.044, else mode=0",
               "switch_pair_responsibility_summary": {
                 "off_to_on_mass": 0.0,
                 "on_to_off_mass": 0.0,
@@ -2166,192 +2322,176 @@
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": -0.1865845563518239,
-                  "std": 0.007888202255043712
-                },
-                {
-                  "mean": 0.06458276256468248,
-                  "std": 0.5062853766879675
+                  "mean": -5.044210521138078,
+                  "std": 1.6226849917122705
                 }
               ]
             },
             {
               "action_distributions": {
                 "0": {
-                  "mean": -0.41695873058427585,
-                  "std": 0.5781995603167135
+                  "mean": -0.777853841990698,
+                  "std": 0.34249705436374095
                 },
                 "1": {
-                  "mean": 0.6452151843417145,
-                  "std": 2.0041151710676846
+                  "mean": 1.059421706362373,
+                  "std": 0.001
                 }
               },
               "em_iteration": 1,
               "phase": "switch_timing_refinement",
               "responsibility_pass": 1,
               "responsibility_summary": {
-                "ambiguous_segment_count": 45,
+                "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 150,
-                "hard_mode_1_count": 55,
-                "max_entropy_nats": 0.6931426088509942,
-                "mean_entropy_nats": 0.40819240360958703,
-                "mean_max_responsibility": 0.8343123765740783,
-                "mean_mode_0": 0.7005389263651416,
-                "mean_mode_1": 0.2994610736348584,
-                "min_max_responsibility": 0.5015119031027533,
-                "segments": 205
+                "hard_mode_0_count": 77,
+                "hard_mode_1_count": 27,
+                "max_entropy_nats": 4.799375911657069e-07,
+                "mean_entropy_nats": 4.621729827640695e-09,
+                "mean_max_responsibility": 0.9999999997498281,
+                "mean_mode_0": 0.7403846156347872,
+                "mean_mode_1": 0.2596153843652127,
+                "min_max_responsibility": 0.9999999740089783,
+                "segments": 104
               },
-              "switch": "mode=1 if o[2] >= -0.178 and o[2] <= 0.072, else mode=0",
+              "switch": "mode=1 if -10.000*theta + 1.000*omega >= -0.344, else mode=0",
               "switch_pair_responsibility_summary": {
-                "off_to_on_mass": 24.21649657018841,
-                "on_to_off_mass": 22.088758843685056,
-                "pairs": 201,
-                "stay_mass": 154.69474458612655,
-                "transition_mass": 46.30525541387347
+                "off_to_on_mass": 1.0000000000268554,
+                "on_to_off_mass": 2.6855485520220136e-11,
+                "pairs": 100,
+                "stay_mass": 98.9999999999463,
+                "transition_mass": 1.0000000000537108
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": -0.17785020370362314,
-                  "std": 0.08954866960687868
-                },
-                {
-                  "mean": 0.07225580377010904,
-                  "std": 0.739008915590473
+                  "mean": -0.34419254751425166,
+                  "std": 0.00565685424949238
                 }
               ]
             },
             {
               "action_distributions": {
                 "0": {
-                  "mean": -0.33389685994087653,
-                  "std": 0.5746292558073216
+                  "mean": -0.7778538425235285,
+                  "std": 0.34249705298425875
                 },
                 "1": {
-                  "mean": 0.49715002732205676,
-                  "std": 2.141374956061401
+                  "mean": 1.059421706362373,
+                  "std": 0.001
                 }
               },
               "em_iteration": 2,
               "phase": "switch_timing_refinement",
               "responsibility_pass": 1,
               "responsibility_summary": {
-                "ambiguous_segment_count": 69,
+                "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 165,
-                "hard_mode_1_count": 40,
-                "max_entropy_nats": 0.6931382335789775,
-                "mean_entropy_nats": 0.4392225086958461,
-                "mean_max_responsibility": 0.8019043617632572,
-                "mean_mode_0": 0.7172026345212437,
-                "mean_mode_1": 0.28279736547875634,
-                "min_max_responsibility": 0.5021150596073132,
-                "segments": 205
+                "hard_mode_0_count": 77,
+                "hard_mode_1_count": 27,
+                "max_entropy_nats": 3.495200526610189e-08,
+                "mean_entropy_nats": 7.771501242205396e-10,
+                "mean_max_responsibility": 0.999999999964548,
+                "mean_mode_0": 0.7403846154200674,
+                "mean_mode_1": 0.2596153845799326,
+                "min_max_responsibility": 0.9999999983532193,
+                "segments": 104
               },
-              "switch": "mode=1 if o[2] >= -0.176 and o[2] <= 0.071, else mode=0",
+              "switch": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
               "switch_pair_responsibility_summary": {
-                "off_to_on_mass": 25.39514795668617,
-                "on_to_off_mass": 23.437136894343745,
-                "pairs": 201,
-                "stay_mass": 152.16771514897007,
-                "transition_mass": 48.83228485102991
+                "off_to_on_mass": 1.000000002040227,
+                "on_to_off_mass": 2.0402270380872835e-09,
+                "pairs": 100,
+                "stay_mass": 98.99999999591955,
+                "transition_mass": 1.0000000040804542
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": -0.17628570583639094,
-                  "std": 0.09214591254263003
-                },
-                {
-                  "mean": 0.07144558408026395,
-                  "std": 0.7589882781470936
+                  "mean": -0.3452394325774337,
+                  "std": 0.00565685424949238
                 }
               ]
             },
             {
               "action_distributions": {
                 "0": {
-                  "mean": -0.27176304067716406,
-                  "std": 0.5708040386856852
+                  "mean": -0.7778538425227122,
+                  "std": 0.3424970529863721
                 },
                 "1": {
-                  "mean": 0.36661557003206413,
-                  "std": 2.237319758464345
+                  "mean": 1.059421706362373,
+                  "std": 0.001
                 }
               },
               "em_iteration": 3,
               "phase": "switch_timing_refinement",
               "responsibility_pass": 1,
               "responsibility_summary": {
-                "ambiguous_segment_count": 85,
+                "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 181,
-                "hard_mode_1_count": 24,
-                "max_entropy_nats": 0.6931449516987713,
-                "mean_entropy_nats": 0.44583809463684265,
-                "mean_max_responsibility": 0.7911860799987397,
-                "mean_mode_0": 0.7291825757578333,
-                "mean_mode_1": 0.27081742424216676,
-                "min_max_responsibility": 0.5010556655526468,
-                "segments": 205
+                "hard_mode_0_count": 77,
+                "hard_mode_1_count": 27,
+                "max_entropy_nats": 3.495258516738697e-08,
+                "mean_entropy_nats": 7.847539707924125e-10,
+                "mean_max_responsibility": 0.9999999999642191,
+                "mean_mode_0": 0.7403846154203964,
+                "mean_mode_1": 0.25961538457960365,
+                "min_max_responsibility": 0.9999999983531906,
+                "segments": 104
               },
-              "switch": "mode=1 if o[2] >= -0.175 and o[2] <= 0.073, else mode=0",
+              "switch": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
               "switch_pair_responsibility_summary": {
-                "off_to_on_mass": 25.539112047438653,
-                "on_to_off_mass": 23.76906383081542,
-                "pairs": 201,
-                "stay_mass": 151.69182412174592,
-                "transition_mass": 49.308175878254076
+                "off_to_on_mass": 1.0000000020744095,
+                "on_to_off_mass": 2.0744094687251906e-09,
+                "pairs": 100,
+                "stay_mass": 98.99999999585118,
+                "transition_mass": 1.000000004148819
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": -0.17530094816261704,
-                  "std": 0.09354916654394087
-                },
-                {
-                  "mean": 0.07281525764674081,
-                  "std": 0.7711309381787372
+                  "mean": -0.3452394325774337,
+                  "std": 0.00565685424949238
                 }
               ]
             },
             {
               "action_distributions": {
                 "0": {
-                  "mean": -0.2226491098011723,
-                  "std": 0.5601658114504675
+                  "mean": -0.7778538425227122,
+                  "std": 0.3424970529863721
                 },
                 "1": {
-                  "mean": 0.23610238749021914,
-                  "std": 2.2804519854677587
+                  "mean": 1.059421706362373,
+                  "std": 0.001
                 }
               },
               "em_iteration": 4,
               "phase": "switch_timing_refinement",
               "responsibility_pass": 1,
               "responsibility_summary": {
-                "ambiguous_segment_count": 83,
+                "ambiguous_segment_count": 0,
                 "ambiguous_segment_threshold": 0.75,
-                "hard_mode_0_count": 177,
-                "hard_mode_1_count": 28,
-                "max_entropy_nats": 0.6931470248762956,
-                "mean_entropy_nats": 0.44159000458083675,
-                "mean_max_responsibility": 0.789426022716627,
-                "mean_mode_0": 0.730202253511213,
-                "mean_mode_1": 0.26979774648878707,
-                "min_max_responsibility": 0.5002790014709406,
-                "segments": 205
+                "hard_mode_0_count": 77,
+                "hard_mode_1_count": 27,
+                "max_entropy_nats": 3.495258528424043e-08,
+                "mean_entropy_nats": 7.847539730588127e-10,
+                "mean_max_responsibility": 0.9999999999642191,
+                "mean_mode_0": 0.7403846154203964,
+                "mean_mode_1": 0.25961538457960365,
+                "min_max_responsibility": 0.9999999983531905,
+                "segments": 104
               },
-              "switch": "mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0",
+              "switch": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
               "switch_pair_responsibility_summary": {
-                "off_to_on_mass": 25.196204897573583,
-                "on_to_off_mass": 23.570085105134055,
-                "pairs": 201,
-                "stay_mass": 152.23370999729235,
-                "transition_mass": 48.766290002707635
+                "off_to_on_mass": 1.0000000020744095,
+                "on_to_off_mass": 2.0744094691072632e-09,
+                "pairs": 100,
+                "stay_mass": 98.99999999585118,
+                "transition_mass": 1.000000004148819
               },
               "switch_parameter_distributions": [
                 {
-                  "mean": -0.6759948538500515,
-                  "std": 21.119246793687715
+                  "mean": -0.3452394325774337,
+                  "std": 0.00565685424949238
                 }
               ]
             }
@@ -2360,12 +2500,12 @@
             "candidates": {
               "fixed_local_reference_switch": {
                 "boundary_alignment": {
-                  "at_boundary_count": 102,
+                  "at_boundary_count": 75,
                   "early_switch_count": 0,
-                  "elapsed_at_boundary_count": 102,
+                  "elapsed_at_boundary_count": 75,
                   "elapsed_early_switch_count": 0,
                   "elapsed_late_switch_count": 0,
-                  "enabled_boundary_count": 102,
+                  "enabled_boundary_count": 75,
                   "first_enabled_elapsed_minus_duration_max": 0.0,
                   "first_enabled_elapsed_minus_duration_mean": 0.0,
                   "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -2373,32 +2513,32 @@
                   "first_enabled_minus_duration_mean": 0.0,
                   "first_enabled_minus_duration_min": 0,
                   "late_switch_count": 0,
-                  "never_enabled_count": 99,
-                  "num_boundaries": 201
+                  "never_enabled_count": 25,
+                  "num_boundaries": 100
                 },
-                "bounded_eq12_style_distribution_loss": 44.274403782919784,
+                "bounded_eq12_style_distribution_loss": 5.7318052039590585e-08,
                 "description": "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
-                "deterministic_eq12_style_timing_loss": 3.9594855553570403,
-                "deterministic_hard_label_mistakes": 105,
-                "deterministic_label_error_rate": 0.5121951219512195,
+                "deterministic_eq12_style_timing_loss": 3.616792457259388e-10,
+                "deterministic_hard_label_mistakes": 78,
+                "deterministic_label_error_rate": 0.75,
                 "deterministic_objective_tuple": [
-                  105,
-                  3.9594855553570403,
+                  78,
+                  3.616792457259388e-10,
                   1,
                   "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
                 ],
-                "eq12_style_timing_loss": 3.9594855553570403,
-                "hard_label_mistake_rate": 0.8,
-                "hard_label_mistakes": 164,
-                "label_error_rate": 0.8,
-                "label_mistakes": 164,
+                "eq12_style_timing_loss": 3.616792457259388e-10,
+                "hard_label_mistake_rate": 1.0,
+                "hard_label_mistakes": 104,
+                "label_error_rate": 1.0,
+                "label_mistakes": 104,
                 "objective_boundary_alignment": {
-                  "at_boundary_count": 163,
+                  "at_boundary_count": 100,
                   "early_switch_count": 0,
-                  "elapsed_at_boundary_count": 163,
+                  "elapsed_at_boundary_count": 100,
                   "elapsed_early_switch_count": 0,
                   "elapsed_late_switch_count": 0,
-                  "enabled_boundary_count": 163,
+                  "enabled_boundary_count": 100,
                   "first_enabled_elapsed_minus_duration_max": 0.0,
                   "first_enabled_elapsed_minus_duration_mean": 0.0,
                   "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -2406,29 +2546,29 @@
                   "first_enabled_minus_duration_mean": 0.0,
                   "first_enabled_minus_duration_min": 0,
                   "late_switch_count": 0,
-                  "never_enabled_count": 38,
-                  "num_boundaries": 201
+                  "never_enabled_count": 0,
+                  "num_boundaries": 100
                 },
-                "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= -0.204, else mode=0",
+                "objective_description": "mode=1 if 10.000*theta + 1.000*omega >= -4.428, else mode=0",
                 "objective_tuple": [
-                  2.8097196195732312,
-                  44.274403782919784,
+                  3.0,
+                  5.7318052039590585e-08,
                   1,
-                  "mode=1 if 10.000*theta + 1.000*omega >= -0.204, else mode=0"
+                  "mode=1 if 10.000*theta + 1.000*omega >= -4.428, else mode=0"
                 ],
                 "program_complexity": 1,
-                "responsibility_weighted_label_loss": 2.8097196195732312,
-                "timing_loss_per_boundary": 0.22027066558666558,
-                "timing_loss_total": 44.274403782919784
+                "responsibility_weighted_label_loss": 3.0,
+                "timing_loss_per_boundary": 5.731805203959058e-10,
+                "timing_loss_total": 5.7318052039590585e-08
               },
               "selected_student_switch": {
                 "boundary_alignment": {
-                  "at_boundary_count": 158,
+                  "at_boundary_count": 69,
                   "early_switch_count": 0,
-                  "elapsed_at_boundary_count": 158,
+                  "elapsed_at_boundary_count": 69,
                   "elapsed_early_switch_count": 0,
                   "elapsed_late_switch_count": 0,
-                  "enabled_boundary_count": 158,
+                  "enabled_boundary_count": 69,
                   "first_enabled_elapsed_minus_duration_max": 0.0,
                   "first_enabled_elapsed_minus_duration_mean": 0.0,
                   "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -2436,32 +2576,32 @@
                   "first_enabled_minus_duration_mean": 0.0,
                   "first_enabled_minus_duration_min": 0,
                   "late_switch_count": 0,
-                  "never_enabled_count": 43,
-                  "num_boundaries": 201
+                  "never_enabled_count": 31,
+                  "num_boundaries": 100
                 },
-                "bounded_eq12_style_distribution_loss": 44.3040668796849,
-                "description": "mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0",
-                "deterministic_eq12_style_timing_loss": 3.926966792729926,
-                "deterministic_hard_label_mistakes": 158,
-                "deterministic_label_error_rate": 0.7707317073170732,
+                "bounded_eq12_style_distribution_loss": 2.6338075959255594e-09,
+                "description": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
+                "deterministic_eq12_style_timing_loss": 1.7401432179037964e-10,
+                "deterministic_hard_label_mistakes": 70,
+                "deterministic_label_error_rate": 0.6730769230769231,
                 "deterministic_objective_tuple": [
-                  158,
-                  3.926966792729926,
+                  70,
+                  1.7401432179037964e-10,
                   1,
-                  "mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0"
+                  "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0"
                 ],
-                "eq12_style_timing_loss": 3.926966792729926,
-                "hard_label_mistake_rate": 0.7268292682926829,
-                "hard_label_mistakes": 149,
-                "label_error_rate": 0.7268292682926829,
-                "label_mistakes": 149,
+                "eq12_style_timing_loss": 1.7401432179037964e-10,
+                "hard_label_mistake_rate": 0.6730769230769231,
+                "hard_label_mistakes": 70,
+                "label_error_rate": 0.6730769230769231,
+                "label_mistakes": 70,
                 "objective_boundary_alignment": {
-                  "at_boundary_count": 149,
+                  "at_boundary_count": 69,
                   "early_switch_count": 0,
-                  "elapsed_at_boundary_count": 149,
+                  "elapsed_at_boundary_count": 69,
                   "elapsed_early_switch_count": 0,
                   "elapsed_late_switch_count": 0,
-                  "enabled_boundary_count": 149,
+                  "enabled_boundary_count": 69,
                   "first_enabled_elapsed_minus_duration_max": 0.0,
                   "first_enabled_elapsed_minus_duration_mean": 0.0,
                   "first_enabled_elapsed_minus_duration_min": 0.0,
@@ -2469,30 +2609,30 @@
                   "first_enabled_minus_duration_mean": 0.0,
                   "first_enabled_minus_duration_min": 0,
                   "late_switch_count": 0,
-                  "never_enabled_count": 52,
-                  "num_boundaries": 201
+                  "never_enabled_count": 31,
+                  "num_boundaries": 100
                 },
-                "objective_description": "mode=1 if 10.000*theta + -5.000*omega >= -0.518, else mode=0",
+                "objective_description": "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
                 "objective_tuple": [
-                  1.3176319503682898,
-                  44.3040668796849,
+                  1.6468330853122183e-21,
+                  2.6338075959255594e-09,
                   1,
-                  "mode=1 if 10.000*theta + -5.000*omega >= -0.518, else mode=0"
+                  "mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0"
                 ],
                 "program_complexity": 1,
-                "responsibility_weighted_label_loss": 1.3176319503682898,
-                "timing_loss_per_boundary": 0.22041824318251196,
-                "timing_loss_total": 44.3040668796849
+                "responsibility_weighted_label_loss": 1.6468330853122183e-21,
+                "timing_loss_per_boundary": 2.6338075959255594e-11,
+                "timing_loss_total": 2.6338075959255594e-09
               }
             },
             "diagnostic_scope": "local_teacher_trace_fit",
             "distribution_rescore_top_k": 32,
-            "example_count": 205,
+            "example_count": 104,
             "not_paper_reproduction": true,
             "note": "Trace-fit diagnostics for the current local synthesizer. These costs are not paper-scale reproduction results or closed-loop evaluations.",
-            "num_boundaries": 201,
-            "num_segments": 205,
-            "num_trace_steps": 205,
+            "num_boundaries": 100,
+            "num_segments": 104,
+            "num_trace_steps": 104,
             "prefilter_objective_order": [
               "hard_label_mistakes",
               "eq12_style_timing_loss",
@@ -2500,7 +2640,7 @@
               "description"
             ],
             "responsibility_segment_count_match": true,
-            "segment_count": 205,
+            "segment_count": 104,
             "selection_objective_order": [
               "responsibility_weighted_label_loss",
               "bounded_eq12_style_distribution_loss",
@@ -2519,14 +2659,14 @@
                   -0.024108324970703667
                 ],
                 "last_observation": [
-                  -0.06343008014739639,
-                  -0.4688380024585276,
-                  0.0728627935308623,
-                  0.5926392950013408
+                  -0.07485692932384343,
+                  -0.4441259160493113,
+                  0.19399647675852605,
+                  1.0432501612257095
                 ],
                 "mode_prefix": [
                   0,
-                  1,
+                  0,
                   0,
                   0,
                   0,
@@ -2535,53 +2675,39 @@
                   0
                 ],
                 "omega_gain": 0.0,
-                "reward": 36.0,
+                "reward": 29.0,
                 "segment_actions": [
-                  -1.1141216101615972,
-                  3.696612210672114,
-                  -1.4744438914482658,
-                  6.510535704183358,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -1.2029607465594063,
-                  -0.7020961433931511,
-                  -0.7020961433931511,
-                  -0.7020961433931511,
-                  -0.7020961433931511,
-                  -0.7020961433931511,
-                  -0.7020961433931511,
-                  -0.7020961433931511,
-                  -0.7020961433931511,
-                  -0.7020961433931511
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089,
+                  -0.8293306933821089
                 ],
                 "segment_durations": [
-                  1,
-                  1,
-                  1,
-                  1,
-                  1,
-                  1,
-                  1,
                   1,
                   1,
                   1,
@@ -2641,45 +2767,37 @@
                   0.02,
                   0.02,
                   0.02,
-                  0.02,
-                  0.02,
-                  0.02,
-                  0.02,
-                  0.02,
-                  0.02,
-                  0.02,
                   0.02
                 ],
-                "steps": 36,
-                "student_log_probability": -61.15322636933858,
-                "switches": 2,
-                "teacher_objective": 3538.8467736306616,
-                "teacher_refinement_objective": 3599.985025959124,
-                "teacher_source": "student_elite_centroid",
+                "steps": 29,
+                "student_log_probability": -54.15424125457897,
+                "switches": 0,
+                "teacher_objective": 2845.845758745421,
+                "teacher_refinement_objective": 2900.0,
+                "teacher_source": "student_sample",
                 "theta_gain": 0.0
               }
             ],
-            "length_mean": 51.25,
-            "reward_mean": 51.25,
+            "length_mean": 26.0,
+            "reward_mean": 26.0,
             "teacher_source_counts": {
-              "student_elite_centroid": 2,
-              "student_sample_refined": 2
+              "student_sample": 4
             }
           }
         }
       ],
       "test": {
-        "reward_mean": 55.0,
-        "steps_mean": 55.0,
+        "reward_mean": 33.2,
+        "steps_mean": 33.2,
         "success_rate": 0.0,
-        "survival_seconds_mean": 1.1
+        "survival_seconds_mean": 0.664
       },
       "test_horizon_steps": 15000,
       "test_max_steps": 15000,
-      "test_reward": 55.0,
-      "test_steps": 55.0,
+      "test_reward": 33.2,
+      "test_steps": 33.2,
       "test_success": 0.0,
-      "test_survival_seconds": 1.1,
+      "test_survival_seconds": 0.664,
       "timesteps": 0,
       "trace_summary": {
         "count": 4,
@@ -2692,14 +2810,14 @@
               -0.024108324970703667
             ],
             "last_observation": [
-              -0.06343008014739639,
-              -0.4688380024585276,
-              0.0728627935308623,
-              0.5926392950013408
+              -0.07485692932384343,
+              -0.4441259160493113,
+              0.19399647675852605,
+              1.0432501612257095
             ],
             "mode_prefix": [
               0,
-              1,
+              0,
               0,
               0,
               0,
@@ -2708,53 +2826,39 @@
               0
             ],
             "omega_gain": 0.0,
-            "reward": 36.0,
+            "reward": 29.0,
             "segment_actions": [
-              -1.1141216101615972,
-              3.696612210672114,
-              -1.4744438914482658,
-              6.510535704183358,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -1.2029607465594063,
-              -0.7020961433931511,
-              -0.7020961433931511,
-              -0.7020961433931511,
-              -0.7020961433931511,
-              -0.7020961433931511,
-              -0.7020961433931511,
-              -0.7020961433931511,
-              -0.7020961433931511,
-              -0.7020961433931511
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089,
+              -0.8293306933821089
             ],
             "segment_durations": [
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
               1,
               1,
               1,
@@ -2814,21 +2918,14 @@
               0.02,
               0.02,
               0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
               0.02
             ],
-            "steps": 36,
-            "student_log_probability": -61.15322636933858,
-            "switches": 2,
-            "teacher_objective": 3538.8467736306616,
-            "teacher_refinement_objective": 3599.985025959124,
-            "teacher_source": "student_elite_centroid",
+            "steps": 29,
+            "student_log_probability": -54.15424125457897,
+            "switches": 0,
+            "teacher_objective": 2845.845758745421,
+            "teacher_refinement_objective": 2900.0,
+            "teacher_source": "student_sample",
             "theta_gain": 0.0
           },
           {
@@ -2839,10 +2936,10 @@
               -0.019668727392107257
             ],
             "last_observation": [
-              0.005902119497832781,
-              -0.11283862932877275,
-              -0.023259362372291637,
-              -0.03823342378819946
+              0.14105193887913206,
+              0.5611067555654311,
+              -0.19967629067358264,
+              -1.1518060855757886
             ],
             "mode_prefix": [
               0,
@@ -2855,44 +2952,38 @@
               0
             ],
             "omega_gain": 0.0,
-            "reward": 31.0,
+            "reward": 28.0,
             "segment_actions": [
-              0.597256161337901,
-              10.0,
-              -0.5334101963369337,
-              5.106512742875711,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              -1.3061649448421973,
-              0.8705355100931655,
-              0.8705355100931655,
-              0.8705355100931655,
-              0.8705355100931655,
-              0.8705355100931655,
-              0.8705355100931655,
-              0.8705355100931655
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373,
+              1.059421706362373
             ],
             "segment_durations": [
-              1,
-              1,
-              1,
               1,
               1,
               1,
@@ -2950,17 +3041,14 @@
               0.02,
               0.02,
               0.02,
-              0.02,
-              0.02,
-              0.02,
               0.02
             ],
-            "steps": 31,
-            "student_log_probability": -59.03820076492541,
+            "steps": 28,
+            "student_log_probability": -65.37846653178197,
             "switches": 0,
-            "teacher_objective": 3040.9617992350745,
-            "teacher_refinement_objective": 3099.999998648944,
-            "teacher_source": "student_elite_centroid",
+            "teacher_objective": 2734.621533468218,
+            "teacher_refinement_objective": 2800.0,
+            "teacher_source": "student_sample",
             "theta_gain": 0.0
           },
           {
@@ -2971,10 +3059,10 @@
               0.0004686855817390284
             ],
             "last_observation": [
-              0.1748924257032887,
-              0.4997488383166455,
-              0.06281316542433596,
-              -0.038955102134865686
+              -0.04704595108261612,
+              -0.2200361925000028,
+              0.20344198349528683,
+              0.9209340519057431
             ],
             "mode_prefix": [
               0,
@@ -2987,78 +3075,34 @@
               0
             ],
             "omega_gain": 0.0,
-            "reward": 46.0,
+            "reward": 24.0,
             "segment_actions": [
-              0.319963437063186,
-              0.319963437063186,
-              0.319963437063186,
-              0.319963437063186,
-              0.319963437063186,
-              0.3930670816470184,
-              0.3930670816470184,
-              0.3930670816470184,
-              0.3930670816470184,
-              0.3930670816470184,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.4661831827634249,
-              0.5393096214497795,
-              0.5393096214497795,
-              0.5393096214497795,
-              0.5393096214497795,
-              0.5393096214497795,
-              0.5393096214497795,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393143407041593,
-              0.5393080096566618,
-              0.5393080096566618,
-              5.539331358919209,
-              0.5393080096566618,
-              0.5393080096566618,
-              0.5393080096566618,
-              0.6124432470673767,
-              0.6124432470673767,
-              0.6124432470673767,
-              0.6124432470673767
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913,
+              -0.44795099382459913
             ],
             "segment_durations": [
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
-              1,
               1,
               1,
               1,
@@ -3108,57 +3152,34 @@
               0.02,
               0.02,
               0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
-              0.02,
               0.02
             ],
-            "steps": 46,
-            "student_log_probability": -99.13006403434194,
+            "steps": 24,
+            "student_log_probability": -45.98484736673004,
             "switches": 0,
-            "teacher_objective": 4500.869935965658,
-            "teacher_refinement_objective": 4595.398728947227,
-            "teacher_source": "student_sample_refined",
+            "teacher_objective": 2354.01515263327,
+            "teacher_refinement_objective": 2400.0,
+            "teacher_source": "student_sample",
             "theta_gain": 0.0
           }
         ],
-        "length_mean": 51.25,
-        "reward_mean": 51.25,
+        "length_mean": 26.0,
+        "reward_mean": 26.0,
         "teacher_source_counts": {
-          "student_elite_centroid": 2,
-          "student_sample_refined": 2
+          "student_sample": 4
         }
       },
       "traces_output": "artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "train": {
-        "reward_mean": 42.5,
-        "steps_mean": 42.5,
+        "reward_mean": 27.15,
+        "steps_mean": 27.15,
         "success_rate": 0.0,
-        "survival_seconds_mean": 0.85
+        "survival_seconds_mean": 0.543
       },
-      "train_reward": 42.5,
-      "train_steps": 42.5,
+      "train_reward": 27.15,
+      "train_steps": 27.15,
       "train_success": 0.0,
-      "train_survival_seconds": 0.85,
+      "train_survival_seconds": 0.543,
       "uses_paper_eval_rollouts": false
     }
   ],
@@ -3365,35 +3386,35 @@
       "best_command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "best_metrics_output": "artifacts/results/metrics/psm_seed0_full_horizon.json",
       "best_seed_by_train": 0,
-      "best_test_reward": 55.0,
-      "best_test_steps": 55.0,
+      "best_test_reward": 33.2,
+      "best_test_steps": 33.2,
       "best_test_success": 0.0,
-      "best_test_survival_seconds": 1.1,
+      "best_test_survival_seconds": 0.664,
       "best_timesteps": 0,
       "best_traces_output": "artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
-      "best_train_reward": 42.5,
-      "best_train_steps": 42.5,
+      "best_train_reward": 27.15,
+      "best_train_steps": 27.15,
       "best_train_success": 0.0,
-      "best_train_survival_seconds": 0.85,
+      "best_train_survival_seconds": 0.543,
       "eval_rollouts": 20,
       "n": 1,
       "policy": "Synthesized PSM diagnostic",
       "test_horizon_steps": 15000,
-      "test_reward_mean": 55.0,
+      "test_reward_mean": 33.2,
       "test_reward_std": 0.0,
-      "test_steps_mean": 55.0,
+      "test_steps_mean": 33.2,
       "test_steps_std": 0.0,
       "test_success_mean": 0.0,
       "test_success_std": 0.0,
-      "test_survival_seconds_mean": 1.1,
+      "test_survival_seconds_mean": 0.664,
       "test_survival_seconds_std": 0.0,
-      "train_reward_mean": 42.5,
+      "train_reward_mean": 27.15,
       "train_reward_std": 0.0,
-      "train_steps_mean": 42.5,
+      "train_steps_mean": 27.15,
       "train_steps_std": 0.0,
       "train_success_mean": 0.0,
       "train_success_std": 0.0,
-      "train_survival_seconds_mean": 0.85,
+      "train_survival_seconds_mean": 0.543,
       "train_survival_seconds_std": 0.0
     }
   ],
