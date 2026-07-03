@@ -134,8 +134,8 @@ The current CartPole PSM defaults use one-step loop-free teacher segments over
 the full 250-step training horizon (`segment_steps=1`, `segments_per_trace=250`);
 this is a local teacher hyperparameter profile selected for CartPole
 diagnostics, not a paper-reported constant.
-It also records local synthesis defaults, including student EM count, switch-timing
-responsibility-refinement passes, minimum Gaussian standard deviation,
+It also records local synthesis defaults, including student EM count, per-EM
+switch-timing responsibility-refinement passes, minimum Gaussian standard deviation,
 switch-timing scale, switch-search grids, bounded switch-parameter coordinate
 refinement plus finite-difference gradient polishing with backtracking, and teacher-search
 refinement schedule, under `algorithm_provenance`;
@@ -170,9 +170,10 @@ action/duration/time-increment distribution means and samples, refreshing the
 top-rho set between rounds and using the refreshed top-rho set for the
 refinement objective. This is only a bounded CEM-style refresh, not the paper's
 full CEM plus gradient optimizer.
-The student starts with action-likelihood responsibilities, then performs the
-configured number of bounded forward-backward refinements using the learned
-switch-timing likelihood. That timing likelihood now treats selector-off to
+The student starts with action-likelihood responsibilities, then each configured
+EM iteration alternates bounded forward-backward refinements using the learned
+switch-timing likelihood with action-distribution and switch-parameter refits.
+That timing likelihood now treats selector-off to
 selector-on and selector-on to selector-off transitions as separate directed
 events, and it treats loop-free segment durations as elapsed time normalized to
 the CartPole simulator step, so per-segment time increments influence the

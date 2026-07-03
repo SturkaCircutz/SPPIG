@@ -124,9 +124,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - Partially complete against the paper: the Cartpole programmatic policy is synthesized from
   model-based teacher traces into a two-mode constant-action/depth-2-switch policy. The student now
   fits Gaussian distributions over constant action parameters and latent mode responsibilities. Those
-  responsibilities now use one bounded forward-backward refinement over the learned switch-timing
-  likelihood, but the learner still approximates switch timing and does not implement the full
-  probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
+  responsibilities now start from action likelihoods and then alternate bounded forward-backward
+  switch-timing refinements with action-distribution and switch-parameter refits inside each
+  configured EM iteration, but the learner still approximates switch timing and does not implement
+  the full probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
   stumps plus depth-2 conjunction and disjunction candidates over observation inequalities via a
   bounded greedy leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
   against an elapsed-time-normalized Eq. (12)-style timing likelihood with a bounded grid initializer plus coordinate
@@ -156,8 +157,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `25.9`, test reward mean `35.85`; the same artifact records train/test
-  survived-step means `25.9` and `35.85`, or `0.518s` and `0.717s`. The tracked artifact uses the current
+  train reward mean `26.7`, test reward mean `44.7`; the same artifact records train/test
+  survived-step means `26.7` and `44.7`, or `0.534s` and `0.894s`. The tracked artifact uses the current
   CartPole PSM default loop-free teacher profile (`segment_steps = 1`, `segments_per_trace = 250`)
   so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
@@ -165,7 +166,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   elite-distribution refresh, first-iteration source counts
   `{"bootstrap_elite_centroid": 3, "bootstrap_student_sample": 1}`, final-iteration source
   counts `{"student_sample": 4}`, and policy
-  `m0 action=-1.360; m1 action=0.733; mode=1 if -10.000*theta + -10.000*omega >= -0.440, else mode=0`; it also records
+  `m0 action=-0.872; m1 action=4.093; mode=1 if o[1] >= 0.026 or o[0] <= -0.115, else mode=0`; it also records
   `student_sample_segment_budget = chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
   gap, not a paper-level reproduction result.
@@ -243,12 +244,13 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   segment, matching the paper's probabilistic-state-machine sampling model. Loop-free segment
   durations are interpreted as elapsed time normalized to the CartPole simulator step, so the
   teacher's per-segment time increments affect the bounded switch-timing likelihood.
-- The Cartpole student now refines action-only latent segment responsibilities with a bounded
-  forward-backward pass over adjacent segment switch-timing probabilities before refitting the action
-  distributions and switch. The E-step pair potentials and bounded switch timing loss use directed
-  0-to-1 and 1-to-0 selector events, closer to the directed transition terms in Eq. (12). This moves
-  Eq. (10) closer to the paper by using both `H` and `G` evidence, but it remains a local bounded
-  approximation rather than the paper's full EM/M-step optimizer.
+- The Cartpole student now initializes latent segment responsibilities from action likelihoods, then
+  alternates the configured bounded forward-backward switch-timing passes with action-distribution and
+  switch-parameter refits inside each EM iteration. The E-step pair potentials and bounded switch
+  timing loss use directed 0-to-1 and 1-to-0 selector events, closer to the directed transition terms
+  in Eq. (12). This moves Eq. (10) closer to the paper by using both `H` and `G` evidence throughout
+  the bounded EM loop, but it remains a local bounded approximation rather than the paper's full
+  EM/M-step optimizer.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
   corresponding constant-action sequence, duration-only refinement preserves that action sequence
@@ -262,8 +264,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   records their exact values in metrics JSON.
 - PSM metrics and reproduction-runner manifests now record fixed local synthesis constants such as
   default EM iterations, Gaussian floors, switch-timing scale, switch-search grids, and teacher-search
-  refinement schedule. The actual configured student EM iterations and switch-responsibility passes
-  are recorded under `config` and the compact PSM `paper_protocol_status` block, which also
+  refinement schedule. The actual configured student EM iterations and per-EM switch-responsibility
+  passes are recorded under `config` and the compact PSM `paper_protocol_status` block, which also
   distinguishes matched CartPole environment settings from the still-missing full probabilistic
   adaptive-teaching optimizer and paper-scale result reproduction. These values document the current
   partial implementation; they are not claimed as paper-specified constants.
@@ -434,6 +436,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_student_switch_responsibility_passes_are_configurable`
   verifies that the configured number of switch-timing responsibility passes changes the fitted
   student responsibilities and action distributions.
+- `tests/test_cartpole_paper.py::test_cartpole_student_alternates_switch_responsibility_passes_per_em_iteration`
+  verifies that switch-timing responsibility refinements are applied inside each configured EM
+  iteration rather than only after action-only EM has completed.
 - `tests/test_cartpole_paper.py::test_cartpole_synthesis_can_return_probabilistic_student` verifies
   that synthesis can expose the fitted probabilistic student directly for metrics/provenance without
   re-fitting from traces.

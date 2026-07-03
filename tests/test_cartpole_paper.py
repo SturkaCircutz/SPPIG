@@ -405,6 +405,37 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(timing_refined.responsibilities[1][1], action_only.responsibilities[1][1])
         self.assertLess(timing_refined.action_distributions[0].std, action_only.action_distributions[0].std)
 
+    def test_cartpole_student_alternates_switch_responsibility_passes_per_em_iteration(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, -0.3, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-1.0, -1.0, -1.0, 1.0, 1.0],
+            mode_labels=[0, 0, 0, 1, 1],
+            reward=5.0,
+            segment_actions=(-1.0, 1.0),
+            segment_durations=(3, 2),
+        )
+        cfg = CartpoleSynthesisConfig(
+            student_em_iters=3,
+            student_switch_responsibility_passes=2,
+        )
+
+        with patch(
+            "cartpole_synthesis._refine_responsibilities_with_switch_timing",
+            wraps=_refine_responsibilities_with_switch_timing,
+        ) as refine_mock:
+            student = fit_probabilistic_cartpole_student([trace], cfg)
+
+        self.assertEqual(refine_mock.call_count, 6)
+        self.assertEqual(len(student.responsibilities), 2)
+        for left_weight, right_weight in student.responsibilities:
+            self.assertAlmostEqual(left_weight + right_weight, 1.0)
+
     def test_cartpole_probabilistic_student_projects_to_policy(self):
         cfg = CartpoleSynthesisConfig(
             num_initial_states=3,

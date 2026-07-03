@@ -127,7 +127,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         "probabilistic_student": {
             "default_em_iters": PROBABILISTIC_STUDENT_EM_ITERS,
             "default_switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
-            "responsibility_evidence": "action_likelihood_then_switch_timing_forward_backward",
+            "responsibility_evidence": "action_likelihood_initialization_then_alternating_switch_timing_forward_backward",
+            "switch_responsibility_passes_are_per_em_iteration": True,
             "rollout_parameter_resampling": "on_mode_entry",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
             "log_probability_floor": LOG_PROBABILITY_FLOOR,
@@ -721,8 +722,9 @@ def fit_probabilistic_cartpole_student(
 
     This implements the action-distribution part of the paper's EM-style
     student step for Cartpole's constant-action grammar. The latent segment
-    responsibilities are first initialized from action likelihoods, then refined
-    with a bounded forward-backward pass using switch timing likelihoods.
+    responsibilities are initialized from action likelihoods, then each bounded
+    EM iteration alternates switch-timing forward-backward responsibilities with
+    refits of the action distributions and switch parameters.
     Switch timing still uses local Gaussian mean/std refinement rather than the
     paper's full continuous M-step.
     """
@@ -736,46 +738,54 @@ def fit_probabilistic_cartpole_student(
         1: GaussianScalar(right_default, 1.0),
     }
     responsibilities: List[Tuple[float, float]] = []
+    switch: SwitchProgram | None = None
+    switch_parameter_distributions: List[GaussianScalar] = []
 
-    # The actions are observed, but their latent mode assignments are softened
-    # so ambiguous segments can influence both constant-action primitives.
-    for _ in range(max(1, cfg.student_em_iters)):
-        responsibilities = [
-            _mode_responsibilities(segment.action_parameter, action_distributions)
-            for segment in segments
-        ]
-        action_distributions = _fit_action_distributions(
-            segments,
-            responsibilities,
-            left_default,
-            right_default,
-        )
+    for iteration in range(max(1, cfg.student_em_iters)):
+        if iteration == 0 or cfg.student_switch_responsibility_passes <= 0:
+            responsibilities = _action_likelihood_responsibilities(segments, action_distributions)
+            action_distributions = _fit_action_distributions(
+                segments,
+                responsibilities,
+                left_default,
+                right_default,
+            )
+            switch, switch_parameter_distributions = _fit_student_switch(
+                traces,
+                segments_by_trace,
+                responsibilities,
+            )
 
-    # Fit the discrete switch after action EM so switch costs can use the same
-    # soft transition evidence instead of only the teacher's hard labels.
-    switch, switch_parameter_distributions = _fit_student_switch(
-        traces,
-        segments_by_trace,
-        responsibilities,
-    )
-    for _ in range(max(0, cfg.student_switch_responsibility_passes)):
-        responsibilities = _refine_responsibilities_with_switch_timing(
-            segments_by_trace,
-            action_distributions,
-            switch,
-            switch_parameter_distributions,
-        )
-        action_distributions = _fit_action_distributions(
-            segments,
-            responsibilities,
-            left_default,
-            right_default,
-        )
+        if cfg.student_switch_responsibility_passes <= 0:
+            continue
+        if switch is None:
+            raise RuntimeError("Cartpole student EM requires an initialized switch")
+        for _ in range(cfg.student_switch_responsibility_passes):
+            responsibilities = _refine_responsibilities_with_switch_timing(
+                segments_by_trace,
+                action_distributions,
+                switch,
+                switch_parameter_distributions,
+            )
+            action_distributions = _fit_action_distributions(
+                segments,
+                responsibilities,
+                left_default,
+                right_default,
+            )
+            switch, switch_parameter_distributions = _fit_student_switch(
+                traces,
+                segments_by_trace,
+                responsibilities,
+            )
+
+    if switch is None:
         switch, switch_parameter_distributions = _fit_student_switch(
             traces,
             segments_by_trace,
             responsibilities,
         )
+
     threshold_distribution = (
         switch_parameter_distributions[0]
         if switch_parameter_distributions
@@ -788,6 +798,18 @@ def fit_probabilistic_cartpole_student(
         switch_parameter_distributions,
         responsibilities,
     )
+
+
+def _action_likelihood_responsibilities(
+    segments: List[CartpoleSegment],
+    action_distributions: Dict[int, GaussianScalar],
+) -> List[Tuple[float, float]]:
+    # The actions are observed, but their latent mode assignments are softened
+    # so ambiguous segments can influence both constant-action primitives.
+    return [
+        _mode_responsibilities(segment.action_parameter, action_distributions)
+        for segment in segments
+    ]
 
 
 def _bootstrap_probabilistic_student(cfg: CartpoleSynthesisConfig) -> ProbabilisticCartpoleStudent:

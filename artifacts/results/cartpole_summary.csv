@@ -3,4 +3,4 @@ PPO MLP,1,1,0,0,0,250,0,910.6,0,250,0,910.6,0,5,0,18.212,0,0,1,0,250,910.6,250,9
 PPO-LSTM warm started,1,1,0,0,0,250,0,912.25,0,250,0,912.25,0,5,0,18.245,0,0,1,0,250,912.25,250,912.25,5,18.245,20,15000,16384,artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt,artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json
 Direct-Opt diagnostic,1,1,0,0.1,0,250,0,4220.05,0,250,0,4220.05,0,5,0,84.401,0,0,1,0.1,250,4220.05,250,4220.05,5,84.401,20,15000,0,,artifacts/results/metrics/direct_opt_seed0_full_horizon.json
 Programmatic state machine,1,1,0,0.2,0,250,0,6275.35,0,250,0,6275.35,0,5,0,125.507,0,0,1,0.2,250,6275.35,250,6275.35,5,125.507,20,15000,0,,artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json
-Synthesized PSM diagnostic,1,0,0,0,0,25.9,0,35.85,0,25.9,0,35.85,0,0.518,0,0.717,0,0,0,0,25.9,35.85,25.9,35.85,0.518,0.717,20,15000,0,,artifacts/results/metrics/psm_seed0_full_horizon.json
+Synthesized PSM diagnostic,1,0,0,0,0,26.7,0,44.7,0,26.7,0,44.7,0,0.534,0,0.894,0,0,0,0,26.7,44.7,26.7,44.7,0.534,0.894,20,15000,0,,artifacts/results/metrics/psm_seed0_full_horizon.json

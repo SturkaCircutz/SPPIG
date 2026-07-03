@@ -253,6 +253,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             provenance = manifest["psm_algorithm_provenance"]
             self.assertEqual(provenance["probabilistic_student"]["default_em_iters"], 4)
             self.assertEqual(provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
+            self.assertEqual(
+                provenance["probabilistic_student"]["responsibility_evidence"],
+                "action_likelihood_initialization_then_alternating_switch_timing_forward_backward",
+            )
+            self.assertTrue(provenance["probabilistic_student"]["switch_responsibility_passes_are_per_em_iteration"])
             self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
             self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
             self.assertEqual(
@@ -389,7 +394,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(row_provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
             self.assertEqual(
                 row_provenance["probabilistic_student"]["responsibility_evidence"],
-                "action_likelihood_then_switch_timing_forward_backward",
+                "action_likelihood_initialization_then_alternating_switch_timing_forward_backward",
+            )
+            self.assertTrue(
+                row_provenance["probabilistic_student"]["switch_responsibility_passes_are_per_em_iteration"]
             )
             self.assertEqual(
                 row_provenance["probabilistic_student"]["rollout_parameter_resampling"],
