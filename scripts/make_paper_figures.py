@@ -82,6 +82,10 @@ def row_traces_path(row: dict[str, str]) -> str:
     return row.get("best_traces_output") or row.get("traces_output") or ""
 
 
+def row_command(row: dict[str, str]) -> str:
+    return row.get("best_command") or row.get("command") or ""
+
+
 def row_has_result_artifact(row: dict[str, str]) -> bool:
     path = row_metrics_path(row) or row.get("checkpoint")
     return bool(path and os.path.exists(artifact_path(path)))
@@ -165,6 +169,8 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         )
     missing_protocol_status: list[str] = []
     missing_command_provenance: list[str] = []
+    missing_row_command_provenance: list[str] = []
+    mismatched_row_commands: list[str] = []
     for row in rows:
         metrics_path = row_metrics_path(row)
         if not metrics_path:
@@ -177,6 +183,11 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
             missing_protocol_status.append(row["policy"])
         if not isinstance(metrics.get("command"), str) or not metrics["command"].strip():
             missing_command_provenance.append(row["policy"])
+        command = row_command(row)
+        if not isinstance(command, str) or not command.strip():
+            missing_row_command_provenance.append(row["policy"])
+        elif isinstance(metrics.get("command"), str) and metrics["command"].strip() and command != metrics["command"]:
+            mismatched_row_commands.append(row["policy"])
     if missing_protocol_status:
         raise ValueError(
             "result metrics lack paper-protocol status: "
@@ -186,6 +197,16 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         raise ValueError(
             "result metrics lack command provenance: "
             + ", ".join(missing_command_provenance)
+        )
+    if missing_row_command_provenance:
+        raise ValueError(
+            "result rows lack command provenance: "
+            + ", ".join(missing_row_command_provenance)
+        )
+    if mismatched_row_commands:
+        raise ValueError(
+            "result row commands disagree with metrics command provenance: "
+            + ", ".join(mismatched_row_commands)
         )
     missing_psm_trace_artifacts: list[str] = []
     incomplete_psm_trace_artifacts: list[str] = []

@@ -12,6 +12,11 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import make_paper_figures  # noqa: E402
 
 
+PSM_TRACE_COMMAND = "python train.py --traces-output traces.json"
+RUNNER_QUICK_COMMAND = "python scripts/run_cartpole_reproduction.py --quick"
+FIXED_PSM_COMMAND = "python scripts/evaluate_cartpole_program.py"
+
+
 def current_synthesized_psm_algorithm_provenance() -> dict:
     current_provenance = make_paper_figures.cartpole_synthesis_algorithm_provenance()
     return {
@@ -28,6 +33,33 @@ def current_synthesized_psm_status() -> dict:
         "paper_scale_result": False,
         "synthesized_by_current_algorithm": True,
     }
+
+
+def artifact_row(
+    policy: str,
+    metrics_path: str,
+    command: str,
+    eval_rollouts: str = "20",
+    test_horizon_steps: str = "15000",
+    **extra: str,
+) -> dict[str, str]:
+    row = {
+        "policy": policy,
+        "metrics_output": metrics_path,
+        "command": command,
+        "eval_rollouts": eval_rollouts,
+        "test_horizon_steps": test_horizon_steps,
+    }
+    row.update(extra)
+    return row
+
+
+def synthesized_psm_row(metrics_path: str) -> dict[str, str]:
+    return artifact_row("Synthesized PSM diagnostic", metrics_path, PSM_TRACE_COMMAND)
+
+
+def runner_psm_row(metrics_path: str) -> dict[str, str]:
+    return artifact_row("Programmatic state machine", metrics_path, RUNNER_QUICK_COMMAND)
 
 
 class MakePaperFiguresTest(unittest.TestCase):
@@ -80,6 +112,19 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertEqual({row["policy"] for row in summary}, set(manifest["policies"]))
         self.assertTrue(all(row["best_metrics_output"] for row in summary))
         self.assertTrue(all(os.path.exists(os.path.join(ROOT, row["best_metrics_output"])) for row in summary))
+        for row in summary:
+            with open(os.path.join(ROOT, row["best_metrics_output"]), encoding="utf-8") as handle:
+                metrics = json.load(handle)
+            manifest_summary_row = next(item for item in manifest["summary"] if item["policy"] == row["policy"])
+            self.assertEqual(row["best_command"], metrics["command"])
+            self.assertEqual(row["best_command"], manifest["reproduction_commands"][row["policy"]])
+            self.assertEqual(manifest_summary_row["best_command"], row["best_command"])
+        for row in manifest["rows"]:
+            with open(os.path.join(ROOT, row["metrics_output"]), encoding="utf-8") as handle:
+                metrics = json.load(handle)
+            self.assertEqual(row["command"], metrics["command"])
+            self.assertEqual(row["command"], manifest["reproduction_commands"][row["policy"]])
+            self.assertNotIn("metrics_command", row)
         fixed_psm_row = next(row for row in manifest["rows"] if row["policy"] == "Programmatic state machine")
         with open(os.path.join(ROOT, fixed_psm_row["metrics_output"]), encoding="utf-8") as handle:
             fixed_psm_metrics = json.load(handle)
@@ -220,14 +265,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             make_paper_figures.require_result_artifacts(
-                [
-                    {
-                        "policy": "PPO MLP",
-                        "metrics_output": metrics_path,
-                        "eval_rollouts": "20",
-                        "test_horizon_steps": "15000",
-                    }
-                ]
+                [artifact_row("PPO MLP", metrics_path, "python train.py --metrics-output metrics.json")]
             )
 
     def test_require_result_artifacts_accepts_synthesized_psm_trace_output(self):
@@ -237,7 +275,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
@@ -256,14 +294,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             make_paper_figures.require_result_artifacts(
-                [
-                    {
-                        "policy": "Synthesized PSM diagnostic",
-                        "metrics_output": metrics_path,
-                        "eval_rollouts": "20",
-                        "test_horizon_steps": "15000",
-                    }
-                ]
+                [synthesized_psm_row(metrics_path)]
             )
 
     def test_require_result_artifacts_rejects_synthesized_psm_trace_count_mismatch(self):
@@ -273,7 +304,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
@@ -292,16 +323,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_accepts_runner_named_synthesized_psm_trace_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -310,7 +332,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python scripts/run_cartpole_reproduction.py --quick",
+                        "command": RUNNER_QUICK_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "synthesis_history": [{"iteration": 1}],
@@ -330,14 +352,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             make_paper_figures.require_result_artifacts(
-                [
-                    {
-                        "policy": "Programmatic state machine",
-                        "metrics_output": metrics_path,
-                        "eval_rollouts": "20",
-                        "test_horizon_steps": "15000",
-                    }
-                ]
+                [runner_psm_row(metrics_path)]
             )
 
     def test_require_result_artifacts_rejects_synthesized_psm_missing_current_status(self):
@@ -347,7 +362,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python scripts/run_cartpole_reproduction.py --quick",
+                        "command": RUNNER_QUICK_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": {"paper_scale_result": False},
                         "synthesis_history": [{"iteration": 1}],
@@ -367,16 +382,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaisesRegex(ValueError, "current-synthesis protocol status"):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Programmatic state machine",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([runner_psm_row(metrics_path)])
 
     def test_require_result_artifacts_accepts_fixed_psm_without_synthesis_traces(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -384,7 +390,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python scripts/evaluate_cartpole_program.py",
+                        "command": FIXED_PSM_COMMAND,
                         "paper_protocol_status": {
                             "paper_scale_result": False,
                             "synthesized_by_current_algorithm": False,
@@ -394,14 +400,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             make_paper_figures.require_result_artifacts(
-                [
-                    {
-                        "policy": "Programmatic state machine",
-                        "metrics_output": metrics_path,
-                        "eval_rollouts": "20",
-                        "test_horizon_steps": "15000",
-                    }
-                ]
+                [artifact_row("Programmatic state machine", metrics_path, FIXED_PSM_COMMAND)]
             )
 
     def test_require_result_artifacts_rejects_synthesized_psm_boolean_trace_count(self):
@@ -411,7 +410,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
@@ -430,16 +429,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_synthesized_psm_history_count_mismatch(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -448,7 +438,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
@@ -467,16 +457,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_synthesized_psm_boolean_iteration_count(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -485,7 +466,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
@@ -504,16 +485,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_synthesized_psm_missing_history_iteration(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -522,7 +494,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
@@ -541,16 +513,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_synthesized_psm_history_sequence_mismatch(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -559,7 +522,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
@@ -581,16 +544,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_missing_synthesized_psm_trace_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -598,7 +552,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": os.path.join(tmpdir, "missing_traces.json"),
@@ -607,16 +561,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(FileNotFoundError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_runner_named_synthesized_psm_missing_trace_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -624,7 +569,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python scripts/run_cartpole_reproduction.py --quick",
+                        "command": RUNNER_QUICK_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "synthesis_history": [{"iteration": 1}],
@@ -633,16 +578,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(FileNotFoundError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Programmatic state machine",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([runner_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_stale_synthesized_psm_trace_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -651,7 +587,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
@@ -662,16 +598,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump({"config": {"teacher_student_iters": 1}, "num_traces": 1, "traces": [{"reward": 1}]}, handle)
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_runner_named_synthesized_psm_stale_trace_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -680,7 +607,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python scripts/run_cartpole_reproduction.py --quick",
+                        "command": RUNNER_QUICK_COMMAND,
                         "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "synthesis_history": [{"iteration": 1}],
@@ -692,16 +619,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 json.dump({"config": {"teacher_student_iters": 1}, "num_traces": 1, "traces": [{"reward": 1}]}, handle)
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Programmatic state machine",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([runner_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_stale_synthesized_psm_algorithm_provenance(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -710,7 +628,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "command": "python train.py --traces-output traces.json",
+                        "command": PSM_TRACE_COMMAND,
                         "algorithm_provenance": {
                             "teacher_search": {
                                 "finite_difference_candidates_per_refinement_iteration": {
@@ -738,16 +656,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                 )
 
             with self.assertRaises(ValueError):
-                make_paper_figures.require_result_artifacts(
-                    [
-                        {
-                            "policy": "Synthesized PSM diagnostic",
-                            "metrics_output": metrics_path,
-                            "eval_rollouts": "20",
-                            "test_horizon_steps": "15000",
-                        }
-                    ]
-                )
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_missing_protocol_status(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -797,6 +706,81 @@ class MakePaperFiguresTest(unittest.TestCase):
                         {
                             "policy": "PPO MLP",
                             "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_missing_row_command_provenance(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python train.py --metrics-output metrics.json",
+                        "paper_protocol_status": {"paper_scale_result": False},
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_legacy_metrics_command_without_row_command(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            command = "python train.py --metrics-output metrics.json"
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": command,
+                        "paper_protocol_status": {"paper_scale_result": False},
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "metrics_command": command,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_row_command_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python train.py --metrics-output metrics.json",
+                        "paper_protocol_status": {"paper_scale_result": False},
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "command": "python other.py --metrics-output metrics.json",
                             "eval_rollouts": "20",
                             "test_horizon_steps": "15000",
                         }

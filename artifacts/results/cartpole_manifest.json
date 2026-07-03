@@ -90,8 +90,8 @@
         "value_coef": 0.5,
         "verbose": true
       },
+      "command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/progress_mlp_128k_seed0.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
       "eval_rollouts": "20",
-      "metrics_command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/progress_mlp_128k_seed0.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
       "metrics_output": "artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
       "notes": "best local diagnostic checkpoint reevaluated on full paper test horizon",
       "paper_eval_rollouts": 1000,
@@ -223,8 +223,8 @@
         "value_coef": 0.5,
         "verbose": true
       },
+      "command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
       "eval_rollouts": "20",
-      "metrics_command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
       "metrics_output": "artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
       "notes": "supervised warm-start checkpoint reevaluated on full paper test horizon",
       "paper_eval_rollouts": 1000,
@@ -452,6 +452,7 @@
         "train_success_rate": 1.0
       },
       "checkpoint": "",
+      "command": "src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "config": {
         "batch_refinement_rounds": 1,
         "batch_size": 10,
@@ -468,7 +469,6 @@
         "time_limit_seconds": null
       },
       "eval_rollouts": 20,
-      "metrics_command": "src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "metrics_output": "artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "notes": "bounded direct optimization diagnostic over two-mode CartPole PSM; not paper full Direct-Opt protocol",
       "paper_eval_rollouts": 1000,
@@ -629,8 +629,8 @@
     },
     {
       "checkpoint": "",
+      "command": "scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
       "eval_rollouts": "20",
-      "metrics_command": "scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
       "metrics_output": "artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
       "notes": "fixed two-mode program reevaluated on full paper test horizon",
       "paper_eval_rollouts": 1000,
@@ -3105,6 +3105,7 @@
   "summary": [
     {
       "best_checkpoint": "artifacts/progress_mlp_128k_seed0.pt",
+      "best_command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/progress_mlp_128k_seed0.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
       "best_metrics_output": "artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
       "best_seed_by_train": 0,
       "best_test_reward": 910.6,
@@ -3138,6 +3139,7 @@
     },
     {
       "best_checkpoint": "artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt",
+      "best_command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
       "best_metrics_output": "artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
       "best_seed_by_train": 0,
       "best_test_reward": 912.25,
@@ -3171,6 +3173,7 @@
     },
     {
       "best_checkpoint": "",
+      "best_command": "src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "best_metrics_output": "artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "best_seed_by_train": 0,
       "best_test_reward": 4311.0,
@@ -3204,6 +3207,7 @@
     },
     {
       "best_checkpoint": "",
+      "best_command": "scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
       "best_metrics_output": "artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
       "best_seed_by_train": 0,
       "best_test_reward": 1560.55,
@@ -3237,6 +3241,7 @@
     },
     {
       "best_checkpoint": "",
+      "best_command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "best_metrics_output": "artifacts/results/metrics/psm_seed0_full_horizon.json",
       "best_seed_by_train": 0,
       "best_test_reward": 60.05,

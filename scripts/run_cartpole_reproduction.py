@@ -64,6 +64,7 @@ RESULT_FIELDS = [
     "checkpoint",
     "metrics_output",
     "traces_output",
+    "command",
 ]
 
 SUMMARY_FIELDS = [
@@ -100,6 +101,7 @@ SUMMARY_FIELDS = [
     "best_checkpoint",
     "best_metrics_output",
     "best_traces_output",
+    "best_command",
 ]
 
 
@@ -200,6 +202,7 @@ def run_psm(
         "timesteps": 0,
         "metrics_output": str(metrics_path),
         "traces_output": str(traces_path),
+        "command": metrics["command"],
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
         "paper_protocol_status": cartpole_synthesis_protocol_status(
@@ -227,6 +230,7 @@ def run_ppo(
     artifact_stem = f"ppo_{policy}_seed{seed}"
     checkpoint_path = outdir / "checkpoints" / f"{artifact_stem}.pt"
     metrics_path = outdir / "metrics" / f"{artifact_stem}.json"
+    command = " ".join(sys.argv)
     # Non-quick PPO keeps the paper-scale 10^7 timestep budget. This runner
     # intentionally records one fixed config; it is not the missing five-seed
     # hyperparameter search from the paper.
@@ -262,6 +266,7 @@ def run_ppo(
         "timesteps": result.timesteps,
         "checkpoint": str(checkpoint_path),
         "metrics_output": str(metrics_path),
+        "command": command,
         "config": asdict(cfg),
         "paper_protocol_status": ppo_paper_protocol_status(cfg),
     }
@@ -313,6 +318,7 @@ def run_direct_opt(
         "test_horizon_steps": test_max_steps,
         "timesteps": 0,
         "metrics_output": str(metrics_path),
+        "command": metrics["command"],
         "config": asdict(cfg),
         "algorithm_provenance": result.algorithm_provenance,
         "paper_protocol_status": cartpole_direct_opt_protocol_status(cfg),
@@ -397,6 +403,7 @@ def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "best_checkpoint": best.get("checkpoint", ""),
                 "best_metrics_output": best.get("metrics_output", ""),
                 "best_traces_output": best.get("traces_output", ""),
+                "best_command": best.get("command", ""),
             }
         )
     return summary

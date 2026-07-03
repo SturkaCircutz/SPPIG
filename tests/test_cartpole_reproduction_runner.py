@@ -6,14 +6,35 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 SCRIPT = os.path.join(ROOT, "scripts", "run_cartpole_reproduction.py")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from run_cartpole_reproduction import HAS_TORCH, reproduction_protocol_status, run_psm, summarize_rows  # noqa: E402
+import run_cartpole_reproduction  # noqa: E402
+from run_cartpole_reproduction import HAS_TORCH, reproduction_protocol_status, run_ppo, run_psm, summarize_rows  # noqa: E402
+
+
+@dataclass
+class FakePPOConfig:
+    policy_type: str
+    total_timesteps: int
+    rollout_steps: int
+    update_epochs: int
+    minibatches: int
+    hidden_size: int
+    num_envs: int
+    eval_rollouts: int
+    eval_test_max_steps: int
+    eval_interval: int
+    seed: int
+    initial_log_std: float
+    metrics_output: str
 
 
 class CartpoleReproductionRunnerTest(unittest.TestCase):
@@ -77,6 +98,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "eval_rollouts": 2,
                     "test_horizon_steps": 15000,
                     "timesteps": 0,
+                    "command": "python runner.py --seed 1",
                 },
                 {
                     "policy": "Programmatic state machine",
@@ -92,6 +114,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "eval_rollouts": 2,
                     "test_horizon_steps": 15000,
                     "timesteps": 0,
+                    "command": "python runner.py --seed 0",
                 },
             ]
         )
@@ -111,6 +134,56 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertAlmostEqual(row["best_test_survival_seconds"], 18.0)
         self.assertEqual(row["eval_rollouts"], 2)
         self.assertEqual(row["test_horizon_steps"], 15000)
+        self.assertEqual(row["best_command"], "python runner.py --seed 0")
+
+    def test_run_ppo_row_records_command_without_reloading_metrics(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--quick", "--include-ppo"]
+            result = SimpleNamespace(
+                train_success_rate=1.0,
+                test_success_rate=0.0,
+                train_reward_mean=250.0,
+                test_reward_mean=20.0,
+                train_steps_mean=250.0,
+                test_steps_mean=20.0,
+                train_survival_seconds_mean=5.0,
+                test_survival_seconds_mean=0.4,
+                timesteps=64,
+            )
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with patch.object(run_cartpole_reproduction, "HAS_TORCH", True), patch.object(
+                    run_cartpole_reproduction,
+                    "PPOConfig",
+                    FakePPOConfig,
+                    create=True,
+                ), patch.object(
+                    run_cartpole_reproduction,
+                    "train_ppo_cartpole",
+                    return_value=(object(), result),
+                    create=True,
+                ), patch.object(
+                    run_cartpole_reproduction,
+                    "ppo_paper_protocol_status",
+                    return_value={"paper_scale_baseline_protocol": False},
+                    create=True,
+                ):
+                    row = run_ppo(
+                        "mlp",
+                        seed=0,
+                        eval_rollouts=1,
+                        test_max_steps=20,
+                        outdir=Path(tmpdir),
+                        eval_interval=32,
+                        quick=True,
+                    )
+        finally:
+            sys.argv = original_argv
+
+        self.assertEqual(row["command"], f"{SCRIPT} --quick --include-ppo")
+        self.assertEqual(row["policy"], "PPO MLP")
+        self.assertEqual(row["timesteps"], 64)
+        self.assertEqual(row["paper_protocol_status"]["paper_scale_baseline_protocol"], False)
 
     def test_quick_runner_writes_results_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -182,6 +255,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 psm_traces = json.load(handle)
             self.assertIn("run_cartpole_reproduction.py", psm_metrics["command"])
             self.assertIn("--psm-teacher-theta-gain 12.5", psm_metrics["command"])
+            self.assertEqual(rows[0]["command"], psm_metrics["command"])
             self.assertEqual(psm_traces["command"], psm_metrics["command"])
             self.assertEqual(psm_metrics["config"]["teacher_theta_gain"], 12.5)
             self.assertEqual(psm_metrics["algorithm_provenance"]["switch_timing"]["std_steps"], 2.0)
@@ -299,6 +373,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("test_steps_mean", summary[0])
             self.assertIn("test_survival_seconds_mean", summary[0])
             self.assertEqual(summary[0]["best_traces_output"], rows[0]["traces_output"])
+            self.assertEqual(summary[0]["best_command"], psm_metrics["command"])
 
             with open(manifest_path, encoding="utf-8") as handle:
                 manifest = json.load(handle)
@@ -844,6 +919,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     metrics = json.load(handle)
                 self.assertIn("run_cartpole_reproduction.py", metrics["command"])
                 self.assertIn("--include-ppo", metrics["command"])
+                self.assertEqual(row["command"], metrics["command"])
                 self.assertEqual(metrics["config"]["eval_test_max_steps"], 20)
                 self.assertEqual(metrics["config"]["eval_interval"], 32)
                 self.assertGreaterEqual(len(metrics["eval_history"]), 1)
