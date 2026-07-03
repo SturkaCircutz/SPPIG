@@ -118,7 +118,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   search infrastructure; the full paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
-  generated abstract-result, LaTeX table, and PSM policy fragments consumed by `essay/project.tex`,
+  generated abstract-result, LaTeX table, PSM policy, and Figure 19 reference fragments consumed by `essay/project.tex`,
   plots the PSM switch-boundary figure from a linear-switch PSM metrics artifact when available, and
   plots PPO training curves when metrics JSON artifacts with `eval_history` are present. Its
   survival plot uses explicit survived-step fields when available and falls back to reward only for
@@ -342,7 +342,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `essay/cartpole_policy_fragment.tex` and plotting
   `programmatic_switch_boundary.png`; it writes an explicit fallback fragment and skips that figure
   when only non-linear/Boolean-tree switch descriptions are available instead of drawing a hard-coded
-  boundary. Generated result fragments now carry an explicit local-diagnostic limitation note and
+  boundary. It also writes `essay/cartpole_figure19_reference_fragment.tex` only from a metrics
+  artifact whose protocol status marks `policy_source = paper_figure19_manual_transcription`, keeping
+  the paper reference policy separate from synthesized local diagnostics. Generated result fragments now carry an explicit local-diagnostic limitation note and
   refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges, reproducible
@@ -751,9 +753,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   when present, falls back to raw result rows otherwise, and writes generated abstract-result and
   LaTeX result-table fragments. It also verifies PSM policy-fragment generation,
   switch-boundary parsing/plotting from synthetic metrics, fallback/skip behavior for non-linear
-  switches, PPO metrics-file discovery, training-curve PNG generation, local-diagnostic limitation
-  notes, checked-in summary/manifest provenance, rejection of explicit non-paper test horizons, and
-  rejection of paper-scale result rows that do not use the paper's 1000 evaluation rollouts.
+  switches, Figure 19 reference-fragment generation only from manual-reference metrics provenance,
+  PPO metrics-file discovery, training-curve PNG generation, local-diagnostic limitation notes,
+  checked-in summary/manifest provenance, rejection of explicit non-paper test horizons, and rejection
+  of paper-scale result rows that do not use the paper's 1000 evaluation rollouts.
 
 ## Completion Criteria Still Required For Full Paper Claim
 

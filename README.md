@@ -367,11 +367,13 @@ sampled search.
 - Generated abstract result fragment: `essay/cartpole_abstract_results.tex`
 - Generated result table fragment: `essay/cartpole_results_table.tex`
 - Generated PSM policy fragment: `essay/cartpole_policy_fragment.tex`
+- Generated Figure 19 reference fragment:
+  `essay/cartpole_figure19_reference_fragment.tex`
 - arXiv source manifest: `essay/00README.json`
 - Figures: `essay/figures/`
 - Figure generation script: `scripts/make_paper_figures.py` (uses
   `cartpole_summary.csv` when present, otherwise raw result rows, and rewrites
-  the abstract result, table, and PSM policy fragments; if PSM metrics with a
+  the abstract result, table, PSM policy, and Figure 19 reference fragments; if PSM metrics with a
   linear switch exist, it writes the switch-boundary figure from that artifact,
   and if PPO metrics JSON files exist, it also writes a training-curve figure;
   survival-reward plots prefer explicit survived-step fields when present;

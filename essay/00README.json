@@ -22,6 +22,11 @@
       "usage": "generated programmatic-policy fragment"
     },
     {
+      "filename": "cartpole_figure19_reference_fragment.tex",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated manual Figure 19 reference-policy fragment"
+    },
+    {
       "filename": "figures/cartpole_success_rates.png",
       "generated_by": "scripts/make_paper_figures.py",
       "usage": "generated local-diagnostic success-rate figure"

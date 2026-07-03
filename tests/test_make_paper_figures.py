@@ -72,6 +72,7 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertIn("cartpole_abstract_results.tex", filenames)
         self.assertIn("cartpole_results_table.tex", filenames)
         self.assertIn("cartpole_policy_fragment.tex", filenames)
+        self.assertIn("cartpole_figure19_reference_fragment.tex", filenames)
         self.assertIn("figures/cartpole_success_rates.png", filenames)
         self.assertIn("figures/cartpole_test_survival_reward.png", filenames)
         self.assertIn("figures/programmatic_switch_boundary.png", filenames)
@@ -393,6 +394,47 @@ class MakePaperFiguresTest(unittest.TestCase):
             any(pattern.endswith(runner_metrics_pattern) for pattern in make_paper_figures.PSM_METRICS_GLOBS)
         )
 
+    def test_default_figure19_metric_globs_include_reference_metrics(self):
+        reference_pattern = os.path.join("artifacts", "results", "metrics", "figure19*.json")
+
+        self.assertTrue(
+            any(pattern.endswith(reference_pattern) for pattern in make_paper_figures.FIGURE19_METRICS_GLOBS)
+        )
+
+    def test_read_figure19_metric_files_requires_reference_provenance(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            good_path = os.path.join(tmpdir, "figure19_reference.json")
+            synthesized_path = os.path.join(tmpdir, "figure19_synthesized.json")
+            with open(good_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {
+                            "policy_source": "paper_figure19_manual_transcription",
+                            "synthesized_by_current_algorithm": False,
+                        },
+                        "program_parameters": {"figure": "SPPIG paper Figure 19"},
+                    },
+                    handle,
+                )
+            with open(synthesized_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {
+                            "policy_source": "fixed_two_mode_program_parameters",
+                            "synthesized_by_current_algorithm": False,
+                        },
+                        "program_parameters": {"figure": "SPPIG paper Figure 19"},
+                    },
+                    handle,
+                )
+
+            metric_files = make_paper_figures.read_figure19_metric_files(
+                [os.path.join(tmpdir, "figure19*.json")]
+            )
+
+        self.assertEqual(len(metric_files), 1)
+        self.assertEqual(metric_files[0]["path"], good_path)
+
     def test_parse_linear_switch_from_policy_description(self):
         parsed = make_paper_figures.parse_linear_switch(
             "m0 action=-10.000; m1 action=10.000; mode=1 if 12.500*theta + 0.750*omega >= 0.250, else mode=0"
@@ -423,6 +465,44 @@ class MakePaperFiguresTest(unittest.TestCase):
 
         self.assertEqual(len(metric_files), 1)
         self.assertEqual(metric_files[0]["path"], good_path)
+
+    def test_read_psm_metric_files_prefers_fixed_program_result_artifact(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            smoke_path = os.path.join(tmpdir, "cartpole_psm_smoke_metrics.json")
+            fixed_path = os.path.join(tmpdir, "psm_seed0_fixed_program_full_horizon.json")
+            with open(smoke_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "policy_description": (
+                            "m0 action=-1.000; m1 action=1.000; "
+                            "mode=1 if -1.000*theta + -0.500*omega >= 0.033, else mode=0"
+                        )
+                    },
+                    handle,
+                )
+            with open(fixed_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "policy_description": (
+                            "m0 action=-10.000; m1 action=10.000; "
+                            "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"
+                        ),
+                        "paper_protocol_status": {
+                            "policy_source": "fixed_two_mode_program_parameters",
+                            "uses_full_test_horizon": True,
+                        },
+                    },
+                    handle,
+                )
+
+            metric_files = make_paper_figures.read_psm_metric_files(
+                [
+                    os.path.join(tmpdir, "cartpole_psm*_metrics.json"),
+                    os.path.join(tmpdir, "psm_seed*.json"),
+                ]
+            )
+
+        self.assertEqual([metric_file["path"] for metric_file in metric_files], [fixed_path, smoke_path])
 
     def test_plot_switch_boundary_uses_psm_metrics(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -469,6 +549,56 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertTrue(wrote)
         self.assertIn("Generated by scripts/make_paper_figures.py", fragment)
         self.assertIn("+10, & 12.5\\theta_t + 0.75\\dot{\\theta}_t \\ge 0.25", fragment)
+
+    def test_write_figure19_reference_fragment_uses_manual_metrics(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "figure19.tex")
+            wrote = make_paper_figures.write_figure19_reference_fragment(
+                [
+                    {
+                        "path": "figure19_reference.json",
+                        "payload": {
+                            "paper_protocol_status": {
+                                "policy_source": "paper_figure19_manual_transcription",
+                                "synthesized_by_current_algorithm": False,
+                            },
+                            "program_parameters": {
+                                "figure": "SPPIG paper Figure 19",
+                                "start": {"m1": "omega >= 0.02", "m2": "omega < 0.02"},
+                                "modes": {
+                                    "m1": {
+                                        "action": -3.3,
+                                        "switch_to_m2": "omega >= 0.46 and theta >= -0.06",
+                                    },
+                                    "m2": {"action": 3.98, "switch_to_m1": "omega < -0.49"},
+                                },
+                            },
+                        },
+                    }
+                ],
+                outpath,
+            )
+            with open(outpath, encoding="utf-8") as handle:
+                fragment = handle.read()
+
+        self.assertTrue(wrote)
+        self.assertIn("Generated by scripts/make_paper_figures.py", fragment)
+        self.assertIn(r"m_0 &\to m_1 \text{ if } \dot{\theta}_t \ge 0.02", fragment)
+        self.assertIn(r"a_{m_1} &= -3.3", fragment)
+        self.assertIn(r"\dot{\theta}_t \ge 0.46 \wedge \theta_t \ge -0.06", fragment)
+        self.assertIn("manual visual transcription", fragment)
+        self.assertIn(r"\texttt{synthesized\_by\_current\_algorithm=false}", fragment)
+        self.assertIn(r"paper\_figure19\_manual\_transcription", fragment)
+
+    def test_write_figure19_reference_fragment_records_missing_reference_metrics(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "figure19.tex")
+            wrote = make_paper_figures.write_figure19_reference_fragment([], outpath)
+            with open(outpath, encoding="utf-8") as handle:
+                fragment = handle.read()
+
+        self.assertFalse(wrote)
+        self.assertIn("no Figure 19 reference metrics artifact was available", fragment)
 
     def test_write_policy_fragment_records_missing_linear_metric(self):
         with tempfile.TemporaryDirectory() as tmpdir:
