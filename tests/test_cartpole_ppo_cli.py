@@ -19,11 +19,16 @@ except Exception:
     HAS_TORCH = False
 
 from cartpole_env import PAPER_EVAL_ROLLOUTS  # noqa: E402
-from ppo_cartpole import PAPER_PPO_TIMESTEPS  # noqa: E402
-import train_cartpole_ppo  # noqa: E402
+if HAS_TORCH:
+    from ppo_cartpole import PAPER_PPO_TIMESTEPS  # noqa: E402
+    import train_cartpole_ppo  # noqa: E402
+else:
+    PAPER_PPO_TIMESTEPS = 10_000_000
+    train_cartpole_ppo = None
 
 
 class CartpolePPOCliTest(unittest.TestCase):
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_cli_defaults_to_paper_timestep_budget_without_running(self):
         captured = {}
 

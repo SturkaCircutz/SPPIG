@@ -526,6 +526,9 @@ paper-scale PPO2 runs.
   opt-in sweep continuation records failed jobs to a failure artifact and manifest counters.
 - `tests/test_cartpole_ppo_sweep.py::test_default_job_failure_stops_sweep` verifies that job failures
   still stop the sweep by default.
+- `tests/test_cartpole_ppo_cli.py` verifies PPO CLI defaults and runtime metrics when PyTorch is
+  installed, and now skips cleanly at collection time when PyTorch is unavailable so non-PPO
+  reproduction tests can still run.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
   the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
   non-paper-scale provenance, including local batch/restart diagnostics, Appendix B.3 one-hot vertex
