@@ -2163,8 +2163,8 @@ class CartpolePaperTest(unittest.TestCase):
             student_log_probability=-3.0,
         )
         schedules = [
-            (left.segment_actions, left.segment_durations, left.segment_time_increments, left),
-            (right.segment_actions, right.segment_durations, right.segment_time_increments, right),
+            (left.segment_actions, left.segment_durations, left.segment_time_increments, (0, 1), left),
+            (right.segment_actions, right.segment_durations, right.segment_time_increments, (1, 1), right),
         ]
 
         sample = _elite_distribution_sample_trace(
@@ -2228,8 +2228,8 @@ class CartpolePaperTest(unittest.TestCase):
 
         sample = _elite_distribution_sample_trace(
             [
-                (left.segment_actions, left.segment_durations, left.segment_time_increments, left),
-                (right.segment_actions, right.segment_durations, right.segment_time_increments, right),
+                (left.segment_actions, left.segment_durations, left.segment_time_increments, (0, 1), left),
+                (right.segment_actions, right.segment_durations, right.segment_time_increments, (1, 1), right),
             ],
             [0.0, 0.0, 0.05, 0.0],
             env.cfg,
@@ -2297,8 +2297,8 @@ class CartpolePaperTest(unittest.TestCase):
 
         sample = _elite_distribution_sample_trace(
             [
-                (left.segment_actions, left.segment_durations, left.segment_time_increments, left),
-                (right.segment_actions, right.segment_durations, right.segment_time_increments, right),
+                (left.segment_actions, left.segment_durations, left.segment_time_increments, (0,), left),
+                (right.segment_actions, right.segment_durations, right.segment_time_increments, (1,), right),
             ],
             [0.0, 0.0, 0.05, 0.0],
             env.cfg,
@@ -2343,8 +2343,8 @@ class CartpolePaperTest(unittest.TestCase):
 
         mean_trace = _elite_distribution_mean_trace(
             [
-                (left.segment_actions, left.segment_durations, left.segment_time_increments, left),
-                (right.segment_actions, right.segment_durations, right.segment_time_increments, right),
+                (left.segment_actions, left.segment_durations, left.segment_time_increments, (0, 1), left),
+                (right.segment_actions, right.segment_durations, right.segment_time_increments, (1, 1), right),
             ],
             [0.0, 0.0, 0.05, 0.0],
             env.cfg,
@@ -2361,6 +2361,38 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(mean_trace.theta_gain, 15.0)
         self.assertEqual(mean_trace.omega_gain, 2.0)
         self.assertIsNotNone(mean_trace.student_log_probability)
+
+    def test_cartpole_teacher_elite_centroid_preserves_recorded_modes(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        left = CartpoleTrace(
+            observations=[[0.0, 0.0, 0.05, 0.0], [0.0, 0.0, 0.04, 0.0]],
+            actions=[10.0, 10.0],
+            mode_labels=[0, 1],
+            reward=2.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_durations=(1, 1),
+            segment_time_increments=(env.cfg.dt, env.cfg.dt),
+            teacher_source="student_sample",
+        )
+
+        centroid = _elite_centroid_trace(
+            [left],
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+        )
+
+        self.assertIsNotNone(centroid)
+        assert centroid is not None
+        self.assertEqual(centroid.segment_actions, (10.0, 10.0))
+        self.assertEqual(centroid.mode_labels, [0, 1])
+        self.assertEqual(
+            [segment.hard_mode for segment in _teacher_schedule_segments(centroid)],
+            [0, 1],
+        )
 
     def test_cartpole_mode_run_lengths_records_sampled_trace_segments(self):
         self.assertEqual(_mode_run_lengths([0, 0, 1, 1, 1, 0]), (2, 3, 1))
@@ -3268,6 +3300,26 @@ class CartpolePaperTest(unittest.TestCase):
             all(len(candidate.segment_actions) == len(candidate.segment_durations) for candidate in candidates)
         )
 
+    def test_cartpole_teacher_duration_refinement_preserves_recorded_modes(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_modes=(0, 1),
+        )
+
+        candidates = _duration_refinement_candidates(trace, initial_state, env.cfg, cfg)
+
+        self.assertTrue(candidates)
+        self.assertTrue(all(candidate.mode_labels[0] == 0 for candidate in candidates))
+        self.assertTrue(all(1 in candidate.mode_labels for candidate in candidates))
+
     def test_cartpole_teacher_time_increment_refinement_preserves_action_and_duration(self):
         env = CartpoleEnv.train_env(seed=0)
         cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=3)
@@ -3293,6 +3345,26 @@ class CartpolePaperTest(unittest.TestCase):
                 for left, right in zip(candidate.segment_time_increments, trace.segment_time_increments)
             )
             self.assertEqual(changed, 1)
+
+    def test_cartpole_teacher_time_increment_refinement_preserves_recorded_modes(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_time_increments=(env.cfg.dt / 2.0, env.cfg.dt / 2.0),
+            segment_modes=(0, 1),
+        )
+
+        candidates = _time_increment_refinement_candidates(trace, initial_state, env.cfg, cfg)
+
+        self.assertTrue(candidates)
+        self.assertTrue(all(candidate.mode_labels == trace.mode_labels for candidate in candidates))
 
     def test_cartpole_teacher_action_refinement_changes_one_action_at_a_time(self):
         env = CartpoleEnv.train_env(seed=0)
@@ -3344,6 +3416,25 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIn((5.0, 10.0), actions)
         self.assertIn((0.0, 5.0), actions)
         self.assertNotIn((0.0, -10.0), actions)
+
+    def test_cartpole_teacher_action_refinement_preserves_recorded_modes(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_modes=(0, 1),
+        )
+
+        candidates = _action_refinement_candidates(trace, initial_state, env.cfg, cfg)
+
+        self.assertTrue(candidates)
+        self.assertTrue(all(candidate.mode_labels == trace.mode_labels for candidate in candidates))
 
     def test_cartpole_teacher_action_refinement_does_not_reduce_objective(self):
         env = CartpoleEnv.train_env(seed=0)

@@ -326,7 +326,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_local_refinement"],
-                "duration_time_increment_continuous_action_and_finite_difference_schedule_search",
+                "mode_preserving_duration_time_increment_continuous_action_and_finite_difference_schedule_search",
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_segment_budget"],
@@ -346,7 +346,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["teacher_search"]["elite_recombination"],
-                "top_rho_segment_action_duration_time_increment_centroid",
+                "top_rho_segment_mode_action_duration_time_increment_centroid",
             )
             self.assertEqual(
                 provenance["teacher_search"]["elite_recombination_candidate_count"],
@@ -470,7 +470,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_local_refinement"],
-                "duration_time_increment_continuous_action_and_finite_difference_schedule_search",
+                "mode_preserving_duration_time_increment_continuous_action_and_finite_difference_schedule_search",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_segment_budget"],
@@ -490,7 +490,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_recombination"],
-                "top_rho_segment_action_duration_time_increment_centroid",
+                "top_rho_segment_mode_action_duration_time_increment_centroid",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_recombination_candidate_count"],

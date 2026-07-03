@@ -207,10 +207,10 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
                 "preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood"
             ),
             "student_sample_local_refinement": (
-                "duration_time_increment_continuous_action_and_finite_difference_schedule_search"
+                "mode_preserving_duration_time_increment_continuous_action_and_finite_difference_schedule_search"
             ),
             "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
-            "elite_recombination": "top_rho_segment_action_duration_time_increment_centroid",
+            "elite_recombination": "top_rho_segment_mode_action_duration_time_increment_centroid",
             "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
             "default_elite_distribution_resamples": TEACHER_ELITE_DISTRIBUTION_RESAMPLES,
             "default_elite_distribution_rounds": TEACHER_ELITE_DISTRIBUTION_ROUNDS,
@@ -1056,8 +1056,11 @@ def _top_teacher_elites(
     )[:top_count]
 
 
+EliteSchedule = Tuple[Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], Tuple[int, ...], CartpoleTrace]
+
+
 def _elite_distribution_mean_trace(
-    schedules: List[Tuple[Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], CartpoleTrace]],
+    schedules: List[EliteSchedule],
     initial_state: Sequence[float],
     env_cfg: CartpoleConfig,
     cfg: CartpoleSynthesisConfig,
@@ -1065,7 +1068,7 @@ def _elite_distribution_mean_trace(
 ) -> CartpoleTrace | None:
     max_segments = min(
         max(1, cfg.segments_per_trace),
-        max(len(actions) for actions, _, _, _ in schedules),
+        max(len(actions) for actions, _, _, _, _ in schedules),
     )
     max_duration = max(1, cfg.segment_steps)
     lower = max(min(cfg.force_values), -env_cfg.force_limit)
@@ -1073,11 +1076,17 @@ def _elite_distribution_mean_trace(
     mean_actions: List[float] = []
     mean_durations: List[int] = []
     mean_increments: List[float] = []
+    mean_modes: List[int] = []
     for index in range(max_segments):
         pairs = [
-            (actions[index], durations[index], increments[index])
-            for actions, durations, increments, _ in schedules
-            if index < len(actions) and index < len(durations) and index < len(increments)
+            (actions[index], durations[index], increments[index], modes[index])
+            for actions, durations, increments, modes, _ in schedules
+            if (
+                index < len(actions)
+                and index < len(durations)
+                and index < len(increments)
+                and index < len(modes)
+            )
         ]
         if not pairs:
             break
@@ -1087,11 +1096,12 @@ def _elite_distribution_mean_trace(
         mean_actions.append(max(lower, min(upper, action_mean)))
         mean_durations.append(min(max_duration, max(1, int(math.floor(duration_mean + 0.5)))))
         mean_increments.append(_clamp_time_increment(env_cfg, increment_mean))
+        mean_modes.append(_majority_mode([pair[3] for pair in pairs]))
     if not mean_actions or not mean_durations or not mean_increments:
         return None
 
-    theta_gain, _ = _mean_and_std([trace.theta_gain for _, _, _, trace in schedules], TEACHER_GAIN_SAMPLE_MIN_STD)
-    omega_gain, _ = _mean_and_std([trace.omega_gain for _, _, _, trace in schedules], TEACHER_GAIN_SAMPLE_MIN_STD)
+    theta_gain, _ = _mean_and_std([trace.theta_gain for _, _, _, _, trace in schedules], TEACHER_GAIN_SAMPLE_MIN_STD)
+    omega_gain, _ = _mean_and_std([trace.omega_gain for _, _, _, _, trace in schedules], TEACHER_GAIN_SAMPLE_MIN_STD)
     mean_trace = _rollout_with_teacher_gains(
         initial_state,
         env_cfg,
@@ -1101,8 +1111,9 @@ def _elite_distribution_mean_trace(
         tuple(mean_durations),
         tuple(mean_actions),
         tuple(mean_increments),
+        tuple(mean_modes),
     )
-    mean_trace.teacher_source = _elite_distribution_mean_source([trace for _, _, _, trace in schedules])
+    mean_trace.teacher_source = _elite_distribution_mean_source([trace for _, _, _, _, trace in schedules])
     mean_trace.student_log_probability = (
         _trace_log_probability(mean_trace, student)
         if student is not None
@@ -1124,7 +1135,7 @@ def _elite_centroid_trace(
 
     max_segments = min(
         max(1, cfg.segments_per_trace),
-        max(len(actions) for actions, _, _, _ in schedules),
+        max(len(actions) for actions, _, _, _, _ in schedules),
     )
     max_duration = max(1, cfg.segment_steps)
     lower = max(min(cfg.force_values), -env_cfg.force_limit)
@@ -1132,11 +1143,17 @@ def _elite_centroid_trace(
     centroid_actions: List[float] = []
     centroid_durations: List[int] = []
     centroid_increments: List[float] = []
+    centroid_modes: List[int] = []
     for index in range(max_segments):
         pairs = [
-            (actions[index], durations[index], increments[index])
-            for actions, durations, increments, _ in schedules
-            if index < len(actions) and index < len(durations) and index < len(increments)
+            (actions[index], durations[index], increments[index], modes[index])
+            for actions, durations, increments, modes, _ in schedules
+            if (
+                index < len(actions)
+                and index < len(durations)
+                and index < len(increments)
+                and index < len(modes)
+            )
         ]
         if not pairs:
             break
@@ -1146,11 +1163,12 @@ def _elite_centroid_trace(
         centroid_actions.append(max(lower, min(upper, action)))
         centroid_durations.append(min(max_duration, max(1, int(math.floor(duration + 0.5)))))
         centroid_increments.append(_clamp_time_increment(env_cfg, increment))
+        centroid_modes.append(_majority_mode([pair[3] for pair in pairs]))
     if not centroid_actions or not centroid_durations or not centroid_increments:
         return None
 
-    theta_gain = sum(trace.theta_gain for _, _, _, trace in schedules) / len(schedules)
-    omega_gain = sum(trace.omega_gain for _, _, _, trace in schedules) / len(schedules)
+    theta_gain = sum(trace.theta_gain for _, _, _, _, trace in schedules) / len(schedules)
+    omega_gain = sum(trace.omega_gain for _, _, _, _, trace in schedules) / len(schedules)
     centroid = _rollout_with_teacher_gains(
         initial_state,
         env_cfg,
@@ -1160,6 +1178,7 @@ def _elite_centroid_trace(
         tuple(centroid_durations),
         tuple(centroid_actions),
         tuple(centroid_increments),
+        tuple(centroid_modes),
     )
     centroid.teacher_source = _elite_centroid_source(elites)
     centroid.student_log_probability = (
@@ -1171,7 +1190,7 @@ def _elite_centroid_trace(
 
 
 def _elite_distribution_sample_trace(
-    schedules: List[Tuple[Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], CartpoleTrace]],
+    schedules: List[EliteSchedule],
     initial_state: Sequence[float],
     env_cfg: CartpoleConfig,
     cfg: CartpoleSynthesisConfig,
@@ -1180,7 +1199,7 @@ def _elite_distribution_sample_trace(
 ) -> CartpoleTrace | None:
     max_segments = min(
         max(1, cfg.segments_per_trace),
-        max(len(actions) for actions, _, _, _ in schedules),
+        max(len(actions) for actions, _, _, _, _ in schedules),
     )
     max_duration = max(1, cfg.segment_steps)
     lower = max(min(cfg.force_values), -env_cfg.force_limit)
@@ -1188,11 +1207,17 @@ def _elite_distribution_sample_trace(
     sampled_actions: List[float] = []
     sampled_durations: List[int] = []
     sampled_increments: List[float] = []
+    sampled_modes: List[int] = []
     for index in range(max_segments):
         pairs = [
-            (actions[index], durations[index], increments[index])
-            for actions, durations, increments, _ in schedules
-            if index < len(actions) and index < len(durations) and index < len(increments)
+            (actions[index], durations[index], increments[index], modes[index])
+            for actions, durations, increments, modes, _ in schedules
+            if (
+                index < len(actions)
+                and index < len(durations)
+                and index < len(increments)
+                and index < len(modes)
+            )
         ]
         if not pairs:
             break
@@ -1205,15 +1230,16 @@ def _elite_distribution_sample_trace(
         sampled_actions.append(max(lower, min(upper, rng.gauss(action_mean, action_std))))
         sampled_durations.append(min(max_duration, max(1, int(math.floor(rng.gauss(duration_mean, duration_std) + 0.5)))))
         sampled_increments.append(_clamp_time_increment(env_cfg, rng.gauss(increment_mean, increment_std)))
+        sampled_modes.append(_majority_mode([pair[3] for pair in pairs]))
     if not sampled_actions or not sampled_durations or not sampled_increments:
         return None
 
     theta_gain_mean, theta_gain_std = _mean_and_std(
-        [trace.theta_gain for _, _, _, trace in schedules],
+        [trace.theta_gain for _, _, _, _, trace in schedules],
         TEACHER_GAIN_SAMPLE_MIN_STD,
     )
     omega_gain_mean, omega_gain_std = _mean_and_std(
-        [trace.omega_gain for _, _, _, trace in schedules],
+        [trace.omega_gain for _, _, _, _, trace in schedules],
         TEACHER_GAIN_SAMPLE_MIN_STD,
     )
     sample = _rollout_with_teacher_gains(
@@ -1225,8 +1251,9 @@ def _elite_distribution_sample_trace(
         tuple(sampled_durations),
         tuple(sampled_actions),
         tuple(sampled_increments),
+        tuple(sampled_modes),
     )
-    sample.teacher_source = _elite_distribution_source([trace for _, _, _, trace in schedules])
+    sample.teacher_source = _elite_distribution_source([trace for _, _, _, _, trace in schedules])
     sample.student_log_probability = (
         _trace_log_probability(sample, student)
         if student is not None
@@ -1238,21 +1265,45 @@ def _elite_distribution_sample_trace(
 def _elite_loop_free_schedules(
     elites: List[CartpoleTrace],
     default_time_increment: float,
-) -> List[Tuple[Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], CartpoleTrace]]:
-    schedules: List[Tuple[Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], CartpoleTrace]] = []
+) -> List[EliteSchedule]:
+    schedules: List[EliteSchedule] = []
     for trace in elites:
         actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
         durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
         increments = trace.segment_time_increments or tuple(default_time_increment for _ in durations)
+        modes = _segment_modes_from_trace(trace, actions, durations)
         if len(increments) < len(durations):
             increments = tuple(increments) + tuple(
                 default_time_increment
                 for _ in range(len(durations) - len(increments))
             )
         increments = tuple(increments[: len(durations)])
-        if actions and durations:
-            schedules.append((actions, durations, increments, trace))
+        if actions and durations and modes:
+            schedules.append((actions, durations, increments, modes, trace))
     return schedules
+
+
+def _segment_modes_from_trace(
+    trace: CartpoleTrace,
+    actions: Tuple[float, ...],
+    durations: Tuple[int, ...],
+) -> Tuple[int, ...]:
+    modes: List[int] = []
+    start = 0
+    source_durations = trace.segment_durations or durations
+    for index, duration in enumerate(source_durations):
+        if trace.mode_labels and start < len(trace.mode_labels):
+            modes.append(int(trace.mode_labels[start]))
+        elif index < len(actions):
+            modes.append(1 if actions[index] > 0.0 else 0)
+        start += max(1, int(duration))
+        if len(modes) >= len(durations):
+            break
+    return tuple(modes)
+
+
+def _majority_mode(modes: List[int]) -> int:
+    return 1 if sum(1 for mode in modes if mode == 1) > len(modes) / 2.0 else 0
 
 
 def _mean_and_std(values: List[float], std_floor: float) -> Tuple[float, float]:
@@ -1570,16 +1621,22 @@ def _refine_loop_free_trace(
 ) -> CartpoleTrace:
     best = trace
     objective_elites = elites or [trace]
-    objective_cache: Dict[Tuple[float, float, Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], float], float] = {}
+    objective_cache: Dict[
+        Tuple[float, float, Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], Tuple[int, ...], float],
+        float,
+    ] = {}
     elite_log_normalizer = _elite_kernel_log_normalizer(student, objective_elites)
 
     def objective(candidate: CartpoleTrace) -> float:
+        actions = tuple(candidate.segment_actions or _mode_run_actions(candidate.actions, candidate.mode_labels))
+        durations = tuple(candidate.segment_durations or _mode_run_lengths(candidate.mode_labels))
         key = (
             candidate.theta_gain,
             candidate.omega_gain,
-            tuple(candidate.segment_actions or _mode_run_actions(candidate.actions, candidate.mode_labels)),
-            tuple(candidate.segment_durations or _mode_run_lengths(candidate.mode_labels)),
+            actions,
+            durations,
             tuple(candidate.segment_time_increments),
+            _segment_modes_from_trace(candidate, actions, durations),
             candidate.reward,
         )
         if key not in objective_cache:
@@ -1691,6 +1748,7 @@ def _duration_refinement_candidates(
     cfg: CartpoleSynthesisConfig,
 ) -> List[CartpoleTrace]:
     durations = trace.segment_durations or tuple(cfg.segment_steps for _ in range(cfg.segments_per_trace))
+    modes = _segment_modes_from_trace(trace, trace.segment_actions, durations)
     candidates: List[CartpoleTrace] = []
     for index, duration in enumerate(durations):
         for delta in TEACHER_DURATION_REFINEMENT_DELTAS:
@@ -1706,6 +1764,7 @@ def _duration_refinement_candidates(
                     tuple(updated),
                     trace.segment_actions or None,
                     trace.segment_time_increments or None,
+                    modes,
                 )
             )
     return candidates
@@ -1719,6 +1778,7 @@ def _time_increment_refinement_candidates(
 ) -> List[CartpoleTrace]:
     durations = trace.segment_durations or tuple(cfg.segment_steps for _ in range(cfg.segments_per_trace))
     increments = trace.segment_time_increments or tuple(env_cfg.dt for _ in durations)
+    modes = _segment_modes_from_trace(trace, trace.segment_actions, durations)
     candidates: List[CartpoleTrace] = []
     for index, increment in enumerate(increments):
         for scale in (
@@ -1739,6 +1799,7 @@ def _time_increment_refinement_candidates(
                     durations,
                     trace.segment_actions or None,
                     tuple(updated_increments),
+                    modes,
                 )
             )
     return candidates
@@ -1753,6 +1814,7 @@ def _action_refinement_candidates(
     actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
     durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
     increments = trace.segment_time_increments or tuple(env_cfg.dt for _ in durations)
+    modes = _segment_modes_from_trace(trace, actions, durations)
     if not actions or not durations:
         return []
 
@@ -1780,6 +1842,7 @@ def _action_refinement_candidates(
                     durations,
                     tuple(updated),
                     increments,
+                    modes,
                 )
             )
     return candidates
@@ -1874,6 +1937,7 @@ def _action_gradient_refinement_candidate(
     actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
     durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
     increments = trace.segment_time_increments or tuple(env_cfg.dt for _ in durations)
+    modes = _segment_modes_from_trace(trace, actions, durations)
     if not actions or not durations:
         return None
 
@@ -1902,6 +1966,7 @@ def _action_gradient_refinement_candidate(
             durations,
             tuple(minus_actions),
             increments,
+            modes,
         )
         plus = _rollout_with_teacher_gains(
             initial_state,
@@ -1912,6 +1977,7 @@ def _action_gradient_refinement_candidate(
             durations,
             tuple(plus_actions),
             increments,
+            modes,
         )
         gradients.append((objective(plus) - objective(minus)) / (plus_action - minus_action))
     norm = math.sqrt(sum(gradient * gradient for gradient in gradients))
@@ -1934,6 +2000,7 @@ def _action_gradient_refinement_candidate(
             durations,
             updated_actions,
             increments,
+            modes,
         )
         if objective(candidate) > current_objective:
             return candidate
@@ -1950,6 +2017,7 @@ def _duration_gradient_refinement_candidate(
     actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
     durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
     increments = trace.segment_time_increments or tuple(env_cfg.dt for _ in durations)
+    modes = _segment_modes_from_trace(trace, actions, durations)
     if not actions or not durations:
         return None
 
@@ -1975,6 +2043,7 @@ def _duration_gradient_refinement_candidate(
             tuple(minus_durations),
             actions,
             increments,
+            modes,
         )
         plus = _rollout_with_teacher_gains(
             initial_state,
@@ -1985,6 +2054,7 @@ def _duration_gradient_refinement_candidate(
             tuple(plus_durations),
             actions,
             increments,
+            modes,
         )
         gradients.append((objective(plus) - objective(minus)) / float(plus_duration - minus_duration))
     norm = math.sqrt(sum(gradient * gradient for gradient in gradients))
@@ -2010,6 +2080,7 @@ def _duration_gradient_refinement_candidate(
             updated_durations,
             actions,
             increments,
+            modes,
         )
         if objective(candidate) > current_objective:
             return candidate
@@ -2026,6 +2097,7 @@ def _time_increment_gradient_refinement_candidate(
     actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
     durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
     increments = trace.segment_time_increments or tuple(env_cfg.dt for _ in durations)
+    modes = _segment_modes_from_trace(trace, actions, durations)
     if not actions or not durations or not increments:
         return None
 
@@ -2051,6 +2123,7 @@ def _time_increment_gradient_refinement_candidate(
             durations,
             actions,
             tuple(minus_increments),
+            modes,
         )
         plus = _rollout_with_teacher_gains(
             initial_state,
@@ -2061,6 +2134,7 @@ def _time_increment_gradient_refinement_candidate(
             durations,
             actions,
             tuple(plus_increments),
+            modes,
         )
         gradients.append((objective(plus) - objective(minus)) / (plus_increment - minus_increment))
     norm = math.sqrt(sum(gradient * gradient for gradient in gradients))
@@ -2083,6 +2157,7 @@ def _time_increment_gradient_refinement_candidate(
             durations,
             actions,
             updated_increments,
+            modes,
         )
         if objective(candidate) > current_objective:
             return candidate
