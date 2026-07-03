@@ -26,6 +26,13 @@ from run_cartpole_ppo_sweep import (  # noqa: E402
     summarize_results,
 )
 
+try:
+    import torch  # noqa: F401
+
+    HAS_TORCH = True
+except Exception:
+    HAS_TORCH = False
+
 
 def survival_fields(train_steps=250.0, test_steps=50.0):
     return {
@@ -152,7 +159,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
             },
         ]
 
-        summary = summarize_hyperparameter_configs(rows)
+        summary = summarize_hyperparameter_configs(rows, selected_seeds=[0, 1])
 
         self.assertEqual(len(summary), 2)
         first = summary[0]
@@ -161,15 +168,95 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(first["jobs_completed"], 2)
         self.assertEqual(first["seed_count"], 2)
         self.assertEqual(first["seeds_completed"], "0,1")
+        self.assertEqual(first["selected_seed_count"], 2)
+        self.assertEqual(first["selected_seeds"], "0,1")
+        self.assertEqual(first["missing_seeds"], "")
+        self.assertTrue(first["complete_seed_coverage"])
         self.assertAlmostEqual(first["train_success_mean"], 0.5)
         self.assertAlmostEqual(first["train_success_std"], 0.7071067811865476)
         self.assertAlmostEqual(first["test_steps_mean"], 60.0)
         self.assertAlmostEqual(first["test_survival_seconds_mean"], 1.2)
         self.assertEqual(first["best_job_id"], 0)
-        self.assertFalse(first["is_best_hyperparam_for_policy"])
+        self.assertTrue(first["is_best_hyperparam_for_policy"])
         self.assertEqual(second["hyperparam_sample"], 1)
         self.assertEqual(second["seed_count"], 1)
-        self.assertTrue(second["is_best_hyperparam_for_policy"])
+        self.assertEqual(second["selected_seed_count"], 2)
+        self.assertEqual(second["missing_seeds"], "1")
+        self.assertFalse(second["complete_seed_coverage"])
+        self.assertFalse(second["is_best_hyperparam_for_policy"])
+
+    def test_summarize_hyperparameter_configs_prefers_complete_seed_coverage(self):
+        rows = [
+            {
+                "job_id": 0,
+                "policy": "mlp",
+                "seed": 0,
+                "hyperparam_mode": "paper-random",
+                "hyperparam_sample": 0,
+                "train_success": 0.4,
+                "test_success": 0.0,
+                "train_reward": 100.0,
+                "test_reward": 50.0,
+                **survival_fields(100.0, 50.0),
+                "selected_timesteps": 64,
+                "minibatches": 1,
+                "learning_rate": 0.001,
+                "entropy_coef": 0.0,
+                "update_epochs": 3,
+                "clip_range": 0.1,
+                "output": "a.pt",
+                "metrics_output": "a.json",
+            },
+            {
+                "job_id": 1,
+                "policy": "mlp",
+                "seed": 1,
+                "hyperparam_mode": "paper-random",
+                "hyperparam_sample": 0,
+                "train_success": 0.4,
+                "test_success": 0.0,
+                "train_reward": 100.0,
+                "test_reward": 50.0,
+                **survival_fields(100.0, 50.0),
+                "selected_timesteps": 64,
+                "minibatches": 1,
+                "learning_rate": 0.001,
+                "entropy_coef": 0.0,
+                "update_epochs": 3,
+                "clip_range": 0.1,
+                "output": "b.pt",
+                "metrics_output": "b.json",
+            },
+            {
+                "job_id": 2,
+                "policy": "mlp",
+                "seed": 0,
+                "hyperparam_mode": "paper-random",
+                "hyperparam_sample": 1,
+                "train_success": 1.0,
+                "test_success": 0.0,
+                "train_reward": 250.0,
+                "test_reward": 50.0,
+                **survival_fields(250.0, 50.0),
+                "selected_timesteps": 64,
+                "minibatches": 4,
+                "learning_rate": 0.0003,
+                "entropy_coef": 0.01,
+                "update_epochs": 8,
+                "clip_range": 0.2,
+                "output": "c.pt",
+                "metrics_output": "c.json",
+            },
+        ]
+
+        summary = summarize_hyperparameter_configs(rows, selected_seeds=[0, 1])
+        by_sample = {row["hyperparam_sample"]: row for row in summary}
+
+        self.assertTrue(by_sample[0]["complete_seed_coverage"])
+        self.assertFalse(by_sample[1]["complete_seed_coverage"])
+        self.assertEqual(by_sample[1]["missing_seeds"], "1")
+        self.assertTrue(by_sample[0]["is_best_hyperparam_for_policy"])
+        self.assertFalse(by_sample[1]["is_best_hyperparam_for_policy"])
 
     def test_build_jobs_uses_paper_minibatch_rule_for_lstm(self):
         original_argv = sys.argv
@@ -515,6 +602,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertFalse(status["full_baseline_policy_set"])
         self.assertFalse(status["paper_scale_plan"])
 
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO sweep execution")
     def test_quick_execution_writes_results_summary_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(
@@ -559,6 +647,10 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertIn("best_test_survival_seconds", summary_rows[0])
         self.assertEqual(len(hyperparam_summary_rows), 1)
         self.assertEqual(hyperparam_summary_rows[0]["hyperparam_sample"], "0")
+        self.assertEqual(hyperparam_summary_rows[0]["selected_seed_count"], "5")
+        self.assertEqual(hyperparam_summary_rows[0]["selected_seeds"], "0,1,2,3,4")
+        self.assertEqual(hyperparam_summary_rows[0]["missing_seeds"], "1,2,3,4")
+        self.assertEqual(hyperparam_summary_rows[0]["complete_seed_coverage"], "False")
         self.assertIn("test_steps_mean", hyperparam_summary_rows[0])
         self.assertIn("test_survival_seconds_mean", hyperparam_summary_rows[0])
         self.assertEqual(hyperparam_summary_rows[0]["is_best_hyperparam_for_policy"], "True")
@@ -573,6 +665,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertIn("summary", manifest["artifacts"])
         self.assertIn("hyperparameter_summary", manifest["artifacts"])
 
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO sweep execution")
     def test_resume_skips_matching_completed_jobs_with_artifacts(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(
@@ -621,6 +714,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(len(hyperparam_summary), 2)
         self.assertEqual(rows[0], first_rows[0])
         self.assertEqual(rows[1]["job_id"], "1")
+        self.assertEqual(hyperparam_summary[0]["complete_seed_coverage"], "False")
+        self.assertEqual(hyperparam_summary[0]["missing_seeds"], "1,2,3,4")
         self.assertTrue(manifest["resume"])
         self.assertEqual(manifest["jobs_planned"], 2)
         self.assertEqual(manifest["jobs_completed"], 2)

@@ -324,8 +324,9 @@ stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`,
 `cartpole_ppo_sweep_summary.csv`, and `cartpole_ppo_sweep_hyperparam_summary.csv`;
 the first summary selects the best completed single job per policy by train
 success, then train reward, while the hyperparameter summary aggregates completed
-seeds for each sampled config and marks the best completed config per policy by
-mean training success. Executed sweep rows and summaries also include explicit
+seeds for each sampled config, records selected-seed coverage and missing seeds,
+and marks the best config per policy only after preferring complete selected-seed
+coverage before mean training success. Executed sweep rows and summaries also include explicit
 mean survived steps and survival seconds for train/test evaluation. The manifest records
 both the jobs actually planned and the uncapped job count for the selected
 search space, the concrete sampled hyperparameter configs, plus

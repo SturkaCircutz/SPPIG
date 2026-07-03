@@ -92,6 +92,10 @@ HYPERPARAMETER_SUMMARY_FIELDS = [
     "jobs_completed",
     "seed_count",
     "seeds_completed",
+    "selected_seed_count",
+    "selected_seeds",
+    "missing_seeds",
+    "complete_seed_coverage",
     "train_success_mean",
     "train_success_std",
     "test_success_mean",
@@ -454,8 +458,9 @@ def _best_completed_job(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     )
 
 
-def _hyperparameter_summary_rank(row: Dict[str, Any]) -> tuple[float, float, int, int]:
+def _hyperparameter_summary_rank(row: Dict[str, Any]) -> tuple[int, float, float, int, int]:
     return (
+        int(bool(row["complete_seed_coverage"])),
         float(row["train_success_mean"]),
         float(row["train_reward_mean"]),
         int(row["seed_count"]),
@@ -463,9 +468,13 @@ def _hyperparameter_summary_rank(row: Dict[str, Any]) -> tuple[float, float, int
     )
 
 
-def summarize_hyperparameter_configs(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def summarize_hyperparameter_configs(
+    results: List[Dict[str, Any]],
+    selected_seeds: List[int] | None = None,
+) -> List[Dict[str, Any]]:
     grouped: Dict[tuple[str, str, int], List[Dict[str, Any]]] = {}
     order: List[tuple[str, str, int]] = []
+    expected_seeds = sorted(set(selected_seeds)) if selected_seeds is not None else None
     for row in results:
         key = (
             str(row["policy"]),
@@ -483,6 +492,8 @@ def summarize_hyperparameter_configs(results: List[Dict[str, Any]]) -> List[Dict
         first = min(group, key=lambda row: int(row["job_id"]))
         best = _best_completed_job(group)
         seeds = sorted({int(row["seed"]) for row in group})
+        seed_target = expected_seeds if expected_seeds is not None else seeds
+        missing_seeds = [seed for seed in seed_target if seed not in seeds]
         train_success = [float(row["train_success"]) for row in group]
         test_success = [float(row["test_success"]) for row in group]
         train_reward = [float(row["train_reward"]) for row in group]
@@ -499,6 +510,10 @@ def summarize_hyperparameter_configs(results: List[Dict[str, Any]]) -> List[Dict
                 "jobs_completed": len(group),
                 "seed_count": len(seeds),
                 "seeds_completed": ",".join(str(seed) for seed in seeds),
+                "selected_seed_count": len(seed_target),
+                "selected_seeds": ",".join(str(seed) for seed in seed_target),
+                "missing_seeds": ",".join(str(seed) for seed in missing_seeds),
+                "complete_seed_coverage": bool(seed_target) and not missing_seeds,
                 "train_success_mean": _mean(train_success),
                 "train_success_std": _sample_std(train_success),
                 "test_success_mean": _mean(test_success),
@@ -574,6 +589,9 @@ def resumable_result_for_job(
 
 
 def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
+    if job["policy"] not in {"mlp", "lstm"}:
+        raise ValueError(f"unknown policy_type: {job['policy']}")
+
     from ppo_cartpole import PPOConfig, train_ppo_cartpole
 
     cfg = PPOConfig(
@@ -678,8 +696,9 @@ def write_manifest(
         },
         "selection_rule": "single completed job per policy: max train_success, then train_reward, then lower job_id",
         "hyperparameter_selection_rule": (
-            "per policy and hyperparameter sample: aggregate completed seeds by mean train_success, "
-            "then mean train_reward, then completed seed count, then lower sample id"
+            "per policy and hyperparameter sample: prefer configs with complete selected-seed coverage, "
+            "then aggregate completed seeds by mean train_success, then mean train_reward, "
+            "then completed seed count, then lower sample id"
         ),
     }
     args.outdir.mkdir(parents=True, exist_ok=True)
@@ -775,14 +794,14 @@ def main() -> None:
                 write_csv(
                     args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv",
                     HYPERPARAMETER_SUMMARY_FIELDS,
-                    summarize_hyperparameter_configs(results),
+                    summarize_hyperparameter_configs(results, _parse_ints(args.seeds)),
                 )
         write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
         write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
         write_csv(
             args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv",
             HYPERPARAMETER_SUMMARY_FIELDS,
-            summarize_hyperparameter_configs(results),
+            summarize_hyperparameter_configs(results, _parse_ints(args.seeds)),
         )
     if failures:
         write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)

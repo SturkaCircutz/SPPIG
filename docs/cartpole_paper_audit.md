@@ -343,8 +343,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   match the uncapped selected search space. The runner writes a best-config summary for completed
   jobs, can resume interrupted sweeps by reusing only matching completed rows with existing checkpoint
   and metrics artifacts, writes a per-hyperparameter summary that marks the best completed sampled
-  config per policy by mean training success, records survived-step/survival-second columns for
-  executed rows and summaries, and can optionally record failed jobs while continuing a long sweep.
+  config per policy after preferring complete selected-seed coverage, records selected-seed coverage
+  and missing seeds for each sampled hyperparameter config, records survived-step/survival-second
+  columns for executed rows and summaries, and can optionally record failed jobs while continuing a long sweep.
 
 ## Verified PPO Invariants
 
@@ -403,6 +404,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_ppo_sweep.py::test_summarize_hyperparameter_configs_aggregates_completed_seeds`
   verifies that completed PPO sweep rows are grouped by policy and sampled hyperparameter config,
   with seed-level mean/std metrics and a best-config flag.
+- `tests/test_cartpole_ppo_sweep.py::test_summarize_hyperparameter_configs_prefers_complete_seed_coverage`
+  verifies that a partial-seed hyperparameter result is not selected over a complete selected-seed
+  result only because its incomplete mean training score is higher.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_identifies_full_dry_run_plan`
   verifies that the manifest status flags distinguish a full paper-scale dry-run plan from completed
   paper-scale execution.
