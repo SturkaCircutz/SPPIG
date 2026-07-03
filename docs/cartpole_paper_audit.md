@@ -729,7 +729,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that the bounded CEM-style step fits a reusable schedule distribution over teacher gains,
   per-segment actions, durations, time increments, and majority modes.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_schedule_weights_follow_student_objective`
-  and `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_weights_top_rho_statistics_by_objective`
+  `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_weights_top_rho_statistics_by_objective`,
+  and `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_sample_trace_uses_student_weights`
   verify that the bounded CEM-style distribution refit weights current top-rho traces by the same
   teacher objective used for selection when a probabilistic student is available.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_schedule_weights_are_uniform_without_student`

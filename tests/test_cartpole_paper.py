@@ -3757,6 +3757,58 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(weighted_distribution.theta_gain.mean, uniform_distribution.theta_gain.mean)
         self.assertEqual(weighted_distribution.segments[0].mode, 1)
 
+    def test_cartpole_teacher_elite_distribution_sample_trace_uses_student_weights(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            segment_steps=4,
+            segments_per_trace=1,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        low = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(0.0,),
+            segment_durations=(1,),
+            segment_time_increments=(env.cfg.dt,),
+        )
+        high = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=2.0,
+            theta_gain=10.0,
+            omega_gain=2.0,
+            segment_actions=(10.0,),
+            segment_durations=(1,),
+            segment_time_increments=(env.cfg.dt,),
+        )
+        schedules = _elite_loop_free_schedules([low, high], env.cfg.dt)
+        student = _bootstrap_probabilistic_student(cfg)
+        captured_action_means: list[float] = []
+
+        def fake_sample(distribution, *_args):
+            captured_action_means.append(distribution.segments[0].action.mean)
+            return high
+
+        with patch("cartpole_synthesis._elite_distribution_sample_trace_from_distribution", side_effect=fake_sample):
+            sample = _elite_distribution_sample_trace(
+                schedules,
+                [0.0, 0.0, 0.05, 0.0],
+                env.cfg,
+                cfg,
+                random.Random(0),
+                student,
+            )
+
+        self.assertIs(sample, high)
+        self.assertEqual(len(captured_action_means), 1)
+        self.assertGreater(captured_action_means[0], 5.0)
+
     def test_cartpole_teacher_elite_distribution_rounds_refresh_elites(self):
         env = CartpoleEnv.train_env(seed=0)
         cfg = CartpoleSynthesisConfig(

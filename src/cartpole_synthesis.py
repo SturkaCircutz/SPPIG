@@ -1391,7 +1391,7 @@ def _elite_distribution_sample_trace(
     rng: random.Random,
     student: ProbabilisticCartpoleStudent | None = None,
 ) -> CartpoleTrace | None:
-    distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg)
+    distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg, student)
     if distribution is None:
         return None
     return _elite_distribution_sample_trace_from_distribution(
