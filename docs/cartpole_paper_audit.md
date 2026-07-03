@@ -205,6 +205,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - PPO now stores raw sampled continuous actions for log-probability calculations and clips only the
   action sent to the environment.
 - Vectorized rollouts were added so short local runs get more PPO updates with stable batch shapes.
+- PPO now caps the final vectorized rollout so a configured timestep budget is not exceeded when
+  `total_timesteps` is not divisible by `rollout_steps * num_envs`.
 - LSTM PPO now preserves recurrent state across rollout chunks and replays the same initial state
   during the update.
 - Test evaluation defaults now use `15000` steps, matching the paper's 300-second test horizon.
@@ -322,6 +324,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_ppo_rollout_truncates_at_paper_training_horizon` verifies that
   rollout collection treats the 5-second/250-step training horizon as terminal and resets the vector
   environment counter.
+- `tests/test_cartpole_paper.py::test_ppo_training_does_not_exceed_configured_timestep_budget` and
+  `tests/test_cartpole_paper.py::test_ppo_metrics_record_partial_final_rollout` verify exact
+  configured timestep accounting for vectorized PPO rollouts, including a one-transition final update.
 - `tests/test_cartpole_paper.py::test_cartpole_reward_matches_openai_classic_control_step_reward`
   verifies that the local CartPole environment returns the paper's standard classic-control reward:
   `+1` per survived simulator step, with no terminal bonus or penalty.

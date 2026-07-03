@@ -315,12 +315,39 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
     eval_history: List[Dict[str, object]] = []
     update_history: List[Dict[str, object]] = []
     while timesteps < cfg.total_timesteps:
-        rollout = _collect_rollout(envs, model, obs, episode_steps, lstm_state, cfg)
+        remaining_steps = cfg.total_timesteps - timesteps
+        active_env_count = min(cfg.num_envs, remaining_steps)
+        rollout_steps = min(cfg.rollout_steps, max(1, remaining_steps // active_env_count))
+        rollout_lstm_state = None
+        if lstm_state is not None:
+            rollout_lstm_state = (
+                lstm_state[0][:, :active_env_count, :].contiguous(),
+                lstm_state[1][:, :active_env_count, :].contiguous(),
+            )
+        rollout = _collect_rollout(
+            envs[:active_env_count],
+            model,
+            obs[:active_env_count],
+            episode_steps[:active_env_count],
+            rollout_lstm_state,
+            cfg,
+            rollout_steps,
+        )
         # Rollouts are fixed-size chunks of longer vectorized environment
         # streams; carry boundary state forward instead of forcing resets.
-        obs = rollout.next_obs
-        episode_steps = rollout.next_episode_steps
-        lstm_state = rollout.next_lstm_state
+        obs = obs.clone()
+        obs[:active_env_count] = rollout.next_obs
+        episode_steps = episode_steps.clone()
+        episode_steps[:active_env_count] = rollout.next_episode_steps
+        if lstm_state is not None and rollout.next_lstm_state is not None:
+            h, c = lstm_state
+            h = h.clone()
+            c = c.clone()
+            h[:, :active_env_count, :] = rollout.next_lstm_state[0]
+            c[:, :active_env_count, :] = rollout.next_lstm_state[1]
+            lstm_state = (h.detach(), c.detach())
+        else:
+            lstm_state = rollout.next_lstm_state
         timesteps += rollout.rewards.numel()
         update_history.append(rollout_to_update_metrics(rollout, len(update_history) + 1, timesteps))
         if cfg.policy_type == "mlp":
@@ -418,6 +445,7 @@ def _collect_rollout(
     episode_steps: torch.Tensor,
     lstm_state: Optional[Tuple[torch.Tensor, torch.Tensor]],
     cfg: PPOConfig,
+    rollout_steps: Optional[int] = None,
 ) -> Rollout:
     observations: List[torch.Tensor] = []
     actions: List[torch.Tensor] = []
@@ -437,7 +465,8 @@ def _collect_rollout(
     else:
         state = None
         initial_lstm_state = None
-    for _ in range(cfg.rollout_steps):
+    steps_to_collect = cfg.rollout_steps if rollout_steps is None else max(1, rollout_steps)
+    for _ in range(steps_to_collect):
         obs_tensor = obs
         observations.append(obs_tensor)
         with torch.no_grad():
@@ -563,7 +592,7 @@ def _update_mlp(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Rol
     advantages = rollout.advantages.reshape(-1)
     batch_size = len(advantages)
     minibatch_size = max(1, batch_size // cfg.minibatches)
-    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+    advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
     for _ in range(cfg.update_epochs):
         # MLP policies can shuffle individual transitions because there is no
         # recurrent context to preserve.
@@ -584,7 +613,9 @@ def _update_mlp(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Rol
 
 
 def _update_lstm(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Rollout, cfg: PPOConfig) -> None:
-    advantages = (rollout.advantages - rollout.advantages.mean()) / (rollout.advantages.std() + 1e-8)
+    advantages = (rollout.advantages - rollout.advantages.mean()) / (
+        rollout.advantages.std(unbiased=False) + 1e-8
+    )
     obs = rollout.observations
     actions = rollout.actions
     old_log_probs = rollout.log_probs

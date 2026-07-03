@@ -3496,6 +3496,51 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreaterEqual(result.train_success_rate, 0.0)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_training_does_not_exceed_configured_timestep_budget(self):
+        _, result = train_ppo_cartpole(
+            PPOConfig(
+                policy_type="mlp",
+                total_timesteps=10,
+                rollout_steps=4,
+                update_epochs=1,
+                minibatches=1,
+                hidden_size=8,
+                num_envs=3,
+                seed=7,
+            )
+        )
+
+        self.assertEqual(result.timesteps, 10)
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_metrics_record_partial_final_rollout(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "ppo_metrics.json")
+            _, result = train_ppo_cartpole(
+                PPOConfig(
+                    policy_type="mlp",
+                    total_timesteps=10,
+                    rollout_steps=4,
+                    update_epochs=1,
+                    minibatches=1,
+                    hidden_size=8,
+                    num_envs=3,
+                    seed=8,
+                    eval_interval=0,
+                    eval_rollouts=1,
+                    eval_test_max_steps=20,
+                    metrics_output=metrics_path,
+                )
+            )
+
+            with open(metrics_path, encoding="utf-8") as handle:
+                metrics = json.load(handle)
+
+        self.assertEqual(result.timesteps, 10)
+        self.assertEqual([row["rollout_steps"] for row in metrics["update_history"]], [9, 1])
+        self.assertEqual([row["timesteps"] for row in metrics["update_history"]], [9, 10])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_writes_eval_history_metrics_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "ppo_metrics.json")
