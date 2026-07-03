@@ -86,6 +86,25 @@ def row_has_result_artifact(row: dict[str, str]) -> bool:
     return bool(path and os.path.exists(artifact_path(path)))
 
 
+def psm_trace_payload_is_complete(trace_payload: object) -> bool:
+    if not isinstance(trace_payload, dict):
+        return False
+    traces = trace_payload.get("traces")
+    trace_history = trace_payload.get("trace_history")
+    if (
+        not isinstance(traces, list)
+        or trace_payload.get("num_traces") != len(traces)
+        or not isinstance(trace_history, list)
+        or not trace_history
+    ):
+        return False
+    for entry in trace_history:
+        history_traces = entry.get("traces") if isinstance(entry, dict) else None
+        if not isinstance(history_traces, list) or entry.get("num_traces") != len(history_traces):
+            return False
+    return trace_history[-1].get("traces") == traces
+
+
 def require_result_artifacts(rows: list[dict[str, str]]) -> None:
     missing = [row["policy"] for row in rows if not row_has_result_artifact(row)]
     if missing:
@@ -145,12 +164,7 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
             continue
         with open(artifact_path(trace_path), encoding="utf-8") as handle:
             trace_payload = json.load(handle)
-        trace_history = trace_payload.get("trace_history")
-        if (
-            not isinstance(trace_history, list)
-            or not trace_history
-            or trace_history[-1].get("traces") != trace_payload.get("traces")
-        ):
+        if not psm_trace_payload_is_complete(trace_payload):
             incomplete_psm_trace_artifacts.append(row["policy"])
     if missing_psm_trace_artifacts:
         raise FileNotFoundError(

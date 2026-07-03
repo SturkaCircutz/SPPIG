@@ -356,7 +356,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   artifact whose protocol status marks `policy_source = paper_figure19_manual_transcription`, keeping
   the paper reference policy separate from synthesized local diagnostics. Generated result fragments now carry an explicit local-diagnostic limitation note and
   refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon. Synthesized
-  PSM rows are also rejected unless their full-trace sidecar contains per-iteration trace history.
+  PSM rows are also rejected unless their full-trace sidecar contains per-iteration trace history
+  whose recorded trace counts match the serialized trace lists.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges, reproducible
   `paper-random` hyperparameter sample IDs, the concrete sampled hyperparameter configs, and the
@@ -759,7 +760,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
   a per-seed PSM metrics JSON artifact whose final per-iteration evaluation matches the top-level PSM
   row. It also verifies the PSM full-trace sidecar path, per-iteration trace-history serialization,
-  and the manifest-level paper-protocol status block.
+  trace-count consistency, and the manifest-level paper-protocol status block.
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale`
   verifies that a five-seed, full-horizon, 1000-rollout fixed-config runner setup is still not tagged
   as paper-scale because it lacks PPO hyperparameter search, full probabilistic adaptive teaching, and
