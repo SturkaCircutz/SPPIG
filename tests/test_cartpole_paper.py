@@ -67,6 +67,7 @@ from cartpole_synthesis import (
     _elite_distribution_sample_traces,
     _elite_distribution_mean_trace,
     _fit_elite_schedule_distribution,
+    _fit_student_switch,
     _elite_loop_free_schedules,
     _refresh_teacher_elites_with_distribution,
     _duration_gradient_refinement_candidate,
@@ -99,6 +100,7 @@ from cartpole_synthesis import (
     _segments_from_traces,
     _switch_structure_rescore_candidates,
     _switch_structure_cost,
+    _switch_structure_objective_cache_key,
     _switch_selector_transition_probabilities,
     _switch_transition_and_stay_probabilities,
     _switch_transition_probability_at_duration,
@@ -1424,6 +1426,106 @@ class CartpolePaperTest(unittest.TestCase):
             wrong_feature_cost[1],
             _switch_cost(wrong_feature, examples, segments_by_trace, responsibilities)[1],
         )
+
+    def test_cartpole_switch_structure_cost_uses_pair_posteriors_for_distribution_fit(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.3, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.4, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(0.5, 0.5), (0.5, 0.5)]
+        examples = [
+            (observation, trace_segment.hard_mode)
+            for trace_segments in segments_by_trace
+            for trace_segment in trace_segments
+            for observation in trace_segment.observations
+        ]
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+        transition_pair = [(0.0, 1.0, 0.0, 0.0)]
+        stay_pair = [(1.0, 0.0, 0.0, 0.0)]
+
+        transition_cost = _switch_structure_cost(
+            switch,
+            examples,
+            segments_by_trace,
+            responsibilities,
+            transition_pair,
+        )
+        stay_cost = _switch_structure_cost(
+            switch,
+            examples,
+            segments_by_trace,
+            responsibilities,
+            stay_pair,
+        )
+        marginal_cost = _switch_structure_cost(switch, examples, segments_by_trace, responsibilities)
+
+        self.assertNotEqual(transition_cost[3], stay_cost[3])
+        self.assertNotEqual(stay_cost[3], marginal_cost[3])
+
+    def test_cartpole_switch_structure_cache_key_includes_pair_posteriors(self):
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+        transition_pair = [(0.0, 1.0, 0.0, 0.0)]
+        stay_pair = [(1.0, 0.0, 0.0, 0.0)]
+
+        self.assertNotEqual(
+            _switch_structure_objective_cache_key(switch, transition_pair),
+            _switch_structure_objective_cache_key(switch, stay_pair),
+        )
+        self.assertNotIn(
+            "pair_posteriors",
+            _switch_structure_objective_cache_key(switch, None),
+        )
+
+    def test_cartpole_switch_structure_cache_key_uses_exact_switch_parameters(self):
+        first = Depth2Switch(1.0, 0.0, 0.0004)
+        second = Depth2Switch(1.0, 0.0, 0.00049)
+
+        self.assertEqual(first.describe(), second.describe())
+        self.assertNotEqual(
+            _switch_structure_objective_cache_key(first, None),
+            _switch_structure_objective_cache_key(second, None),
+        )
+
+    def test_cartpole_switch_structure_rescoring_receives_pair_posteriors_from_m_step(self):
+        segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.1, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.1, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        trace = CartpoleTrace(
+            observations=segment.observations + next_segment.observations,
+            actions=[-10.0, 10.0],
+            mode_labels=[0, 1],
+            reward=2.0,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(0.5, 0.5), (0.5, 0.5)]
+        pair_posteriors = [(0.0, 1.0, 0.0, 0.0)]
+
+        with patch("cartpole_synthesis._learn_depth2_switch", return_value=Depth2Switch(1.0, 0.0, 0.0)) as learn:
+            _fit_student_switch([trace], segments_by_trace, responsibilities, pair_posteriors)
+
+        self.assertEqual(learn.call_args.args[3], pair_posteriors)
 
     def test_cartpole_switch_structure_cost_uses_soft_responsibility_label_loss(self):
         segment = CartpoleSegment(

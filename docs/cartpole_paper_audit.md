@@ -156,9 +156,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   responsibilities now start from action likelihoods and then alternate bounded forward-backward
   switch-timing refinements with action-distribution and switch-parameter refits inside each
   configured EM iteration. The switch refit now uses adjacent pair posteriors from the
-  forward-backward pass for transition/stay timing weights instead of only products of independent
-  segment marginals, but the learner still approximates switch timing and does not implement the full
-  probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
+  forward-backward pass for transition/stay timing weights, including during candidate switch-structure
+  rescoring, instead of only products of independent segment marginals, but the learner still
+  approximates switch timing and does not implement the full probabilistic adaptive-teaching objective
+  from the paper. The switch grammar now includes decision
   stumps plus depth-2 conjunction and disjunction candidates over observation inequalities via a
   bounded greedy leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
   against an elapsed-time-normalized Eq. (12)-style timing likelihood with a bounded grid initializer plus coordinate
@@ -904,9 +905,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   learner performs a depth-2 greedy Boolean-tree expansion, stores Gaussian threshold distributions
   for each selected switch predicate, can sample deterministic policies from those distributions, and
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
-  no-transition-before-duration terms. It now performs bounded local mean/std grid, coordinate
-  refinement, and finite-difference gradient polishing with backtracking line search, but does not yet
-  solve the full continuous Eq. (12) optimization for switch-condition means and standard deviations.
+  no-transition-before-duration terms. It now performs candidate switch-structure rescoring using
+  forward-backward adjacent pair posteriors, bounded local mean/std grid, coordinate refinement, and
+  finite-difference gradient polishing with backtracking line search, but does not yet solve the full
+  continuous Eq. (12) optimization for switch-condition means and standard deviations.
   For depth-2 Boolean trees,
   switch-enable probability now uses an
   exact union of axis-aligned threshold rectangles for conjunctions and disjunctions under

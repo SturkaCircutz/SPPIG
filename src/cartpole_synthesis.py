@@ -157,6 +157,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "finite_difference_gradient_log_std_step": SWITCH_PARAMETER_GRADIENT_LOG_STD_STEP,
             "finite_difference_gradient_epsilon_fraction": SWITCH_PARAMETER_GRADIENT_EPS_FRACTION,
             "finite_difference_gradient_backtracking_factors": list(SWITCH_PARAMETER_GRADIENT_BACKTRACK_FACTORS),
+            "structure_rescore_uses_pair_posteriors": True,
         },
         "switch_search": {
             "boolean_tree_depth": 2,
@@ -2891,7 +2892,12 @@ def _fit_student_switch(
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
     # Refit both switch structure and Gaussian threshold parameters after each
     # responsibility update so action and timing evidence stay in sync.
-    switch = _learn_depth2_switch(traces, segments_by_trace, responsibilities)
+    switch = _learn_depth2_switch(
+        traces,
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+    )
     distributions = _fit_switch_parameter_distributions(
         switch,
         segments_by_trace,
@@ -4156,6 +4162,7 @@ def _learn_depth2_switch(
     traces: List[CartpoleTrace],
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> SwitchProgram:
     examples: List[Tuple[Observation, int]] = []
     for trace in traces:
@@ -4169,6 +4176,7 @@ def _learn_depth2_switch(
         examples,
         segments_by_trace=segments_by_trace,
         responsibilities=responsibilities,
+        switch_pair_responsibilities=switch_pair_responsibilities,
         cache=objective_cache,
         example_cache=example_cache,
     )
@@ -4187,6 +4195,7 @@ def _learn_depth2_switch(
         examples,
         segments_by_trace=segments_by_trace,
         responsibilities=responsibilities,
+        switch_pair_responsibilities=switch_pair_responsibilities,
         cache=objective_cache,
         example_cache=example_cache,
     ):
@@ -4197,6 +4206,7 @@ def _learn_depth2_switch(
                     examples,
                     segments_by_trace=segments_by_trace,
                     responsibilities=responsibilities,
+                    switch_pair_responsibilities=switch_pair_responsibilities,
                     cache=objective_cache,
                     example_cache=example_cache,
                 ),
@@ -4264,6 +4274,7 @@ def _greedy_boolean_tree_candidates(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
     cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
 ) -> List[BooleanTreeSwitch]:
@@ -4276,6 +4287,7 @@ def _greedy_boolean_tree_candidates(
         examples,
         segments_by_trace,
         responsibilities,
+        switch_pair_responsibilities,
         cache=cache,
         example_cache=switch_examples,
     )
@@ -4324,6 +4336,7 @@ def _greedy_boolean_tree_candidates(
                 examples,
                 segments_by_trace,
                 responsibilities,
+                switch_pair_responsibilities,
                 cache=cache,
                 example_cache=switch_examples,
             )
@@ -4340,6 +4353,7 @@ def _greedy_boolean_tree_candidates(
                 examples,
                 segments_by_trace,
                 responsibilities,
+                switch_pair_responsibilities,
                 cache=cache,
                 example_cache=switch_examples,
             )
@@ -4352,6 +4366,7 @@ def _best_switch(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None,
     responsibilities: List[Tuple[float, float]] | None,
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
     cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
 ) -> BooleanTreeSwitch:
@@ -4363,6 +4378,7 @@ def _best_switch(
             examples,
             segments_by_trace,
             responsibilities,
+            switch_pair_responsibilities=switch_pair_responsibilities,
             cache=objective_cache,
             example_cache=switch_examples,
         ),
@@ -4371,6 +4387,7 @@ def _best_switch(
             examples,
             segments_by_trace,
             responsibilities,
+            switch_pair_responsibilities=switch_pair_responsibilities,
             cache=objective_cache,
             example_cache=switch_examples,
         ),
@@ -4382,6 +4399,7 @@ def _switch_structure_rescore_candidates(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None,
     responsibilities: List[Tuple[float, float]] | None,
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
     cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
 ) -> List[SwitchProgram]:
@@ -4403,6 +4421,7 @@ def _switch_structure_rescore_candidates(
             examples,
             segments_by_trace,
             responsibilities,
+            switch_pair_responsibilities=switch_pair_responsibilities,
             cache=objective_cache,
             example_cache=switch_examples,
         ),
@@ -4415,12 +4434,13 @@ def _switch_structure_cost(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
     cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
 ) -> Tuple[float, float, int, str]:
     if segments_by_trace is None or responsibilities is None:
         return _switch_cost(switch, examples, segments_by_trace, responsibilities, example_cache)
-    cache_key = switch.describe()
+    cache_key = _switch_structure_objective_cache_key(switch, switch_pair_responsibilities)
     if cache is not None and cache_key in cache:
         return cache[cache_key]
 
@@ -4431,6 +4451,7 @@ def _switch_structure_cost(
         examples,
         segments_by_trace,
         responsibilities,
+        switch_pair_responsibilities,
         example_cache=example_cache,
     )
     result = (label_loss, timing_loss, complexity, description)
@@ -4439,14 +4460,30 @@ def _switch_structure_cost(
     return result
 
 
+def _switch_structure_objective_cache_key(
+    switch: SwitchProgram,
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None,
+) -> str:
+    key = _switch_cache_key(switch)
+    if switch_pair_responsibilities is None:
+        return key
+    return f"{key}|pair_posteriors={tuple(switch_pair_responsibilities)!r}"
+
+
 def _fit_switch_structure_objective(
     switch: SwitchProgram,
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
 ) -> Tuple[SwitchProgram, float, float, int, str]:
-    distributions = _fit_switch_parameter_distributions(switch, segments_by_trace, responsibilities)
+    distributions = _fit_switch_parameter_distributions(
+        switch,
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+    )
     refined_switch = _switch_with_distribution_means(switch, distributions)
     label_loss = _switch_structure_label_loss(
         refined_switch,
@@ -4460,6 +4497,7 @@ def _fit_switch_structure_objective(
         distributions,
         segments_by_trace,
         responsibilities,
+        switch_pair_responsibilities=switch_pair_responsibilities,
     )
     complexity = refined_switch.node_count if isinstance(refined_switch, BooleanTreeSwitch) else 1
     return refined_switch, label_loss, timing_loss, complexity, refined_switch.describe()

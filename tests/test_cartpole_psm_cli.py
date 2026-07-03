@@ -190,6 +190,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["switch_timing"]["finite_difference_gradient_backtracking_factors"],
             [1.0, 0.5, 0.25, 0.125],
         )
+        self.assertTrue(provenance["switch_timing"]["structure_rescore_uses_pair_posteriors"])
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
         self.assertTrue(provenance["switch_search"]["greedy_second_predicate_expands_switch_and_no_switch_leaves"])
         self.assertEqual(provenance["switch_search"]["greedy_second_predicate_prefilter_top_k"], 32)
