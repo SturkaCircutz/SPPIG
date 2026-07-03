@@ -2189,6 +2189,51 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
         self.assertEqual(sum(trace.segment_durations), len(trace.actions))
 
+    def test_cartpole_projected_student_sample_recomputes_student_log_probability(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        raw_trace = CartpoleTrace(
+            observations=[],
+            actions=[-10.0, 10.0, -10.0, 10.0, -10.0],
+            mode_labels=[0, 1, 0, 1, 0],
+            reward=5.0,
+            segment_actions=(-10.0, 10.0, -10.0, 10.0, -10.0),
+            segment_durations=(1, 1, 1, 1, 1),
+            segment_time_increments=tuple(env.cfg.dt for _ in range(5)),
+            teacher_source="student_sample",
+            student_log_probability=123.0,
+        )
+
+        projected = _limit_loop_free_trace_segment_budget(
+            raw_trace,
+            [0.0, 0.0, -0.1, -1.0],
+            env.cfg,
+            cfg,
+            student,
+        )
+
+        self.assertLessEqual(len(projected.segment_actions), cfg.segments_per_trace)
+        self.assertIsNotNone(projected.student_log_probability)
+        self.assertNotEqual(projected.student_log_probability, raw_trace.student_log_probability)
+        self.assertAlmostEqual(
+            projected.student_log_probability,
+            _trace_log_probability(projected, student),
+        )
+        self.assertLess(
+            _teacher_objective(projected, student, cfg),
+            cfg.teacher_reward_lambda * projected.reward + 123.0,
+        )
+
     def test_cartpole_teacher_bootstrap_uses_probabilistic_student_prior(self):
         cfg = CartpoleSynthesisConfig(
             candidate_rollouts=4,

@@ -168,7 +168,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `{"bootstrap_elite_centroid": 3, "bootstrap_student_sample": 1}`, final-iteration source
   counts `{"student_sample": 4}`, and policy
   `m0 action=-0.872; m1 action=4.093; mode=1 if o[1] >= 0.026 or o[0] <= -0.115, else mode=0`; it also records
-  `student_sample_segment_budget = chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace`.
+  `student_sample_segment_budget =
+  chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
   gap, not a paper-level reproduction result.
 - Direct-Opt diagnostic command:
@@ -238,7 +239,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   elite action/duration/time-increment schedules plus configurable bounded rounds of fitted
   per-segment distribution mean candidates and samples, refreshing the top-rho set
   between rounds and using the refreshed top-rho set for the refinement objective, and records
-  selected trace sources plus sampled-trace log probabilities in metrics JSON. This moves
+  selected trace sources plus sampled-trace log probabilities in metrics JSON. When a sampled
+  closed-loop rollout is projected back into the loop-free teacher budget, its student likelihood is
+  recomputed on the projected trace before teacher-objective ranking. This moves
   toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood

@@ -195,7 +195,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             },
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
-            "student_sample_segment_budget": "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
+            "student_sample_segment_budget": (
+                "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood"
+            ),
             "student_sample_local_refinement": (
                 "duration_time_increment_continuous_action_and_finite_difference_schedule_search"
             ),
@@ -1373,7 +1375,7 @@ def _rollout_student_sampled_trace(
         segment_time_increments=tuple(env_cfg.dt for _ in segment_durations),
         teacher_source="student_sample",
     )
-    trace = _limit_loop_free_trace_segment_budget(trace, initial_state, env_cfg, cfg)
+    trace = _limit_loop_free_trace_segment_budget(trace, initial_state, env_cfg, cfg, student)
     trace.student_log_probability = _trace_log_probability(trace, student)
     return trace
 
@@ -1383,6 +1385,7 @@ def _limit_loop_free_trace_segment_budget(
     initial_state: Sequence[float],
     env_cfg: CartpoleConfig,
     cfg: CartpoleSynthesisConfig,
+    student: ProbabilisticCartpoleStudent | None = None,
 ) -> CartpoleTrace:
     actions = trace.segment_actions or _mode_run_actions(trace.actions, trace.mode_labels)
     durations = trace.segment_durations or _mode_run_lengths(trace.mode_labels)
@@ -1413,6 +1416,11 @@ def _limit_loop_free_trace_segment_budget(
         tuple(env_cfg.dt for _ in projected_durations),
     )
     limited.teacher_source = trace.teacher_source
+    limited.student_log_probability = (
+        _trace_log_probability(limited, student)
+        if student is not None
+        else trace.student_log_probability
+    )
     return limited
 
 
