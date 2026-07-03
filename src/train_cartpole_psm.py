@@ -206,6 +206,31 @@ def summarize_student_fit_step(step: CartpoleStudentFitStep):
             for distribution in step.switch_parameter_distributions
         ],
         "responsibility_summary": summarize_responsibilities(step.responsibilities),
+        "switch_pair_responsibility_summary": summarize_switch_pair_responsibilities(
+            step.switch_pair_responsibilities
+        ),
+    }
+
+
+def summarize_switch_pair_responsibilities(pair_responsibilities):
+    if not pair_responsibilities:
+        return {
+            "pairs": 0,
+            "transition_mass": 0.0,
+            "stay_mass": 0.0,
+            "off_to_on_mass": 0.0,
+            "on_to_off_mass": 0.0,
+        }
+    stay_off = sum(pair[0] for pair in pair_responsibilities)
+    off_to_on = sum(pair[1] for pair in pair_responsibilities)
+    on_to_off = sum(pair[2] for pair in pair_responsibilities)
+    stay_on = sum(pair[3] for pair in pair_responsibilities)
+    return {
+        "pairs": len(pair_responsibilities),
+        "transition_mass": off_to_on + on_to_off,
+        "stay_mass": stay_off + stay_on,
+        "off_to_on_mass": off_to_on,
+        "on_to_off_mass": on_to_off,
     }
 
 

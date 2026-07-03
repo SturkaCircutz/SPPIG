@@ -733,6 +733,7 @@ class CartpoleStudentFitStep:
     responsibility_pass: int
     phase: str
     responsibilities: List[Tuple[float, float]]
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]]
     action_distributions: Dict[int, GaussianScalar]
     switch: SwitchProgram
     switch_parameter_distributions: List[GaussianScalar]
@@ -803,6 +804,7 @@ def fit_probabilistic_cartpole_student_with_history(
         1: GaussianScalar(right_default, 1.0),
     }
     responsibilities: List[Tuple[float, float]] = []
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] = []
     switch: SwitchProgram | None = None
     switch_parameter_distributions: List[GaussianScalar] = []
     fit_history: List[CartpoleStudentFitStep] = []
@@ -821,6 +823,7 @@ def fit_probabilistic_cartpole_student_with_history(
                 traces,
                 segments_by_trace,
                 responsibilities,
+                switch_pair_responsibilities or None,
             )
             fit_history.append(
                 _student_fit_step(
@@ -828,6 +831,7 @@ def fit_probabilistic_cartpole_student_with_history(
                     0,
                     "action_likelihood_initialization" if iteration == 0 else "action_likelihood_refit",
                     responsibilities,
+                    switch_pair_responsibilities,
                     action_distributions,
                     switch,
                     switch_parameter_distributions,
@@ -839,7 +843,7 @@ def fit_probabilistic_cartpole_student_with_history(
         if switch is None:
             raise RuntimeError("Cartpole student EM requires an initialized switch")
         for pass_index in range(cfg.student_switch_responsibility_passes):
-            responsibilities = _refine_responsibilities_with_switch_timing(
+            responsibilities, switch_pair_responsibilities = _refine_responsibilities_and_switch_pairs_with_timing(
                 segments_by_trace,
                 action_distributions,
                 switch,
@@ -855,6 +859,7 @@ def fit_probabilistic_cartpole_student_with_history(
                 traces,
                 segments_by_trace,
                 responsibilities,
+                switch_pair_responsibilities or None,
             )
             fit_history.append(
                 _student_fit_step(
@@ -862,6 +867,7 @@ def fit_probabilistic_cartpole_student_with_history(
                     pass_index + 1,
                     "switch_timing_refinement",
                     responsibilities,
+                    switch_pair_responsibilities,
                     action_distributions,
                     switch,
                     switch_parameter_distributions,
@@ -873,6 +879,7 @@ def fit_probabilistic_cartpole_student_with_history(
             traces,
             segments_by_trace,
             responsibilities,
+            switch_pair_responsibilities or None,
         )
 
     threshold_distribution = (
@@ -895,6 +902,7 @@ def _student_fit_step(
     responsibility_pass: int,
     phase: str,
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]],
     action_distributions: Dict[int, GaussianScalar],
     switch: SwitchProgram,
     switch_parameter_distributions: List[GaussianScalar],
@@ -904,6 +912,7 @@ def _student_fit_step(
         responsibility_pass=responsibility_pass,
         phase=phase,
         responsibilities=list(responsibilities),
+        switch_pair_responsibilities=list(switch_pair_responsibilities),
         action_distributions=dict(action_distributions),
         switch=switch,
         switch_parameter_distributions=list(switch_parameter_distributions),
@@ -2813,6 +2822,7 @@ def _fit_student_switch(
     traces: List[CartpoleTrace],
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
     # Refit both switch structure and Gaussian threshold parameters after each
     # responsibility update so action and timing evidence stay in sync.
@@ -2821,6 +2831,7 @@ def _fit_student_switch(
         switch,
         segments_by_trace,
         responsibilities,
+        switch_pair_responsibilities,
     )
     return _switch_with_distribution_means(switch, distributions), distributions
 
@@ -2831,7 +2842,23 @@ def _refine_responsibilities_with_switch_timing(
     switch: SwitchProgram,
     switch_parameter_distributions: List[GaussianScalar],
 ) -> List[Tuple[float, float]]:
+    responsibilities, _ = _refine_responsibilities_and_switch_pairs_with_timing(
+        segments_by_trace,
+        action_distributions,
+        switch,
+        switch_parameter_distributions,
+    )
+    return responsibilities
+
+
+def _refine_responsibilities_and_switch_pairs_with_timing(
+    segments_by_trace: List[List[CartpoleSegment]],
+    action_distributions: Dict[int, GaussianScalar],
+    switch: SwitchProgram,
+    switch_parameter_distributions: List[GaussianScalar],
+) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float, float, float]]]:
     responsibilities: List[Tuple[float, float]] = []
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] = []
     for trace_segments in segments_by_trace:
         if not trace_segments:
             continue
@@ -2910,7 +2937,24 @@ def _refine_responsibilities_with_switch_timing(
             weights = [math.exp(value) for value in posterior_logs]
             total = sum(weights)
             responsibilities.append((weights[0] / total, weights[1] / total))
-    return responsibilities
+        for index, pair in enumerate(pair_potentials):
+            logs = [
+                forward[index][0] + pair[0][0] + emissions[index + 1][0] + backward[index + 1][0] - norm,
+                forward[index][0] + pair[0][1] + emissions[index + 1][1] + backward[index + 1][1] - norm,
+                forward[index][1] + pair[1][0] + emissions[index + 1][0] + backward[index + 1][0] - norm,
+                forward[index][1] + pair[1][1] + emissions[index + 1][1] + backward[index + 1][1] - norm,
+            ]
+            weights = [math.exp(value) for value in logs]
+            total = sum(weights)
+            switch_pair_responsibilities.append(
+                (
+                    weights[0] / total,
+                    weights[1] / total,
+                    weights[2] / total,
+                    weights[3] / total,
+                )
+            )
+    return responsibilities, switch_pair_responsibilities
 
 
 def _switch_responsibility_pair_log_potentials(
@@ -2975,19 +3019,31 @@ def _fit_switch_parameter_distributions(
     switch: SwitchProgram,
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> List[GaussianScalar]:
     predicates = _switch_predicates(switch)
     if not predicates:
-        distribution = _legacy_switch_threshold_distribution(switch, segments_by_trace, responsibilities)
+        distribution = _legacy_switch_threshold_distribution(
+            switch,
+            segments_by_trace,
+            responsibilities,
+            switch_pair_responsibilities,
+        )
         _, refined = _refine_switch_parameter_distributions(
             switch,
             [distribution],
             segments_by_trace,
             responsibilities,
+            switch_pair_responsibilities,
         )
         return refined
     distributions = [
-        _predicate_threshold_distribution(predicate, segments_by_trace, responsibilities)
+        _predicate_threshold_distribution(
+            predicate,
+            segments_by_trace,
+            responsibilities,
+            switch_pair_responsibilities,
+        )
         for predicate in predicates
     ]
     _, refined = _refine_switch_parameter_distributions(
@@ -2995,6 +3051,7 @@ def _fit_switch_parameter_distributions(
         distributions,
         segments_by_trace,
         responsibilities,
+        switch_pair_responsibilities,
     )
     return refined
 
@@ -3028,12 +3085,14 @@ def _refine_switch_distribution_means(
     distributions: List[GaussianScalar],
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
     return _refine_switch_parameter_distributions(
         switch,
         distributions,
         segments_by_trace,
         responsibilities,
+        switch_pair_responsibilities,
     )
 
 
@@ -3042,6 +3101,7 @@ def _refine_switch_parameter_distributions(
     distributions: List[GaussianScalar],
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
     if not distributions or not segments_by_trace:
         return switch, distributions
@@ -3053,7 +3113,11 @@ def _refine_switch_parameter_distributions(
         for observation in segment.observations
     ]
     example_cache = _switch_example_cache(examples)
-    timing_pairs = _switch_timing_pairs(segments_by_trace, responsibilities)
+    timing_pairs = _switch_timing_pairs(
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+    )
     scalar_timing_pairs = _scalar_switch_timing_pairs(switch, timing_pairs)
     label_loss_cache: Dict[str, float] = {}
 
@@ -3446,10 +3510,15 @@ def _switch_distribution_timing_loss(
     responsibilities: List[Tuple[float, float]],
     timing_pairs: List[_SwitchTimingPair] | None = None,
     scalar_timing_pairs: List[_ScalarSwitchTimingPair] | None = None,
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> float:
     if scalar_timing_pairs is not None and len(distributions) == 1:
         return _scalar_switch_distribution_timing_loss(distributions[0], scalar_timing_pairs)
-    pairs = timing_pairs if timing_pairs is not None else _switch_timing_pairs(segments_by_trace, responsibilities)
+    pairs = (
+        timing_pairs
+        if timing_pairs is not None
+        else _switch_timing_pairs(segments_by_trace, responsibilities, switch_pair_responsibilities)
+    )
     loss = 0.0
     for pair in pairs:
         off_to_on, on_to_off, stay_off, stay_on = _switch_selector_transition_probabilities_for_pair(
@@ -3469,6 +3538,7 @@ def _switch_distribution_timing_loss(
 def _switch_timing_pairs(
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> List[_SwitchTimingPair]:
     flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
     if len(flat_segments) != len(responsibilities):
@@ -3476,7 +3546,11 @@ def _switch_timing_pairs(
     responsibility_by_id = {
         id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
     }
+    pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
+    if switch_pair_responsibilities is not None and len(switch_pair_responsibilities) != pair_count:
+        raise ValueError("switch pair responsibility count must match adjacent segment pairs")
     pairs: List[_SwitchTimingPair] = []
+    pair_index = 0
     for trace_segments in segments_by_trace:
         for index, current_segment in enumerate(trace_segments):
             current_resp = responsibility_by_id.get(id(current_segment), (0.5, 0.5))
@@ -3485,6 +3559,16 @@ def _switch_timing_pairs(
                 if index + 1 < len(trace_segments)
                 else None
             )
+            if next_resp is not None and switch_pair_responsibilities is not None:
+                stay_off_weight, off_to_on_weight, on_to_off_weight, stay_on_weight = switch_pair_responsibilities[
+                    pair_index
+                ]
+                pair_index += 1
+            else:
+                stay_off_weight = current_resp[0] * next_resp[0] if next_resp is not None else current_resp[0]
+                off_to_on_weight = current_resp[0] * next_resp[1] if next_resp is not None else 0.0
+                on_to_off_weight = current_resp[1] * next_resp[0] if next_resp is not None else 0.0
+                stay_on_weight = current_resp[1] * next_resp[1] if next_resp is not None else current_resp[1]
             observations = tuple(current_segment.observations)
             pairs.append(
                 _SwitchTimingPair(
@@ -3493,10 +3577,10 @@ def _switch_timing_pairs(
                     duration=current_segment.duration,
                     timing_duration=current_segment.switch_timing_duration,
                     timing_step_scale=current_segment.timing_step_scale,
-                    off_to_on_weight=current_resp[0] * next_resp[1] if next_resp is not None else 0.0,
-                    on_to_off_weight=current_resp[1] * next_resp[0] if next_resp is not None else 0.0,
-                    stay_off_weight=current_resp[0] * next_resp[0] if next_resp is not None else current_resp[0],
-                    stay_on_weight=current_resp[1] * next_resp[1] if next_resp is not None else current_resp[1],
+                    off_to_on_weight=off_to_on_weight,
+                    on_to_off_weight=on_to_off_weight,
+                    stay_off_weight=stay_off_weight,
+                    stay_on_weight=stay_on_weight,
                 )
             )
     return pairs
@@ -3808,23 +3892,26 @@ def _legacy_switch_threshold_distribution(
     switch: SwitchProgram,
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> GaussianScalar:
     flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
     if not flat_segments:
         return GaussianScalar(_switch_default_threshold(switch), 1.0)
 
-    responsibility_by_id = {
-        id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
-    }
+    pair_transition_weights = _switch_pair_transition_weights(
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+    )
     threshold_samples: List[float] = []
     threshold_weights: List[float] = []
+    pair_index = 0
     for trace_segments in segments_by_trace:
         for current_segment, next_segment in zip(trace_segments, trace_segments[1:]):
-            current_resp = responsibility_by_id.get(id(current_segment), (0.5, 0.5))
-            next_resp = responsibility_by_id.get(id(next_segment), (0.5, 0.5))
             # Boundary samples matter most when neighboring segments are likely
             # to belong to different latent modes.
-            transition_weight = current_resp[0] * next_resp[1] + current_resp[1] * next_resp[0]
+            transition_weight = pair_transition_weights[pair_index]
+            pair_index += 1
             threshold_samples.append(_switch_margin(switch, current_segment.end_observation))
             threshold_weights.append(transition_weight)
 
@@ -3837,25 +3924,58 @@ def _predicate_threshold_distribution(
     predicate: ObservationPredicate,
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> GaussianScalar:
     flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
-    responsibility_by_id = {
-        id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
-    }
+    if not flat_segments:
+        return GaussianScalar(predicate.threshold, 1.0)
+    pair_transition_weights = _switch_pair_transition_weights(
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+    )
     values: List[float] = []
     weights: List[float] = []
+    pair_index = 0
     for trace_segments in segments_by_trace:
         for current_segment, next_segment in zip(trace_segments, trace_segments[1:]):
-            current_resp = responsibility_by_id.get(id(current_segment), (0.5, 0.5))
-            next_resp = responsibility_by_id.get(id(next_segment), (0.5, 0.5))
             # Predicate thresholds are estimated from segment endpoints, where
             # the trace actually crosses from one inferred primitive to another.
-            transition_weight = current_resp[0] * next_resp[1] + current_resp[1] * next_resp[0]
+            transition_weight = pair_transition_weights[pair_index]
+            pair_index += 1
             values.append(current_segment.end_observation[predicate.feature_index])
             weights.append(transition_weight)
     if not values:
         return GaussianScalar(predicate.threshold, 1.0)
     return _weighted_gaussian(values, weights, predicate.threshold)
+
+
+def _switch_pair_transition_weights(
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
+) -> List[float]:
+    pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
+    if switch_pair_responsibilities is not None:
+        if len(switch_pair_responsibilities) != pair_count:
+            raise ValueError("switch pair responsibility count must match adjacent segment pairs")
+        return [
+            off_to_on + on_to_off
+            for _, off_to_on, on_to_off, _ in switch_pair_responsibilities
+        ]
+    flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
+    if len(flat_segments) != len(responsibilities):
+        raise ValueError("responsibility count must match switch timing segments")
+    responsibility_by_id = {
+        id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
+    }
+    transition_weights: List[float] = []
+    for trace_segments in segments_by_trace:
+        for current_segment, next_segment in zip(trace_segments, trace_segments[1:]):
+            current_resp = responsibility_by_id.get(id(current_segment), (0.5, 0.5))
+            next_resp = responsibility_by_id.get(id(next_segment), (0.5, 0.5))
+            transition_weights.append(current_resp[0] * next_resp[1] + current_resp[1] * next_resp[0])
+    return transition_weights
 
 
 def _switch_predicates(switch: SwitchProgram) -> List[ObservationPredicate]:

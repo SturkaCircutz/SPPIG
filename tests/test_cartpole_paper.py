@@ -78,6 +78,7 @@ from cartpole_synthesis import (
     _optimize_loop_free_trace,
     _loop_free_trace_distance,
     _prefilter_switches_by_label_mistakes,
+    _refine_responsibilities_and_switch_pairs_with_timing,
     _refine_responsibilities_with_switch_timing,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
@@ -505,6 +506,108 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(timing_refined.responsibilities[1][1], action_only.responsibilities[1][1])
         self.assertLess(timing_refined.action_distributions[0].std, action_only.action_distributions[0].std)
 
+    def test_cartpole_switch_timing_e_step_returns_adjacent_pair_posteriors(self):
+        trace_segments = [
+            CartpoleSegment(
+                observations=[
+                    [0.0, 0.0, -0.2, 0.0],
+                    [0.0, 0.0, -0.1, 0.0],
+                    [0.0, 0.0, 0.2, 0.0],
+                ],
+                action_parameter=-10.0,
+                duration=3,
+                hard_mode=0,
+            ),
+            CartpoleSegment(
+                observations=[[0.0, 0.0, 0.3, 0.0]],
+                action_parameter=10.0,
+                duration=1,
+                hard_mode=1,
+            ),
+        ]
+        action_distributions = {
+            0: GaussianScalar(-10.0, 0.1),
+            1: GaussianScalar(10.0, 0.1),
+        }
+
+        responsibilities, pair_responsibilities = _refine_responsibilities_and_switch_pairs_with_timing(
+            [trace_segments],
+            action_distributions,
+            Depth2Switch(1.0, 0.0, 0.0),
+            [GaussianScalar(0.0, 0.001)],
+        )
+
+        self.assertEqual(len(responsibilities), 2)
+        self.assertEqual(len(pair_responsibilities), 1)
+        stay_off, off_to_on, on_to_off, stay_on = pair_responsibilities[0]
+        self.assertAlmostEqual(stay_off + off_to_on + on_to_off + stay_on, 1.0)
+        self.assertGreater(off_to_on, 0.99)
+        self.assertLess(on_to_off, 0.01)
+
+    def test_cartpole_switch_pair_posteriors_are_not_marginal_products(self):
+        trace_segments = [
+            CartpoleSegment(
+                observations=[[0.0, 0.0, -0.2, 0.0]],
+                action_parameter=0.0,
+                duration=1,
+                hard_mode=0,
+            ),
+            CartpoleSegment(
+                observations=[[0.0, 0.0, -0.1, 0.0]],
+                action_parameter=0.0,
+                duration=1,
+                hard_mode=0,
+            ),
+            CartpoleSegment(
+                observations=[[0.0, 0.0, 0.2, 0.0]],
+                action_parameter=0.0,
+                duration=1,
+                hard_mode=1,
+            ),
+        ]
+        action_distributions = {
+            0: GaussianScalar(0.0, 10.0),
+            1: GaussianScalar(0.0, 10.0),
+        }
+
+        responsibilities, pair_responsibilities = _refine_responsibilities_and_switch_pairs_with_timing(
+            [trace_segments],
+            action_distributions,
+            Depth2Switch(1.0, 0.0, 0.0),
+            [GaussianScalar(0.0, 0.1)],
+        )
+        _, off_to_on, _, _ = pair_responsibilities[1]
+
+        self.assertNotAlmostEqual(
+            off_to_on,
+            responsibilities[1][0] * responsibilities[2][1],
+        )
+
+    def test_cartpole_switch_timing_pairs_use_forward_backward_pair_posteriors(self):
+        segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.2, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.2, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+
+        pair = _switch_timing_pairs(
+            [[segment, next_segment]],
+            [(0.9, 0.1), (0.2, 0.8)],
+            [(0.05, 0.90, 0.03, 0.02)],
+        )[0]
+
+        self.assertAlmostEqual(pair.stay_off_weight, 0.05)
+        self.assertAlmostEqual(pair.off_to_on_weight, 0.90)
+        self.assertAlmostEqual(pair.on_to_off_weight, 0.03)
+        self.assertAlmostEqual(pair.stay_on_weight, 0.02)
+
     def test_cartpole_student_alternates_switch_responsibility_passes_per_em_iteration(self):
         trace = CartpoleTrace(
             observations=[
@@ -526,8 +629,8 @@ class CartpolePaperTest(unittest.TestCase):
         )
 
         with patch(
-            "cartpole_synthesis._refine_responsibilities_with_switch_timing",
-            wraps=_refine_responsibilities_with_switch_timing,
+            "cartpole_synthesis._refine_responsibilities_and_switch_pairs_with_timing",
+            wraps=_refine_responsibilities_and_switch_pairs_with_timing,
         ) as refine_mock:
             student = fit_probabilistic_cartpole_student([trace], cfg)
 
@@ -570,6 +673,8 @@ class CartpolePaperTest(unittest.TestCase):
         )
         self.assertEqual(fit_history[-1].responsibilities, student.responsibilities)
         self.assertEqual(fit_history[-1].switch.describe(), student.switch.describe())
+        self.assertFalse(fit_history[0].switch_pair_responsibilities)
+        self.assertEqual(len(fit_history[-1].switch_pair_responsibilities), 1)
         for step in fit_history:
             self.assertEqual(len(step.responsibilities), 2)
             self.assertEqual(set(step.action_distributions), {0, 1})

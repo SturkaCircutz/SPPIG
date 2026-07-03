@@ -448,6 +448,14 @@ class CartpolePSMCliTest(unittest.TestCase):
             self.assertIn("action_distributions", entry["student_fit_history"][-1])
             self.assertIn("switch_parameter_distributions", entry["student_fit_history"][-1])
             self.assertIn("mean_entropy_nats", entry["student_fit_history"][-1]["responsibility_summary"])
+            pair_summary = entry["student_fit_history"][-1]["switch_pair_responsibility_summary"]
+            self.assertIn("transition_mass", pair_summary)
+            self.assertIn("stay_mass", pair_summary)
+            self.assertGreaterEqual(pair_summary["pairs"], 0)
+            self.assertAlmostEqual(
+                pair_summary["transition_mass"] + pair_summary["stay_mass"],
+                pair_summary["pairs"],
+            )
             self.assertIn("evaluation", entry)
             self.assertIn("success_rate", entry["evaluation"]["train"])
             self.assertIn("reward_mean", entry["evaluation"]["train"])

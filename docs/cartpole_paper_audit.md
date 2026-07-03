@@ -77,7 +77,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   the recorded reward-plus-student-likelihood objective components when available. Each
   `synthesis_history` row also records `student_fit_history`, a compact trace of the inner
   action-likelihood initialization and switch-timing responsibility/refit passes that produced that
-  iteration's probabilistic student.
+  iteration's probabilistic student, including compact adjacent switch-pair posterior mass used by
+  the bounded switch M-step.
 - `src/cartpole_env.py::cartpole_space_spec`: records CartPole action/observation space provenance.
   The paper-derived claims are limited to Figure 8's `#A = 1` and `#O = 4` plus Appendix B.4's
   statement that RL baselines used the same action spaces, observation spaces, and set of initial
@@ -151,8 +152,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   fits Gaussian distributions over constant action parameters and latent mode responsibilities. Those
   responsibilities now start from action likelihoods and then alternate bounded forward-backward
   switch-timing refinements with action-distribution and switch-parameter refits inside each
-  configured EM iteration, but the learner still approximates switch timing and does not implement
-  the full probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
+  configured EM iteration. The switch refit now uses adjacent pair posteriors from the
+  forward-backward pass for transition/stay timing weights instead of only products of independent
+  segment marginals, but the learner still approximates switch timing and does not implement the full
+  probabilistic adaptive-teaching objective from the paper. The switch grammar now includes decision
   stumps plus depth-2 conjunction and disjunction candidates over observation inequalities via a
   bounded greedy leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
   against an elapsed-time-normalized Eq. (12)-style timing likelihood with a bounded grid initializer plus coordinate
@@ -320,11 +323,13 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The Cartpole student now initializes latent segment responsibilities from action likelihoods, then
   alternates the configured bounded forward-backward switch-timing passes with action-distribution and
   switch-parameter refits inside each EM iteration. The first segment of each trace is conditioned on
-  the executable PSM's fixed initial mode `0` instead of a uniform latent start prior. The E-step pair potentials and bounded switch
-  timing loss use directed 0-to-1 and 1-to-0 selector events plus final-segment stay evidence, closer
-  to the transition and no-transition terms in Eq. (12). This moves Eq. (10) closer to the paper by
-  using both `H` and `G` evidence throughout the bounded EM loop, but it remains a local bounded
-  approximation rather than the paper's full EM/M-step optimizer.
+  the executable PSM's fixed initial mode `0` instead of a uniform latent start prior. The E-step pair
+  potentials and bounded switch timing loss use directed 0-to-1 and 1-to-0 selector events plus
+  final-segment stay evidence, and the switch M-step now consumes adjacent pair posteriors from the
+  same forward-backward pass rather than reconstructing transition weights only from independent
+  segment marginals. This moves Eq. (10) and Eq. (12) closer to the paper by using both `H` and `G`
+  evidence throughout the bounded EM loop, but it remains a local bounded approximation rather than
+  the paper's full EM/M-step optimizer.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
   corresponding constant-action sequence, duration-only refinement preserves that action sequence
@@ -561,9 +566,16 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_student_alternates_switch_responsibility_passes_per_em_iteration`
   verifies that switch-timing responsibility refinements are applied inside each configured EM
   iteration rather than only after action-only EM has completed.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_timing_e_step_returns_adjacent_pair_posteriors`,
+  `tests/test_cartpole_paper.py::test_cartpole_switch_pair_posteriors_are_not_marginal_products`, and
+  `tests/test_cartpole_paper.py::test_cartpole_switch_timing_pairs_use_forward_backward_pair_posteriors`
+  verify that the bounded E-step exposes adjacent switch-pair posteriors and that switch timing
+  losses use those joint transition/stay weights instead of reducing them to independent products of
+  neighboring segment marginals.
 - `tests/test_cartpole_paper.py::test_cartpole_student_fit_history_records_inner_em_steps`
   verifies that the fitted Cartpole student can expose a compact per-EM/pass training history whose
-  final row matches the returned probabilistic student.
+  final row matches the returned probabilistic student, including switch-pair posterior provenance
+  after switch-timing responsibility passes.
 - `tests/test_cartpole_paper.py::test_cartpole_synthesis_can_return_probabilistic_student` verifies
   that synthesis can expose the fitted probabilistic student directly for metrics/provenance without
   re-fitting from traces.

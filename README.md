@@ -130,7 +130,8 @@ trace summaries, fitted student parameters, local switch-fit diagnostics,
 per-EM student-fit history, adaptive-teacher objective summaries, and train/test
 evaluation under the requested diagnostic rollout budget. Each
 `student_fit_history` row records the EM iteration, responsibility pass, fit
-phase, Gaussian action/switch summaries, and latent responsibility confidence.
+phase, Gaussian action/switch summaries, latent responsibility confidence, and
+compact adjacent switch-pair posterior mass for the bounded switch M-step.
 The top-level
 `adaptive_teacher_summary` array records each iteration's teacher sampling
 model, teacher-source counts, reward summary, recorded student log-probability
@@ -213,7 +214,9 @@ events, and it treats loop-free segment durations as elapsed time normalized to
 the CartPole simulator step, so per-segment time increments influence the
 bounded Eq. (12)-style timing terms. The final observed segment contributes
 no-transition-before-duration evidence, so a trace that stays in a mode is not
-scored only by its action likelihood.
+scored only by its action likelihood. Switch refits consume adjacent pair
+posteriors from this forward-backward pass for transition/stay weights instead
+of reconstructing them only from independent neighboring segment marginals.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
 plus bounded coordinate steps and finite-difference gradient polishing with backtracking. Depth-2 Boolean-tree
