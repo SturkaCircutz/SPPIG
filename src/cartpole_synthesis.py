@@ -7,6 +7,7 @@ import random
 from typing import Dict, List, Sequence, Tuple
 
 from cartpole_env import (
+    PAPER_EVAL_ROLLOUTS,
     CartpoleConfig,
     CartpoleEnv,
     Observation,
@@ -222,6 +223,7 @@ def cartpole_synthesis_protocol_status(
     paper_test_env = CartpoleEnv.test_env()
     loop_free_training_horizon = cfg.segment_steps * cfg.segments_per_trace
     paper_test_horizon = test_max_steps == paper_test_env.cfg.max_steps if test_max_steps is not None else False
+    paper_eval_rollouts = eval_rollouts == PAPER_EVAL_ROLLOUTS if eval_rollouts is not None else False
     return {
         "cartpole_environment": True,
         "train_horizon_seconds": paper_train_env.cfg.horizon_seconds,
@@ -234,6 +236,8 @@ def cartpole_synthesis_protocol_status(
         "paper_test_horizon_steps": paper_test_env.cfg.max_steps,
         "uses_full_test_horizon": paper_test_horizon,
         "eval_rollouts": eval_rollouts,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "uses_paper_eval_rollouts": paper_eval_rollouts,
         "quick_diagnostic": bool(quick),
         "uses_paper_reward_scale": cfg.teacher_reward_lambda == TEACHER_REWARD_LAMBDA,
         "two_mode_constant_action_psm": len(cfg.force_values) == 2,

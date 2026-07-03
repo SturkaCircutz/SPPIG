@@ -263,6 +263,9 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertGreater(manifest["jobs_uncapped_for_selected_space"], manifest["jobs_planned"])
         self.assertEqual(manifest["jobs_completed"], 0)
         self.assertEqual(manifest["paper_space"]["timesteps"], 10_000_000)
+        self.assertEqual(manifest["paper_space"]["eval_rollouts"], 1000)
+        self.assertEqual(manifest["paper_protocol_status"]["selected_eval_rollouts"], 1)
+        self.assertFalse(manifest["paper_protocol_status"]["uses_paper_eval_rollouts"])
         self.assertFalse(manifest["paper_protocol_status"]["paper_scale_plan"])
         self.assertFalse(manifest["paper_protocol_status"]["paper_scale_execution"])
         self.assertTrue(manifest["paper_protocol_status"]["quick_diagnostic"])
@@ -281,6 +284,9 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
         self.assertTrue(status["paper_timestep_budget"])
         self.assertTrue(status["paper_test_horizon"])
+        self.assertEqual(status["paper_eval_rollouts"], 1000)
+        self.assertEqual(status["selected_eval_rollouts"], 1000)
+        self.assertTrue(status["uses_paper_eval_rollouts"])
         self.assertTrue(status["paper_seed_count"])
         self.assertTrue(status["full_baseline_policy_set"])
         self.assertEqual(status["hyperparam_mode"], "paper-random")
@@ -306,6 +312,22 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
         self.assertFalse(status["paper_test_horizon"])
         self.assertEqual(status["selected_test_max_steps"], 1000)
+        self.assertFalse(status["paper_scale_plan"])
+        self.assertFalse(status["paper_scale_execution"])
+
+    def test_paper_protocol_status_requires_1000_eval_rollouts(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--eval-rollouts", "20"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        status = paper_protocol_status(args)
+
+        self.assertEqual(status["paper_eval_rollouts"], 1000)
+        self.assertEqual(status["selected_eval_rollouts"], 20)
+        self.assertFalse(status["uses_paper_eval_rollouts"])
         self.assertFalse(status["paper_scale_plan"])
         self.assertFalse(status["paper_scale_execution"])
 

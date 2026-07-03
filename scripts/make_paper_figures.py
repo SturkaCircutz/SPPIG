@@ -5,12 +5,19 @@ import glob
 import json
 import os
 import re
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
+SRC = os.path.join(ROOT, "src")
+if SRC not in sys.path:
+    sys.path.insert(0, SRC)
+
+from cartpole_env import PAPER_EVAL_ROLLOUTS  # noqa: E402
+
 RESULTS_CSV = os.path.join(ROOT, "artifacts", "results", "cartpole_results.csv")
 SUMMARY_CSV = os.path.join(ROOT, "artifacts", "results", "cartpole_summary.csv")
 OUT_DIR = os.path.join(ROOT, "essay", "figures")
@@ -34,7 +41,7 @@ LINEAR_SWITCH_RE = re.compile(
 PAPER_TEST_HORIZON_STEPS = 15_000
 LOCAL_DIAGNOSTIC_NOTE = (
     "Local diagnostic artifacts only; not a paper-scale reproduction of the "
-    "10^7-timestep, five-seed PPO/PPO-LSTM protocol."
+    "10^7-timestep, five-seed, 1000-rollout PPO/PPO-LSTM protocol."
 )
 LOCAL_DIAGNOSTIC_TEX_NOTE = LOCAL_DIAGNOSTIC_NOTE.replace("10^7", r"10\textsuperscript{7}")
 
@@ -56,6 +63,10 @@ def metric_or_none(row: dict[str, str], name: str) -> float | None:
 
 def artifact_path(path: str) -> str:
     return path if os.path.isabs(path) else os.path.join(ROOT, path)
+
+
+def truthy_csv(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes"}
 
 
 def row_has_result_artifact(row: dict[str, str]) -> bool:
@@ -80,6 +91,27 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         raise ValueError(
             "result rows lack paper 300-second test-horizon provenance: "
             + ", ".join(non_paper_horizon)
+        )
+    missing_rollout_provenance = [
+        row["policy"]
+        for row in rows
+        if not row.get("eval_rollouts")
+    ]
+    if missing_rollout_provenance:
+        raise ValueError(
+            "result rows lack evaluation-rollout provenance: "
+            + ", ".join(missing_rollout_provenance)
+        )
+    paper_scale_rollout_mismatch = [
+        row["policy"]
+        for row in rows
+        if truthy_csv(row.get("paper_scale_result"))
+        and int(float(row["eval_rollouts"])) != PAPER_EVAL_ROLLOUTS
+    ]
+    if paper_scale_rollout_mismatch:
+        raise ValueError(
+            "paper-scale result rows must use 1000 evaluation rollouts: "
+            + ", ".join(paper_scale_rollout_mismatch)
         )
 
 

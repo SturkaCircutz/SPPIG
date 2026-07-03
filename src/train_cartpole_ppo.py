@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 
+from cartpole_env import PAPER_EVAL_ROLLOUTS
 from ppo_cartpole import PAPER_PPO_TIMESTEPS, PPOConfig, train_ppo_cartpole
 
 
@@ -17,7 +18,7 @@ def main() -> None:
     parser.add_argument("--entropy-coef", type=float, default=0.01)
     parser.add_argument("--clip-range", type=float, default=0.2)
     parser.add_argument("--initial-log-std", type=float, default=0.0)
-    parser.add_argument("--eval-rollouts", type=int, default=20)
+    parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15000)
     parser.add_argument("--pretrain-steps", type=int, default=0)
     parser.add_argument("--pretrain-learning-rate", type=float, default=0.001)

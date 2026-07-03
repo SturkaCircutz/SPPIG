@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
+from cartpole_env import PAPER_EVAL_ROLLOUTS  # noqa: E402
+
 
 PAPER_TIMESTEPS = 10_000_000
 PAPER_NMINIBATCHES = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
@@ -272,6 +274,7 @@ def paper_protocol_status(
     )
     paper_timestep_budget = int(args.timesteps) == PAPER_TIMESTEPS
     paper_test_horizon = int(args.test_max_steps) == PAPER_TEST_MAX_STEPS
+    paper_eval_rollouts = int(args.eval_rollouts) == PAPER_EVAL_ROLLOUTS
     paper_seed_count = len(seeds) == 5 and len(set(seeds)) == 5
     grid_learning_rates_in_interval = (
         grid_mode
@@ -293,6 +296,7 @@ def paper_protocol_status(
     paper_scale_plan = (
         paper_timestep_budget
         and paper_test_horizon
+        and paper_eval_rollouts
         and paper_seed_count
         and full_baseline_policy_set
         and paper_random_sample_count
@@ -315,6 +319,9 @@ def paper_protocol_status(
         "paper_test_horizon": paper_test_horizon,
         "paper_test_horizon_steps": PAPER_TEST_MAX_STEPS,
         "selected_test_max_steps": int(args.test_max_steps),
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "selected_eval_rollouts": int(args.eval_rollouts),
+        "uses_paper_eval_rollouts": paper_eval_rollouts,
         "paper_seed_count": paper_seed_count,
         "selected_seed_count": len(seeds),
         "includes_ppo_mlp": "mlp" in requested_policy_set,
@@ -620,6 +627,7 @@ def write_manifest(
         "paper_space": {
             "timesteps": PAPER_TIMESTEPS,
             "test_max_steps": PAPER_TEST_MAX_STEPS,
+            "eval_rollouts": PAPER_EVAL_ROLLOUTS,
             "hyperparameter_sampling": (
                 "10 uniformly sampled configs from the reported space per policy, evaluated for each seed"
             ),
@@ -668,7 +676,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rollout-steps", type=int, default=128)
     parser.add_argument("--num-envs", type=int, default=8)
     parser.add_argument("--hidden-size", type=int, default=64)
-    parser.add_argument("--eval-rollouts", type=int, default=20)
+    parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--eval-interval", type=int, default=0)
     parser.add_argument(

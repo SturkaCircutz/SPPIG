@@ -7,6 +7,7 @@ from typing import Any, List, Optional, Protocol, Sequence
 
 
 Observation = List[float]
+PAPER_EVAL_ROLLOUTS = 1000
 
 
 class ContinuousPolicy(Protocol):

@@ -6,7 +6,7 @@ import os
 import sys
 from dataclasses import asdict
 
-from cartpole_env import CartpoleEnv, summarize_cartpole_results
+from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, summarize_cartpole_results
 from cartpole_synthesis import (
     CartpoleSynthesisIteration,
     CartpoleSynthesisConfig,
@@ -247,7 +247,7 @@ def main() -> None:
         default=default_cfg.teacher_elite_distribution_rounds,
     )
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--eval-rollouts", type=int, default=20)
+    parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15000)
     parser.add_argument("--metrics-output", default=None)
     args = parser.parse_args()
@@ -285,6 +285,8 @@ def main() -> None:
             args.test_max_steps,
         ),
         "eval_rollouts": args.eval_rollouts,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),

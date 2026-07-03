@@ -18,6 +18,7 @@ try:
 except Exception:
     HAS_TORCH = False
 
+from cartpole_env import PAPER_EVAL_ROLLOUTS  # noqa: E402
 from ppo_cartpole import PAPER_PPO_TIMESTEPS  # noqa: E402
 import train_cartpole_ppo  # noqa: E402
 
@@ -43,6 +44,7 @@ class CartpolePPOCliTest(unittest.TestCase):
             train_cartpole_ppo.main()
 
         self.assertEqual(captured["cfg"].total_timesteps, PAPER_PPO_TIMESTEPS)
+        self.assertEqual(captured["cfg"].eval_rollouts, PAPER_EVAL_ROLLOUTS)
         self.assertEqual(captured["output"], "artifacts/cartpole_ppo.pt")
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
@@ -97,6 +99,9 @@ class CartpolePPOCliTest(unittest.TestCase):
         self.assertIn("train_survival_seconds_mean", metrics["selected_result"])
         self.assertIn("test_survival_seconds_mean", metrics["selected_result"])
         self.assertIn("test_steps_mean", metrics["eval_history"][0])
+        self.assertEqual(metrics["paper_protocol_status"]["paper_eval_rollouts"], 1000)
+        self.assertEqual(metrics["paper_protocol_status"]["selected_eval_rollouts"], 1)
+        self.assertFalse(metrics["paper_protocol_status"]["uses_paper_eval_rollouts"])
         self.assertFalse(metrics["paper_protocol_status"]["paper_timestep_budget"])
         self.assertFalse(metrics["paper_protocol_status"]["paper_test_horizon"])
         self.assertFalse(metrics["paper_protocol_status"]["paper_scale_baseline_protocol"])

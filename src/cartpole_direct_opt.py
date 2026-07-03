@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass
 import random
 from typing import Dict, List, Sequence, Tuple
 
-from cartpole_env import CartpoleEnv, summarize_cartpole_results
+from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, summarize_cartpole_results
 from cartpole_synthesis import (
     BooleanTreeSwitch,
     Depth2Switch,
@@ -39,7 +39,7 @@ class DirectOptConfig:
     local_refinement_steps: int = 2
     restart_candidates_on_stall: int = 1
     local_step_fraction: float = 0.25
-    eval_rollouts: int = 20
+    eval_rollouts: int = PAPER_EVAL_ROLLOUTS
     test_max_steps: int = 15_000
     quick: bool = False
 
@@ -174,6 +174,8 @@ def direct_opt_metrics(result: DirectOptResult) -> Dict[str, object]:
         "best_candidate": asdict(result.candidate),
         "searched_candidates": result.searched_candidates,
         "eval_rollouts": result.config.eval_rollouts,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "uses_paper_eval_rollouts": result.config.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "test_max_steps": result.config.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "train": {

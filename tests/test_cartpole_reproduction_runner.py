@@ -31,6 +31,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "test_steps": 200.0,
                     "train_survival_seconds": 2.0,
                     "test_survival_seconds": 4.0,
+                    "eval_rollouts": 2,
                     "test_horizon_steps": 15000,
                     "timesteps": 0,
                 },
@@ -45,6 +46,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "test_steps": 900.0,
                     "train_survival_seconds": 5.0,
                     "test_survival_seconds": 18.0,
+                    "eval_rollouts": 2,
                     "test_horizon_steps": 15000,
                     "timesteps": 0,
                 },
@@ -64,6 +66,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertAlmostEqual(row["best_test_success"], 0.75)
         self.assertAlmostEqual(row["best_test_steps"], 900.0)
         self.assertAlmostEqual(row["best_test_survival_seconds"], 18.0)
+        self.assertEqual(row["eval_rollouts"], 2)
         self.assertEqual(row["test_horizon_steps"], 15000)
 
     def test_quick_runner_writes_results_and_manifest(self):
@@ -125,6 +128,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("test_steps", rows[0])
             self.assertIn("train_survival_seconds", rows[0])
             self.assertIn("test_survival_seconds", rows[0])
+            self.assertEqual(rows[0]["eval_rollouts"], "1")
             self.assertGreater(float(rows[0]["train_steps"]), 0.0)
             self.assertGreater(float(rows[0]["test_steps"]), 0.0)
             self.assertTrue(os.path.exists(rows[0]["metrics_output"]))
@@ -137,6 +141,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "segment_elapsed_time_normalized_to_default_cartpole_dt",
             )
             self.assertEqual(psm_metrics["paper_test_horizon_steps"], 15000)
+            self.assertEqual(psm_metrics["paper_eval_rollouts"], 1000)
+            self.assertFalse(psm_metrics["uses_paper_eval_rollouts"])
             self.assertIn("steps_mean", psm_metrics["train"])
             self.assertIn("survival_seconds_mean", psm_metrics["train"])
             self.assertIn("steps_mean", psm_metrics["test"])
@@ -149,6 +155,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(psm_status["test_pole_length"], 1.0)
             self.assertTrue(psm_status["quick_diagnostic"])
             self.assertFalse(psm_status["uses_full_test_horizon"])
+            self.assertEqual(psm_status["paper_eval_rollouts"], 1000)
+            self.assertFalse(psm_status["uses_paper_eval_rollouts"])
             self.assertFalse(psm_status["full_probabilistic_adaptive_teaching"])
             self.assertFalse(psm_status["full_continuous_switch_m_step"])
             self.assertFalse(psm_status["full_cem_teacher_optimizer"])
@@ -208,6 +216,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(summary[0]["n"], "1")
             self.assertEqual(summary[0]["best_seed_by_train"], "0")
             self.assertEqual(summary[0]["train_success_std"], "0.0")
+            self.assertEqual(summary[0]["eval_rollouts"], "1")
             self.assertEqual(summary[0]["test_horizon_steps"], "20")
             self.assertIn("test_steps_mean", summary[0])
             self.assertIn("test_survival_seconds_mean", summary[0])
@@ -216,6 +225,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 manifest = json.load(handle)
             self.assertTrue(manifest["quick"])
             self.assertEqual(manifest["seeds"], [0])
+            self.assertEqual(manifest["paper_eval_rollouts"], 1000)
+            self.assertFalse(manifest["uses_paper_eval_rollouts"])
             self.assertEqual(manifest["test_max_steps"], 20)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_theta_gain"], 12.5)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_omega_gain"], 0.75)

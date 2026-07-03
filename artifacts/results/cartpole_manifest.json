@@ -1,7 +1,9 @@
 {
   "artifact_kind": "checked_in_local_cartpole_diagnostic_bundle",
-  "limitation": "These checked-in rows are local diagnostic artifacts, not the paper-scale 10^7-timestep, five-seed PPO/PPO-LSTM protocol or full probabilistic adaptive-teaching result.",
+  "eval_rollouts": 20,
+  "limitation": "These checked-in rows are local diagnostic artifacts, not the paper-scale 10^7-timestep, five-seed, 1000-rollout PPO/PPO-LSTM protocol or full probabilistic adaptive-teaching result.",
   "local_diagnostic_only": true,
+  "paper_eval_rollouts": 1000,
   "paper_scale_result": false,
   "policies": [
     "PPO MLP",
@@ -48,9 +50,11 @@
         "value_coef": 0.5,
         "verbose": true
       },
+      "eval_rollouts": "20",
       "metrics_command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/progress_mlp_128k_seed0.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
       "metrics_output": "artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
       "notes": "best local diagnostic checkpoint reevaluated on full paper test horizon",
+      "paper_eval_rollouts": 1000,
       "policy": "PPO MLP",
       "seed": "0",
       "test_horizon_steps": "15000",
@@ -62,7 +66,8 @@
       "train_reward": "250.0",
       "train_steps": "250.0",
       "train_success": "1.00",
-      "train_survival_seconds": "5.0"
+      "train_survival_seconds": "5.0",
+      "uses_paper_eval_rollouts": false
     },
     {
       "checkpoint": "artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt",
@@ -93,9 +98,11 @@
         "value_coef": 0.5,
         "verbose": true
       },
+      "eval_rollouts": "20",
       "metrics_command": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
       "metrics_output": "artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
       "notes": "supervised warm-start checkpoint reevaluated on full paper test horizon",
+      "paper_eval_rollouts": 1000,
       "policy": "PPO-LSTM warm started",
       "seed": "0",
       "test_horizon_steps": "15000",
@@ -107,7 +114,8 @@
       "train_reward": "250.0",
       "train_steps": "250.0",
       "train_success": "1.00",
-      "train_survival_seconds": "5.0"
+      "train_survival_seconds": "5.0",
+      "uses_paper_eval_rollouts": false
     },
     {
       "algorithm_provenance": {
@@ -217,9 +225,11 @@
         "seed": 0,
         "test_max_steps": 15000
       },
+      "eval_rollouts": "20",
       "metrics_command": "src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "metrics_output": "artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "notes": "bounded direct optimization diagnostic over two-mode CartPole PSM; not paper full Direct-Opt protocol",
+      "paper_eval_rollouts": 1000,
       "policy": "Direct-Opt diagnostic",
       "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
       "seed": "0",
@@ -232,13 +242,16 @@
       "train_reward": "250.0",
       "train_steps": "250.0",
       "train_success": "1.00",
-      "train_survival_seconds": "5.0"
+      "train_survival_seconds": "5.0",
+      "uses_paper_eval_rollouts": false
     },
     {
       "checkpoint": "",
+      "eval_rollouts": "20",
       "metrics_command": "scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
       "metrics_output": "artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
       "notes": "fixed two-mode program reevaluated on full paper test horizon",
+      "paper_eval_rollouts": 1000,
       "policy": "Programmatic state machine",
       "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
       "seed": "0",
@@ -251,7 +264,8 @@
       "train_reward": "250.0",
       "train_steps": "250.0",
       "train_success": "1.00",
-      "train_survival_seconds": "5.0"
+      "train_survival_seconds": "5.0",
+      "uses_paper_eval_rollouts": false
     },
     {
       "algorithm_provenance": {
@@ -414,9 +428,11 @@
         "teacher_theta_gain": 20.0,
         "teacher_top_rho": 2
       },
+      "eval_rollouts": "20",
       "metrics_command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json",
       "metrics_output": "artifacts/results/metrics/psm_seed0_full_horizon.json",
       "notes": "current probabilistic adaptive-teaching diagnostic with one-step loop-free teacher profile and on-mode-entry parameter resampling; not paper-scale synthesis",
+      "paper_eval_rollouts": 1000,
       "paper_protocol_status": {
         "boolean_tree_depth": 2,
         "cartpole_environment": true,
@@ -458,7 +474,8 @@
       "train_reward": "35.65",
       "train_steps": "35.65",
       "train_success": "0.00",
-      "train_survival_seconds": "0.713"
+      "train_survival_seconds": "0.713",
+      "uses_paper_eval_rollouts": false
     }
   ],
   "source_results_csv": "artifacts/results/cartpole_results.csv",
@@ -636,5 +653,6 @@
   "test_horizon_steps": 15000,
   "test_pole_length": 1.0,
   "train_horizon_seconds": 5.0,
-  "train_pole_length": 0.5
+  "train_pole_length": 0.5,
+  "uses_paper_eval_rollouts": false
 }

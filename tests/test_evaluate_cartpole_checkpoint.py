@@ -48,6 +48,8 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
         self.assertEqual(metrics["checkpoint"], checkpoint_path)
         self.assertEqual(metrics["checkpoint_config"]["policy_type"], "mlp")
         self.assertEqual(metrics["eval_rollouts"], 2)
+        self.assertEqual(metrics["paper_eval_rollouts"], 1000)
+        self.assertFalse(metrics["uses_paper_eval_rollouts"])
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("selected_result", metrics)

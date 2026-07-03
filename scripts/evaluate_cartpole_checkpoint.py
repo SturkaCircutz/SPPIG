@@ -14,6 +14,7 @@ SRC = ROOT / "src"
 # Keep this script runnable from a fresh checkout without requiring package install.
 sys.path.insert(0, str(SRC))
 
+from cartpole_env import PAPER_EVAL_ROLLOUTS  # noqa: E402
 from ppo_cartpole import LSTMActorCritic, MLPActorCritic, evaluate_ppo_model, result_to_metrics  # noqa: E402
 
 
@@ -41,7 +42,7 @@ def load_model(checkpoint_path: Path):
 def main() -> None:
     parser = argparse.ArgumentParser(description="Reevaluate a CartPole PPO checkpoint and write metrics JSON.")
     parser.add_argument("--checkpoint", required=True)
-    parser.add_argument("--eval-rollouts", type=int, default=20)
+    parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--metrics-output", required=True)
     args = parser.parse_args()
@@ -62,6 +63,8 @@ def main() -> None:
         "checkpoint_config": checkpoint["config"],
         "checkpoint_result": prior_result,
         "eval_rollouts": args.eval_rollouts,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": 15_000,
         "selected_result": result_to_metrics(result),

@@ -19,6 +19,7 @@ except Exception:
     HAS_TORCH = False
 
 from cartpole_env import BangBangCartpolePSM, CartpoleEnv, evaluate_cartpole_policy
+from cartpole_env import PAPER_EVAL_ROLLOUTS
 from cartpole_synthesis import (
     BooleanTreeSwitch,
     CartpoleSegment,
@@ -3015,6 +3016,7 @@ class CartpolePaperTest(unittest.TestCase):
                 policy_type="lstm",
                 total_timesteps=PAPER_PPO_TIMESTEPS,
                 eval_test_max_steps=CartpoleEnv.test_env().cfg.max_steps,
+                eval_rollouts=PAPER_EVAL_ROLLOUTS,
                 minibatches=1,
             )
         )
@@ -3025,6 +3027,9 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(status["test_pole_length"], 1.0)
         self.assertTrue(status["paper_timestep_budget"])
         self.assertTrue(status["paper_test_horizon"])
+        self.assertEqual(status["paper_eval_rollouts"], 1000)
+        self.assertEqual(status["selected_eval_rollouts"], 1000)
+        self.assertTrue(status["uses_paper_eval_rollouts"])
         self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
         self.assertTrue(status["single_run_matches_paper_budget"])
         self.assertFalse(status["five_seed_hyperparameter_search"])
@@ -3083,6 +3088,8 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIn("failure_terminations", metrics["update_history"][0])
         self.assertEqual(metrics["selected_result"]["timesteps"], result.timesteps)
         self.assertEqual(metrics["paper_protocol_status"]["selected_test_max_steps"], 20)
+        self.assertEqual(metrics["paper_protocol_status"]["selected_eval_rollouts"], 1)
+        self.assertFalse(metrics["paper_protocol_status"]["uses_paper_eval_rollouts"])
         self.assertFalse(metrics["paper_protocol_status"]["paper_timestep_budget"])
         self.assertFalse(metrics["paper_protocol_status"]["paper_test_horizon"])
         self.assertFalse(metrics["paper_protocol_status"]["paper_scale_baseline_protocol"])

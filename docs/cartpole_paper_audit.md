@@ -25,6 +25,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   - learning rate in `[5e-6, 0.003]`.
 - Classic control reward functions: standard OpenAI environment rewards.
 - Adaptive-teaching reward scale: `lambda = 100`.
+- Evaluation metric: fraction of rollouts out of `1000` that satisfy the benchmark metric.
 
 ## Not Verified From Extracted Text
 
@@ -52,7 +53,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
   fixed local synthesis constants, probabilistic-student parameters, trace count, and train/test
-  metrics to JSON. It also persists teacher candidate-source counts, loop-free segment action and
+  metrics to JSON. Its default evaluation rollout count is the paper's `1000`, and metrics record
+  whether a run actually used that count. It also persists teacher candidate-source counts, loop-free segment action and
   duration schedules, sampled-trace log-probability provenance, and switch-fit diagnostics comparing
   the selected switch objective tuple to a fixed local reference switch; this is failure-analysis
   provenance, not a controller selection rule. PSM metrics also include `paper_protocol_status`, a
@@ -67,7 +69,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   switch candidates.
 - `scripts/run_cartpole_reproduction.py`: orchestrated Cartpole runner that writes
   `cartpole_results.csv`, `cartpole_summary.csv`, and `cartpole_manifest.json` for selected seeds
-  and settings. Its manifest records the PSM teacher overrides and fixed local synthesis constants,
+  and settings. Its manifest records the evaluation rollout count, whether the run used the paper's
+  `1000`-rollout metric, the PSM teacher overrides, and fixed local synthesis constants,
   and each PSM row links to a per-seed metrics JSON with the fitted probabilistic student and
   teacher-trace provenance. When PPO is included, it also writes per-row PPO checkpoints and metrics
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
@@ -83,8 +86,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   config for every selected seed, writes a plan/manifest, and can execute jobs with per-config
   checkpoints and metrics JSON. It also supports an explicit Cartesian-grid diagnostic mode and
   writes both a single-best-job summary and a per-hyperparameter summary aggregating completed seeds
-  for each sampled config, including survived-step and survival-second provenance for executed rows.
-  This is search infrastructure; the full paper-scale sweep has not been run.
+  for each sampled config, including survived-step, survival-second, and evaluation-rollout
+  provenance for executed rows. Its paper-scale plan/execution flags require the paper's
+  `1000` evaluation rollouts. This is search infrastructure; the full paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
   generated abstract-result, LaTeX table, and PSM policy fragments consumed by `essay/project.tex`,
@@ -312,7 +316,8 @@ paper-scale PPO2 runs.
   horizon even when a quick test cap is supplied. It also verifies that exposed teacher
   hyperparameters, fixed local synthesis constants, the fitted probabilistic student summary, and
   per-iteration bounded teacher-trace provenance are persisted, plus PSM protocol-status flags that
-  keep the full probabilistic adaptive-teaching and paper-scale result claims false.
+  keep the full probabilistic adaptive-teaching and paper-scale result claims false. The metrics also
+  record the paper's `1000` evaluation-rollout target and whether the current run used it.
 - `tests/test_cartpole_ppo_sweep.py::test_build_jobs_uses_paper_minibatch_rule_for_lstm` verifies
   that the sweep includes the paper's feed-forward minibatch grid while forcing PPO-LSTM to
   `nminibatches = 1` in grid-diagnostic mode.
@@ -335,6 +340,8 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_full_test_horizon`
   verifies that the paper-scale plan flag requires the paper's full 15,000-step/300-second test
   horizon.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_1000_eval_rollouts`
+  verifies that the paper-scale plan flag requires the paper's 1000-rollout evaluation metric.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_duplicate_seed_list`
   verifies that five repeated seed entries are not tagged as the paper five-seed protocol.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_completed_jobs_for_execution`
@@ -581,11 +588,13 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   LaTeX result-table fragments. It also verifies PSM policy-fragment generation,
   switch-boundary parsing/plotting from synthetic metrics, fallback/skip behavior for non-linear
   switches, PPO metrics-file discovery, training-curve PNG generation, local-diagnostic limitation
-  notes, checked-in summary/manifest provenance, and rejection of explicit non-paper test horizons.
+  notes, checked-in summary/manifest provenance, rejection of explicit non-paper test horizons, and
+  rejection of paper-scale result rows that do not use the paper's 1000 evaluation rollouts.
 
 ## Completion Criteria Still Required For Full Paper Claim
 
 - Run PPO and PPO-LSTM for `10^7` timesteps.
+- Evaluate reported success rates over `1000` rollouts.
 - Tune/fix pure PPO-LSTM until it achieves strong Cartpole training performance without supervised
   warm-starting.
 - Run 5 random seeds and choose best training performer.

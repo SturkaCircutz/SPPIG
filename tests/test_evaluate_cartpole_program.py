@@ -40,6 +40,8 @@ class EvaluateCartpoleProgramTest(unittest.TestCase):
         self.assertEqual(metrics["program_parameters"]["theta_weight"], 10.0)
         self.assertEqual(metrics["program_parameters"]["omega_weight"], 1.0)
         self.assertEqual(metrics["eval_rollouts"], 2)
+        self.assertEqual(metrics["paper_eval_rollouts"], 1000)
+        self.assertFalse(metrics["uses_paper_eval_rollouts"])
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("train", metrics)

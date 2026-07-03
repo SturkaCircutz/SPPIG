@@ -13,7 +13,7 @@ SRC = ROOT / "src"
 # Keep this script runnable from a fresh checkout without requiring package install.
 sys.path.insert(0, str(SRC))
 
-from cartpole_env import CartpoleEnv, summarize_cartpole_results  # noqa: E402
+from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, summarize_cartpole_results  # noqa: E402
 from cartpole_synthesis import Depth2Switch, SynthesizedCartpolePSM  # noqa: E402
 
 
@@ -28,7 +28,7 @@ def main() -> None:
     parser.add_argument("--threshold", type=float, default=0.0)
     parser.add_argument("--left-force", type=float, default=-10.0)
     parser.add_argument("--right-force", type=float, default=10.0)
-    parser.add_argument("--eval-rollouts", type=int, default=20)
+    parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--metrics-output", required=True)
     args = parser.parse_args()
@@ -46,6 +46,8 @@ def main() -> None:
         "command": " ".join(sys.argv),
         "policy_description": policy.describe(),
         "eval_rollouts": args.eval_rollouts,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "program_parameters": {

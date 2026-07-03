@@ -12,7 +12,13 @@ from torch import nn
 from torch.distributions import Normal
 from torch.nn import functional as F
 
-from cartpole_env import BangBangCartpolePSM, CartpoleEnv, Observation, summarize_cartpole_results
+from cartpole_env import (
+    PAPER_EVAL_ROLLOUTS,
+    BangBangCartpolePSM,
+    CartpoleEnv,
+    Observation,
+    summarize_cartpole_results,
+)
 
 
 PAPER_PPO_TIMESTEPS = 10_000_000
@@ -35,7 +41,7 @@ class PPOConfig:
     hidden_size: int = 64
     seed: int = 0
     initial_log_std: float = 0.0
-    eval_rollouts: int = 20
+    eval_rollouts: int = PAPER_EVAL_ROLLOUTS
     eval_test_max_steps: int = 15_000
     pretrain_steps: int = 0
     pretrain_batch_size: int = 256
@@ -80,8 +86,14 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
     test_env = CartpoleEnv.test_env()
     paper_timestep_budget = cfg.total_timesteps == PAPER_PPO_TIMESTEPS
     paper_test_horizon = cfg.eval_test_max_steps == test_env.cfg.max_steps
+    paper_eval_rollouts = cfg.eval_rollouts == PAPER_EVAL_ROLLOUTS
     lstm_minibatches_ok = cfg.policy_type != "lstm" or cfg.minibatches == 1
-    single_run_matches_paper_budget = paper_timestep_budget and paper_test_horizon and lstm_minibatches_ok
+    single_run_matches_paper_budget = (
+        paper_timestep_budget
+        and paper_test_horizon
+        and paper_eval_rollouts
+        and lstm_minibatches_ok
+    )
     return {
         "policy_type": cfg.policy_type,
         "train_horizon_seconds": train_env.cfg.horizon_seconds,
@@ -91,6 +103,9 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
         "test_pole_length": test_env.cfg.pole_length,
         "paper_test_horizon_steps": test_env.cfg.max_steps,
         "selected_test_max_steps": cfg.eval_test_max_steps,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "selected_eval_rollouts": cfg.eval_rollouts,
+        "uses_paper_eval_rollouts": paper_eval_rollouts,
         "paper_timestep_budget": paper_timestep_budget,
         "paper_test_horizon": paper_test_horizon,
         "ppo_lstm_minibatches_fixed_to_one": lstm_minibatches_ok,

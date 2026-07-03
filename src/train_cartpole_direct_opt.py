@@ -5,6 +5,7 @@ import json
 import os
 import sys
 
+from cartpole_env import PAPER_EVAL_ROLLOUTS
 from cartpole_direct_opt import (
     DirectOptConfig,
     direct_opt_metrics,
@@ -23,7 +24,7 @@ def main() -> None:
     parser.add_argument("--local-refinement-steps", type=int, default=None)
     parser.add_argument("--restart-candidates-on-stall", type=int, default=None)
     parser.add_argument("--local-step-fraction", type=float, default=defaults.local_step_fraction)
-    parser.add_argument("--eval-rollouts", type=int, default=20)
+    parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--metrics-output", required=True)

@@ -71,6 +71,9 @@ raw per-seed rows to `cartpole_results.csv`, grouped mean/std plus the best trai
 `cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
 Those rows and summaries report mean survived simulator steps and survival
 seconds explicitly, rather than using reward as an implicit survival-time proxy.
+Paper-scale result claims also require the paper's `1000` evaluation rollouts;
+local examples in this README often pass `--eval-rollouts 20` only to keep
+diagnostics cheap.
 Each PSM row records a metrics JSON path with the fitted probabilistic student
 and per-iteration teacher-trace provenance.
 When PPO is included, each PPO row also records its checkpoint path and metrics
@@ -247,8 +250,8 @@ evaluation in `eval_history`, plus the selected checkpoint result and config in
 the metrics JSON file. Each metrics file also records `update_history` rows for
 local rollout rewards and train-horizon termination counts. PPO training metrics
 also include a `paper_protocol_status` block that marks whether the run used the
-paper `10^7` timestep budget and 300s test horizon, while keeping the full
-five-seed baseline protocol claim false for standalone runs. This is
+paper `10^7` timestep budget, 300s test horizon, and `1000` evaluation rollouts,
+while keeping the full five-seed baseline protocol claim false for standalone runs. This is
 training-curve provenance for local diagnostics; it is not a substitute for the
 missing paper-scale `10^7` timestep, five-seed hyperparameter search.
 
@@ -285,8 +288,9 @@ PPO-LSTM fixed to `nminibatches=1`.
 Use `--hyperparam-mode grid` for the older explicit Cartesian-grid diagnostic.
 The full-plan flag requires paper-random mode, 10 samples per policy, five
 seeds, both PPO MLP and PPO-LSTM, the `10^7` timestep budget, and the full
-15,000-step/300-second test horizon; grid mode is documented as a local
-extension rather than the paper's sampled search.
+15,000-step/300-second test horizon, plus the paper's `1000` evaluation
+rollouts; grid mode is documented as a local extension rather than the paper's
+sampled search.
 
 ## Paper and Audit
 
@@ -341,6 +345,7 @@ Recommended resume bullet:
 
 - Run PPO/PPO-LSTM for `10^7` timesteps.
 - Run five random seeds and report mean/std.
+- Evaluate paper result claims over `1000` rollouts.
 - Run the paper's PPO hyperparameter search.
 - Regenerate training curves and survival-time plots from completed paper-scale
   five-seed runs rather than local diagnostic artifacts.

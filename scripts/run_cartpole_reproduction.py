@@ -15,7 +15,7 @@ SRC = ROOT / "src"
 # Keep this script runnable from a fresh checkout without requiring package install.
 sys.path.insert(0, str(SRC))
 
-from cartpole_env import CartpoleEnv  # noqa: E402
+from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv  # noqa: E402
 from cartpole_direct_opt import (  # noqa: E402
     DirectOptConfig,
     direct_opt_metrics,
@@ -55,6 +55,7 @@ RESULT_FIELDS = [
     "test_steps",
     "train_survival_seconds",
     "test_survival_seconds",
+    "eval_rollouts",
     "test_horizon_steps",
     "timesteps",
     "checkpoint",
@@ -89,6 +90,7 @@ SUMMARY_FIELDS = [
     "best_test_steps",
     "best_train_survival_seconds",
     "best_test_survival_seconds",
+    "eval_rollouts",
     "test_horizon_steps",
     "best_timesteps",
     "best_checkpoint",
@@ -130,6 +132,8 @@ def run_psm(
             quick,
         ),
         "eval_rollouts": eval_rollouts,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "uses_paper_eval_rollouts": eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "test_max_steps": test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
@@ -164,6 +168,7 @@ def run_psm(
         "test_steps": test["steps_mean"],
         "train_survival_seconds": train["survival_seconds_mean"],
         "test_survival_seconds": test["survival_seconds_mean"],
+        "eval_rollouts": eval_rollouts,
         "test_horizon_steps": test_max_steps,
         "timesteps": 0,
         "metrics_output": str(metrics_path),
@@ -224,6 +229,7 @@ def run_ppo(
         "test_steps": result.test_steps_mean,
         "train_survival_seconds": result.train_survival_seconds_mean,
         "test_survival_seconds": result.test_survival_seconds_mean,
+        "eval_rollouts": eval_rollouts,
         "test_horizon_steps": test_max_steps,
         "timesteps": result.timesteps,
         "checkpoint": str(checkpoint_path),
@@ -270,6 +276,7 @@ def run_direct_opt(
         "test_steps": result.test_steps_mean,
         "train_survival_seconds": result.train_survival_seconds_mean,
         "test_survival_seconds": result.test_survival_seconds_mean,
+        "eval_rollouts": eval_rollouts,
         "test_horizon_steps": test_max_steps,
         "timesteps": 0,
         "metrics_output": str(metrics_path),
@@ -350,6 +357,7 @@ def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "best_test_steps": float(best["test_steps"]),
                 "best_train_survival_seconds": float(best["train_survival_seconds"]),
                 "best_test_survival_seconds": float(best["test_survival_seconds"]),
+                "eval_rollouts": int(best["eval_rollouts"]),
                 "test_horizon_steps": int(best["test_horizon_steps"]),
                 "best_timesteps": int(best["timesteps"]),
                 "best_checkpoint": best.get("checkpoint", ""),
@@ -389,7 +397,7 @@ def parse_args() -> argparse.Namespace:
     default_psm = CartpoleSynthesisConfig()
     parser.add_argument("--outdir", type=Path, default=ROOT / "artifacts" / "results")
     parser.add_argument("--seeds", default="0,1,2,3,4")
-    parser.add_argument("--eval-rollouts", type=int, default=20)
+    parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--include-ppo", action="store_true")
     parser.add_argument("--include-direct-opt", action="store_true")
@@ -524,6 +532,8 @@ def main() -> None:
         "include_direct_opt": args.include_direct_opt,
         "seeds": seeds,
         "eval_rollouts": args.eval_rollouts,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "test_max_steps": args.test_max_steps,
         "psm_teacher_overrides": psm_teacher_overrides,
         "psm_algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
