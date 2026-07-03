@@ -49,6 +49,12 @@
       "trace_count": 4
     }
   ],
+  "artifact_status": {
+    "current_code_result": false,
+    "interpretation": "Historical local diagnostic only; do not compare as a current synthesized PSM result until regenerated.",
+    "not_regenerated_reason": "Full local synthesized PSM diagnostic rerun exceeded the interactive runtime budget.",
+    "stale_reason": "Generated before the action-before-transition PSM mode-order correction."
+  },
   "algorithm_provenance": {
     "probabilistic_student": {
       "default_em_iters": 4,

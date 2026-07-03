@@ -109,13 +109,13 @@ class EvaluateCartpoleProgramTest(unittest.TestCase):
                 metrics = json.load(handle)
 
         self.assertEqual(metrics["train"]["success_rate"], 1.0)
-        self.assertEqual(metrics["test"]["success_rate"], 0.2)
+        self.assertEqual(metrics["test"]["success_rate"], 0.0)
         self.assertEqual(metrics["train"]["reward_mean"], 250.0)
-        self.assertAlmostEqual(metrics["test"]["reward_mean"], 6275.35)
+        self.assertAlmostEqual(metrics["test"]["reward_mean"], 1560.55)
         self.assertEqual(metrics["train"]["steps_mean"], 250.0)
-        self.assertAlmostEqual(metrics["test"]["steps_mean"], 6275.35)
+        self.assertAlmostEqual(metrics["test"]["steps_mean"], 1560.55)
         self.assertEqual(metrics["train"]["survival_seconds_mean"], 5.0)
-        self.assertAlmostEqual(metrics["test"]["survival_seconds_mean"], 125.507)
+        self.assertAlmostEqual(metrics["test"]["survival_seconds_mean"], 31.211)
 
 
 if __name__ == "__main__":

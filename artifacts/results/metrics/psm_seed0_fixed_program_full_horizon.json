@@ -149,10 +149,10 @@
     ]
   },
   "test": {
-    "reward_mean": 6275.35,
-    "steps_mean": 6275.35,
-    "success_rate": 0.2,
-    "survival_seconds_mean": 125.507
+    "reward_mean": 1560.55,
+    "steps_mean": 1560.55,
+    "success_rate": 0.0,
+    "survival_seconds_mean": 31.211
   },
   "test_max_steps": 15000,
   "train": {

@@ -148,26 +148,29 @@ These are implementation diagnostics, not paper-scale reproduced results.
 - Fixed PSM policy:
   `m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0`
 - Fixed PSM output:
-  train success `1.000`, test success over the full 15000-step/300-second horizon `0.200`,
-  train reward mean `250.0`, test reward mean `6275.35`; the same artifact records
-  train/test survived-step means `250.0` and `6275.35`, or `5.0s` and `125.507s`.
+  train success `1.000`, test success over the full 15000-step/300-second horizon `0.000`,
+  train reward mean `250.0`, test reward mean `1560.55`; the same artifact records
+  train/test survived-step means `250.0` and `1560.55`, or `5.0s` and `31.211s`.
   Its `paper_protocol_status` marks this as a fixed two-mode program reevaluation with
   `synthesized_by_current_algorithm = false` and `paper_scale_fixed_program_result = false`;
   it is not evidence that the current synthesis implementation reproduced the paper result.
-- Current synthesizer diagnostic command used for the regenerated artifact:
+- Historical synthesizer diagnostic command for the tracked stale artifact:
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
-- Current synthesizer diagnostic output:
+- Historical synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
   train reward mean `26.7`, test reward mean `44.7`; the same artifact records train/test
-  survived-step means `26.7` and `44.7`, or `0.534s` and `0.894s`. The tracked artifact uses the current
-  CartPole PSM default loop-free teacher profile (`segment_steps = 1`, `segments_per_trace = 250`)
+  survived-step means `26.7` and `44.7`, or `0.534s` and `0.894s`. This artifact predates the
+  action-before-transition PSM mode-order correction and is marked with `artifact_status.current_code_result = false`;
+  the full local synthesized PSM diagnostic was not regenerated because the rerun exceeded the
+  interactive runtime budget. The tracked artifact uses the CartPole PSM loop-free teacher profile
+  (`segment_steps = 1`, `segments_per_trace = 250`)
   so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
   elite-distribution refresh, first-iteration source counts
   `{"bootstrap_elite_centroid": 3, "bootstrap_student_sample": 1}`, final-iteration source
-  counts `{"student_sample": 4}`, and policy
-  `m0 action=-0.872; m1 action=4.093; mode=1 if o[1] >= 0.026 or o[0] <= -0.115, else mode=0`; it also records
+  counts `{"student_sample": 3, "student_sample_refined": 1}`, and policy
+  `m0 action=-2.012; m1 action=1.403; mode=1 if -10.000*theta + 0.500*omega >= -0.798, else mode=0`; it also records
   `student_sample_segment_budget =
   chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
@@ -176,7 +179,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
 - Direct-Opt diagnostic output:
   train success `1.000`, test success over the full 15000-step/300-second horizon `0.100`,
-  train reward mean `250.0`, test reward mean `4220.1`. The selected bounded two-mode policy is
+  train reward mean `250.0`, test reward mean `4311.0`. The selected bounded two-mode policy is
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
   implementation records bounded Boolean-tree switch-candidate one-hot metadata plus batch/restart diagnostics
@@ -217,6 +220,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   compact teacher-trace examples with segment-duration and time-increment schedules, per-teacher/student-iteration
   `synthesis_history`, compact adaptive-teacher objective summaries, number of teacher traces,
   evaluation settings, switch-fit diagnostics, and train/test metrics.
+- The Cartpole deterministic and probabilistic PSM executors now act with the current mode before
+  applying the switch predicate to update the next mode, matching the paper's state-machine semantics
+  `an = Hsn(on), s0 = ms, sn+1 = ...`; sampled teacher traces label the mode that produced each
+  action.
 - The Cartpole switch learner now performs bounded local grid, coordinate refinement, and
   finite-difference gradient polishing of selected switch-threshold Gaussian means and standard
   deviations against a discrete Eq. (12)-style
@@ -511,6 +518,14 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_transition_probability_uses_shared_threshold_sample`
   verifies that scalar switch timing probability treats the same sampled threshold as shared over the
   segment rather than resampling independently at each simulator step.
+- `tests/test_cartpole_paper.py::test_cartpole_deterministic_psm_acts_before_mode_transition`,
+  `tests/test_cartpole_paper.py::test_cartpole_probabilistic_rollout_acts_before_detected_mode_transition`,
+  and `tests/test_cartpole_paper.py::test_cartpole_student_sampled_trace_labels_action_mode_before_transition`
+  verify that Cartpole PSM execution uses the current mode's action before updating the next mode,
+  and that sampled teacher traces label the mode that produced each action.
+- `tests/test_cartpole_paper.py::test_cartpole_boolean_tree_cumulative_probability_matches_prefix_union`
+  verifies that depth-2 Boolean-tree cumulative switch probabilities match the independent
+  shared-threshold rectangle-union semantics used by the bounded Eq. (12)-style timing model.
 - `tests/test_cartpole_paper.py::test_cartpole_sampled_depth2_switch_preserves_predicate_count`
   verifies that sampling a depth-2 Boolean-tree switch preserves both learned predicates.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_defaults_to_reward` verifies that

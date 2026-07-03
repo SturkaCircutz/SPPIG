@@ -36,6 +36,7 @@ from cartpole_synthesis import (
     GaussianScalar,
     ObservationPredicate,
     ProbabilisticCartpoleStudent,
+    SynthesizedCartpolePSM,
     cartpole_switch_fit_diagnostics,
     fit_probabilistic_cartpole_student,
     synthesize_cartpole_policy,
@@ -98,6 +99,11 @@ from cartpole_synthesis import (
     _trace_log_probability,
     _time_increment_refinement_candidates,
     _time_increment_gradient_refinement_candidate,
+    _anchored_rectangle_union_probability,
+    _predicate_pair_disabled_cumulative_probabilities,
+    _predicate_pair_disabled_rectangles,
+    _predicate_pair_enabled_cumulative_probabilities,
+    _predicate_pair_enabled_rectangles,
 )
 
 if HAS_TORCH:
@@ -1397,6 +1403,69 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertIsNotNone(sampled.second)
 
+    def test_cartpole_boolean_tree_cumulative_probability_matches_prefix_union(self):
+        first = ObservationPredicate(2, ">=", 0.0)
+        second = ObservationPredicate(3, "<=", 0.0)
+        first_distribution = GaussianScalar(0.0, 0.2)
+        second_distribution = GaussianScalar(0.0, 0.2)
+        first_values = (-0.2, 0.1, 0.3, -0.1)
+        second_values = (0.2, -0.1, 0.1, -0.3)
+
+        def brute_union(rectangles):
+            clamped = [
+                (min(max(x_bound, 0.0), 1.0), min(max(y_bound, 0.0), 1.0))
+                for x_bound, y_bound in rectangles
+                if x_bound > 0.0 and y_bound > 0.0
+            ]
+            if not clamped:
+                return 0.0
+            x_edges = sorted({0.0, 1.0, *(x_bound for x_bound, _ in clamped)})
+            area = 0.0
+            for left, right in zip(x_edges, x_edges[1:]):
+                probe = (left + right) / 2.0
+                area += (right - left) * max((y for x_bound, y in clamped if probe <= x_bound), default=0.0)
+            return min(max(area, 0.0), 1.0)
+
+        cumulative = _predicate_pair_enabled_cumulative_probabilities(
+            first,
+            second,
+            first_distribution,
+            second_distribution,
+            first_values,
+            second_values,
+            "or",
+        )
+        prefix_rectangles = []
+        expected = []
+        for first_value, second_value in zip(first_values, second_values):
+            first_probability = _gaussian_threshold_pass_probability(first_value, first_distribution, first.relation)
+            second_probability = _gaussian_threshold_pass_probability(second_value, second_distribution, second.relation)
+            prefix_rectangles.extend(_predicate_pair_enabled_rectangles(first_probability, second_probability, "or"))
+            expected.append(brute_union(prefix_rectangles))
+
+        for actual, wanted in zip(cumulative, expected):
+            self.assertAlmostEqual(actual, wanted)
+        self.assertAlmostEqual(_anchored_rectangle_union_probability(prefix_rectangles), brute_union(prefix_rectangles))
+
+        disabled_cumulative = _predicate_pair_disabled_cumulative_probabilities(
+            first,
+            second,
+            first_distribution,
+            second_distribution,
+            first_values,
+            second_values,
+            "and",
+        )
+        disabled_rectangles = []
+        disabled_expected = []
+        for first_value, second_value in zip(first_values, second_values):
+            first_probability = _gaussian_threshold_pass_probability(first_value, first_distribution, first.relation)
+            second_probability = _gaussian_threshold_pass_probability(second_value, second_distribution, second.relation)
+            disabled_rectangles.extend(_predicate_pair_disabled_rectangles(first_probability, second_probability, "and"))
+            disabled_expected.append(brute_union(disabled_rectangles))
+        for actual, wanted in zip(disabled_cumulative, disabled_expected):
+            self.assertAlmostEqual(actual, wanted)
+
     def test_cartpole_probabilistic_student_samples_policy_parameters(self):
         student = ProbabilisticCartpoleStudent(
             action_distributions={
@@ -1414,6 +1483,21 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(policy.left_force, -9.0)
         self.assertEqual(policy.right_force, 9.0)
         self.assertEqual(policy.switch.first.threshold, 0.1)
+
+    def test_cartpole_deterministic_psm_acts_before_mode_transition(self):
+        policy = SynthesizedCartpolePSM(
+            -9.0,
+            9.0,
+            Depth2Switch(1.0, 0.0, 0.0),
+        )
+
+        policy.reset()
+        first_action = policy.act([0.0, 0.0, 0.1, 0.0])
+        second_action = policy.act([0.0, 0.0, -0.1, 0.0])
+
+        self.assertEqual(first_action, -9.0)
+        self.assertEqual(second_action, 9.0)
+        self.assertEqual(policy.mode, 0)
 
     def test_cartpole_probabilistic_rollout_resamples_parameters_on_mode_change(self):
         student = ProbabilisticCartpoleStudent(
@@ -1439,13 +1523,13 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(policy.mode, 0)
         self.assertEqual(first_action, first_left)
-        self.assertEqual(second_action, second_right)
-        self.assertEqual(third_action, third_left)
+        self.assertEqual(second_action, first_left)
+        self.assertEqual(third_action, second_right)
         self.assertEqual(initial_right, 0.0)
         self.assertNotEqual(first_left, third_left)
         self.assertNotEqual(second_right, initial_right)
 
-    def test_cartpole_probabilistic_rollout_keeps_detected_mode_after_resampling(self):
+    def test_cartpole_probabilistic_rollout_acts_before_detected_mode_transition(self):
         student = ProbabilisticCartpoleStudent(
             action_distributions={
                 0: GaussianScalar(-9.0, 0.0),
@@ -1463,7 +1547,32 @@ class CartpolePaperTest(unittest.TestCase):
         action = policy.act([0.0, 0.0, 0.1, 0.0])
 
         self.assertEqual(policy.mode, 1)
-        self.assertEqual(action, 9.0)
+        self.assertEqual(action, -9.0)
+
+    def test_cartpole_student_sampled_trace_labels_action_mode_before_transition(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=1, segments_per_trace=1)
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-9.0, 0.0),
+                1: GaussianScalar(9.0, 0.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 0.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+
+        trace = _rollout_student_sampled_trace(
+            [0.0, 0.0, 0.1, 0.0],
+            env.cfg,
+            cfg,
+            student,
+            random.Random(0),
+        )
+
+        self.assertEqual(trace.mode_labels[0], 0)
+        self.assertEqual(trace.actions[0], -9.0)
 
     def test_cartpole_switch_probability_uses_gaussian_threshold_distribution(self):
         distribution = GaussianScalar(0.0, 0.1)

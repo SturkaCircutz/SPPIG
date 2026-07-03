@@ -240,10 +240,10 @@
     ]
   },
   "test": {
-    "reward_mean": 4220.05,
-    "steps_mean": 4220.05,
+    "reward_mean": 4311.0,
+    "steps_mean": 4311.0,
     "success_rate": 0.1,
-    "survival_seconds_mean": 84.40100000000001
+    "survival_seconds_mean": 86.22
   },
   "test_max_steps": 15000,
   "train": {

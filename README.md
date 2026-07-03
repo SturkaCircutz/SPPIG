@@ -24,14 +24,19 @@ and per-row metrics artifacts:
 | --- | ---: | ---: | ---: | ---: |
 | PPO MLP | 1.00 | 0.00 | 250.0 | 910.6 |
 | PPO-LSTM, warm started | 1.00 | 0.00 | 250.0 | 912.2 |
-| Direct-Opt diagnostic | 1.00 | 0.10 | 250.0 | 4220.1 |
-| Programmatic state machine | 1.00 | 0.20 | 250.0 | 6275.4 |
+| Direct-Opt diagnostic | 1.00 | 0.10 | 250.0 | 4311.0 |
+| Programmatic state machine | 1.00 | 0.00 | 250.0 | 1560.6 |
 
 The test split is the full paper horizon: 300 seconds, or 15,000 simulator
 steps. Pure PPO-LSTM is implemented, but it did not solve the training split
 within the local diagnostic budget. The displayed programmatic row is a fixed
 two-mode policy reevaluation; current synthesis metrics are tracked separately
 and should not be read as a completed probabilistic adaptive-teaching result.
+The checked-in synthesized PSM diagnostic artifact is marked as historical
+until it is regenerated under the current mode-order semantics.
+Programmatic policies execute the current mode's action before applying the
+switch predicate to update the next mode, matching the paper's state-machine
+semantics.
 
 ## Setup
 

@@ -132,6 +132,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "default_switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
             "responsibility_evidence": "action_likelihood_initialization_then_alternating_switch_timing_forward_backward",
             "switch_responsibility_passes_are_per_em_iteration": True,
+            "mode_update_order": "act_with_current_mode_then_update_next_mode",
             "rollout_parameter_resampling": "on_mode_entry",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
             "log_probability_floor": LOG_PROBABILITY_FLOOR,
@@ -643,8 +644,10 @@ class SynthesizedCartpolePSM:
         self.mode = 0
 
     def act(self, observation: Observation) -> float:
+        current_mode = self.mode
+        action = self.right_force if current_mode == 1 else self.left_force
         self.mode = self.switch.decide(observation)
-        return self.right_force if self.mode == 1 else self.left_force
+        return action
 
     def describe(self) -> str:
         return (
@@ -669,11 +672,13 @@ class SampledCartpolePSM:
         self._resample_segment_parameters(self.mode)
 
     def act(self, observation: Observation) -> float:
+        current_mode = self.mode
+        action = self.right_force if current_mode == 1 else self.left_force
         next_mode = self.switch.decide(observation)
         if next_mode != self.mode:
             self.mode = next_mode
             self._resample_segment_parameters(self.mode)
-        return self.right_force if self.mode == 1 else self.left_force
+        return action
 
     def _resample_segment_parameters(self, mode: int) -> None:
         if mode == 0:
@@ -1381,10 +1386,11 @@ def _rollout_student_sampled_trace(
         if cartpole_done(state, env_cfg):
             break
         observation = list(state)
+        current_mode = policy.mode
         action = policy.act(observation)
         observations.append(observation)
         actions.append(action)
-        mode_labels.append(policy.mode)
+        mode_labels.append(current_mode)
         state = cartpole_next_state(state, action, env_cfg)
         alive += 1
     segment_actions = _mode_run_actions(actions, mode_labels)
@@ -4196,16 +4202,25 @@ def _predicate_pair_enabled_cumulative_probabilities(
     second_values: Tuple[float, ...],
     operator: str = "and",
 ) -> List[float]:
-    rectangles: List[Tuple[float, float]] = []
-    enabled_by_step: List[float] = []
-    for first_value, second_value in zip(first_values, second_values):
-        first_probability = _predicate_enabled_probability_from_value(first, first_distribution, first_value)
-        second_probability = _predicate_enabled_probability_from_value(second, second_distribution, second_value)
-        rectangles.extend(
-            _predicate_pair_enabled_rectangles(first_probability, second_probability, operator)
+    first_enabled = _predicate_enabled_cumulative_probabilities(first, first_distribution, first_values)
+    second_enabled = _predicate_enabled_cumulative_probabilities(second, second_distribution, second_values)
+    if operator == "or":
+        return [
+            left + right - left * right
+            for left, right in zip(first_enabled, second_enabled)
+        ]
+    if operator == "and":
+        return _predicate_pair_rectangle_cumulative_probabilities(
+            first,
+            second,
+            first_distribution,
+            second_distribution,
+            first_values,
+            second_values,
+            operator,
+            enabled=True,
         )
-        enabled_by_step.append(_anchored_rectangle_union_probability(rectangles))
-    return enabled_by_step
+    raise ValueError(f"unknown BooleanTreeSwitch operator: {operator}")
 
 
 def _predicate_pair_disabled_cumulative_probabilities(
@@ -4217,16 +4232,85 @@ def _predicate_pair_disabled_cumulative_probabilities(
     second_values: Tuple[float, ...],
     operator: str = "and",
 ) -> List[float]:
-    rectangles: List[Tuple[float, float]] = []
-    disabled_by_step: List[float] = []
+    if operator == "and":
+        first_disabled = _predicate_disabled_cumulative_probabilities(first, first_distribution, first_values)
+        second_disabled = _predicate_disabled_cumulative_probabilities(second, second_distribution, second_values)
+        return [
+            left + right - left * right
+            for left, right in zip(first_disabled, second_disabled)
+        ]
+    if operator == "or":
+        return _predicate_pair_rectangle_cumulative_probabilities(
+            first,
+            second,
+            first_distribution,
+            second_distribution,
+            first_values,
+            second_values,
+            operator,
+            enabled=False,
+        )
+    raise ValueError(f"unknown BooleanTreeSwitch operator: {operator}")
+
+
+def _predicate_pair_rectangle_cumulative_probabilities(
+    first: ObservationPredicate,
+    second: ObservationPredicate,
+    first_distribution: GaussianScalar,
+    second_distribution: GaussianScalar,
+    first_values: Tuple[float, ...],
+    second_values: Tuple[float, ...],
+    operator: str,
+    enabled: bool,
+) -> List[float]:
+    frontier: List[Tuple[float, float]] = []
+    probabilities: List[float] = []
+    rectangle_fn = _predicate_pair_enabled_rectangles if enabled else _predicate_pair_disabled_rectangles
     for first_value, second_value in zip(first_values, second_values):
         first_probability = _predicate_enabled_probability_from_value(first, first_distribution, first_value)
         second_probability = _predicate_enabled_probability_from_value(second, second_distribution, second_value)
-        rectangles.extend(
-            _predicate_pair_disabled_rectangles(first_probability, second_probability, operator)
-        )
-        disabled_by_step.append(_anchored_rectangle_union_probability(rectangles))
-    return disabled_by_step
+        for rectangle in rectangle_fn(first_probability, second_probability, operator):
+            _add_anchored_rectangle_to_frontier(frontier, rectangle)
+        probabilities.append(_anchored_rectangle_frontier_area(frontier))
+    return probabilities
+
+
+def _predicate_enabled_cumulative_probabilities(
+    predicate: ObservationPredicate,
+    distribution: GaussianScalar,
+    values: Tuple[float, ...],
+) -> List[float]:
+    return _relation_cumulative_probabilities(values, distribution, predicate.relation)
+
+
+def _predicate_disabled_cumulative_probabilities(
+    predicate: ObservationPredicate,
+    distribution: GaussianScalar,
+    values: Tuple[float, ...],
+) -> List[float]:
+    opposite_relation = "<=" if predicate.relation == ">=" else ">="
+    return _relation_cumulative_probabilities(values, distribution, opposite_relation)
+
+
+def _relation_cumulative_probabilities(
+    values: Tuple[float, ...],
+    distribution: GaussianScalar,
+    relation: str,
+) -> List[float]:
+    cumulative: List[float] = []
+    if relation == ">=":
+        best_value: float | None = None
+        for value in values:
+            best_value = value if best_value is None else max(best_value, value)
+            cumulative.append(_gaussian_cdf(best_value, distribution))
+        return cumulative
+    if relation == "<=":
+        best_value = None
+        for value in values:
+            best_value = value if best_value is None else min(best_value, value)
+            cumulative.append(1.0 - _gaussian_cdf(best_value, distribution))
+        return cumulative
+    raise ValueError(f"unknown relation: {relation}")
 
 
 def _predicate_pair_enabled_rectangles(
@@ -4264,21 +4348,41 @@ def _predicate_enabled_probability_from_value(
 
 
 def _anchored_rectangle_union_probability(rectangles: List[Tuple[float, float]]) -> float:
-    clamped = [
-        (min(max(x_bound, 0.0), 1.0), min(max(y_bound, 0.0), 1.0))
-        for x_bound, y_bound in rectangles
-        if x_bound > 0.0 and y_bound > 0.0
+    frontier: List[Tuple[float, float]] = []
+    for rectangle in rectangles:
+        _add_anchored_rectangle_to_frontier(frontier, rectangle)
+    return _anchored_rectangle_frontier_area(frontier)
+
+
+def _add_anchored_rectangle_to_frontier(
+    frontier: List[Tuple[float, float]],
+    rectangle: Tuple[float, float],
+) -> None:
+    x_bound = min(max(rectangle[0], 0.0), 1.0)
+    y_bound = min(max(rectangle[1], 0.0), 1.0)
+    if x_bound <= 0.0 or y_bound <= 0.0:
+        return
+    if any(x >= x_bound and y >= y_bound for x, y in frontier):
+        return
+    frontier[:] = [
+        (x, y)
+        for x, y in frontier
+        if not (x <= x_bound and y <= y_bound)
     ]
-    if not clamped:
+    frontier.append((x_bound, y_bound))
+    frontier.sort(key=lambda item: item[0])
+
+
+def _anchored_rectangle_frontier_area(frontier: List[Tuple[float, float]]) -> float:
+    if not frontier:
         return 0.0
-    x_edges = sorted({0.0, 1.0, *(x_bound for x_bound, _ in clamped)})
     area = 0.0
-    for left, right in zip(x_edges, x_edges[1:]):
-        if right <= left:
+    previous_x = 0.0
+    for x_bound, y_bound in sorted(frontier):
+        if x_bound <= previous_x:
             continue
-        probe = (left + right) / 2.0
-        y_bound = max((y for x_bound, y in clamped if probe <= x_bound), default=0.0)
-        area += (right - left) * y_bound
+        area += (x_bound - previous_x) * y_bound
+        previous_x = x_bound
     return min(max(area, 0.0), 1.0)
 
 
