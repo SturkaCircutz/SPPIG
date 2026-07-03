@@ -239,6 +239,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
                 "teacher_objective",
                 "teacher_refinement_objective",
             ],
+            "student_log_probability_cache_policy": (
+                "recompute_from_trace_actions_for_current_student_else_use_cached_segment_only_value"
+            ),
             "elite_distance_metric": (
                 "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments"
             ),
@@ -2533,11 +2536,7 @@ def _teacher_objective(
         return cfg.teacher_reward_lambda * trace.reward
     # The regularizer rewards traces that the current student can already
     # encode, which is the adaptive-teaching pressure in this local diagnostic.
-    log_probability = (
-        trace.student_log_probability
-        if trace.student_log_probability is not None
-        else _trace_log_probability(trace, student)
-    )
+    log_probability = _current_student_log_probability(trace, student)
     return cfg.teacher_reward_lambda * trace.reward + cfg.teacher_student_regularizer * log_probability
 
 
@@ -2561,9 +2560,7 @@ def _elite_kernel_log_normalizer(
     if student is None or not elites:
         return None
     normalizer_terms = [
-        elite.student_log_probability
-        if elite.student_log_probability is not None
-        else _trace_log_probability(elite, student)
+        _current_student_log_probability(elite, student)
         for elite in elites
     ]
     return _logsumexp(normalizer_terms) if normalizer_terms else None
@@ -2577,11 +2574,7 @@ def _elite_kernel_log_probability(
 ) -> float:
     terms: List[float] = []
     for elite in elites:
-        elite_log_probability = (
-            elite.student_log_probability
-            if elite.student_log_probability is not None
-            else _trace_log_probability(elite, student)
-        )
+        elite_log_probability = _current_student_log_probability(elite, student)
         terms.append(elite_log_probability - _loop_free_trace_distance(trace, elite))
     if not terms:
         return _trace_log_probability(trace, student)
@@ -2589,6 +2582,17 @@ def _elite_kernel_log_probability(
     if normalizer is None:
         normalizer = _elite_kernel_log_normalizer(student, elites)
     return _logsumexp(terms) - (normalizer if normalizer is not None else 0.0)
+
+
+def _current_student_log_probability(
+    trace: CartpoleTrace,
+    student: ProbabilisticCartpoleStudent,
+) -> float:
+    if trace.actions:
+        return _trace_log_probability(trace, student)
+    if trace.student_log_probability is not None:
+        return trace.student_log_probability
+    return 0.0
 
 
 def _loop_free_trace_distance(left: CartpoleTrace, right: CartpoleTrace) -> float:

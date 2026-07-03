@@ -292,7 +292,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   then uses the refreshed top-rho set for its objective. The teacher also records
   selected trace sources plus sampled-trace log probabilities in metrics JSON. When a sampled
   closed-loop rollout is projected back into the loop-free teacher budget, its student likelihood is
-  recomputed on the projected trace before teacher-objective ranking. This moves
+  recomputed on the projected trace before teacher-objective ranking. Teacher scoring also
+  recomputes likelihoods against the current probabilistic student whenever raw trace actions are
+  available, instead of trusting a cached value that may have been produced by an earlier student.
+  This moves
   toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
@@ -608,6 +611,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_uses_student_regularizer` verifies
   that, once a previous student exists, the teacher objective can prefer a lower-reward loop-free trace
   that has higher probability under the student's Gaussian action distributions.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_recomputes_cached_probability_for_current_student`
+  verifies that teacher scoring recomputes executable trace likelihoods against the current
+  probabilistic student instead of reusing a stale cached value.
+- `tests/test_cartpole_paper.py::test_cartpole_current_student_log_probability_handles_empty_uncached_trace`
+  verifies the zero-likelihood fallback for empty segment-only traces without cached likelihood.
 - `tests/test_cartpole_paper.py::test_cartpole_trace_log_probability_uses_fixed_initial_mode`
   verifies that the teacher regularizer marginalizes over latent segment modes after conditioning the
   first segment on the fixed initial mode instead of treating posterior responsibilities as extra priors.
@@ -623,6 +631,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_kernel_uses_normalized_top_rho_distance`
   verifies that the refinement objective uses the paper-style normalized elite-distance kernel
   approximation for trace probability.
+- `tests/test_cartpole_paper.py::test_cartpole_elite_kernel_recomputes_elite_probability_for_current_student`
+  verifies that top-rho elite normalization also scores executable elite traces against the current
+  probabilistic student instead of reusing stale cached likelihoods.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distance_includes_teacher_gains`
   verifies that the elite-distance kernel includes loop-free teacher gains as well as segment
   action, duration, and time-increment schedules.

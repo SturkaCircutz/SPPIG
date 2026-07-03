@@ -61,6 +61,7 @@ from cartpole_synthesis import (
     _condition_initial_mode_responsibilities,
     _duration_refinement_candidates,
     _action_gradient_refinement_candidate,
+    _current_student_log_probability,
     _elite_centroid_trace,
     _elite_distribution_sample_trace,
     _elite_distribution_sample_traces,
@@ -1958,6 +1959,47 @@ class CartpolePaperTest(unittest.TestCase):
             _teacher_objective(mismatched_trace, student, cfg),
         )
 
+    def test_cartpole_teacher_objective_recomputes_cached_probability_for_current_student(self):
+        cfg = CartpoleSynthesisConfig(teacher_reward_lambda=0.0, teacher_student_regularizer=1.0)
+        current_student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 10.0),
+            switch_threshold_distribution=GaussianScalar(10.0, 0.1),
+            switch_parameter_distributions=[GaussianScalar(10.0, 0.1)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ],
+            actions=[-10.0, -10.0],
+            mode_labels=[0, 0],
+            reward=1.0,
+            segment_actions=(-10.0,),
+            segment_durations=(2,),
+            student_log_probability=123.0,
+        )
+
+        self.assertAlmostEqual(
+            _current_student_log_probability(trace, current_student),
+            _trace_log_probability(trace, current_student),
+        )
+        self.assertAlmostEqual(
+            _teacher_objective(trace, current_student, cfg),
+            _trace_log_probability(trace, current_student),
+        )
+        self.assertNotEqual(_teacher_objective(trace, current_student, cfg), trace.student_log_probability)
+
+    def test_cartpole_current_student_log_probability_handles_empty_uncached_trace(self):
+        student = _bootstrap_probabilistic_student(CartpoleSynthesisConfig())
+        trace = CartpoleTrace(observations=[], actions=[], mode_labels=[], reward=0.0)
+
+        self.assertEqual(_current_student_log_probability(trace, student), 0.0)
+
     def test_cartpole_trace_log_probability_uses_fixed_initial_mode(self):
         student = ProbabilisticCartpoleStudent(
             action_distributions={
@@ -2256,6 +2298,52 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(
             _teacher_refinement_objective(close, student, cfg, [elite]),
             _teacher_refinement_objective(far, student, cfg, [elite]),
+        )
+
+    def test_cartpole_elite_kernel_recomputes_elite_probability_for_current_student(self):
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 10.0),
+            switch_threshold_distribution=GaussianScalar(10.0, 0.1),
+            switch_parameter_distributions=[GaussianScalar(10.0, 0.1)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        elite = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ],
+            actions=[-10.0, -10.0],
+            mode_labels=[0, 0],
+            reward=1.0,
+            segment_actions=(-10.0,),
+            segment_durations=(2,),
+            student_log_probability=123.0,
+        )
+        close = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            segment_actions=(-10.0,),
+            segment_durations=(2,),
+        )
+        far = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            segment_actions=(10.0,),
+            segment_durations=(2,),
+        )
+
+        self.assertAlmostEqual(_elite_kernel_log_probability(close, student, [elite]), 0.0)
+        self.assertGreater(
+            _elite_kernel_log_probability(close, student, [elite]),
+            _elite_kernel_log_probability(far, student, [elite]),
         )
 
     def test_cartpole_teacher_elite_centroid_recombines_loop_free_schedules(self):

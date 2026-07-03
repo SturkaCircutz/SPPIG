@@ -176,7 +176,10 @@ available. Selected teacher traces also record the direct Eq. (8)-style
 teacher objective and the bounded top-rho refinement objective used for local
 selection. If a sampled closed-loop rollout is projected back into the loop-free
 teacher budget, that likelihood is recomputed on the projected trace before
-teacher-objective ranking.
+teacher-objective ranking. Teacher scoring also recomputes likelihoods against
+the current probabilistic student whenever raw trace actions are available, so
+cached likelihoods from an earlier student cannot drive a later adaptive-
+teaching objective.
 Local refinement can vary teacher gains, one segment duration, one segment
 time increment, or one
 constant-action segment at a time, accepting only improvements under the
