@@ -127,7 +127,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   older artifacts.
 - `artifacts/results/cartpole_summary.csv` and `artifacts/results/cartpole_manifest.json`: checked-in
   local diagnostic provenance for the current result bundle. The manifest records the command behind
-  each metrics artifact and explicitly keeps `paper_scale_result` false.
+  each metrics artifact and explicitly keeps `paper_scale_result` false. Its bundle-level
+  `paper_protocol_status` records that the checked-in diagnostics use one seed, 20 evaluation
+  rollouts, PPO/PPO-LSTM checkpoint reevaluations, a warm-started PPO-LSTM row, bounded Direct-Opt,
+  and an incomplete synthesized PSM diagnostic rather than paper-scale reproduced results.
 
 ## Current Status
 

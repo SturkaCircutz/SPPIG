@@ -35,6 +35,28 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertFalse(manifest["paper_scale_result"])
         self.assertTrue(manifest["local_diagnostic_only"])
         self.assertIn("10^7-timestep", manifest["limitation"])
+        bundle_status = manifest["paper_protocol_status"]
+        self.assertEqual(
+            bundle_status["artifact_kind"],
+            "checked_in_local_cartpole_diagnostic_bundle_status",
+        )
+        self.assertEqual(bundle_status["selected_seeds"], [0])
+        self.assertEqual(bundle_status["distinct_seeds"], [0])
+        self.assertFalse(bundle_status["uses_five_distinct_seeds"])
+        self.assertEqual(bundle_status["paper_eval_rollouts"], 1000)
+        self.assertEqual(bundle_status["selected_eval_rollouts"], 20)
+        self.assertFalse(bundle_status["uses_paper_eval_rollouts"])
+        self.assertEqual(bundle_status["paper_test_horizon_steps"], 15000)
+        self.assertTrue(bundle_status["uses_full_test_horizon"])
+        self.assertTrue(bundle_status["includes_ppo_checkpoint_reevaluation"])
+        self.assertTrue(bundle_status["includes_ppo_lstm_checkpoint_reevaluation"])
+        self.assertTrue(bundle_status["includes_direct_opt_diagnostic"])
+        self.assertTrue(bundle_status["includes_synthesized_psm_diagnostic"])
+        self.assertFalse(bundle_status["ppo_hyperparameter_search"])
+        self.assertTrue(bundle_status["ppo_lstm_is_warm_started"])
+        self.assertFalse(bundle_status["full_probabilistic_adaptive_teaching"])
+        self.assertFalse(bundle_status["full_direct_opt_protocol"])
+        self.assertFalse(bundle_status["paper_scale_result"])
         self.assertEqual(manifest["row_count"], len(summary))
         self.assertEqual(manifest["summary_csv"], "artifacts/results/cartpole_summary.csv")
         self.assertEqual({row["policy"] for row in summary}, set(manifest["policies"]))
