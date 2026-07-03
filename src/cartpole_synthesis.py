@@ -125,6 +125,7 @@ class CartpoleTrace:
     student_log_probability: float | None = None
     teacher_objective: float | None = None
     teacher_refinement_objective: float | None = None
+    elite_distribution_fit: Dict[str, object] | None = None
 
 
 def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
@@ -234,6 +235,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             ],
             "elite_distribution_selection_objective": (
                 "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_student_log_probability"
+            ),
+            "elite_distribution_fit_diagnostics": (
+                "serialized_on_distribution_mean_and_sample_traces_with_source_weights_objectives_and_gaussian_parameters"
             ),
             "elite_refinement_elite_set": "refreshed_top_rho_after_distribution_rounds",
             "elite_refinement_objective": "reward_plus_top_rho_log_probability_distance_kernel",
@@ -1180,6 +1184,16 @@ class _EliteScheduleDistribution:
     theta_gain: GaussianScalar
     omega_gain: GaussianScalar
     source_elites: Tuple[CartpoleTrace, ...]
+    source_weights: Tuple[float, ...]
+    source_teacher_objectives: Tuple[float, ...]
+    weighting: str
+
+
+@dataclass(frozen=True)
+class _EliteScheduleWeightDetails:
+    weights: Tuple[float, ...]
+    teacher_objectives: Tuple[float, ...]
+    weighting: str
 
 
 def _elite_distribution_mean_trace(
@@ -1215,7 +1229,8 @@ def _fit_elite_schedule_distribution(
     )
     lower = max(min(cfg.force_values), -env_cfg.force_limit)
     upper = min(max(cfg.force_values), env_cfg.force_limit)
-    schedule_weights = _elite_schedule_weights(schedules, student, cfg)
+    weight_details = _elite_schedule_weight_details(schedules, student, cfg)
+    schedule_weights = list(weight_details.weights)
     segment_distributions: List[_EliteSegmentDistribution] = []
     for index in range(max_segments):
         pairs = [
@@ -1268,6 +1283,9 @@ def _fit_elite_schedule_distribution(
         theta_gain=GaussianScalar(theta_gain_mean, theta_gain_std),
         omega_gain=GaussianScalar(omega_gain_mean, omega_gain_std),
         source_elites=tuple(trace for _, _, _, _, trace in schedules),
+        source_weights=weight_details.weights,
+        source_teacher_objectives=weight_details.teacher_objectives,
+        weighting=weight_details.weighting,
     )
 
 
@@ -1308,6 +1326,7 @@ def _elite_distribution_mean_trace_from_distribution(
         tuple(mean_modes),
     )
     mean_trace.teacher_source = _elite_distribution_mean_source(list(distribution.source_elites))
+    mean_trace.elite_distribution_fit = _summarize_elite_schedule_distribution(distribution)
     mean_trace.student_log_probability = (
         _trace_log_probability(mean_trace, student)
         if student is not None
@@ -1445,12 +1464,37 @@ def _elite_distribution_sample_trace_from_distribution(
         tuple(sampled_modes),
     )
     sample.teacher_source = _elite_distribution_source(list(distribution.source_elites))
+    sample.elite_distribution_fit = _summarize_elite_schedule_distribution(distribution)
     sample.student_log_probability = (
         _trace_log_probability(sample, student)
         if student is not None
         else None
     )
     return sample
+
+
+def _gaussian_scalar_summary(distribution: GaussianScalar) -> Dict[str, float]:
+    return {"mean": distribution.mean, "std": distribution.std}
+
+
+def _summarize_elite_schedule_distribution(distribution: _EliteScheduleDistribution) -> Dict[str, object]:
+    return {
+        "weighting": distribution.weighting,
+        "source_count": len(distribution.source_elites),
+        "source_weights": list(distribution.source_weights),
+        "source_teacher_objectives": list(distribution.source_teacher_objectives),
+        "theta_gain": _gaussian_scalar_summary(distribution.theta_gain),
+        "omega_gain": _gaussian_scalar_summary(distribution.omega_gain),
+        "segments": [
+            {
+                "mode": segment.mode,
+                "action": _gaussian_scalar_summary(segment.action),
+                "duration": _gaussian_scalar_summary(segment.duration),
+                "time_increment": _gaussian_scalar_summary(segment.time_increment),
+            }
+            for segment in distribution.segments
+        ],
+    }
 
 
 def _elite_loop_free_schedules(
@@ -1510,10 +1554,20 @@ def _elite_schedule_weights(
     student: ProbabilisticCartpoleStudent | None,
     cfg: CartpoleSynthesisConfig,
 ) -> List[float]:
+    return list(_elite_schedule_weight_details(schedules, student, cfg).weights)
+
+
+def _elite_schedule_weight_details(
+    schedules: List[EliteSchedule],
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+) -> _EliteScheduleWeightDetails:
     if not schedules:
-        return []
+        return _EliteScheduleWeightDetails((), (), "empty")
     if student is None:
-        return [1.0 / len(schedules) for _ in schedules]
+        weights = tuple(1.0 / len(schedules) for _ in schedules)
+        objectives = tuple(_teacher_objective(trace, None, cfg) for _, _, _, _, trace in schedules)
+        return _EliteScheduleWeightDetails(weights, objectives, "uniform_no_student")
     objective_values = [
         _teacher_objective(trace, student, cfg)
         for _, _, _, _, trace in schedules
@@ -1522,8 +1576,13 @@ def _elite_schedule_weights(
     raw_weights = [math.exp(value - max_objective) for value in objective_values]
     total = sum(raw_weights)
     if total <= 0.0:
-        return [1.0 / len(schedules) for _ in schedules]
-    return [weight / total for weight in raw_weights]
+        weights = tuple(1.0 / len(schedules) for _ in schedules)
+        return _EliteScheduleWeightDetails(weights, tuple(objective_values), "uniform_degenerate_objective")
+    return _EliteScheduleWeightDetails(
+        tuple(weight / total for weight in raw_weights),
+        tuple(objective_values),
+        "softmax_teacher_objective",
+    )
 
 
 def _mean_and_std(values: List[float], std_floor: float) -> Tuple[float, float]:
@@ -1973,6 +2032,7 @@ def _refine_loop_free_trace(
             if student is not None
             else best.student_log_probability
         )
+        best.elite_distribution_fit = trace.elite_distribution_fit
     else:
         best.teacher_source = trace.teacher_source
     return best

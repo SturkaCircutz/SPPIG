@@ -121,39 +121,42 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
     source_counts: dict[str, int] = {}
     for trace in traces:
         source_counts[trace.teacher_source] = source_counts.get(trace.teacher_source, 0) + 1
+    examples = []
+    for trace in traces[:max_examples]:
+        example = {
+            "reward": trace.reward,
+            "steps": len(trace.actions),
+            "switches": sum(
+                int(left != right)
+                for left, right in zip(trace.mode_labels, trace.mode_labels[1:])
+            ),
+            "theta_gain": trace.theta_gain,
+            "omega_gain": trace.omega_gain,
+            "segment_actions": list(trace.segment_actions),
+            "segment_durations": list(trace.segment_durations),
+            "segment_time_increments": list(trace.segment_time_increments),
+            "teacher_source": trace.teacher_source,
+            "student_log_probability": trace.student_log_probability,
+            "teacher_objective": trace.teacher_objective,
+            "teacher_refinement_objective": trace.teacher_refinement_objective,
+            "first_observation": trace.observations[0] if trace.observations else None,
+            "last_observation": trace.observations[-1] if trace.observations else None,
+            "mode_prefix": trace.mode_labels[: min(8, len(trace.mode_labels))],
+        }
+        if trace.elite_distribution_fit is not None:
+            example["elite_distribution_fit"] = trace.elite_distribution_fit
+        examples.append(example)
     return {
         "count": len(traces),
         "reward_mean": sum(rewards) / len(rewards) if rewards else 0.0,
         "length_mean": sum(lengths) / len(lengths) if lengths else 0.0,
         "teacher_source_counts": source_counts,
-        "examples": [
-            {
-                "reward": trace.reward,
-                "steps": len(trace.actions),
-                "switches": sum(
-                    int(left != right)
-                    for left, right in zip(trace.mode_labels, trace.mode_labels[1:])
-                ),
-                "theta_gain": trace.theta_gain,
-                "omega_gain": trace.omega_gain,
-                "segment_actions": list(trace.segment_actions),
-                "segment_durations": list(trace.segment_durations),
-                "segment_time_increments": list(trace.segment_time_increments),
-                "teacher_source": trace.teacher_source,
-                "student_log_probability": trace.student_log_probability,
-                "teacher_objective": trace.teacher_objective,
-                "teacher_refinement_objective": trace.teacher_refinement_objective,
-                "first_observation": trace.observations[0] if trace.observations else None,
-                "last_observation": trace.observations[-1] if trace.observations else None,
-                "mode_prefix": trace.mode_labels[: min(8, len(trace.mode_labels))],
-            }
-            for trace in traces[:max_examples]
-        ],
+        "examples": examples,
     }
 
 
 def serialize_trace(trace: CartpoleTrace):
-    return {
+    payload = {
         "observations": [list(observation) for observation in trace.observations],
         "actions": list(trace.actions),
         "mode_labels": list(trace.mode_labels),
@@ -168,6 +171,9 @@ def serialize_trace(trace: CartpoleTrace):
         "teacher_objective": trace.teacher_objective,
         "teacher_refinement_objective": trace.teacher_refinement_objective,
     }
+    if trace.elite_distribution_fit is not None:
+        payload["elite_distribution_fit"] = trace.elite_distribution_fit
+    return payload
 
 
 def serialize_traces(traces: list[CartpoleTrace]):

@@ -364,6 +364,913 @@
             10.0,
             10.0
           ],
+          "elite_distribution_fit": {
+            "omega_gain": {
+              "mean": 0.0,
+              "std": 1e-06
+            },
+            "segments": [
+              {
+                "action": {
+                  "mean": 8.747532638487598,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 0,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -0.3773040520511799,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 0,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -9.937408835368343,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 0,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              }
+            ],
+            "source_count": 2,
+            "source_teacher_objectives": [
+              5699.886512941603,
+              2417.5874623089035
+            ],
+            "source_weights": [
+              1.0,
+              0.0
+            ],
+            "theta_gain": {
+              "mean": 0.0,
+              "std": 1e-06
+            },
+            "weighting": "softmax_teacher_objective"
+          },
           "mode_labels": [
             0,
             1,
@@ -1014,6 +1921,613 @@
             -3.1785554553987474,
             -3.1785554553987474
           ],
+          "elite_distribution_fit": {
+            "omega_gain": {
+              "mean": 0.0,
+              "std": 1e-06
+            },
+            "segments": [
+              {
+                "action": {
+                  "mean": -4.284191156880719,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 0,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": 10.0,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -4.362006814576075,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 0,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              },
+              {
+                "action": {
+                  "mean": -3.1785554553987474,
+                  "std": 0.001
+                },
+                "duration": {
+                  "mean": 1.0,
+                  "std": 1.0
+                },
+                "mode": 1,
+                "time_increment": {
+                  "mean": 0.02,
+                  "std": 0.001
+                }
+              }
+            ],
+            "source_count": 2,
+            "source_teacher_objectives": [
+              3766.065061715808,
+              2224.386019582423
+            ],
+            "source_weights": [
+              1.0,
+              0.0
+            ],
+            "theta_gain": {
+              "mean": 0.0,
+              "std": 1e-06
+            },
+            "weighting": "softmax_teacher_objective"
+          },
           "mode_labels": [
             0,
             1,

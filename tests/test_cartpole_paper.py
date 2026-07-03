@@ -63,7 +63,9 @@ from cartpole_synthesis import (
     _action_gradient_refinement_candidate,
     _current_student_log_probability,
     _elite_centroid_trace,
+    _elite_distribution_mean_trace_from_distribution,
     _elite_distribution_sample_trace,
+    _elite_distribution_sample_trace_from_distribution,
     _elite_distribution_sample_traces,
     _elite_distribution_mean_trace,
     _elite_schedule_weights,
@@ -3620,6 +3622,9 @@ class CartpolePaperTest(unittest.TestCase):
             0.75 * env.cfg.dt,
         )
         self.assertEqual(distribution.source_elites, (left, right))
+        self.assertEqual(distribution.weighting, "uniform_no_student")
+        self.assertEqual(distribution.source_weights, (0.5, 0.5))
+        self.assertEqual(distribution.source_teacher_objectives, (100.0, 200.0))
 
     def test_cartpole_teacher_elite_schedule_weights_follow_student_objective(self):
         cfg = CartpoleSynthesisConfig(teacher_reward_lambda=1.0, teacher_student_regularizer=0.0)
@@ -3756,6 +3761,137 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(weighted_distribution.segments[0].action.mean, uniform_distribution.segments[0].action.mean)
         self.assertGreater(weighted_distribution.theta_gain.mean, uniform_distribution.theta_gain.mean)
         self.assertEqual(weighted_distribution.segments[0].mode, 1)
+        self.assertEqual(weighted_distribution.weighting, "softmax_teacher_objective")
+        self.assertAlmostEqual(sum(weighted_distribution.source_weights), 1.0)
+        self.assertGreater(weighted_distribution.source_weights[1], weighted_distribution.source_weights[0])
+        self.assertEqual(weighted_distribution.source_teacher_objectives, (0.0, 2.0))
+
+    def test_cartpole_teacher_elite_distribution_records_fit_diagnostics_on_candidates(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            segment_steps=4,
+            segments_per_trace=1,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        low = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(0.0,),
+            segment_durations=(1,),
+            segment_time_increments=(env.cfg.dt / 2.0,),
+            teacher_source="student_sample",
+        )
+        high = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=2.0,
+            theta_gain=10.0,
+            omega_gain=2.0,
+            segment_actions=(10.0,),
+            segment_durations=(3,),
+            segment_time_increments=(env.cfg.dt,),
+            teacher_source="student_sample",
+        )
+        schedules = _elite_loop_free_schedules([low, high], env.cfg.dt)
+        distribution = _fit_elite_schedule_distribution(schedules, env.cfg, cfg, _bootstrap_probabilistic_student(cfg))
+
+        self.assertIsNotNone(distribution)
+        assert distribution is not None
+        mean_trace = _elite_distribution_mean_trace_from_distribution(
+            distribution,
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            _bootstrap_probabilistic_student(cfg),
+        )
+        sample_trace = _elite_distribution_sample_trace_from_distribution(
+            distribution,
+            [0.0, 0.0, 0.05, 0.0],
+            env.cfg,
+            cfg,
+            random.Random(0),
+            _bootstrap_probabilistic_student(cfg),
+        )
+
+        self.assertIsNotNone(mean_trace)
+        self.assertIsNotNone(sample_trace)
+        assert mean_trace is not None
+        assert sample_trace is not None
+        for trace in (mean_trace, sample_trace):
+            fit = trace.elite_distribution_fit
+            self.assertIsNotNone(fit)
+            assert fit is not None
+            self.assertEqual(fit["weighting"], "softmax_teacher_objective")
+            self.assertEqual(fit["source_count"], 2)
+            self.assertAlmostEqual(sum(fit["source_weights"]), 1.0)
+            self.assertEqual(fit["source_teacher_objectives"], [0.0, 2.0])
+            self.assertEqual(fit["theta_gain"]["mean"], distribution.theta_gain.mean)
+            self.assertEqual(fit["segments"][0]["action"]["mean"], distribution.segments[0].action.mean)
+
+    def test_cartpole_teacher_refinement_preserves_elite_distribution_fit_diagnostics(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            segment_steps=2,
+            segments_per_trace=1,
+            teacher_refinement_steps=1,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        trace = CartpoleTrace(
+            observations=[],
+            actions=[0.0],
+            mode_labels=[1],
+            reward=1.0,
+            segment_actions=(0.0,),
+            segment_durations=(1,),
+            teacher_source="student_elite_distribution_sample",
+            elite_distribution_fit={"weighting": "softmax_teacher_objective", "source_count": 1},
+        )
+        improved = CartpoleTrace(
+            observations=[],
+            actions=[10.0],
+            mode_labels=[1],
+            reward=5.0,
+            segment_actions=(10.0,),
+            segment_durations=(1,),
+        )
+
+        with patch("cartpole_synthesis._duration_refinement_candidates", return_value=[]), patch(
+            "cartpole_synthesis._time_increment_refinement_candidates",
+            return_value=[],
+        ), patch(
+            "cartpole_synthesis._action_refinement_candidates",
+            return_value=[improved],
+        ), patch(
+            "cartpole_synthesis._action_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._duration_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._time_increment_gradient_refinement_candidate",
+            return_value=None,
+        ), patch(
+            "cartpole_synthesis._schedule_gradient_refinement_candidate",
+            return_value=None,
+        ):
+            refined = _refine_loop_free_trace(
+                trace,
+                [0.0, 0.0, 0.05, 0.0],
+                env.cfg,
+                cfg,
+                None,
+            )
+
+        self.assertIs(refined, improved)
+        self.assertEqual(refined.teacher_source, "student_elite_distribution_sample_refined")
+        self.assertEqual(refined.elite_distribution_fit, trace.elite_distribution_fit)
 
     def test_cartpole_teacher_elite_distribution_sample_trace_uses_student_weights(self):
         env = CartpoleEnv.train_env(seed=0)

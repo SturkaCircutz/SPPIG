@@ -310,7 +310,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   durations, and time increments from the current top-rho set when a probabilistic student is
   available, falling back to uniform weights before the first student exists. Each bounded round
   evaluates the fitted distribution mean, samples from that distribution, refreshes the top-rho set, and refits before the next round; local refinement
-  then uses the refreshed top-rho set for its objective. The teacher also records
+  then uses the refreshed top-rho set for its objective. Distribution-generated
+  teacher traces serialize the fitted source weights, source objectives, and
+  Gaussian schedule parameters used to produce them. The teacher also records
   selected trace sources plus sampled-trace log probabilities in metrics JSON. When a sampled
   closed-loop rollout is projected back into the loop-free teacher budget, its student likelihood is
   recomputed on the projected trace before teacher-objective ranking. Teacher scoring also
@@ -729,12 +731,18 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   candidate before local refinement.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_fits_schedule_parameters`
   verifies that the bounded CEM-style step fits a reusable schedule distribution over teacher gains,
-  per-segment actions, durations, time increments, and majority modes.
+  per-segment actions, durations, time increments, majority modes, source weights, and source
+  teacher objectives.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_schedule_weights_follow_student_objective`
   `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_weights_top_rho_statistics_by_objective`,
   and `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_sample_trace_uses_student_weights`
   verify that the bounded CEM-style distribution refit weights current top-rho traces by the same
   teacher objective used for selection when a probabilistic student is available.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_records_fit_diagnostics_on_candidates`
+  verifies that distribution-generated mean/sample candidates carry the fitted source weights,
+  teacher objectives, and Gaussian schedule parameters into serialized trace diagnostics.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_preserves_elite_distribution_fit_diagnostics`
+  verifies that local refinement of a distribution-generated candidate preserves the fit diagnostics.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_schedule_weights_are_uniform_without_student`
   verifies that the first teacher round keeps the old uniform fit when no student exists yet.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_resample_count_is_configurable`
@@ -936,7 +944,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   candidate per refinement iteration with short backtracking line search, evaluates one deterministic top-rho centroid recombination
   candidate plus configurable bounded rounds that refit an objective-weighted Gaussian schedule
   distribution over teacher gains and per-segment action, duration, and time-increment parameters from
-  the refreshed top-rho set before drawing the next mean/sample candidates, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
+  the refreshed top-rho set before drawing the next mean/sample candidates, records those fitted
+  distribution weights/objectives/parameters on generated traces, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the
   previous student, with the elite-distance kernel including teacher gains plus normalized segment action,
   duration, and time-increment schedules, but it does not yet perform the paper's full CEM procedure or continuous

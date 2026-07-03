@@ -202,7 +202,9 @@ centroid recombination of the top-rho loop-free action/duration/time-increment s
 and configurable bounded rounds that fit a Gaussian schedule distribution over
 teacher gains plus per-segment actions, durations, and time increments from the
 current top-rho set. Each round evaluates the fitted mean and samples from that
-distribution, refreshes the top-rho set, and refits before the next round. This
+distribution, refreshes the top-rho set, and refits before the next round.
+Distribution-generated teacher traces serialize the fitted source weights,
+source objectives, and Gaussian schedule parameters used to produce them. This
 is still only a bounded CEM-style approximation, not the paper's full CEM plus
 gradient optimizer.
 The student starts with action-likelihood responsibilities, then each configured

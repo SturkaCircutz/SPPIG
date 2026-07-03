@@ -1106,6 +1106,7 @@
           "elite_distance_action_scale": "max_abs_segment_action_floor_1",
           "elite_distance_duration_scale_floor": 1.0,
           "elite_distance_metric": "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments",
+          "elite_distribution_fit_diagnostics": "serialized_on_distribution_mean_and_sample_traces_with_source_weights_objectives_and_gaussian_parameters",
           "elite_distribution_mean_candidate_per_round": 1,
           "elite_distribution_min_action_std": 0.001,
           "elite_distribution_parameters": [
