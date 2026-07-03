@@ -17,6 +17,7 @@ from cartpole_env import (
     CARTPOLE_PSM_MODE_UPDATE_ORDER,
     CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY,
     PAPER_EVAL_ROLLOUTS,
+    PAPER_PPO_TIMESTEPS,
     BangBangCartpolePSM,
     CartpoleEnv,
     Observation,
@@ -24,9 +25,6 @@ from cartpole_env import (
     cartpole_space_spec,
     summarize_cartpole_results,
 )
-
-
-PAPER_PPO_TIMESTEPS = 10_000_000
 
 
 @dataclass

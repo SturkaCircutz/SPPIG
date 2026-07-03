@@ -3,8 +3,20 @@ from __future__ import annotations
 import argparse
 import os
 
-from cartpole_env import PAPER_EVAL_ROLLOUTS
-from ppo_cartpole import PAPER_PPO_TIMESTEPS, PPOConfig, train_ppo_cartpole
+from cartpole_env import PAPER_EVAL_ROLLOUTS, PAPER_PPO_TIMESTEPS
+
+
+def _load_ppo_runtime():
+    try:
+        from ppo_cartpole import PPOConfig, train_ppo_cartpole
+    except ModuleNotFoundError as exc:
+        if exc.name == "torch":
+            raise SystemExit(
+                "PyTorch is required to train CartPole PPO. Install the project requirements before "
+                "running this command."
+            ) from exc
+        raise
+    return PPOConfig, train_ppo_cartpole
 
 
 def main() -> None:
@@ -32,6 +44,7 @@ def main() -> None:
     parser.add_argument("--metrics-output", default=None)
     args = parser.parse_args()
 
+    PPOConfig, train_ppo_cartpole = _load_ppo_runtime()
     cfg = PPOConfig(
         policy_type=args.policy,
         total_timesteps=args.timesteps,

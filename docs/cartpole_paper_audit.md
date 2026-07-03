@@ -46,7 +46,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `src/train_cartpole_ppo.py`: CLI for PPO and PPO-LSTM experiments; with `--eval-interval`, it can
   persist per-evaluation train/test metrics to JSON for checkpoint provenance. Its default
   `--timesteps` value is the paper PPO budget `10^7`; local diagnostic commands override that
-  default explicitly.
+  default explicitly. Help/default inspection does not import PyTorch, but PPO training still requires
+  the PyTorch runtime.
 - `src/evaluate_cartpole_psm.py`: two-mode constant-action/depth-2-switch programmatic policy evaluator.
 - `src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py`: bounded diagnostic Direct-Opt
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
@@ -526,9 +527,10 @@ paper-scale PPO2 runs.
   opt-in sweep continuation records failed jobs to a failure artifact and manifest counters.
 - `tests/test_cartpole_ppo_sweep.py::test_default_job_failure_stops_sweep` verifies that job failures
   still stop the sweep by default.
-- `tests/test_cartpole_ppo_cli.py` verifies PPO CLI defaults and runtime metrics when PyTorch is
-  installed, and now skips cleanly at collection time when PyTorch is unavailable so non-PPO
-  reproduction tests can still run.
+- `tests/test_cartpole_ppo_cli.py` verifies PPO CLI defaults and help output without importing
+  PyTorch. When PyTorch is installed, it also verifies the CLI's dependency-light paper timestep
+  constant against the PPO runtime and runs a tiny runtime metrics smoke test; those two checks are
+  skipped when PyTorch is unavailable.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
   the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
   non-paper-scale provenance, including local batch/restart diagnostics, Appendix B.3 one-hot vertex

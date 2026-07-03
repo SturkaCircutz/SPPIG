@@ -8,6 +8,7 @@ from typing import Any, List, Optional, Protocol, Sequence
 
 Observation = List[float]
 PAPER_EVAL_ROLLOUTS = 1000
+PAPER_PPO_TIMESTEPS = 10_000_000
 STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP = 1.0
 CARTPOLE_RESET_LOW = -0.05
 CARTPOLE_RESET_HIGH = 0.05

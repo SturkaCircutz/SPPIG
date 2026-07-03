@@ -19,16 +19,24 @@ except Exception:
     HAS_TORCH = False
 
 from cartpole_env import PAPER_EVAL_ROLLOUTS  # noqa: E402
-if HAS_TORCH:
-    from ppo_cartpole import PAPER_PPO_TIMESTEPS  # noqa: E402
-    import train_cartpole_ppo  # noqa: E402
-else:
-    PAPER_PPO_TIMESTEPS = 10_000_000
-    train_cartpole_ppo = None
+import train_cartpole_ppo  # noqa: E402
+
+
+PAPER_PPO_TIMESTEPS = train_cartpole_ppo.PAPER_PPO_TIMESTEPS
+
+
+class FakePPOConfig:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
 
 
 class CartpolePPOCliTest(unittest.TestCase):
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_cli_paper_timestep_constant_matches_runtime(self):
+        from ppo_cartpole import PAPER_PPO_TIMESTEPS as runtime_paper_timesteps
+
+        self.assertEqual(PAPER_PPO_TIMESTEPS, runtime_paper_timesteps)
+
     def test_cli_defaults_to_paper_timestep_budget_without_running(self):
         captured = {}
 
@@ -45,12 +53,29 @@ class CartpolePPOCliTest(unittest.TestCase):
 
             return None, Result()
 
-        with patch.object(sys, "argv", [SCRIPT]), patch.object(train_cartpole_ppo, "train_ppo_cartpole", fake_train):
+        def fake_load_ppo_runtime():
+            return FakePPOConfig, fake_train
+
+        with patch.object(sys, "argv", [SCRIPT]), patch.object(
+            train_cartpole_ppo, "_load_ppo_runtime", fake_load_ppo_runtime
+        ):
             train_cartpole_ppo.main()
 
         self.assertEqual(captured["cfg"].total_timesteps, PAPER_PPO_TIMESTEPS)
         self.assertEqual(captured["cfg"].eval_rollouts, PAPER_EVAL_ROLLOUTS)
         self.assertEqual(captured["output"], "artifacts/cartpole_ppo.pt")
+
+    def test_cli_help_does_not_require_torch(self):
+        result = subprocess.run(
+            [sys.executable, SCRIPT, "--help"],
+            check=True,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn("--timesteps", result.stdout)
+        self.assertIn("--policy", result.stdout)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_cli_writes_checkpoint_and_metrics_json(self):
