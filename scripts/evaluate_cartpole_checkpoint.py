@@ -14,7 +14,14 @@ SRC = ROOT / "src"
 # Keep this script runnable from a fresh checkout without requiring package install.
 sys.path.insert(0, str(SRC))
 
-from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec, cartpole_space_spec  # noqa: E402
+from cartpole_env import (  # noqa: E402
+    CARTPOLE_PSM_MODE_UPDATE_ORDER,
+    CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY,
+    PAPER_EVAL_ROLLOUTS,
+    CartpoleEnv,
+    cartpole_reward_spec,
+    cartpole_space_spec,
+)
 from ppo_cartpole import (  # noqa: E402
     PAPER_PPO_TIMESTEPS,
     LSTMActorCritic,
@@ -53,6 +60,15 @@ def checkpoint_reevaluation_protocol_status(
     paper_test_steps = CartpoleEnv.test_env().cfg.max_steps
     checkpoint_timesteps = int(checkpoint_config.get("total_timesteps", 0))
     checkpoint_eval_steps = int(checkpoint_config.get("eval_test_max_steps", 0))
+    pretrain_steps = int(checkpoint_config.get("pretrain_steps", 0))
+    recorded_teacher_policy = checkpoint_config.get("pretrain_teacher_policy")
+    recorded_teacher_order = checkpoint_config.get("pretrain_teacher_mode_update_order")
+    if pretrain_steps > 0:
+        teacher_order_status = "recorded" if recorded_teacher_order else "missing_from_checkpoint_config"
+        teacher_policy_status = "recorded" if recorded_teacher_policy else "missing_from_checkpoint_config"
+    else:
+        teacher_order_status = "not_applicable_no_pretraining"
+        teacher_policy_status = "not_applicable_no_pretraining"
     return {
         "artifact_kind": "ppo_checkpoint_reevaluation",
         "policy_type": checkpoint_config.get("policy_type"),
@@ -67,11 +83,22 @@ def checkpoint_reevaluation_protocol_status(
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "selected_eval_rollouts": eval_rollouts,
         "uses_paper_eval_rollouts": eval_rollouts == PAPER_EVAL_ROLLOUTS,
+        "checkpoint_pretrain_steps": pretrain_steps,
+        "current_pretrain_teacher_policy": CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY if pretrain_steps > 0 else None,
+        "checkpoint_pretrain_teacher_policy": recorded_teacher_policy,
+        "checkpoint_pretrain_teacher_policy_status": teacher_policy_status,
+        "checkpoint_pretrain_teacher_policy_recorded": pretrain_steps == 0 or bool(recorded_teacher_policy),
+        "current_pretrain_teacher_mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER if pretrain_steps > 0 else None,
+        "checkpoint_pretrain_teacher_mode_update_order": recorded_teacher_order,
+        "checkpoint_pretrain_teacher_mode_order_status": teacher_order_status,
+        "checkpoint_pretrain_teacher_mode_order_recorded": pretrain_steps == 0 or bool(recorded_teacher_order),
         "paper_scale_checkpoint_result": False,
         "limitation": (
             "Reevaluates an existing local PPO checkpoint under the requested horizon and rollout "
             "count; it does not turn a short or warm-started checkpoint into the paper's full "
-            "10^7-timestep, five-seed PPO/PPO-LSTM baseline protocol."
+            "10^7-timestep, five-seed PPO/PPO-LSTM baseline protocol. Warm-start checkpoints "
+            "created before explicit teacher-policy and teacher-order provenance cannot prove which "
+            "pretraining teacher policy or state-machine update order was used."
         ),
     }
 
@@ -119,6 +146,7 @@ def main() -> None:
         os.makedirs(metrics_dir, exist_ok=True)
     with open(args.metrics_output, "w", encoding="utf-8") as handle:
         json.dump(metrics, handle, indent=2, sort_keys=True)
+        handle.write("\n")
 
     print("CartPole checkpoint evaluation")
     print(f"  checkpoint={checkpoint_path}")

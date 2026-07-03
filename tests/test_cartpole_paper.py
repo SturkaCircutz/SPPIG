@@ -3779,6 +3779,11 @@ class CartpolePaperTest(unittest.TestCase):
     def test_ppo_config_defaults_to_paper_timestep_budget(self):
         self.assertEqual(PPOConfig().total_timesteps, PAPER_PPO_TIMESTEPS)
         self.assertEqual(PAPER_PPO_TIMESTEPS, 10_000_000)
+        self.assertEqual(
+            PPOConfig().pretrain_teacher_mode_update_order,
+            "act_with_current_mode_then_update_next_mode",
+        )
+        self.assertEqual(PPOConfig().pretrain_teacher_policy, "BangBangCartpolePSM")
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_protocol_status_distinguishes_single_run_from_full_baseline(self):
@@ -3806,10 +3811,31 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(status["paper_eval_rollouts"], 1000)
         self.assertEqual(status["selected_eval_rollouts"], 1000)
         self.assertTrue(status["uses_paper_eval_rollouts"])
+        self.assertEqual(status["pretrain_steps"], 0)
+        self.assertIsNone(status["pretrain_teacher_policy"])
+        self.assertTrue(status["pretrain_teacher_mode_order_recorded"])
         self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
         self.assertTrue(status["single_run_matches_paper_budget"])
         self.assertFalse(status["five_seed_hyperparameter_search"])
         self.assertFalse(status["paper_scale_baseline_protocol"])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_protocol_status_records_warm_start_teacher_order(self):
+        status = ppo_paper_protocol_status(
+            PPOConfig(
+                policy_type="lstm",
+                pretrain_steps=1,
+                pretrain_teacher_mode_update_order="act_with_current_mode_then_update_next_mode",
+            )
+        )
+
+        self.assertEqual(status["pretrain_steps"], 1)
+        self.assertEqual(status["pretrain_teacher_policy"], "BangBangCartpolePSM")
+        self.assertEqual(
+            status["pretrain_teacher_mode_update_order"],
+            "act_with_current_mode_then_update_next_mode",
+        )
+        self.assertTrue(status["pretrain_teacher_mode_order_recorded"])
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_smoke_train_mlp(self):

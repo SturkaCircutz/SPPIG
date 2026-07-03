@@ -289,7 +289,10 @@ missing paper-scale `10^7` timestep, five-seed hyperparameter search.
 Checkpoint reevaluation metrics from `scripts/evaluate_cartpole_checkpoint.py`
 also include `paper_protocol_status`, separating the checkpoint's original
 training/evaluation settings from the later reevaluation horizon and rollout
-count.
+count. Warm-start checkpoint rows also record whether the checkpoint config
+itself proves the pretraining teacher policy and PSM mode-update order; older
+checked-in warm-start artifacts are marked as missing that provenance instead
+of assuming current teacher semantics.
 
 PPO hyperparameter sweep plan/execution:
 

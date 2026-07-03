@@ -41,7 +41,72 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
         self.assertTrue(status["reevaluation_uses_full_test_horizon"])
         self.assertEqual(status["selected_eval_rollouts"], 20)
         self.assertFalse(status["uses_paper_eval_rollouts"])
+        self.assertEqual(status["checkpoint_pretrain_steps"], 0)
+        self.assertIsNone(status["checkpoint_pretrain_teacher_policy"])
+        self.assertEqual(status["checkpoint_pretrain_teacher_policy_status"], "not_applicable_no_pretraining")
+        self.assertTrue(status["checkpoint_pretrain_teacher_policy_recorded"])
+        self.assertEqual(status["checkpoint_pretrain_teacher_mode_order_status"], "not_applicable_no_pretraining")
+        self.assertTrue(status["checkpoint_pretrain_teacher_mode_order_recorded"])
         self.assertFalse(status["paper_scale_checkpoint_result"])
+
+    def test_checkpoint_status_flags_missing_warm_start_teacher_order(self):
+        from evaluate_cartpole_checkpoint import checkpoint_reevaluation_protocol_status
+
+        status = checkpoint_reevaluation_protocol_status(
+            {
+                "policy_type": "lstm",
+                "total_timesteps": 65536,
+                "eval_test_max_steps": 1000,
+                "pretrain_steps": 500,
+            },
+            eval_rollouts=20,
+            test_max_steps=15000,
+        )
+
+        self.assertEqual(status["checkpoint_pretrain_steps"], 500)
+        self.assertEqual(status["current_pretrain_teacher_policy"], "BangBangCartpolePSM")
+        self.assertIsNone(status["checkpoint_pretrain_teacher_policy"])
+        self.assertEqual(
+            status["checkpoint_pretrain_teacher_policy_status"],
+            "missing_from_checkpoint_config",
+        )
+        self.assertFalse(status["checkpoint_pretrain_teacher_policy_recorded"])
+        self.assertEqual(
+            status["current_pretrain_teacher_mode_update_order"],
+            "act_with_current_mode_then_update_next_mode",
+        )
+        self.assertIsNone(status["checkpoint_pretrain_teacher_mode_update_order"])
+        self.assertEqual(
+            status["checkpoint_pretrain_teacher_mode_order_status"],
+            "missing_from_checkpoint_config",
+        )
+        self.assertFalse(status["checkpoint_pretrain_teacher_mode_order_recorded"])
+
+    def test_checkpoint_status_accepts_recorded_warm_start_teacher_order(self):
+        from evaluate_cartpole_checkpoint import checkpoint_reevaluation_protocol_status
+
+        status = checkpoint_reevaluation_protocol_status(
+            {
+                "policy_type": "lstm",
+                "total_timesteps": 65536,
+                "eval_test_max_steps": 15000,
+                "pretrain_steps": 500,
+                "pretrain_teacher_policy": "BangBangCartpolePSM",
+                "pretrain_teacher_mode_update_order": "act_with_current_mode_then_update_next_mode",
+            },
+            eval_rollouts=1000,
+            test_max_steps=15000,
+        )
+
+        self.assertEqual(status["checkpoint_pretrain_teacher_policy_status"], "recorded")
+        self.assertEqual(status["checkpoint_pretrain_teacher_policy"], "BangBangCartpolePSM")
+        self.assertTrue(status["checkpoint_pretrain_teacher_policy_recorded"])
+        self.assertEqual(status["checkpoint_pretrain_teacher_mode_order_status"], "recorded")
+        self.assertEqual(
+            status["checkpoint_pretrain_teacher_mode_update_order"],
+            "act_with_current_mode_then_update_next_mode",
+        )
+        self.assertTrue(status["checkpoint_pretrain_teacher_mode_order_recorded"])
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_script_writes_full_horizon_checkpoint_metrics(self):
@@ -123,6 +188,14 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
                 metrics = json.load(handle)
 
         self.assertEqual(metrics["checkpoint_config"]["policy_type"], "lstm")
+        self.assertEqual(
+            metrics["paper_protocol_status"]["checkpoint_pretrain_teacher_mode_order_status"],
+            "missing_from_checkpoint_config",
+        )
+        self.assertEqual(
+            metrics["paper_protocol_status"]["checkpoint_pretrain_teacher_policy_status"],
+            "missing_from_checkpoint_config",
+        )
         self.assertIn("selected_result", metrics)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
@@ -193,6 +266,17 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
         self.assertEqual(metrics["selected_result"]["train_success_rate"], 1.0)
         self.assertTrue(metrics["paper_protocol_status"]["reevaluation_uses_full_test_horizon"])
         self.assertFalse(metrics["paper_protocol_status"]["checkpoint_uses_paper_timestep_budget"])
+        self.assertEqual(metrics["paper_protocol_status"]["checkpoint_pretrain_steps"], 500)
+        self.assertFalse(metrics["paper_protocol_status"]["checkpoint_pretrain_teacher_policy_recorded"])
+        self.assertFalse(metrics["paper_protocol_status"]["checkpoint_pretrain_teacher_mode_order_recorded"])
+        self.assertEqual(
+            metrics["paper_protocol_status"]["checkpoint_pretrain_teacher_policy_status"],
+            "missing_from_checkpoint_config",
+        )
+        self.assertEqual(
+            metrics["paper_protocol_status"]["checkpoint_pretrain_teacher_mode_order_status"],
+            "missing_from_checkpoint_config",
+        )
         self.assertEqual(metrics["selected_result"]["test_success_rate"], 0.0)
         self.assertEqual(metrics["selected_result"]["train_reward_mean"], 250.0)
         self.assertEqual(metrics["selected_result"]["test_reward_mean"], 912.25)

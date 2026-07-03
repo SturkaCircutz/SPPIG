@@ -13,6 +13,8 @@ from torch.distributions import Normal
 from torch.nn import functional as F
 
 from cartpole_env import (
+    CARTPOLE_PSM_MODE_UPDATE_ORDER,
+    CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY,
     PAPER_EVAL_ROLLOUTS,
     BangBangCartpolePSM,
     CartpoleEnv,
@@ -48,6 +50,8 @@ class PPOConfig:
     pretrain_steps: int = 0
     pretrain_batch_size: int = 256
     pretrain_learning_rate: float = 1e-3
+    pretrain_teacher_policy: str = CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY
+    pretrain_teacher_mode_update_order: str = CARTPOLE_PSM_MODE_UPDATE_ORDER
     action_scale: float = 10.0
     num_envs: int = 8
     eval_interval: int = 0
@@ -110,6 +114,10 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "selected_eval_rollouts": cfg.eval_rollouts,
         "uses_paper_eval_rollouts": paper_eval_rollouts,
+        "pretrain_steps": cfg.pretrain_steps,
+        "pretrain_teacher_policy": cfg.pretrain_teacher_policy if cfg.pretrain_steps > 0 else None,
+        "pretrain_teacher_mode_update_order": cfg.pretrain_teacher_mode_update_order if cfg.pretrain_steps > 0 else None,
+        "pretrain_teacher_mode_order_recorded": cfg.pretrain_steps == 0 or bool(cfg.pretrain_teacher_mode_update_order),
         "paper_timestep_budget": paper_timestep_budget,
         "paper_test_horizon": paper_test_horizon,
         "ppo_lstm_minibatches_fixed_to_one": lstm_minibatches_ok,

@@ -7,6 +7,7 @@ import random
 from typing import Dict, List, Sequence, Tuple
 
 from cartpole_env import (
+    CARTPOLE_PSM_MODE_UPDATE_ORDER,
     PAPER_EVAL_ROLLOUTS,
     CartpoleConfig,
     CartpoleEnv,
@@ -132,7 +133,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "default_switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
             "responsibility_evidence": "action_likelihood_initialization_then_alternating_switch_timing_forward_backward",
             "switch_responsibility_passes_are_per_em_iteration": True,
-            "mode_update_order": "act_with_current_mode_then_update_next_mode",
+            "mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER,
             "rollout_parameter_resampling": "on_mode_entry",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
             "log_probability_floor": LOG_PROBABILITY_FLOOR,

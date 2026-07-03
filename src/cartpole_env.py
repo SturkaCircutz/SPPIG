@@ -14,6 +14,8 @@ CARTPOLE_RESET_HIGH = 0.05
 CARTPOLE_OBSERVATION_NAMES = ("x", "cart_velocity", "theta", "omega")
 CARTPOLE_ACTION_DIMENSION = 1
 CARTPOLE_OBSERVATION_DIMENSION = len(CARTPOLE_OBSERVATION_NAMES)
+CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY = "BangBangCartpolePSM"
+CARTPOLE_PSM_MODE_UPDATE_ORDER = "act_with_current_mode_then_update_next_mode"
 
 
 def cartpole_reward_spec() -> dict[str, Any]:

@@ -97,7 +97,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `scripts/evaluate_cartpole_checkpoint.py`: reevaluates existing PPO/PPO-LSTM checkpoints and writes
   a `paper_protocol_status` block that separates the checkpoint's original training/evaluation budget
   from the later full-horizon reevaluation budget, keeping paper-scale checkpoint-result claims false
-  for short or warm-started local checkpoints.
+  for short or warm-started local checkpoints. For warm-started checkpoints it also records whether
+  the checkpoint config itself proves the pretraining teacher policy and PSM mode-update order.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that defaults to 10
   uniformly sampled hyperparameter configs from the reported ranges per policy, evaluates each
   config for every selected seed, writes a plan/manifest that includes the concrete sampled
@@ -198,7 +199,12 @@ These are implementation diagnostics, not paper-scale reproduced results.
   best observed train success `0.000`, train reward mean `45.0`.
 - PPO-LSTM warm-start diagnostic:
   supervised pretraining from the two-mode controller followed by PPO fine-tuning preserves train
-  success `1.000`, but full-horizon test success remains `0.000`.
+  success `1.000`, but full-horizon test success remains `0.000`. The checked-in warm-start
+  checkpoint predates explicit teacher-policy and teacher-order metadata, so its reevaluation status
+  marks `checkpoint_pretrain_teacher_policy_status = missing_from_checkpoint_config` and
+  `checkpoint_pretrain_teacher_mode_order_status = missing_from_checkpoint_config` rather than
+  claiming the checkpoint proves the current `BangBangCartpolePSM` and
+  `act_with_current_mode_then_update_next_mode` pretraining semantics.
 
 The PPO diagnostics now verify that the feed-forward PPO baseline can solve the paper's training
 split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol.
