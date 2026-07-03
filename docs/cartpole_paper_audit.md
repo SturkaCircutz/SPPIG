@@ -97,7 +97,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   plus a top-level `paper_protocol_status` block that records selected seed coverage, paper
   rollout/horizon coverage, PPO/Direct-Opt inclusion, and the still-false paper-scale result flag,
   and each PSM row links to a per-seed metrics JSON with the fitted probabilistic student and
-  teacher-trace provenance. When PPO is included, it also writes per-row PPO checkpoints and metrics
+  teacher-trace provenance plus a full selected-teacher-trace sidecar. When PPO is included, it also
+  writes per-row PPO checkpoints and metrics
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
   contain intermediate train/test `eval_history` entries or only the selected final result.
   PPO metrics also contain compact `update_history` rows with rollout reward means and
@@ -251,7 +252,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
   compact teacher-trace examples with segment-duration and time-increment schedules, per-teacher/student-iteration
   `synthesis_history`, compact adaptive-teacher objective summaries, number of teacher traces,
-  evaluation settings, switch-fit diagnostics, and train/test metrics.
+  optional full selected-teacher-trace sidecar paths, evaluation settings, switch-fit diagnostics,
+  and train/test metrics.
 - The Cartpole deterministic and probabilistic PSM executors, plus the local bang-bang evaluator and
   PPO warm-start teacher policy, now act with the current mode before applying the switch predicate to
   update the next mode, matching the paper's state-machine semantics `an = Hsn(on), s0 = ms,
@@ -755,7 +757,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
   a per-seed PSM metrics JSON artifact whose final per-iteration evaluation matches the top-level PSM
-  row. It also verifies the manifest-level paper-protocol status block.
+  row. It also verifies the PSM full-trace sidecar path and the manifest-level paper-protocol status
+  block.
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale`
   verifies that a five-seed, full-horizon, 1000-rollout fixed-config runner setup is still not tagged
   as paper-scale because it lacks PPO hyperparameter search, full probabilistic adaptive teaching, and

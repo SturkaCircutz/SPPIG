@@ -30,6 +30,7 @@ from cartpole_synthesis import (  # noqa: E402
     synthesize_cartpole_student_with_history,
 )
 from train_cartpole_psm import (  # noqa: E402
+    serialize_traces,
     summarize_adaptive_teacher_history,
     summarize_policy_evaluation,
     summarize_student,
@@ -61,6 +62,7 @@ RESULT_FIELDS = [
     "timesteps",
     "checkpoint",
     "metrics_output",
+    "traces_output",
 ]
 
 SUMMARY_FIELDS = [
@@ -96,6 +98,7 @@ SUMMARY_FIELDS = [
     "best_timesteps",
     "best_checkpoint",
     "best_metrics_output",
+    "best_traces_output",
 ]
 
 
@@ -123,6 +126,8 @@ def run_psm(
     test = evaluation["test"]
     metrics_path = outdir / "metrics" / f"psm_seed{seed}.json"
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    traces_path = outdir / "traces" / f"psm_seed{seed}_teacher_traces.json"
+    traces_path.parent.mkdir(parents=True, exist_ok=True)
     metrics = {
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
@@ -140,6 +145,7 @@ def run_psm(
         "test_max_steps": test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
+        "traces_output": str(traces_path),
         "adaptive_teacher_summary": summarize_adaptive_teacher_history(
             synthesis_history,
             cfg,
@@ -160,6 +166,20 @@ def run_psm(
         "test": test,
     }
     metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True), encoding="utf-8")
+    traces_path.write_text(
+        json.dumps(
+            {
+                "config": asdict(cfg),
+                "seed": seed,
+                "num_traces": len(traces),
+                "metrics_output": str(metrics_path),
+                "traces": serialize_traces(traces),
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
     return {
         "policy": "Programmatic state machine",
         "seed": seed,
@@ -175,6 +195,7 @@ def run_psm(
         "test_horizon_steps": test_max_steps,
         "timesteps": 0,
         "metrics_output": str(metrics_path),
+        "traces_output": str(traces_path),
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
         "paper_protocol_status": cartpole_synthesis_protocol_status(
@@ -370,6 +391,7 @@ def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "best_timesteps": int(best["timesteps"]),
                 "best_checkpoint": best.get("checkpoint", ""),
                 "best_metrics_output": best.get("metrics_output", ""),
+                "best_traces_output": best.get("traces_output", ""),
             }
         )
     return summary
@@ -647,7 +669,8 @@ def main() -> None:
         "psm_artifact_note": (
             "Programmatic-state-machine rows include metrics_output paths under the requested "
             "output directory. PSM metrics contain the fitted probabilistic student, compact "
-            "teacher-trace examples, exact config, and fixed local synthesis constants."
+            "teacher-trace examples, exact config, and fixed local synthesis constants. PSM rows "
+            "also include traces_output paths with the full selected teacher traces."
         ),
         "ppo_artifact_note": (
             "When --include-ppo is set, PPO rows include checkpoint and metrics_output paths "

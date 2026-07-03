@@ -86,6 +86,7 @@ class CartpolePSMCliTest(unittest.TestCase):
     def test_cli_writes_metrics_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "psm_metrics.json")
+            traces_path = os.path.join(tmpdir, "psm_traces.json")
             subprocess.run(
                 [
                     sys.executable,
@@ -126,6 +127,8 @@ class CartpolePSMCliTest(unittest.TestCase):
                     "20",
                     "--metrics-output",
                     metrics_path,
+                    "--traces-output",
+                    traces_path,
                 ],
                 check=True,
                 cwd=ROOT,
@@ -133,6 +136,8 @@ class CartpolePSMCliTest(unittest.TestCase):
 
             with open(metrics_path, encoding="utf-8") as handle:
                 metrics = json.load(handle)
+            with open(traces_path, encoding="utf-8") as handle:
+                trace_artifact = json.load(handle)
 
         self.assertEqual(metrics["config"]["num_initial_states"], 2)
         self.assertEqual(metrics["config"]["teacher_theta_gain"], 12.5)
@@ -334,6 +339,19 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["space_spec"]["initial_state_distribution"]["low"], -0.05)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
+        self.assertEqual(metrics["traces_output"], traces_path)
+        self.assertEqual(trace_artifact["num_traces"], metrics["num_traces"])
+        self.assertEqual(trace_artifact["config"], metrics["config"])
+        self.assertEqual(len(trace_artifact["traces"]), metrics["num_traces"])
+        first_trace = trace_artifact["traces"][0]
+        self.assertIn("observations", first_trace)
+        self.assertIn("actions", first_trace)
+        self.assertIn("mode_labels", first_trace)
+        self.assertIn("segment_actions", first_trace)
+        self.assertIn("segment_durations", first_trace)
+        self.assertIn("segment_time_increments", first_trace)
+        self.assertIn("teacher_objective", first_trace)
+        self.assertIn("teacher_refinement_objective", first_trace)
         self.assertEqual(len(metrics["adaptive_teacher_summary"]), 2)
         first_teacher_summary = metrics["adaptive_teacher_summary"][0]
         second_teacher_summary = metrics["adaptive_teacher_summary"][1]

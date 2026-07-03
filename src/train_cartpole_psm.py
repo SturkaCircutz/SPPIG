@@ -152,6 +152,28 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
     }
 
 
+def serialize_trace(trace: CartpoleTrace):
+    return {
+        "observations": [list(observation) for observation in trace.observations],
+        "actions": list(trace.actions),
+        "mode_labels": list(trace.mode_labels),
+        "reward": trace.reward,
+        "theta_gain": trace.theta_gain,
+        "omega_gain": trace.omega_gain,
+        "segment_actions": list(trace.segment_actions),
+        "segment_durations": list(trace.segment_durations),
+        "segment_time_increments": list(trace.segment_time_increments),
+        "teacher_source": trace.teacher_source,
+        "student_log_probability": trace.student_log_probability,
+        "teacher_objective": trace.teacher_objective,
+        "teacher_refinement_objective": trace.teacher_refinement_objective,
+    }
+
+
+def serialize_traces(traces: list[CartpoleTrace]):
+    return [serialize_trace(trace) for trace in traces]
+
+
 def summarize_student_fit_step(step: CartpoleStudentFitStep):
     return {
         "em_iteration": step.em_iteration,
@@ -351,6 +373,7 @@ def main() -> None:
     parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15000)
     parser.add_argument("--metrics-output", default=None)
+    parser.add_argument("--traces-output", default=None)
     args = parser.parse_args()
 
     cfg = CartpoleSynthesisConfig(
@@ -393,6 +416,7 @@ def main() -> None:
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
+        "traces_output": args.traces_output,
         "adaptive_teacher_summary": summarize_adaptive_teacher_history(
             synthesis_history,
             cfg,
@@ -416,6 +440,22 @@ def main() -> None:
             os.makedirs(metrics_dir, exist_ok=True)
         with open(args.metrics_output, "w", encoding="utf-8") as handle:
             json.dump(metrics, handle, indent=2, sort_keys=True)
+    if args.traces_output is not None:
+        traces_dir = os.path.dirname(args.traces_output)
+        if traces_dir:
+            os.makedirs(traces_dir, exist_ok=True)
+        with open(args.traces_output, "w", encoding="utf-8") as handle:
+            json.dump(
+                {
+                    "command": " ".join(sys.argv),
+                    "config": asdict(cfg),
+                    "num_traces": len(traces),
+                    "traces": serialize_traces(traces),
+                },
+                handle,
+                indent=2,
+                sort_keys=True,
+            )
 
     print("Synthesized Cartpole programmatic state machine")
     print(f"  traces={len(traces)}")
@@ -426,6 +466,8 @@ def main() -> None:
     print(f"  test_reward_mean={test['reward_mean']:.1f}")
     if args.metrics_output is not None:
         print(f"  metrics={args.metrics_output}")
+    if args.traces_output is not None:
+        print(f"  traces={args.traces_output}")
 
 
 if __name__ == "__main__":
