@@ -121,8 +121,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   supports an explicit Cartesian-grid diagnostic mode and writes both a single-best-job summary and a
   per-hyperparameter summary aggregating completed seeds for each sampled config, including
   survived-step, survival-second, and evaluation-rollout
-  provenance for executed rows. Its paper-scale plan/execution flags require the paper's
-  `1000` evaluation rollouts and its manifest records the standard CartPole reward spec. This is
+  provenance for executed rows. Its paper-scale plan/execution flags require the generated
+  sampled configs themselves to satisfy the paper's reported discrete hyperparameter ranges,
+  learning-rate interval, and PPO-LSTM `nminibatches = 1` rule, plus the paper's
+  `1000` evaluation rollouts. Its manifest records the standard CartPole reward spec. This is
   search infrastructure; the full paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
@@ -455,6 +457,12 @@ paper-scale PPO2 runs.
   hyperparameter protocol.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_ten_random_hyperparameter_samples`
   verifies that the paper-scale plan flag requires the paper's 10 random hyperparameter samples.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_sampled_values_outside_paper_ranges`
+  verifies that paper-scale plan status is rejected if generated sampled hyperparameters fall outside
+  the reported entropy coefficient, update epoch, clip range, or learning-rate ranges.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_sampled_lstm_minibatch_violation`
+  verifies that paper-scale plan status is rejected if generated PPO-LSTM configs do not keep
+  `nminibatches = 1`.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_full_test_horizon`
   verifies that the paper-scale plan flag requires the paper's full 15,000-step/300-second test
   horizon.

@@ -269,6 +269,62 @@ def sampled_hyperparameter_manifest(args: argparse.Namespace) -> List[Dict[str, 
     return configs
 
 
+def _policy_hyperparameter_configs(args: argparse.Namespace) -> Dict[str, List[Dict[str, Any]]]:
+    return {
+        policy: hyperparameter_configs(args, policy)
+        for policy in [policy for policy in args.policies.split(",") if policy]
+    }
+
+
+def _all_config_values_in(values: Iterable[Any], allowed: Iterable[Any]) -> bool:
+    allowed_set = set(allowed)
+    return all(value in allowed_set for value in values)
+
+
+def _all_config_float_values_in(values: Iterable[Any], allowed: Iterable[float]) -> bool:
+    allowed_values = tuple(float(value) for value in allowed)
+    return all(
+        any(math.isclose(float(value), allowed_value, rel_tol=0.0, abs_tol=1e-12) for allowed_value in allowed_values)
+        for value in values
+    )
+
+
+def _all_learning_rates_in_paper_interval(configs_by_policy: Dict[str, List[Dict[str, Any]]]) -> bool:
+    values = [
+        float(config["learning_rate"])
+        for configs in configs_by_policy.values()
+        for config in configs
+    ]
+    return bool(values) and all(PAPER_LEARNING_RATE_MIN <= value <= PAPER_LEARNING_RATE_MAX for value in values)
+
+
+def _configs_follow_paper_ranges(configs_by_policy: Dict[str, List[Dict[str, Any]]]) -> bool:
+    all_configs = [config for configs in configs_by_policy.values() for config in configs]
+    if not all_configs:
+        return False
+    return (
+        _all_config_float_values_in((config["entropy_coef"] for config in all_configs), PAPER_ENT_COEFS)
+        and _all_config_values_in((int(config["update_epochs"]) for config in all_configs), PAPER_UPDATE_EPOCHS)
+        and _all_config_float_values_in((config["clip_range"] for config in all_configs), PAPER_CLIP_RANGES)
+        and _all_learning_rates_in_paper_interval(configs_by_policy)
+    )
+
+
+def _configs_follow_paper_minibatch_rules(configs_by_policy: Dict[str, List[Dict[str, Any]]]) -> bool:
+    mlp_configs = configs_by_policy.get("mlp", [])
+    lstm_configs = configs_by_policy.get("lstm", [])
+    mlp_ok = all(int(config["minibatches"]) in PAPER_NMINIBATCHES for config in mlp_configs)
+    lstm_ok = all(int(config["minibatches"]) == 1 for config in lstm_configs)
+    return mlp_ok and lstm_ok
+
+
+def _configs_have_paper_sample_count(configs_by_policy: Dict[str, List[Dict[str, Any]]]) -> bool:
+    return all(
+        len(configs_by_policy.get(policy, [])) == PAPER_HYPERPARAMETER_SAMPLES
+        for policy in ("mlp", "lstm")
+    )
+
+
 def paper_protocol_status(
     args: argparse.Namespace,
     jobs_planned: int | None = None,
@@ -287,6 +343,7 @@ def paper_protocol_status(
     full_baseline_policy_set = requested_policy_set == {"mlp", "lstm"} and len(policies) == 2
     grid_mode = args.hyperparam_mode == "grid"
     paper_random_mode = args.hyperparam_mode == "paper-random"
+    configs_by_policy = _policy_hyperparameter_configs(args)
     jobs_expected_for_selected_space = count_uncapped_jobs(args)
     has_full_mlp_grid = (
         grid_mode
@@ -305,17 +362,22 @@ def paper_protocol_status(
         and bool(learning_rates)
         and all(PAPER_LEARNING_RATE_MIN <= value <= PAPER_LEARNING_RATE_MAX for value in learning_rates)
     )
-    paper_random_learning_rates_in_interval = paper_random_mode and int(args.hyperparam_samples) > 0
+    sampled_learning_rates_in_interval = _all_learning_rates_in_paper_interval(configs_by_policy)
+    sampled_configs_follow_paper_ranges = _configs_follow_paper_ranges(configs_by_policy)
+    sampled_configs_follow_paper_minibatch_rules = _configs_follow_paper_minibatch_rules(configs_by_policy)
+    paper_random_learning_rates_in_interval = paper_random_mode and sampled_learning_rates_in_interval
     learning_rates_in_interval = grid_learning_rates_in_interval or paper_random_learning_rates_in_interval
     full_default_learning_rate_grid = (
         grid_mode
         and len(learning_rates) == len(DEFAULT_LEARNING_RATES)
         and set(learning_rates) == set(DEFAULT_LEARNING_RATES)
     )
-    paper_random_sample_count = (
+    requested_paper_random_sample_count = (
         paper_random_mode
         and int(args.hyperparam_samples) == PAPER_HYPERPARAMETER_SAMPLES
     )
+    generated_paper_random_sample_count = paper_random_mode and _configs_have_paper_sample_count(configs_by_policy)
+    paper_random_sample_count = requested_paper_random_sample_count and generated_paper_random_sample_count
     truncated = args.max_configs is not None
     paper_scale_plan = (
         paper_timestep_budget
@@ -324,6 +386,8 @@ def paper_protocol_status(
         and paper_seed_count
         and full_baseline_policy_set
         and paper_random_sample_count
+        and sampled_configs_follow_paper_ranges
+        and sampled_configs_follow_paper_minibatch_rules
         and not truncated
         and not args.quick
     )
@@ -360,11 +424,19 @@ def paper_protocol_status(
         "grid_hyperparameter_search": grid_mode,
         "paper_random_hyperparameter_search": paper_random_mode,
         "paper_random_hyperparameter_samples": int(args.hyperparam_samples),
+        "requested_paper_random_sample_count": requested_paper_random_sample_count,
+        "generated_paper_random_sample_count": generated_paper_random_sample_count,
         "paper_random_sample_count": paper_random_sample_count,
         "full_reported_mlp_grid": has_full_mlp_grid,
-        "ppo_lstm_minibatches_fixed_to_one": "lstm" in requested_policy_set,
+        "sampled_hyperparameters_follow_paper_ranges": sampled_configs_follow_paper_ranges,
+        "sampled_hyperparameters_follow_paper_minibatch_rules": sampled_configs_follow_paper_minibatch_rules,
+        "ppo_lstm_minibatches_fixed_to_one": (
+            "lstm" in requested_policy_set
+            and all(int(config["minibatches"]) == 1 for config in configs_by_policy.get("lstm", []))
+        ),
         "learning_rate_interval_only": True,
         "grid_learning_rate_values_within_reported_interval": grid_learning_rates_in_interval,
+        "sampled_learning_rate_values_within_reported_interval": sampled_learning_rates_in_interval,
         "paper_random_learning_rate_values_within_reported_interval": paper_random_learning_rates_in_interval,
         "learning_rate_values_within_reported_interval": learning_rates_in_interval,
         "full_default_learning_rate_grid": full_default_learning_rate_grid,

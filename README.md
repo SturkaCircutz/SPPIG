@@ -366,7 +366,10 @@ search space, the concrete sampled hyperparameter configs, plus
 `paper_protocol_status` flags showing whether the plan is paper-scale, whether
 all planned jobs completed with zero failures, whether it is quick/truncated or
 dry-run only, the selected and distinct seed/policy lists, and whether both PPO
-MLP and PPO-LSTM are included. By default the
+MLP and PPO-LSTM are included. The status block validates the actual generated
+hyperparameter configs against the paper's reported discrete ranges, learning-rate
+interval, and PPO-LSTM `nminibatches=1` rule before allowing a paper-scale plan
+claim. By default the
 sweep now uses `--hyperparam-mode paper-random`, which
 plans 10 uniformly sampled PPO hyperparameter configs per policy from the
 reported ranges and evaluates each config for every selected seed, with

@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -421,6 +422,11 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(status["hyperparam_mode"], "paper-random")
         self.assertTrue(status["paper_random_hyperparameter_search"])
         self.assertTrue(status["paper_random_sample_count"])
+        self.assertTrue(status["requested_paper_random_sample_count"])
+        self.assertTrue(status["generated_paper_random_sample_count"])
+        self.assertTrue(status["sampled_hyperparameters_follow_paper_ranges"])
+        self.assertTrue(status["sampled_hyperparameters_follow_paper_minibatch_rules"])
+        self.assertTrue(status["sampled_learning_rate_values_within_reported_interval"])
         self.assertTrue(status["paper_random_learning_rate_values_within_reported_interval"])
         self.assertTrue(status["learning_rate_values_within_reported_interval"])
         self.assertFalse(status["grid_hyperparameter_search"])
@@ -428,6 +434,90 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
         self.assertTrue(status["paper_scale_plan"])
         self.assertFalse(status["paper_scale_execution"])
+
+    def test_paper_protocol_status_rejects_sampled_values_outside_paper_ranges(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        def bad_configs(_args, policy):
+            config = {
+                "minibatches": 1,
+                "learning_rate": 0.004,
+                "entropy_coef": 0.02,
+                "update_epochs": 37,
+                "clip_range": 0.4,
+            }
+            return [dict(config) for _ in range(PAPER_HYPERPARAMETER_SAMPLES)]
+
+        with patch("run_cartpole_ppo_sweep.hyperparameter_configs", side_effect=bad_configs):
+            status = paper_protocol_status(args)
+
+        self.assertFalse(status["sampled_learning_rate_values_within_reported_interval"])
+        self.assertFalse(status["sampled_hyperparameters_follow_paper_ranges"])
+        self.assertFalse(status["paper_random_learning_rate_values_within_reported_interval"])
+        self.assertFalse(status["learning_rate_values_within_reported_interval"])
+        self.assertFalse(status["paper_scale_plan"])
+
+    def test_paper_protocol_status_rejects_sampled_lstm_minibatch_violation(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        def bad_lstm_configs(_args, policy):
+            minibatches = 2 if policy == "lstm" else 1
+            return [
+                {
+                    "minibatches": minibatches,
+                    "learning_rate": 1e-4,
+                    "entropy_coef": 0.01,
+                    "update_epochs": 8,
+                    "clip_range": 0.2,
+                }
+                for _ in range(PAPER_HYPERPARAMETER_SAMPLES)
+            ]
+
+        with patch("run_cartpole_ppo_sweep.hyperparameter_configs", side_effect=bad_lstm_configs):
+            status = paper_protocol_status(args)
+
+        self.assertTrue(status["sampled_hyperparameters_follow_paper_ranges"])
+        self.assertFalse(status["sampled_hyperparameters_follow_paper_minibatch_rules"])
+        self.assertFalse(status["ppo_lstm_minibatches_fixed_to_one"])
+        self.assertFalse(status["paper_scale_plan"])
+
+    def test_paper_protocol_status_rejects_generated_sample_count_mismatch(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        def too_few_configs(_args, _policy):
+            return [
+                {
+                    "minibatches": 1,
+                    "learning_rate": 1e-4,
+                    "entropy_coef": 0.01,
+                    "update_epochs": 8,
+                    "clip_range": 0.2,
+                }
+                for _ in range(PAPER_HYPERPARAMETER_SAMPLES - 1)
+            ]
+
+        with patch("run_cartpole_ppo_sweep.hyperparameter_configs", side_effect=too_few_configs):
+            status = paper_protocol_status(args)
+
+        self.assertTrue(status["requested_paper_random_sample_count"])
+        self.assertFalse(status["generated_paper_random_sample_count"])
+        self.assertFalse(status["paper_random_sample_count"])
+        self.assertFalse(status["paper_scale_plan"])
 
     def test_paper_protocol_status_requires_full_test_horizon(self):
         original_argv = sys.argv
