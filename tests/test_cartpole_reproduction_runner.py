@@ -330,7 +330,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_segment_budget"],
-                "preserve_sampled_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
+                "preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
             )
             self.assertEqual(
                 provenance["teacher_search"]["teacher_rollout_horizon"],
@@ -474,7 +474,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_segment_budget"],
-                "preserve_sampled_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
+                "preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["teacher_rollout_horizon"],

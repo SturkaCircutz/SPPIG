@@ -174,7 +174,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   final-iteration source counts `{"student_sample_refined": 4}`, and policy
   `m0 action=0.249; m1 action=0.138; mode=1 if 50.000*theta + -10.000*omega >= -0.220, else mode=0`; it also records
   `student_sample_segment_budget =
-  preserve_sampled_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
+  preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
   gap, not a paper-level reproduction result.
 - Direct-Opt diagnostic command:
