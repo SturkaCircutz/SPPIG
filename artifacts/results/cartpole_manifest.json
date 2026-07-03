@@ -826,6 +826,12 @@
             "teacher_gain_schedule": 1,
             "time_increment_schedule": 1
           },
+          "finite_difference_gradient_backtracking_factors": [
+            1.0,
+            0.5,
+            0.25,
+            0.125
+          ],
           "gain_gradient_epsilon_fraction": 0.025,
           "gain_gradient_step_fraction": 0.05,
           "gain_refinement_delta_fraction": 0.05,

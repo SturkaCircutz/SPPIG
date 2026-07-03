@@ -228,9 +228,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   selection. These sampled rollouts now resample action and switch parameters whenever execution
   enters a mode segment, matching the paper's probabilistic PSM execution model more closely. The
   teacher locally refines top sampled loop-free traces by duration/time-increment/action coordinate search under a
-  top-rho elite-distance kernel approximation, adds one bounded finite-difference action candidate
-  one bounded finite-difference integer-duration candidate, and one bounded finite-difference
-  time-increment candidate per refinement iteration, evaluates one centroid recombination of the
+  top-rho elite-distance kernel approximation, adds one bounded finite-difference teacher-gain
+  candidate, one bounded finite-difference action candidate, one bounded finite-difference
+  integer-duration candidate, and one bounded finite-difference time-increment candidate per
+  refinement iteration with a short backtracking line search, evaluates one centroid recombination of the
   elite action/duration/time-increment schedules plus configurable bounded rounds of fitted
   per-segment distribution mean candidates and samples, refreshing the top-rho set
   between rounds and using the refreshed top-rho set for the refinement objective, and records
@@ -565,6 +566,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   teacher gains, not the paper's continuous gradient-based trajectory optimizer.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_gain_gradient_uses_central_differences`
   verifies that bounded teacher-gain refinement can estimate a central finite-difference direction.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_gain_gradient_backtracks_to_improving_step`
+  verifies that teacher-gain finite-difference refinement can backtrack to a smaller improving step
+  when the full normalized step is worse.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_gain_gradient_refinement_can_be_accepted`
   verifies that the finite-difference gain update is only accepted when it does not reduce the
   current teacher objective.
@@ -586,6 +590,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   bang-bang action flips.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_action_gradient_uses_central_differences`
   verifies that bounded action-schedule refinement can estimate a central finite-difference direction.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_action_gradient_backtracks_to_improving_step`
+  verifies that action-schedule finite-difference refinement can backtrack to a smaller improving
+  step when the full normalized step is worse.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_action_gradient_refinement_can_be_accepted`
   verifies that the finite-difference action update is only accepted when it does not reduce the
   current teacher objective. This remains a bounded local approximation, not the paper's full
@@ -593,12 +600,18 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_gradient_uses_central_differences`
   verifies that bounded duration-schedule refinement can estimate a central finite-difference
   direction over integer segment durations.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_gradient_backtracking_rejects_worse_integer_step`
+  verifies that duration finite-difference refinement rejects backtracked integer candidates that do
+  not improve the current teacher objective.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_gradient_refinement_can_be_accepted`
   verifies that the finite-difference duration update is only accepted when it does not reduce the
   current teacher objective.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_time_increment_gradient_uses_central_differences`
   verifies that bounded time-increment refinement can estimate a central finite-difference
   direction over loop-free segment time increments.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_time_increment_gradient_backtracks_to_improving_step`
+  verifies that time-increment finite-difference refinement can backtrack to a smaller improving step
+  when the full normalized step is worse.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_finite_difference_refinement_rejects_worse_candidates`
   verifies that worse action and duration finite-difference candidates are rejected.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_duration_refinement_does_not_reduce_objective`
@@ -676,7 +689,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   top loop-free candidates with bounded coordinate search over teacher gains when available, integer
   segment durations, per-segment time increments, one-segment local continuous constant-action
   steps, and one teacher-gain plus one action plus one integer-duration plus one time-increment
-  finite-difference candidate per refinement iteration, evaluates one deterministic top-rho centroid recombination
+  finite-difference candidate per refinement iteration with short backtracking line search, evaluates one deterministic top-rho centroid recombination
   candidate plus configurable bounded rounds of fitted teacher-gain and per-segment
   distribution mean candidates and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the

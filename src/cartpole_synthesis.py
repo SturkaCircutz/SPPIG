@@ -47,6 +47,7 @@ TEACHER_DURATION_GRADIENT_EPS = 1
 TEACHER_TIME_INCREMENT_REFINEMENT_FRACTION = 0.25
 TEACHER_TIME_INCREMENT_GRADIENT_STEP_FRACTION = 0.10
 TEACHER_TIME_INCREMENT_GRADIENT_EPS_FRACTION = 0.05
+TEACHER_GRADIENT_BACKTRACK_FACTORS = (1.0, 0.5, 0.25, 0.125)
 TEACHER_STUDENT_SAMPLE_FRACTION = 1.0
 TEACHER_ELITE_DISTRIBUTION_RESAMPLES = 1
 TEACHER_ELITE_DISTRIBUTION_ROUNDS = 1
@@ -185,6 +186,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "time_increment_refinement_fraction": TEACHER_TIME_INCREMENT_REFINEMENT_FRACTION,
             "time_increment_gradient_step_fraction": TEACHER_TIME_INCREMENT_GRADIENT_STEP_FRACTION,
             "time_increment_gradient_epsilon_fraction": TEACHER_TIME_INCREMENT_GRADIENT_EPS_FRACTION,
+            "finite_difference_gradient_backtracking_factors": list(TEACHER_GRADIENT_BACKTRACK_FACTORS),
             "finite_difference_candidates_per_refinement_iteration": {
                 "teacher_gain_schedule": 1,
                 "action_schedule": 1,
@@ -1751,18 +1753,23 @@ def _gain_gradient_refinement_candidate(
     if norm < MIN_GAUSSIAN_STD:
         return None
 
-    return _rollout_with_teacher_gains(
-        initial_state,
-        env_cfg,
-        cfg,
-        trace.theta_gain
-        + TEACHER_GAIN_GRADIENT_STEP_FRACTION * theta_scale * theta_gradient / norm,
-        trace.omega_gain
-        + TEACHER_GAIN_GRADIENT_STEP_FRACTION * omega_scale * omega_gradient / norm,
-        durations,
-        None,
-        increments or None,
-    )
+    current_objective = objective(trace)
+    for backtrack in TEACHER_GRADIENT_BACKTRACK_FACTORS:
+        candidate = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain
+            + backtrack * TEACHER_GAIN_GRADIENT_STEP_FRACTION * theta_scale * theta_gradient / norm,
+            trace.omega_gain
+            + backtrack * TEACHER_GAIN_GRADIENT_STEP_FRACTION * omega_scale * omega_gradient / norm,
+            durations,
+            None,
+            increments or None,
+        )
+        if objective(candidate) > current_objective:
+            return candidate
+    return None
 
 
 def _action_gradient_refinement_candidate(
@@ -1818,22 +1825,27 @@ def _action_gradient_refinement_candidate(
     norm = math.sqrt(sum(gradient * gradient for gradient in gradients))
     if norm < MIN_GAUSSIAN_STD:
         return None
-    updated_actions = tuple(
-        max(lower, min(upper, action + step_size * gradient / norm))
-        for action, gradient in zip(actions, gradients)
-    )
-    if all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_actions, actions)):
-        return None
-    return _rollout_with_teacher_gains(
-        initial_state,
-        env_cfg,
-        cfg,
-        trace.theta_gain,
-        trace.omega_gain,
-        durations,
-        updated_actions,
-        increments,
-    )
+    current_objective = objective(trace)
+    for backtrack in TEACHER_GRADIENT_BACKTRACK_FACTORS:
+        updated_actions = tuple(
+            max(lower, min(upper, action + backtrack * step_size * gradient / norm))
+            for action, gradient in zip(actions, gradients)
+        )
+        if all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_actions, actions)):
+            continue
+        candidate = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            durations,
+            updated_actions,
+            increments,
+        )
+        if objective(candidate) > current_objective:
+            return candidate
+    return None
 
 
 def _duration_gradient_refinement_candidate(
@@ -1886,25 +1898,30 @@ def _duration_gradient_refinement_candidate(
     norm = math.sqrt(sum(gradient * gradient for gradient in gradients))
     if norm < MIN_GAUSSIAN_STD:
         return None
-    updated_durations = tuple(
-        min(
-            max_duration,
-            max(1, int(math.floor(duration + TEACHER_DURATION_GRADIENT_STEP * gradient / norm + 0.5))),
+    current_objective = objective(trace)
+    for backtrack in TEACHER_GRADIENT_BACKTRACK_FACTORS:
+        updated_durations = tuple(
+            min(
+                max_duration,
+                max(1, int(math.floor(duration + backtrack * TEACHER_DURATION_GRADIENT_STEP * gradient / norm + 0.5))),
+            )
+            for duration, gradient in zip(durations, gradients)
         )
-        for duration, gradient in zip(durations, gradients)
-    )
-    if updated_durations == durations:
-        return None
-    return _rollout_with_teacher_gains(
-        initial_state,
-        env_cfg,
-        cfg,
-        trace.theta_gain,
-        trace.omega_gain,
-        updated_durations,
-        actions,
-        increments,
-    )
+        if updated_durations == durations:
+            continue
+        candidate = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            updated_durations,
+            actions,
+            increments,
+        )
+        if objective(candidate) > current_objective:
+            return candidate
+    return None
 
 
 def _time_increment_gradient_refinement_candidate(
@@ -1957,22 +1974,27 @@ def _time_increment_gradient_refinement_candidate(
     norm = math.sqrt(sum(gradient * gradient for gradient in gradients))
     if norm < MIN_GAUSSIAN_STD:
         return None
-    updated_increments = tuple(
-        _clamp_time_increment(env_cfg, increment + step_size * gradient / norm)
-        for increment, gradient in zip(increments, gradients)
-    )
-    if all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_increments, increments)):
-        return None
-    return _rollout_with_teacher_gains(
-        initial_state,
-        env_cfg,
-        cfg,
-        trace.theta_gain,
-        trace.omega_gain,
-        durations,
-        actions,
-        updated_increments,
-    )
+    current_objective = objective(trace)
+    for backtrack in TEACHER_GRADIENT_BACKTRACK_FACTORS:
+        updated_increments = tuple(
+            _clamp_time_increment(env_cfg, increment + backtrack * step_size * gradient / norm)
+            for increment, gradient in zip(increments, gradients)
+        )
+        if all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_increments, increments)):
+            continue
+        candidate = _rollout_with_teacher_gains(
+            initial_state,
+            env_cfg,
+            cfg,
+            trace.theta_gain,
+            trace.omega_gain,
+            durations,
+            actions,
+            updated_increments,
+        )
+        if objective(candidate) > current_objective:
+            return candidate
+    return None
 
 
 def _clamp_time_increment(env_cfg: CartpoleConfig, value: float) -> float:

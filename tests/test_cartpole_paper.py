@@ -18,7 +18,7 @@ try:
 except Exception:
     HAS_TORCH = False
 
-from cartpole_env import BangBangCartpolePSM, CartpoleEnv, evaluate_cartpole_policy
+from cartpole_env import BangBangCartpolePSM, CartpoleConfig, CartpoleEnv, evaluate_cartpole_policy
 from cartpole_env import PAPER_EVAL_ROLLOUTS
 from cartpole_env import (
     CARTPOLE_RESET_HIGH,
@@ -2938,6 +2938,40 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(candidate.theta_gain, trace.theta_gain)
         self.assertEqual(candidate.omega_gain, trace.omega_gain)
 
+    def test_cartpole_teacher_gain_gradient_backtracks_to_improving_step(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.01, -0.049]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=20.0,
+            omega_gain=2.0,
+        )
+        evaluated_theta = []
+
+        def objective(candidate):
+            evaluated_theta.append(candidate.theta_gain)
+            if abs(candidate.theta_gain - 21.0) < 1e-9:
+                return -1.0
+            return 1.0 - abs(candidate.theta_gain - 20.5)
+
+        candidate = _gain_gradient_refinement_candidate(
+            trace,
+            initial_state,
+            env.cfg,
+            cfg,
+            objective,
+        )
+
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertAlmostEqual(candidate.theta_gain, 20.5)
+        self.assertEqual(candidate.omega_gain, trace.omega_gain)
+        self.assertIn(21.0, evaluated_theta)
+        self.assertIn(20.5, evaluated_theta)
+
     def test_cartpole_teacher_gain_gradient_refinement_can_be_accepted(self):
         env = CartpoleEnv.train_env(seed=0)
         cfg = CartpoleSynthesisConfig(
@@ -3037,6 +3071,41 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(candidate.segment_actions[0], trace.segment_actions[0])
         self.assertEqual(candidate.segment_actions[1], trace.segment_actions[1])
 
+    def test_cartpole_teacher_action_gradient_backtracks_to_improving_step(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(0.0, 10.0),
+        )
+        evaluated_actions = []
+
+        def objective(candidate):
+            first_action = candidate.segment_actions[0]
+            evaluated_actions.append(first_action)
+            if abs(first_action - 2.0) < 1e-9:
+                return -1.0
+            return 1.0 - abs(first_action - 1.0)
+
+        candidate = _action_gradient_refinement_candidate(
+            trace,
+            initial_state,
+            env.cfg,
+            cfg,
+            objective,
+        )
+
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertAlmostEqual(candidate.segment_actions[0], 1.0)
+        self.assertIn(2.0, evaluated_actions)
+        self.assertIn(1.0, evaluated_actions)
+
     def test_cartpole_teacher_action_gradient_refinement_can_be_accepted(self):
         env = CartpoleEnv.train_env(seed=0)
         cfg = CartpoleSynthesisConfig(
@@ -3123,6 +3192,41 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(candidate.segment_actions, trace.segment_actions)
         self.assertGreater(candidate.segment_durations[0], trace.segment_durations[0])
         self.assertEqual(candidate.segment_durations[1], trace.segment_durations[1])
+
+    def test_cartpole_teacher_duration_gradient_backtracking_rejects_worse_integer_step(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=4, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, -10.0),
+            segment_durations=(2, 2),
+        )
+        evaluated_durations = []
+
+        def objective(candidate):
+            evaluated_durations.append(candidate.segment_durations)
+            first_duration = candidate.segment_durations[0]
+            if first_duration == 1:
+                return -3.0
+            if first_duration == 3:
+                return -1.0
+            return 0.0
+
+        candidate = _duration_gradient_refinement_candidate(
+            trace,
+            initial_state,
+            env.cfg,
+            cfg,
+            objective,
+        )
+
+        self.assertIsNone(candidate)
+        self.assertGreaterEqual(evaluated_durations.count((3, 2)), 3)
 
     def test_cartpole_teacher_duration_gradient_refinement_can_be_accepted(self):
         env = CartpoleEnv.train_env(seed=0)
@@ -3214,6 +3318,42 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(candidate.segment_durations, trace.segment_durations)
         self.assertGreater(candidate.segment_time_increments[0], trace.segment_time_increments[0])
         self.assertEqual(candidate.segment_time_increments[1], trace.segment_time_increments[1])
+
+    def test_cartpole_teacher_time_increment_gradient_backtracks_to_improving_step(self):
+        env = CartpoleEnv(CartpoleConfig(pole_length=0.5, horizon_seconds=5.0, dt=0.04), seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=2)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=1.0,
+            omega_gain=0.0,
+            segment_actions=(10.0, -10.0),
+            segment_time_increments=(env.cfg.dt / 2.0, env.cfg.dt / 2.0),
+        )
+        evaluated_increments = []
+
+        def objective(candidate):
+            first_increment = candidate.segment_time_increments[0]
+            evaluated_increments.append(first_increment)
+            if abs(first_increment - 0.024) < 1e-12:
+                return -1.0
+            return 1.0 - abs(first_increment - 0.022)
+
+        candidate = _time_increment_gradient_refinement_candidate(
+            trace,
+            initial_state,
+            env.cfg,
+            cfg,
+            objective,
+        )
+
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertAlmostEqual(candidate.segment_time_increments[0], 0.022)
+        self.assertTrue(any(abs(value - 0.024) < 1e-12 for value in evaluated_increments))
+        self.assertTrue(any(abs(value - 0.022) < 1e-12 for value in evaluated_increments))
 
     def test_cartpole_teacher_finite_difference_refinement_rejects_worse_candidates(self):
         env = CartpoleEnv.train_env(seed=0)
