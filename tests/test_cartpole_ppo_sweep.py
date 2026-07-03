@@ -264,6 +264,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(manifest["jobs_completed"], 0)
         self.assertEqual(manifest["paper_space"]["timesteps"], 10_000_000)
         self.assertEqual(manifest["paper_space"]["eval_rollouts"], 1000)
+        self.assertTrue(manifest["paper_space"]["reward_spec"]["reward_equals_survived_steps"])
         self.assertEqual(manifest["paper_protocol_status"]["selected_eval_rollouts"], 1)
         self.assertFalse(manifest["paper_protocol_status"]["uses_paper_eval_rollouts"])
         self.assertFalse(manifest["paper_protocol_status"]["paper_scale_plan"])

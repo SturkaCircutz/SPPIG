@@ -99,6 +99,7 @@ class CartpolePPOCliTest(unittest.TestCase):
         self.assertIn("train_survival_seconds_mean", metrics["selected_result"])
         self.assertIn("test_survival_seconds_mean", metrics["selected_result"])
         self.assertIn("test_steps_mean", metrics["eval_history"][0])
+        self.assertTrue(metrics["reward_spec"]["reward_equals_survived_steps"])
         self.assertEqual(metrics["paper_protocol_status"]["paper_eval_rollouts"], 1000)
         self.assertEqual(metrics["paper_protocol_status"]["selected_eval_rollouts"], 1)
         self.assertFalse(metrics["paper_protocol_status"]["uses_paper_eval_rollouts"])

@@ -13,7 +13,12 @@ SRC = ROOT / "src"
 # Keep this script runnable from a fresh checkout without requiring package install.
 sys.path.insert(0, str(SRC))
 
-from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, summarize_cartpole_results  # noqa: E402
+from cartpole_env import (  # noqa: E402
+    PAPER_EVAL_ROLLOUTS,
+    CartpoleEnv,
+    cartpole_reward_spec,
+    summarize_cartpole_results,
+)
 from cartpole_synthesis import Depth2Switch, SynthesizedCartpolePSM  # noqa: E402
 
 
@@ -48,6 +53,7 @@ def main() -> None:
         "eval_rollouts": args.eval_rollouts,
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
+        "reward_spec": cartpole_reward_spec(),
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "program_parameters": {

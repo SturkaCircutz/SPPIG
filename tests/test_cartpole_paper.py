@@ -20,6 +20,7 @@ except Exception:
 
 from cartpole_env import BangBangCartpolePSM, CartpoleEnv, evaluate_cartpole_policy
 from cartpole_env import PAPER_EVAL_ROLLOUTS
+from cartpole_env import STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP, cartpole_reward_spec
 from cartpole_synthesis import (
     BooleanTreeSwitch,
     CartpoleSegment,
@@ -113,6 +114,20 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(test_env.cfg.pole_length, 1.0)
         self.assertEqual(test_env.cfg.horizon_seconds, 300.0)
         self.assertEqual(len(train_env.reset()), 4)
+
+    def test_cartpole_reward_matches_openai_classic_control_step_reward(self):
+        env = CartpoleEnv.train_env(seed=0)
+        env.reset([0.0, 0.0, 0.0, 0.0])
+
+        _, reward, done = env.step(0.0)
+        spec = cartpole_reward_spec()
+
+        self.assertEqual(reward, STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP)
+        self.assertFalse(done)
+        self.assertEqual(spec["reward_per_alive_step"], 1.0)
+        self.assertEqual(spec["termination_reward"], 0.0)
+        self.assertTrue(spec["reward_equals_survived_steps"])
+        self.assertIn("OpenAI", spec["source"])
 
     def test_programmatic_policy_evaluates(self):
         metrics = evaluate_cartpole_policy(
@@ -3025,6 +3040,7 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(status["train_pole_length"], 0.5)
         self.assertEqual(status["test_horizon_seconds"], 300.0)
         self.assertEqual(status["test_pole_length"], 1.0)
+        self.assertTrue(status["reward_spec"]["reward_equals_survived_steps"])
         self.assertTrue(status["paper_timestep_budget"])
         self.assertTrue(status["paper_test_horizon"])
         self.assertEqual(status["paper_eval_rollouts"], 1000)
@@ -3088,6 +3104,8 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIn("failure_terminations", metrics["update_history"][0])
         self.assertEqual(metrics["selected_result"]["timesteps"], result.timesteps)
         self.assertEqual(metrics["paper_protocol_status"]["selected_test_max_steps"], 20)
+        self.assertTrue(metrics["reward_spec"]["reward_equals_survived_steps"])
+        self.assertTrue(metrics["paper_protocol_status"]["reward_spec"]["reward_equals_survived_steps"])
         self.assertEqual(metrics["paper_protocol_status"]["selected_eval_rollouts"], 1)
         self.assertFalse(metrics["paper_protocol_status"]["uses_paper_eval_rollouts"])
         self.assertFalse(metrics["paper_protocol_status"]["paper_timestep_budget"])

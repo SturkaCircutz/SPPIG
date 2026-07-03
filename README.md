@@ -82,7 +82,9 @@ intermediate train/test evaluations in each PPO metrics JSON; quick runs default
 to interval `32`, while full runs default to final-result-only metrics unless an
 interval is supplied. PPO metrics also include compact per-update training
 diagnostics such as rollout reward, horizon truncations, and failure
-terminations.
+terminations. CartPole metrics and manifests include a `reward_spec` block
+recording the standard OpenAI classic-control reward used here: `+1` per
+survived simulator step, with no extra terminal bonus or penalty.
 
 Programmatic state machine:
 

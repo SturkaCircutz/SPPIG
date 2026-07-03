@@ -6,7 +6,7 @@ import os
 import sys
 from dataclasses import asdict
 
-from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, summarize_cartpole_results
+from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec, summarize_cartpole_results
 from cartpole_synthesis import (
     CartpoleSynthesisIteration,
     CartpoleSynthesisConfig,
@@ -287,6 +287,7 @@ def main() -> None:
         "eval_rollouts": args.eval_rollouts,
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
+        "reward_spec": cartpole_reward_spec(),
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),

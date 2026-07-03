@@ -17,6 +17,7 @@ from cartpole_env import (
     BangBangCartpolePSM,
     CartpoleEnv,
     Observation,
+    cartpole_reward_spec,
     summarize_cartpole_results,
 )
 
@@ -101,6 +102,7 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
         "train_horizon_steps": train_env.cfg.max_steps,
         "test_horizon_seconds": test_env.cfg.horizon_seconds,
         "test_pole_length": test_env.cfg.pole_length,
+        "reward_spec": cartpole_reward_spec(),
         "paper_test_horizon_steps": test_env.cfg.max_steps,
         "selected_test_max_steps": cfg.eval_test_max_steps,
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
@@ -376,6 +378,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
                     "eval_history": eval_history,
                     "update_history": update_history,
                     "selected_result": final_metrics,
+                    "reward_spec": cartpole_reward_spec(),
                     "paper_protocol_status": ppo_paper_protocol_status(cfg),
                     "selection_rule": "max train_success_rate, then train_reward_mean when eval_interval > 0 and keep_best is true",
                 },

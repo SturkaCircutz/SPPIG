@@ -19,6 +19,13 @@
     "Programmatic state machine": "scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
     "Synthesized PSM diagnostic": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json"
   },
+  "reward_spec": {
+    "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+    "reward_equals_survived_steps": true,
+    "reward_per_alive_step": 1.0,
+    "source": "OpenAI Gym classic-control CartPole standard reward",
+    "termination_reward": 0.0
+  },
   "row_count": 5,
   "rows": [
     {
@@ -56,6 +63,13 @@
       "notes": "best local diagnostic checkpoint reevaluated on full paper test horizon",
       "paper_eval_rollouts": 1000,
       "policy": "PPO MLP",
+      "reward_spec": {
+        "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+        "reward_equals_survived_steps": true,
+        "reward_per_alive_step": 1.0,
+        "source": "OpenAI Gym classic-control CartPole standard reward",
+        "termination_reward": 0.0
+      },
       "seed": "0",
       "test_horizon_steps": "15000",
       "test_reward": "910.6",
@@ -104,6 +118,13 @@
       "notes": "supervised warm-start checkpoint reevaluated on full paper test horizon",
       "paper_eval_rollouts": 1000,
       "policy": "PPO-LSTM warm started",
+      "reward_spec": {
+        "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+        "reward_equals_survived_steps": true,
+        "reward_per_alive_step": 1.0,
+        "source": "OpenAI Gym classic-control CartPole standard reward",
+        "termination_reward": 0.0
+      },
       "seed": "0",
       "test_horizon_steps": "15000",
       "test_reward": "912.25",
@@ -232,6 +253,13 @@
       "paper_eval_rollouts": 1000,
       "policy": "Direct-Opt diagnostic",
       "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
+      "reward_spec": {
+        "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+        "reward_equals_survived_steps": true,
+        "reward_per_alive_step": 1.0,
+        "source": "OpenAI Gym classic-control CartPole standard reward",
+        "termination_reward": 0.0
+      },
       "seed": "0",
       "test_horizon_steps": "15000",
       "test_reward": "4220.05",
@@ -254,6 +282,13 @@
       "paper_eval_rollouts": 1000,
       "policy": "Programmatic state machine",
       "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0",
+      "reward_spec": {
+        "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+        "reward_equals_survived_steps": true,
+        "reward_per_alive_step": 1.0,
+        "source": "OpenAI Gym classic-control CartPole standard reward",
+        "termination_reward": 0.0
+      },
       "seed": "0",
       "test_horizon_steps": "15000",
       "test_reward": "6275.35",
@@ -464,6 +499,13 @@
       },
       "policy": "Synthesized PSM diagnostic",
       "policy_description": "m0 action=0.524; m1 action=0.432; mode=1 if -1.000*theta + -0.250*omega >= -0.649, else mode=0",
+      "reward_spec": {
+        "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+        "reward_equals_survived_steps": true,
+        "reward_per_alive_step": 1.0,
+        "source": "OpenAI Gym classic-control CartPole standard reward",
+        "termination_reward": 0.0
+      },
       "seed": "0",
       "test_horizon_steps": "15000",
       "test_reward": "47.2",

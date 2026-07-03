@@ -8,6 +8,21 @@ from typing import Any, List, Optional, Protocol, Sequence
 
 Observation = List[float]
 PAPER_EVAL_ROLLOUTS = 1000
+STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP = 1.0
+
+
+def cartpole_reward_spec() -> dict[str, Any]:
+    return {
+        "source": "OpenAI Gym classic-control CartPole standard reward",
+        "reward_per_alive_step": STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP,
+        "termination_reward": 0.0,
+        "reward_equals_survived_steps": True,
+        "note": (
+            "The paper reports using standard OpenAI rewards for classic-control baselines; "
+            "this CartPole environment gives +1 for each non-terminal simulator step and no "
+            "extra terminal bonus or penalty."
+        ),
+    }
 
 
 class ContinuousPolicy(Protocol):
@@ -85,7 +100,7 @@ class CartpoleEnv:
     def step(self, force: float) -> tuple[Observation, float, bool]:
         self.state = cartpole_next_state(self.state, force, self.cfg)
         done = cartpole_done(self.state, self.cfg)
-        return self.observe(), 1.0, done
+        return self.observe(), STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP, done
 
     def rollout(
         self,

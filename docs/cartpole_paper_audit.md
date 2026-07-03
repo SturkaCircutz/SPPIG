@@ -37,6 +37,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 ## Implementation Mapping
 
 - `src/cartpole_env.py`: continuous-force Cartpole with the train/test pole length and horizon split.
+  It exposes a machine-readable reward spec for the standard OpenAI CartPole reward used by the
+  paper's classic-control baselines: `+1` per survived simulator step and no extra terminal bonus or
+  penalty.
 - `src/ppo_cartpole.py`: local PyTorch PPO implementation with MLP and LSTM policy classes.
 - `src/train_cartpole_ppo.py`: CLI for PPO and PPO-LSTM experiments; with `--eval-interval`, it can
   persist per-evaluation train/test metrics to JSON for checkpoint provenance. Its default
@@ -88,7 +91,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   writes both a single-best-job summary and a per-hyperparameter summary aggregating completed seeds
   for each sampled config, including survived-step, survival-second, and evaluation-rollout
   provenance for executed rows. Its paper-scale plan/execution flags require the paper's
-  `1000` evaluation rollouts. This is search infrastructure; the full paper-scale sweep has not been run.
+  `1000` evaluation rollouts and its manifest records the standard CartPole reward spec. This is
+  search infrastructure; the full paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
   generated abstract-result, LaTeX table, and PSM policy fragments consumed by `essay/project.tex`,
@@ -295,6 +299,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_ppo_rollout_truncates_at_paper_training_horizon` verifies that
   rollout collection treats the 5-second/250-step training horizon as terminal and resets the vector
   environment counter.
+- `tests/test_cartpole_paper.py::test_cartpole_reward_matches_openai_classic_control_step_reward`
+  verifies that the local CartPole environment returns the paper's standard classic-control reward:
+  `+1` per survived simulator step, with no terminal bonus or penalty.
 - `tests/test_cartpole_paper.py::test_ppo_stores_raw_continuous_actions_for_log_probs` verifies that
   PPO stores the raw sampled Gaussian action for log-probability replay while clipping only the force
   applied to the continuous Cartpole environment.

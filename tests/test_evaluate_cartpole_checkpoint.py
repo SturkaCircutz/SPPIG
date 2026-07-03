@@ -50,6 +50,7 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
         self.assertEqual(metrics["eval_rollouts"], 2)
         self.assertEqual(metrics["paper_eval_rollouts"], 1000)
         self.assertFalse(metrics["uses_paper_eval_rollouts"])
+        self.assertTrue(metrics["reward_spec"]["reward_equals_survived_steps"])
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
         self.assertIn("selected_result", metrics)
