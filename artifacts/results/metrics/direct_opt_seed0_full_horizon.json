@@ -76,13 +76,14 @@
       0.5
     ],
     "continuous_one_hot_top_leaves_for_depth2": 4,
+    "continuous_one_hot_weight_step_scale": 0.25,
     "force_values": [
       -10.0,
       10.0
     ],
-    "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, and batch/restart local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
+    "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, and bounded weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
     "local_parallel_threads": "configurable_via_parallel_threads",
-    "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_or_continuous_one_hot_threshold_force_neighbors",
+    "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_continuous_one_hot_weight_threshold_force_neighbors",
     "local_time_limit_seconds": "configurable_via_time_limit_seconds",
     "not_paper_scale": true,
     "omega_weight_grid": [
@@ -186,7 +187,7 @@
     "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
     "configured_paper_batch_size": true,
     "full_continuous_one_hot_switch_grammar": false,
-    "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
+    "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates a bounded continuous one-hot leaf/depth2 feature-mixture candidate family with local feature-weight neighbors, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
     "linear_switch_encoding": true,
     "optimizes_combined_reward_over_all_selected_initial_states": true,
     "optimizes_combined_reward_over_selected_initial_states": true,

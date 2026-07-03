@@ -267,13 +267,15 @@ on the 5-second training split, including the previous linear switch grid,
 bounded depth-1/depth-2 Boolean-tree switch predicates with explicit one-hot
 feature, relation, and tree-operator metadata, and a bounded Appendix B.3-style
 continuous one-hot leaf/depth-2 feature-mixture candidate family. It then applies a bounded
-batch/restart local refinement seeded from the best candidate so far, optimizing
+batch/restart local refinement over forces, thresholds, and continuous one-hot feature weights
+seeded from the best candidate so far, optimizing
 mean reward over all selected finite initial states, not the full initial-state
 distribution, before reevaluating the selected program on the full paper test
 horizon.
 Its metrics JSON records the exact grid, Boolean/continuous one-hot leaf/depth-2 counts,
 candidate-evaluation-call counts, train-rollout-evaluation counts,
-batch/restart diagnostics, configurable local parallel-candidate evaluation and
+batch/restart diagnostics, bounded continuous feature-weight refinement,
+configurable local parallel-candidate evaluation and
 time-limit metadata, selected program, and limitation note. This is still not
 the paper's two-hour, ten-thread Direct-Opt protocol over the optimized
 continuous one-hot switching grammar. The metrics JSON also includes

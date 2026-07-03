@@ -52,7 +52,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
   tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
-  candidates and a local batch/restart refinement seeded from the best candidate so far.
+  candidates and a local batch/restart refinement over forces, thresholds, and continuous one-hot
+  feature weights seeded from the best candidate so far.
   Candidate selection optimizes mean train-horizon reward over the selected initial states, then
   success as a tie-breaker. This records exact search grids, search diagnostics, and selected program
   provenance, and can evaluate candidate pools with a configurable local thread count and optional
@@ -218,8 +219,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
   implementation optimizes mean reward over all selected finite initial states, evaluates bounded
   Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
-  candidates, and records batch/restart diagnostics to mirror part of the paper baseline's grammar
-  and batch seeding structure. Candidate pools can now be evaluated with configurable local parallel threads and an
+  candidates, and records bounded feature-weight/threshold/force local-refinement diagnostics to
+  mirror part of the paper baseline's grammar and batch seeding structure. Candidate pools can now be evaluated with configurable local parallel threads and an
   optional wall-clock stop, and diagnostics record the selected thread count and time-limit status.
   Its diagnostics separate candidate evaluation calls from individual selected-state train rollout
   evaluations, while keeping `not_paper_scale` true.
@@ -548,7 +549,9 @@ paper-scale PPO2 runs.
   through candidate serialization and reconstruction.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_local_refinement_preserves_metadata`
   verifies that local Direct-Opt refinement preserves continuous one-hot metadata while varying the
-  bounded threshold and force parameters.
+  bounded feature-weight, threshold, and force parameters.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_weight_neighbors_stay_on_simplex`
+  verifies that bounded continuous one-hot feature-weight neighbors remain nonnegative and sum to one.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_cli_writes_metrics_json` verifies that the
   Direct-Opt CLI writes config, selected candidate, train/test metrics, search diagnostics, and
   provenance JSON.
