@@ -157,7 +157,8 @@ time increment, or one
 constant-action segment at a time, accepting only improvements under the
 current teacher objective or, after the first student fit, a top-rho
 elite-distance kernel approximation of the paper's second teacher optimization
-phase. Student-sampled traces can also be locally refined through
+phase; that kernel now includes teacher gains as well as segment schedules.
+Student-sampled traces can also be locally refined through
 duration/time-increment/action coordinate search plus one bounded
 finite-difference action candidate, one bounded finite-difference
 integer-duration candidate, and one bounded finite-difference time-increment

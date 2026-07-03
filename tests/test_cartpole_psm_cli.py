@@ -233,7 +233,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_distance_metric"],
-            "l2_over_segment_actions_durations_and_time_increments",
+            "l2_over_teacher_gains_segment_actions_durations_and_time_increments",
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_distance_duration_scale_floor"],

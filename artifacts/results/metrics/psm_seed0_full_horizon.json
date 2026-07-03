@@ -153,7 +153,7 @@
         1
       ],
       "elite_distance_duration_scale_floor": 1.0,
-      "elite_distance_metric": "l2_over_segment_actions_durations_and_time_increments",
+      "elite_distance_metric": "l2_over_teacher_gains_segment_actions_durations_and_time_increments",
       "elite_distribution_mean_candidate_per_round": 1,
       "elite_distribution_min_action_std": 0.001,
       "elite_distribution_phase": "bounded_cem_style_top_rho_refresh",

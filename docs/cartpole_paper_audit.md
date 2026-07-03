@@ -511,6 +511,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_kernel_uses_normalized_top_rho_distance`
   verifies that the refinement objective uses the paper-style normalized elite-distance kernel
   approximation for trace probability.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distance_includes_teacher_gains`
+  verifies that the elite-distance kernel includes loop-free teacher gains as well as segment
+  action, duration, and time-increment schedules.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_centroid_recombines_loop_free_schedules`
   verifies that the teacher can evaluate one deterministic top-rho centroid of segment actions and
   durations before local refinement. This is only a bounded recombination approximation, not the
@@ -662,6 +665,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   candidate plus configurable bounded rounds of fitted teacher-gain and per-segment
   distribution mean candidates and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the
-  previous student, but it does not yet perform the paper's full CEM procedure or continuous
+  previous student, with the elite-distance kernel including teacher gains plus segment action,
+  duration, and time-increment schedules, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.
 - Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.

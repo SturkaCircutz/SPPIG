@@ -1661,6 +1661,30 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(_loop_free_trace_distance(implicit_default, explicit_default), 0.0)
 
+    def test_cartpole_teacher_elite_distance_includes_teacher_gains(self):
+        reference = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            theta_gain=10.0,
+            omega_gain=1.0,
+            segment_actions=(10.0,),
+            segment_durations=(2,),
+        )
+        same_schedule_different_gains = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            theta_gain=20.0,
+            omega_gain=3.0,
+            segment_actions=(10.0,),
+            segment_durations=(2,),
+        )
+
+        self.assertGreater(_loop_free_trace_distance(reference, same_schedule_different_gains), 0.0)
+
     def test_cartpole_teacher_elite_kernel_uses_normalized_top_rho_distance(self):
         student = ProbabilisticCartpoleStudent(
             action_distributions={
