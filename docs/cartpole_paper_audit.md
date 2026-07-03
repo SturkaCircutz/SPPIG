@@ -54,7 +54,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   success as a tie-breaker. This records exact search grids, search diagnostics, and selected program
   provenance, but is not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
   `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, full continuous
-  one-hot grammar, combined-reward optimization, full test horizon, and `1000`-rollout evaluation;
+  one-hot grammar, combined-reward optimization over all selected finite training states, full test horizon, and `1000`-rollout evaluation;
   the full Direct-Opt protocol flag remains false for the bounded diagnostic.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
@@ -183,7 +183,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train reward mean `250.0`, test reward mean `4311.0`. The selected bounded two-mode policy is
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
-  implementation optimizes mean reward over the selected initial states and records bounded
+  implementation optimizes mean reward over all selected finite initial states and records bounded
   Boolean-tree switch-candidate one-hot metadata plus batch/restart diagnostics to mirror part of the
   paper baseline's grammar and batch seeding structure, while keeping `not_paper_scale` true.
 - PPO MLP command:
@@ -716,7 +716,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - Run 5 random seeds and choose best training performer.
 - Run hyperparameter search over the paper's specified ranges.
 - Replace the bounded Direct-Opt diagnostic with the paper's full direct optimization protocol:
-  keep the combined-reward-over-initial-states objective, but replace the bounded local search with
+  keep the combined-reward-over-selected-initial-states objective, but replace the bounded local search with
   the full batch optimization, random restarts when stalled, full continuous one-hot
   switching-condition encoding, and reported two-hour/parallel budget.
 - Complete the probabilistic adaptive-teaching implementation: continuous optimization of switch

@@ -111,7 +111,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertFalse(status["full_continuous_one_hot_switch_grammar"])
         self.assertTrue(status["bounded_one_hot_switch_metadata"])
         self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
-        self.assertTrue(status["optimizes_combined_reward_over_all_initial_states"])
+        self.assertTrue(status["optimizes_combined_reward_over_all_selected_initial_states"])
+        self.assertFalse(status["optimizes_full_initial_state_distribution"])
         self.assertEqual(
             status["combined_reward_aggregation"],
             "mean_train_horizon_reward_over_selected_initial_states",

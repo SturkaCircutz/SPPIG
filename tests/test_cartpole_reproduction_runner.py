@@ -597,6 +597,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertFalse(direct_status["uses_paper_time_limit"])
             self.assertFalse(direct_status["full_continuous_one_hot_switch_grammar"])
             self.assertTrue(direct_status["optimizes_combined_reward_over_selected_initial_states"])
+            self.assertTrue(direct_status["optimizes_combined_reward_over_all_selected_initial_states"])
+            self.assertFalse(direct_status["optimizes_full_initial_state_distribution"])
             self.assertFalse(direct_status["uses_full_test_horizon"])
             self.assertFalse(direct_status["uses_paper_eval_rollouts"])
             self.assertFalse(direct_status["paper_scale_direct_opt_protocol"])
