@@ -180,6 +180,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 psm_metrics = json.load(handle)
             with open(rows[0]["traces_output"], encoding="utf-8") as handle:
                 psm_traces = json.load(handle)
+            self.assertIn("run_cartpole_reproduction.py", psm_metrics["command"])
+            self.assertIn("--psm-teacher-theta-gain 12.5", psm_metrics["command"])
+            self.assertEqual(psm_traces["command"], psm_metrics["command"])
             self.assertEqual(psm_metrics["config"]["teacher_theta_gain"], 12.5)
             self.assertEqual(psm_metrics["algorithm_provenance"]["switch_timing"]["std_steps"], 2.0)
             self.assertEqual(
@@ -683,6 +686,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
 
             with open(direct_row["metrics_output"], encoding="utf-8") as handle:
                 direct_metrics = json.load(handle)
+            self.assertIn("run_cartpole_reproduction.py", direct_metrics["command"])
+            self.assertIn("--include-direct-opt", direct_metrics["command"])
             self.assertEqual(direct_metrics["algorithm_provenance"]["paper_baseline"], "Direct-Opt")
             self.assertTrue(direct_metrics["algorithm_provenance"]["not_paper_scale"])
             self.assertEqual(direct_metrics["algorithm_provenance"]["batch_refinement"], "seed_each_batch_from_best_so_far_and_restart_on_stall")
@@ -836,6 +841,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 self.assertTrue(os.path.exists(row["metrics_output"]))
                 with open(row["metrics_output"], encoding="utf-8") as handle:
                     metrics = json.load(handle)
+                self.assertIn("run_cartpole_reproduction.py", metrics["command"])
+                self.assertIn("--include-ppo", metrics["command"])
                 self.assertEqual(metrics["config"]["eval_test_max_steps"], 20)
                 self.assertEqual(metrics["config"]["eval_interval"], 32)
                 self.assertGreaterEqual(len(metrics["eval_history"]), 1)

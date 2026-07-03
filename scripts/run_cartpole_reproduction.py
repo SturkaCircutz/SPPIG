@@ -130,6 +130,7 @@ def run_psm(
     traces_path = outdir / "traces" / f"psm_seed{seed}_teacher_traces.json"
     traces_path.parent.mkdir(parents=True, exist_ok=True)
     metrics = {
+        "command": " ".join(sys.argv),
         "config": asdict(cfg),
         "algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
         "paper_protocol_status": cartpole_synthesis_protocol_status(
@@ -170,6 +171,7 @@ def run_psm(
     traces_path.write_text(
         json.dumps(
             {
+                "command": " ".join(sys.argv),
                 "config": asdict(cfg),
                 "seed": seed,
                 "num_traces": len(traces),
@@ -291,8 +293,9 @@ def run_direct_opt(
     result = run_cartpole_direct_opt(cfg)
     metrics_path = outdir / "metrics" / f"direct_opt_seed{seed}.json"
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics = {"command": " ".join(sys.argv), **direct_opt_metrics(result)}
     metrics_path.write_text(
-        json.dumps(direct_opt_metrics(result), indent=2, sort_keys=True),
+        json.dumps(metrics, indent=2, sort_keys=True),
         encoding="utf-8",
     )
     return {

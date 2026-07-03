@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import json
 import os
 import random
+import sys
 from typing import Dict, List, Optional, Tuple
 
 import torch
@@ -411,6 +412,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
         with open(metrics_output, "w", encoding="utf-8") as handle:
             json.dump(
                 {
+                    "command": " ".join(sys.argv),
                     "config": cfg.__dict__,
                     "eval_history": eval_history,
                     "update_history": update_history,

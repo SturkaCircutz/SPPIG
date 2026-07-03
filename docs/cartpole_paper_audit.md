@@ -102,11 +102,12 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
   contain intermediate train/test `eval_history` entries or only the selected final result.
   PPO metrics also contain compact `update_history` rows with rollout reward means and
-  train-horizon termination counts. PPO manifest rows mirror the metrics JSON `paper_protocol_status`
-  block, so local diagnostic runs and single fixed-config runs are not mistaken for the full
-  five-seed paper baseline protocol. Result rows, summaries, and metrics JSON explicitly record mean
-  survived steps and survival seconds so long-horizon plots do not rely on reward as an implicit
-  survival-time proxy.
+  train-horizon termination counts. Runner-generated PSM, PPO, and Direct-Opt metrics JSON artifacts
+  record the command that produced them. PPO manifest rows mirror the metrics JSON
+  `paper_protocol_status` block, so local diagnostic runs and single fixed-config runs are not
+  mistaken for the full five-seed paper baseline protocol. Result rows, summaries, and metrics JSON
+  explicitly record mean survived steps and survival seconds so long-horizon plots do not rely on
+  reward as an implicit survival-time proxy.
 - `scripts/evaluate_cartpole_checkpoint.py`: reevaluates existing PPO/PPO-LSTM checkpoints and writes
   a `paper_protocol_status` block that separates the checkpoint's original training/evaluation budget
   from the later full-horizon reevaluation budget, keeping paper-scale checkpoint-result claims false
@@ -773,8 +774,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
   a per-seed PSM metrics JSON artifact whose final per-iteration evaluation matches the top-level PSM
   row. It also verifies the PSM full-trace sidecar path, per-iteration trace-history serialization,
-  iteration-sequence provenance, trace-count consistency, and the manifest-level paper-protocol
-  status block.
+  iteration-sequence provenance, trace-count consistency, metrics/trace command provenance, and the
+  manifest-level paper-protocol status block.
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale`
   verifies that a five-seed, full-horizon, 1000-rollout fixed-config runner setup is still not tagged
   as paper-scale because it lacks PPO hyperparameter search, full probabilistic adaptive teaching, and
@@ -783,11 +784,12 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that repeated seed entries are not treated as the paper's five distinct seeds.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_can_include_direct_opt_diagnostic`
   verifies that `--include-direct-opt` adds the bounded Direct-Opt diagnostic row and links its
-  metrics artifact from the manifest.
+  metrics artifact from the manifest, including the command that produced it.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_with_ppo_writes_checkpoints_and_metrics`
   verifies that the reproduction runner writes PPO/PPO-LSTM checkpoints and metrics JSON, that the
   configured PPO evaluation interval produces `eval_history` entries, that PPO update diagnostics are
-  persisted, and that each PPO manifest row mirrors the metrics JSON paper-protocol status.
+  persisted, that PPO metrics record the command that produced them, and that each PPO manifest row
+  mirrors the metrics JSON paper-protocol status.
 - `tests/test_cartpole_reproduction_runner.py::test_summary_rows_report_mean_std_and_best_train_seed`
   verifies the runner's per-policy mean/std summary and deterministic best-training-seed selection.
 - `tests/test_make_paper_figures.py` verifies that figure/table generation reads grouped summary rows
