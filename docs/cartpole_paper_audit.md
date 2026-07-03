@@ -253,6 +253,12 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `total_timesteps` is not divisible by `rollout_steps * num_envs`.
 - LSTM PPO now preserves recurrent state across rollout chunks and replays the same initial state
   during the update.
+- PPO warm-start training now rejects pretraining teacher-policy or mode-update-order config values
+  that do not match the implemented local `BangBangCartpolePSM` warm-start semantics, and checkpoint
+  reevaluation labels recorded warm-start provenance as matching, missing, or mismatched relative to
+  the current implementation instead of treating any recorded value as sufficient. Warm-started PPO
+  runs are also excluded from the single-run paper-budget match flag because supervised warm starts
+  are a local diagnostic extension, not the paper's PPO/PPO-LSTM baseline procedure.
 - Test evaluation defaults now use `15000` steps, matching the paper's 300-second test horizon.
 - Programmatic-state-machine synthesis can now write metrics JSON containing the synthesis config,
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
@@ -409,6 +415,14 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_lstm_update_replays_rollout_initial_state` verifies that the
   PPO-LSTM update replays the rollout's stored initial recurrent state instead of silently starting
   updates from zeros.
+- `tests/test_cartpole_paper.py::test_ppo_protocol_status_rejects_mismatched_warm_start_teacher_claim`
+  and `tests/test_cartpole_paper.py::test_ppo_training_rejects_mismatched_warm_start_teacher_claim`
+  verify that PPO warm-start provenance cannot claim a teacher policy or mode-update order different
+  from the implemented local warm-start teacher semantics.
+- `tests/test_cartpole_paper.py::test_ppo_protocol_status_excludes_warm_start_from_paper_budget_match`
+  verifies that a local supervised warm-start run is not tagged as matching the paper's standalone
+  PPO/PPO-LSTM baseline procedure even if its timestep, horizon, rollout, and minibatch settings are
+  paper-sized.
 - `tests/test_cartpole_paper.py::test_ppo_writes_eval_history_metrics_json` verifies that PPO
   interval evaluations and per-update rollout diagnostics are persisted to JSON instead of existing
   only in stdout.
@@ -418,6 +432,9 @@ paper-scale PPO2 runs.
 - `tests/test_evaluate_cartpole_checkpoint.py::test_checkpoint_reevaluation_protocol_status_distinguishes_checkpoint_from_reeval`
   verifies that checkpoint reevaluation metrics do not conflate the checkpoint's original diagnostic
   eval horizon with a later full-horizon reevaluation.
+- `tests/test_evaluate_cartpole_checkpoint.py::test_checkpoint_status_flags_recorded_warm_start_teacher_mismatch`
+  verifies that reevaluation status labels recorded warm-start teacher-policy or mode-order values
+  that disagree with the current implementation as mismatches rather than valid recorded provenance.
 - `tests/test_cartpole_paper.py::test_ppo_config_defaults_to_paper_timestep_budget` and
   `tests/test_cartpole_ppo_cli.py::test_cli_defaults_to_paper_timestep_budget_without_running`
   verify that the standalone PPO config and CLI default to the paper's `10^7` timestep budget

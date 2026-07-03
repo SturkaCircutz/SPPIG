@@ -74,6 +74,29 @@ class PPOResult:
     timesteps: int
 
 
+def _pretrain_teacher_policy_matches_impl(cfg: PPOConfig) -> bool:
+    return cfg.pretrain_steps == 0 or cfg.pretrain_teacher_policy == CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY
+
+
+def _pretrain_teacher_mode_order_matches_impl(cfg: PPOConfig) -> bool:
+    return cfg.pretrain_steps == 0 or cfg.pretrain_teacher_mode_update_order == CARTPOLE_PSM_MODE_UPDATE_ORDER
+
+
+def validate_pretrain_teacher_config(cfg: PPOConfig) -> None:
+    if cfg.pretrain_steps <= 0:
+        return
+    if not _pretrain_teacher_policy_matches_impl(cfg):
+        raise ValueError(
+            "pretrain_teacher_policy must match the implemented PPO warm-start teacher "
+            f"({CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY})"
+        )
+    if not _pretrain_teacher_mode_order_matches_impl(cfg):
+        raise ValueError(
+            "pretrain_teacher_mode_update_order must match the implemented PPO warm-start "
+            f"mode semantics ({CARTPOLE_PSM_MODE_UPDATE_ORDER})"
+        )
+
+
 def result_to_metrics(result: PPOResult) -> Dict[str, object]:
     return {
         "timesteps": result.timesteps,
@@ -95,11 +118,17 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
     paper_test_horizon = cfg.eval_test_max_steps == test_env.cfg.max_steps
     paper_eval_rollouts = cfg.eval_rollouts == PAPER_EVAL_ROLLOUTS
     lstm_minibatches_ok = cfg.policy_type != "lstm" or cfg.minibatches == 1
+    no_local_supervised_warm_start = cfg.pretrain_steps == 0
+    pretrain_teacher_policy_matches = _pretrain_teacher_policy_matches_impl(cfg)
+    pretrain_teacher_mode_order_matches = _pretrain_teacher_mode_order_matches_impl(cfg)
     single_run_matches_paper_budget = (
         paper_timestep_budget
         and paper_test_horizon
         and paper_eval_rollouts
         and lstm_minibatches_ok
+        and no_local_supervised_warm_start
+        and pretrain_teacher_policy_matches
+        and pretrain_teacher_mode_order_matches
     )
     return {
         "policy_type": cfg.policy_type,
@@ -118,7 +147,13 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
         "pretrain_steps": cfg.pretrain_steps,
         "pretrain_teacher_policy": cfg.pretrain_teacher_policy if cfg.pretrain_steps > 0 else None,
         "pretrain_teacher_mode_update_order": cfg.pretrain_teacher_mode_update_order if cfg.pretrain_steps > 0 else None,
+        "implemented_pretrain_teacher_policy": CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY if cfg.pretrain_steps > 0 else None,
+        "implemented_pretrain_teacher_mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER if cfg.pretrain_steps > 0 else None,
+        "pretrain_teacher_policy_matches_implementation": pretrain_teacher_policy_matches,
+        "pretrain_teacher_mode_order_matches_implementation": pretrain_teacher_mode_order_matches,
         "pretrain_teacher_mode_order_recorded": cfg.pretrain_steps == 0 or bool(cfg.pretrain_teacher_mode_update_order),
+        "local_supervised_warm_start": cfg.pretrain_steps > 0,
+        "no_local_supervised_warm_start": no_local_supervised_warm_start,
         "paper_timestep_budget": paper_timestep_budget,
         "paper_test_horizon": paper_test_horizon,
         "ppo_lstm_minibatches_fixed_to_one": lstm_minibatches_ok,
@@ -294,6 +329,7 @@ class LSTMActorCritic(nn.Module):
 
 
 def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn.Module, PPOResult]:
+    validate_pretrain_teacher_config(cfg)
     torch.manual_seed(cfg.seed)
     random.seed(cfg.seed)
     envs = [CartpoleEnv.train_env(seed=cfg.seed + env_idx) for env_idx in range(cfg.num_envs)]

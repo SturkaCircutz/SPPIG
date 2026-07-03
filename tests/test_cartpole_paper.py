@@ -4600,6 +4600,10 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(status["pretrain_steps"], 0)
         self.assertIsNone(status["pretrain_teacher_policy"])
         self.assertTrue(status["pretrain_teacher_mode_order_recorded"])
+        self.assertTrue(status["pretrain_teacher_policy_matches_implementation"])
+        self.assertTrue(status["pretrain_teacher_mode_order_matches_implementation"])
+        self.assertFalse(status["local_supervised_warm_start"])
+        self.assertTrue(status["no_local_supervised_warm_start"])
         self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
         self.assertTrue(status["single_run_matches_paper_budget"])
         self.assertFalse(status["five_seed_hyperparameter_search"])
@@ -4621,7 +4625,67 @@ class CartpolePaperTest(unittest.TestCase):
             status["pretrain_teacher_mode_update_order"],
             "act_with_current_mode_then_update_next_mode",
         )
+        self.assertEqual(status["implemented_pretrain_teacher_policy"], "BangBangCartpolePSM")
+        self.assertEqual(
+            status["implemented_pretrain_teacher_mode_update_order"],
+            "act_with_current_mode_then_update_next_mode",
+        )
+        self.assertTrue(status["pretrain_teacher_policy_matches_implementation"])
+        self.assertTrue(status["pretrain_teacher_mode_order_matches_implementation"])
         self.assertTrue(status["pretrain_teacher_mode_order_recorded"])
+        self.assertTrue(status["local_supervised_warm_start"])
+        self.assertFalse(status["no_local_supervised_warm_start"])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_protocol_status_excludes_warm_start_from_paper_budget_match(self):
+        status = ppo_paper_protocol_status(
+            PPOConfig(
+                policy_type="lstm",
+                total_timesteps=PAPER_PPO_TIMESTEPS,
+                eval_test_max_steps=CartpoleEnv.test_env().cfg.max_steps,
+                eval_rollouts=PAPER_EVAL_ROLLOUTS,
+                minibatches=1,
+                pretrain_steps=1,
+            )
+        )
+
+        self.assertTrue(status["paper_timestep_budget"])
+        self.assertTrue(status["paper_test_horizon"])
+        self.assertTrue(status["uses_paper_eval_rollouts"])
+        self.assertTrue(status["local_supervised_warm_start"])
+        self.assertFalse(status["no_local_supervised_warm_start"])
+        self.assertFalse(status["single_run_matches_paper_budget"])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_protocol_status_rejects_mismatched_warm_start_teacher_claim(self):
+        status = ppo_paper_protocol_status(
+            PPOConfig(
+                policy_type="lstm",
+                total_timesteps=PAPER_PPO_TIMESTEPS,
+                eval_test_max_steps=CartpoleEnv.test_env().cfg.max_steps,
+                eval_rollouts=PAPER_EVAL_ROLLOUTS,
+                minibatches=1,
+                pretrain_steps=1,
+                pretrain_teacher_policy="OtherTeacher",
+                pretrain_teacher_mode_update_order="update_mode_before_acting",
+            )
+        )
+
+        self.assertFalse(status["pretrain_teacher_policy_matches_implementation"])
+        self.assertFalse(status["pretrain_teacher_mode_order_matches_implementation"])
+        self.assertFalse(status["single_run_matches_paper_budget"])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_training_rejects_mismatched_warm_start_teacher_claim(self):
+        with self.assertRaises(ValueError):
+            train_ppo_cartpole(
+                PPOConfig(
+                    policy_type="lstm",
+                    total_timesteps=1,
+                    pretrain_steps=1,
+                    pretrain_teacher_policy="OtherTeacher",
+                )
+            )
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_smoke_train_mlp(self):

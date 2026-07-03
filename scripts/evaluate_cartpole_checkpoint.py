@@ -69,9 +69,23 @@ def checkpoint_reevaluation_protocol_status(
     recorded_teacher_policy = checkpoint_config.get("pretrain_teacher_policy")
     recorded_teacher_order = checkpoint_config.get("pretrain_teacher_mode_update_order")
     if pretrain_steps > 0:
-        teacher_order_status = "recorded" if recorded_teacher_order else "missing_from_checkpoint_config"
-        teacher_policy_status = "recorded" if recorded_teacher_policy else "missing_from_checkpoint_config"
+        teacher_policy_matches = recorded_teacher_policy == CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY
+        teacher_order_matches = recorded_teacher_order == CARTPOLE_PSM_MODE_UPDATE_ORDER
+        if not recorded_teacher_policy:
+            teacher_policy_status = "missing_from_checkpoint_config"
+        elif teacher_policy_matches:
+            teacher_policy_status = "recorded_matches_current_implementation"
+        else:
+            teacher_policy_status = "recorded_mismatch_current_implementation"
+        if not recorded_teacher_order:
+            teacher_order_status = "missing_from_checkpoint_config"
+        elif teacher_order_matches:
+            teacher_order_status = "recorded_matches_current_implementation"
+        else:
+            teacher_order_status = "recorded_mismatch_current_implementation"
     else:
+        teacher_policy_matches = True
+        teacher_order_matches = True
         teacher_order_status = "not_applicable_no_pretraining"
         teacher_policy_status = "not_applicable_no_pretraining"
     return {
@@ -93,10 +107,12 @@ def checkpoint_reevaluation_protocol_status(
         "checkpoint_pretrain_teacher_policy": recorded_teacher_policy,
         "checkpoint_pretrain_teacher_policy_status": teacher_policy_status,
         "checkpoint_pretrain_teacher_policy_recorded": pretrain_steps == 0 or bool(recorded_teacher_policy),
+        "checkpoint_pretrain_teacher_policy_matches_current_implementation": teacher_policy_matches,
         "current_pretrain_teacher_mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER if pretrain_steps > 0 else None,
         "checkpoint_pretrain_teacher_mode_update_order": recorded_teacher_order,
         "checkpoint_pretrain_teacher_mode_order_status": teacher_order_status,
         "checkpoint_pretrain_teacher_mode_order_recorded": pretrain_steps == 0 or bool(recorded_teacher_order),
+        "checkpoint_pretrain_teacher_mode_order_matches_current_implementation": teacher_order_matches,
         "paper_scale_checkpoint_result": False,
         "limitation": (
             "Reevaluates an existing local PPO checkpoint under the requested horizon and rollout "
