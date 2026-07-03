@@ -246,18 +246,19 @@ class BangBangCartpolePSM:
 
     def act(self, observation: Observation) -> float:
         _, _, theta, theta_dot = observation
+        action = self.force if self.mode == "push_right" else -self.force
         # Depth-2 Boolean switch over observations: angle and angular velocity
-        # determine which constant-force mode is active.
+        # determine the next constant-force mode.
         if theta + 0.25 * theta_dot >= 0.0:
             self.mode = "push_right"
         else:
             self.mode = "push_left"
-        return self.force if self.mode == "push_right" else -self.force
+        return action
 
     def describe(self) -> str:
         return (
             "m0 action=-force, m1 action=+force; "
-            "switch by theta + 0.25 * theta_dot >= 0"
+            "act with current mode, then switch by theta + 0.25 * theta_dot >= 0"
         )
 
 

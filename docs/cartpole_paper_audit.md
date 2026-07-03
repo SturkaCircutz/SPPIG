@@ -219,10 +219,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   compact teacher-trace examples with segment-duration and time-increment schedules, per-teacher/student-iteration
   `synthesis_history`, compact adaptive-teacher objective summaries, number of teacher traces,
   evaluation settings, switch-fit diagnostics, and train/test metrics.
-- The Cartpole deterministic and probabilistic PSM executors now act with the current mode before
-  applying the switch predicate to update the next mode, matching the paper's state-machine semantics
-  `an = Hsn(on), s0 = ms, sn+1 = ...`; sampled teacher traces label the mode that produced each
-  action.
+- The Cartpole deterministic and probabilistic PSM executors, plus the local bang-bang evaluator and
+  PPO warm-start teacher policy, now act with the current mode before applying the switch predicate to
+  update the next mode, matching the paper's state-machine semantics `an = Hsn(on), s0 = ms,
+  sn+1 = ...`; sampled teacher traces label the mode that produced each action.
 - The Cartpole switch learner now performs bounded local grid, coordinate refinement, and
   finite-difference gradient polishing of selected switch-threshold Gaussian means and standard
   deviations against a discrete Eq. (12)-style
@@ -519,7 +519,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   segment rather than resampling independently at each simulator step.
 - `tests/test_cartpole_paper.py::test_cartpole_deterministic_psm_acts_before_mode_transition`,
   `tests/test_cartpole_paper.py::test_cartpole_probabilistic_rollout_acts_before_detected_mode_transition`,
-  and `tests/test_cartpole_paper.py::test_cartpole_student_sampled_trace_labels_action_mode_before_transition`
+  `tests/test_cartpole_paper.py::test_cartpole_student_sampled_trace_labels_action_mode_before_transition`,
+  and `tests/test_cartpole_paper.py::test_bangbang_cartpole_psm_acts_before_mode_transition`
   verify that Cartpole PSM execution uses the current mode's action before updating the next mode,
   and that sampled teacher traces label the mode that produced each action.
 - `tests/test_cartpole_paper.py::test_cartpole_boolean_tree_cumulative_probability_matches_prefix_union`

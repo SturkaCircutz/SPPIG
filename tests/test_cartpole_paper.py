@@ -187,6 +187,18 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIn("train_success_rate", metrics)
         self.assertIn("test_success_rate", metrics)
 
+    def test_bangbang_cartpole_psm_acts_before_mode_transition(self):
+        policy = BangBangCartpolePSM(force=10.0)
+
+        policy.reset()
+        first_action = policy.act([0.0, 0.0, -0.1, 0.0])
+        second_action = policy.act([0.0, 0.0, 0.1, 0.0])
+
+        self.assertEqual(first_action, 10.0)
+        self.assertEqual(second_action, -10.0)
+        self.assertEqual(policy.mode, "push_right")
+        self.assertIn("act with current mode", policy.describe())
+
     def test_cartpole_synthesis_returns_two_mode_policy(self):
         policy, traces = synthesize_cartpole_policy(
             CartpoleSynthesisConfig(
