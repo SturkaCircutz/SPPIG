@@ -200,6 +200,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(psm_traces["metrics_output"], rows[0]["metrics_output"])
             self.assertEqual(psm_traces["num_traces"], psm_metrics["num_traces"])
             self.assertEqual(len(psm_traces["traces"]), psm_metrics["num_traces"])
+            self.assertEqual(
+                len(psm_traces["trace_history"]),
+                psm_metrics["config"]["teacher_student_iters"],
+            )
+            self.assertEqual(psm_traces["trace_history"][-1]["traces"], psm_traces["traces"])
             self.assertIn("observations", psm_traces["traces"][0])
             self.assertIn("actions", psm_traces["traces"][0])
             self.assertIn("mode_labels", psm_traces["traces"][0])

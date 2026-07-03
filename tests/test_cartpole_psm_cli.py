@@ -343,6 +343,16 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(trace_artifact["num_traces"], metrics["num_traces"])
         self.assertEqual(trace_artifact["config"], metrics["config"])
         self.assertEqual(len(trace_artifact["traces"]), metrics["num_traces"])
+        self.assertEqual(len(trace_artifact["trace_history"]), metrics["config"]["teacher_student_iters"])
+        self.assertEqual([entry["iteration"] for entry in trace_artifact["trace_history"]], [1, 2])
+        self.assertEqual(
+            trace_artifact["trace_history"][-1]["num_traces"],
+            metrics["num_traces"],
+        )
+        self.assertEqual(
+            trace_artifact["trace_history"][-1]["traces"],
+            trace_artifact["traces"],
+        )
         first_trace = trace_artifact["traces"][0]
         self.assertIn("observations", first_trace)
         self.assertIn("actions", first_trace)

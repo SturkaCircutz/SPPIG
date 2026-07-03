@@ -84,7 +84,7 @@ local examples in this README often pass `--eval-rollouts 20` only to keep
 diagnostics cheap.
 Each PSM row records a metrics JSON path with the fitted probabilistic student
 and per-iteration teacher-trace provenance, plus a `traces_output` sidecar with
-the full selected teacher traces for that seed.
+the full selected teacher traces and per-iteration teacher-trace history for that seed.
 The checked-in fixed-program reevaluation metrics instead record
 `paper_protocol_status` with `synthesized_by_current_algorithm` false, so that
 the full-horizon fixed PSM row is not confused with a current synthesis result.
@@ -136,8 +136,8 @@ model, teacher-source counts, reward summary, recorded student log-probability
 coverage, and the recorded reward-plus-student-likelihood objective components
 when available.
 Pass `--traces-output path/to/traces.json` to write the full selected teacher
-traces as a sidecar artifact; orchestrated reproduction runs write this sidecar
-for each PSM row automatically.
+traces and per-iteration teacher-trace history as a sidecar artifact;
+orchestrated reproduction runs write this sidecar for each PSM row automatically.
 It also records `switch_fit_diagnostics`, which compares the selected switch's
 responsibility-weighted label loss and bounded Eq. (12)-style distribution
 timing loss against a fixed local reference switch, while also retaining hard

@@ -174,6 +174,17 @@ def serialize_traces(traces: list[CartpoleTrace]):
     return [serialize_trace(trace) for trace in traces]
 
 
+def serialize_trace_history(history: list[CartpoleSynthesisIteration]):
+    return [
+        {
+            "iteration": entry.iteration,
+            "num_traces": len(entry.traces),
+            "traces": serialize_traces(entry.traces),
+        }
+        for entry in history
+    ]
+
+
 def summarize_student_fit_step(step: CartpoleStudentFitStep):
     return {
         "em_iteration": step.em_iteration,
@@ -451,6 +462,7 @@ def main() -> None:
                     "config": asdict(cfg),
                     "num_traces": len(traces),
                     "traces": serialize_traces(traces),
+                    "trace_history": serialize_trace_history(synthesis_history),
                 },
                 handle,
                 indent=2,

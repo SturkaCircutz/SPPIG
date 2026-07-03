@@ -30,6 +30,7 @@ from cartpole_synthesis import (  # noqa: E402
     synthesize_cartpole_student_with_history,
 )
 from train_cartpole_psm import (  # noqa: E402
+    serialize_trace_history,
     serialize_traces,
     summarize_adaptive_teacher_history,
     summarize_policy_evaluation,
@@ -174,6 +175,7 @@ def run_psm(
                 "num_traces": len(traces),
                 "metrics_output": str(metrics_path),
                 "traces": serialize_traces(traces),
+                "trace_history": serialize_trace_history(synthesis_history),
             },
             indent=2,
             sort_keys=True,
