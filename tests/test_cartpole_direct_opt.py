@@ -17,6 +17,7 @@ from cartpole_direct_opt import (  # noqa: E402
     _boolean_local_neighbor_candidates,
     _boolean_tree_candidates,
     _candidate_policy,
+    _candidate_switch,
     cartpole_direct_opt_protocol_status,
     direct_opt_metrics,
     run_cartpole_direct_opt,
@@ -51,9 +52,32 @@ class CartpoleDirectOptTest(unittest.TestCase):
             + diagnostics["restart_evaluations"]
         )
         self.assertEqual(result.searched_candidates, expected_evaluations)
+        self.assertEqual(diagnostics["candidate_evaluation_calls"], expected_evaluations)
+        self.assertEqual(diagnostics["evaluated_candidates"], expected_evaluations)
+        self.assertEqual(diagnostics["evaluated_candidates_units"], "candidate_evaluation_calls")
+        expected_full_train_rollouts = (
+            diagnostics["grid_candidates"]
+            + diagnostics["random_candidates"]
+            + diagnostics["boolean_stump_candidates"]
+            + diagnostics["boolean_depth2_candidates"]
+            + diagnostics["batch_refinement_candidates"]
+        ) * metrics["config"]["num_train_states"]
+        expected_batch_rollouts = (
+            diagnostics["batch_seed_rollout_evaluations"]
+            + diagnostics["batch_local_rollout_evaluations"]
+            + diagnostics["restart_rollout_evaluations"]
+        )
+        self.assertEqual(diagnostics["full_train_rollout_evaluations"], expected_full_train_rollouts)
+        self.assertEqual(diagnostics["batch_rollout_evaluations"], expected_batch_rollouts)
+        self.assertEqual(
+            diagnostics["train_rollout_evaluations"],
+            expected_full_train_rollouts + expected_batch_rollouts,
+        )
+        self.assertGreater(diagnostics["train_rollout_evaluations"], diagnostics["candidate_evaluation_calls"])
         self.assertIn("mode=1 if", metrics["policy_description"])
         self.assertEqual(metrics["algorithm_provenance"]["paper_baseline"], "Direct-Opt")
         self.assertTrue(metrics["algorithm_provenance"]["not_paper_scale"])
+        self.assertIn("candidate evaluation calls", metrics["algorithm_provenance"]["candidate_accounting"])
         self.assertEqual(metrics["algorithm_provenance"]["paper_batch_size"], 10)
         self.assertEqual(metrics["algorithm_provenance"]["paper_parallel_threads"], 10)
         self.assertEqual(metrics["algorithm_provenance"]["paper_time_limit_seconds"], 7200)
@@ -88,12 +112,19 @@ class CartpoleDirectOptTest(unittest.TestCase):
             diagnostics["boolean_candidates_with_one_hot_metadata"],
             diagnostics["boolean_stump_candidates"] + diagnostics["boolean_depth2_candidates"],
         )
+        self.assertEqual(
+            diagnostics["boolean_candidates_with_appendix_b3_vertex_metadata"],
+            diagnostics["boolean_candidates_with_one_hot_metadata"],
+        )
         self.assertEqual(diagnostics["batch_count"], 1)
         self.assertEqual(diagnostics["batch_rounds"], 1)
         self.assertEqual(diagnostics["batch_refinement_candidates"], 1)
         self.assertEqual(diagnostics["batch_seed_evaluations"], 1)
+        self.assertEqual(diagnostics["batch_seed_rollout_evaluations"], 2)
         self.assertGreater(diagnostics["batch_local_evaluations"], 0)
+        self.assertGreater(diagnostics["batch_local_rollout_evaluations"], 0)
         self.assertGreaterEqual(diagnostics["restart_evaluations"], 0)
+        self.assertGreaterEqual(diagnostics["restart_rollout_evaluations"], 0)
         self.assertEqual(metrics["best_candidate"]["source"], result.candidate.source)
         status = metrics["paper_protocol_status"]
         self.assertEqual(status["paper_baseline"], "Direct-Opt")
@@ -110,6 +141,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertFalse(status["uses_paper_time_limit"])
         self.assertFalse(status["full_continuous_one_hot_switch_grammar"])
         self.assertTrue(status["bounded_one_hot_switch_metadata"])
+        self.assertTrue(status["appendix_b3_one_hot_vertex_metadata"])
         self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
         self.assertTrue(status["optimizes_combined_reward_over_all_selected_initial_states"])
         self.assertFalse(status["optimizes_full_initial_state_distribution"])
@@ -181,8 +213,11 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(result.searched_candidates, expected_evaluations)
         self.assertEqual(result.search_diagnostics["batch_refinement_candidates"], 0)
         self.assertEqual(result.search_diagnostics["batch_seed_evaluations"], 0)
+        self.assertEqual(result.search_diagnostics["batch_seed_rollout_evaluations"], 0)
         self.assertEqual(result.search_diagnostics["batch_local_evaluations"], 0)
+        self.assertEqual(result.search_diagnostics["batch_local_rollout_evaluations"], 0)
         self.assertEqual(result.search_diagnostics["restart_evaluations"], 0)
+        self.assertEqual(result.search_diagnostics["restart_rollout_evaluations"], 0)
 
     def test_direct_opt_boolean_tree_candidates_use_cartpole_switch_grammar(self):
         env = CartpoleEnv.train_env(seed=0)
@@ -206,7 +241,37 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(sum(depth2.second_relation_one_hot), 1)
         self.assertEqual(sum(depth2.operator_one_hot), 1)
         self.assertEqual(len(depth2.operator_one_hot), 3)
+        self.assertIsNotNone(depth2.first_appendix_b3_alpha_s)
+        self.assertIsNotNone(depth2.first_appendix_b3_alpha_0)
+        self.assertEqual(sum(depth2.first_appendix_b3_feature_weights), 1.0)
+        self.assertEqual(len(depth2.first_appendix_b3_feature_weights), 4)
+        self.assertIsNotNone(depth2.second_appendix_b3_alpha_s)
+        self.assertIsNotNone(depth2.second_appendix_b3_alpha_0)
+        self.assertEqual(sum(depth2.second_appendix_b3_feature_weights), 1.0)
         self.assertIn(" o[", policy.describe())
+
+    def test_direct_opt_appendix_b3_vertex_encoding_matches_predicate(self):
+        env = CartpoleEnv.train_env(seed=1)
+        train_states = [env.reset() for _ in range(2)]
+
+        candidates, _ = _boolean_tree_candidates(train_states)
+        stump = next(candidate for candidate in candidates if candidate.source == "boolean_stump")
+        switch = _candidate_switch(stump)
+        self.assertIsInstance(switch, BooleanTreeSwitch)
+
+        for observation in (
+            [-0.3, 0.1, -0.02, 0.4],
+            [0.2, -0.1, 0.04, -0.3],
+        ):
+            weighted_observation = sum(
+                weight * value
+                for weight, value in zip(stump.first_appendix_b3_feature_weights, observation)
+            )
+            encoded_enabled = (
+                float(stump.first_appendix_b3_alpha_s) * weighted_observation
+                <= float(stump.first_appendix_b3_alpha_0)
+            )
+            self.assertEqual(encoded_enabled, switch.first.evaluate(observation))
 
     def test_direct_opt_boolean_local_refinement_dedupes_before_evaluation(self):
         candidate = DirectOptCandidate(
@@ -337,6 +402,11 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["algorithm_provenance"]["baseline"], "direct_opt")
         self.assertEqual(metrics["search_diagnostics"]["boolean_stump_candidates"], 24)
         self.assertGreater(metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
+        self.assertEqual(metrics["search_diagnostics"]["evaluated_candidates_units"], "candidate_evaluation_calls")
+        self.assertGreater(
+            metrics["search_diagnostics"]["train_rollout_evaluations"],
+            metrics["search_diagnostics"]["candidate_evaluation_calls"],
+        )
         self.assertIn("search_diagnostics", metrics)
         self.assertIn("best_candidate", metrics)
 
@@ -369,6 +439,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertFalse(metrics["paper_protocol_status"]["batch_optimization_seeded_from_best_so_far"])
         self.assertEqual(metrics["search_diagnostics"]["batch_refinement_candidates"], 0)
         self.assertEqual(metrics["search_diagnostics"]["batch_seed_evaluations"], 0)
+        self.assertEqual(metrics["search_diagnostics"]["batch_seed_rollout_evaluations"], 0)
 
 
 if __name__ == "__main__":

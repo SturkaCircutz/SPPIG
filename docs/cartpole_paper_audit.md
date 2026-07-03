@@ -185,8 +185,10 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
   implementation optimizes mean reward over all selected finite initial states and records bounded
-  Boolean-tree switch-candidate one-hot metadata plus batch/restart diagnostics to mirror part of the
-  paper baseline's grammar and batch seeding structure, while keeping `not_paper_scale` true.
+  Boolean-tree switch-candidate one-hot metadata, Appendix B.3 continuous one-hot vertex fields, and
+  batch/restart diagnostics to mirror part of the paper baseline's grammar and batch seeding
+  structure. Its diagnostics separate candidate evaluation calls from individual selected-state train
+  rollout evaluations, while keeping `not_paper_scale` true.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -437,8 +439,8 @@ paper-scale PPO2 runs.
   still stop the sweep by default.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
   the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
-  non-paper-scale provenance, including local batch/restart diagnostics and Direct-Opt
-  protocol-status flags.
+  non-paper-scale provenance, including local batch/restart diagnostics, Appendix B.3 one-hot vertex
+  metadata, candidate-call versus train-rollout accounting, and Direct-Opt protocol-status flags.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_marks_quick_diagnostic_limits`
   verifies that quick Direct-Opt diagnostics do not claim the paper batch size, full test horizon,
   `1000`-rollout metric, restart/batch optimization, or paper-scale Direct-Opt protocol.

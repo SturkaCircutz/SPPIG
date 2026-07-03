@@ -76,6 +76,12 @@ class DirectOptCandidate:
     second_feature_one_hot: Tuple[int, ...] = ()
     second_relation_one_hot: Tuple[int, ...] = ()
     operator_one_hot: Tuple[int, ...] = ()
+    first_appendix_b3_alpha_s: float | None = None
+    first_appendix_b3_feature_weights: Tuple[float, ...] = ()
+    first_appendix_b3_alpha_0: float | None = None
+    second_appendix_b3_alpha_s: float | None = None
+    second_appendix_b3_feature_weights: Tuple[float, ...] = ()
+    second_appendix_b3_alpha_0: float | None = None
 
 
 @dataclass
@@ -111,6 +117,10 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "local_parallel_threads": 1,
         "local_time_limit_seconds": None,
         "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
+        "candidate_accounting": (
+            "searched_candidates and evaluated_candidates count candidate evaluation calls; "
+            "train_rollout_evaluations counts individual selected-state train rollouts"
+        ),
         "boolean_tree_depth": 2,
         "boolean_tree_features": list(DIRECT_OPT_OBSERVATION_FEATURES),
         "boolean_tree_relations": list(DIRECT_OPT_RELATIONS),
@@ -118,7 +128,8 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "boolean_tree_threshold_grids": [list(grid) for grid in DIRECT_OPT_BOOLEAN_THRESHOLD_GRIDS],
         "boolean_tree_expansion": "evaluate_all_stumps_then_depth2_expansions_from_top_training_reward_stumps",
         "one_hot_switch_encoding": (
-            "records bounded discrete one-hot metadata for feature, relation, and depth-2 tree operator choices; "
+            "records Appendix B.3 continuous one-hot vertex fields plus bounded discrete metadata for "
+            "feature, relation, and depth-2 tree operator choices; "
             "does not optimize the paper's continuous one-hot relaxation"
         ),
         "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors",
@@ -158,6 +169,7 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "uses_paper_time_limit": False,
         "full_continuous_one_hot_switch_grammar": False,
         "bounded_one_hot_switch_metadata": True,
+        "appendix_b3_one_hot_vertex_metadata": True,
         "linear_switch_encoding": True,
         "batch_optimization_seeded_from_best_so_far": cfg.batch_refinement_rounds > 0,
         "random_restart_on_stall": cfg.restart_candidates_on_stall > 0,
@@ -284,17 +296,35 @@ def _direct_opt_candidates(
         rng,
     )
     candidates.extend(batch_candidates)
+    evaluated_candidate_calls = (
+        len(candidates)
+        + int(batch_diagnostics["batch_seed_evaluations"])
+        + int(batch_diagnostics["batch_local_evaluations"])
+        + int(batch_diagnostics["restart_evaluations"])
+    )
+    full_train_rollout_evaluations = len(candidates) * len(train_states)
+    batch_rollout_evaluations = (
+        int(batch_diagnostics["batch_seed_rollout_evaluations"])
+        + int(batch_diagnostics["batch_local_rollout_evaluations"])
+        + int(batch_diagnostics["restart_rollout_evaluations"])
+    )
     diagnostics = {
         "grid_candidates": len(DIRECT_OPT_THETA_WEIGHTS) * len(DIRECT_OPT_OMEGA_WEIGHTS),
         "random_candidates": max(0, cfg.random_candidates),
         **boolean_diagnostics,
         "batch_refinement_candidates": len(batch_candidates),
-        "evaluated_candidates": (
-            len(candidates)
-            + int(batch_diagnostics["batch_seed_evaluations"])
+        "candidate_evaluation_calls": evaluated_candidate_calls,
+        "evaluated_candidates": evaluated_candidate_calls,
+        "evaluated_candidates_units": "candidate_evaluation_calls",
+        "full_train_candidate_evaluation_calls": len(candidates),
+        "batch_candidate_evaluation_calls": (
+            int(batch_diagnostics["batch_seed_evaluations"])
             + int(batch_diagnostics["batch_local_evaluations"])
             + int(batch_diagnostics["restart_evaluations"])
         ),
+        "train_rollout_evaluations": full_train_rollout_evaluations + batch_rollout_evaluations,
+        "full_train_rollout_evaluations": full_train_rollout_evaluations,
+        "batch_rollout_evaluations": batch_rollout_evaluations,
         **batch_diagnostics,
     }
     return candidates, diagnostics
@@ -338,6 +368,7 @@ def _boolean_tree_candidates(
         "boolean_depth2_candidates": len(depth2_candidates),
         "boolean_top_stumps_for_depth2": len(top_stumps),
         "boolean_candidates_with_one_hot_metadata": len(stump_candidates) + len(depth2_candidates),
+        "boolean_candidates_with_appendix_b3_vertex_metadata": len(stump_candidates) + len(depth2_candidates),
     }
 
 
@@ -354,8 +385,11 @@ def _batch_restart_refinement_candidates(
             "batch_count": len(batches),
             "batch_rounds": rounds,
             "batch_seed_evaluations": 0,
+            "batch_seed_rollout_evaluations": 0,
             "batch_local_evaluations": 0,
+            "batch_local_rollout_evaluations": 0,
             "restart_evaluations": 0,
+            "restart_rollout_evaluations": 0,
             "accepted_batch_improvements": 0,
             "accepted_restarts": 0,
         }
@@ -364,16 +398,21 @@ def _batch_restart_refinement_candidates(
     current = seed_candidate
     local_evaluations = 0
     restart_evaluations = 0
+    restart_rollout_evaluations = 0
     batch_seed_evaluations = 0
+    batch_seed_rollout_evaluations = 0
+    batch_local_rollout_evaluations = 0
     accepted_improvements = 0
     accepted_restarts = 0
     for _ in range(rounds):
         for batch in batches:
             batch_seed_evaluations += 1
+            batch_seed_rollout_evaluations += len(batch)
             batch_best = _reevaluate_candidate(current, batch, "batch_seed")
             for _ in range(max(0, cfg.local_refinement_steps)):
                 neighbors = _local_neighbor_candidates(batch_best, batch, cfg)
                 local_evaluations += len(neighbors)
+                batch_local_rollout_evaluations += len(neighbors) * len(batch)
                 local_best = max(neighbors, key=_candidate_rank_key) if neighbors else batch_best
                 if _candidate_rank_key(local_best) > _candidate_rank_key(batch_best):
                     batch_best = local_best
@@ -384,6 +423,7 @@ def _batch_restart_refinement_candidates(
                     for _ in range(max(0, cfg.restart_candidates_on_stall))
                 ]
                 restart_evaluations += len(restarts)
+                restart_rollout_evaluations += len(restarts) * len(batch)
                 restart_best = max(restarts, key=_candidate_rank_key) if restarts else batch_best
                 if _candidate_rank_key(restart_best) > _candidate_rank_key(batch_best):
                     batch_best = restart_best
@@ -398,8 +438,11 @@ def _batch_restart_refinement_candidates(
         "batch_count": len(batches),
         "batch_rounds": rounds,
         "batch_seed_evaluations": batch_seed_evaluations,
+        "batch_seed_rollout_evaluations": batch_seed_rollout_evaluations,
         "batch_local_evaluations": local_evaluations,
+        "batch_local_rollout_evaluations": batch_local_rollout_evaluations,
         "restart_evaluations": restart_evaluations,
+        "restart_rollout_evaluations": restart_rollout_evaluations,
         "accepted_batch_improvements": accepted_improvements,
         "accepted_restarts": accepted_restarts,
     }
@@ -629,6 +672,12 @@ def _candidate_from_switch(
     threshold: float = 0.0,
 ) -> DirectOptCandidate:
     if isinstance(switch, BooleanTreeSwitch):
+        first_alpha_s, first_feature_weights, first_alpha_0 = _appendix_b3_predicate_encoding(switch.first)
+        second_alpha_s: float | None = None
+        second_feature_weights: Tuple[float, ...] = ()
+        second_alpha_0: float | None = None
+        if switch.second is not None:
+            second_alpha_s, second_feature_weights, second_alpha_0 = _appendix_b3_predicate_encoding(switch.second)
         return DirectOptCandidate(
             theta_weight=theta_weight,
             omega_weight=omega_weight,
@@ -659,6 +708,12 @@ def _candidate_from_switch(
                 else ()
             ),
             operator_one_hot=_operator_one_hot(switch.operator if switch.second is not None else "leaf"),
+            first_appendix_b3_alpha_s=first_alpha_s,
+            first_appendix_b3_feature_weights=first_feature_weights,
+            first_appendix_b3_alpha_0=first_alpha_0,
+            second_appendix_b3_alpha_s=second_alpha_s,
+            second_appendix_b3_feature_weights=second_feature_weights,
+            second_appendix_b3_alpha_0=second_alpha_0,
         )
     return DirectOptCandidate(
         theta_weight=theta_weight,
@@ -734,6 +789,18 @@ def _relation_one_hot(relation: str) -> Tuple[int, ...]:
 
 def _operator_one_hot(operator: str) -> Tuple[int, ...]:
     return _one_hot(DIRECT_OPT_TREE_OPERATORS.index(operator), len(DIRECT_OPT_TREE_OPERATORS))
+
+
+def _appendix_b3_predicate_encoding(predicate: ObservationPredicate) -> Tuple[float, Tuple[float, ...], float]:
+    feature_weights = tuple(
+        float(value)
+        for value in _one_hot(predicate.feature_index, len(DIRECT_OPT_OBSERVATION_FEATURES))
+    )
+    if predicate.relation == "<=":
+        return 1.0, feature_weights, predicate.threshold
+    if predicate.relation == ">=":
+        return -1.0, feature_weights, -predicate.threshold
+    raise ValueError(f"unknown relation: {predicate.relation}")
 
 
 def _boolean_switch_with_threshold_delta(

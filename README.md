@@ -228,14 +228,16 @@ This baseline searches a bounded two-mode constant-action CartPole PSM directly
 on the 5-second training split, including the previous linear switch grid plus
 bounded depth-1/depth-2 Boolean-tree switch predicates with explicit one-hot
 feature, relation, and tree-operator metadata recorded for each Boolean
-candidate. It then applies a bounded batch/restart local refinement seeded from
+candidate, plus the corresponding Appendix B.3 continuous one-hot vertex fields.
+It then applies a bounded batch/restart local refinement seeded from
 the best candidate so far, optimizing mean reward over all selected finite
 initial states, not the full initial-state distribution, before reevaluating the
 selected program on the full paper test horizon.
 Its metrics JSON records the exact grid, one-hot metadata counts,
+candidate-evaluation-call counts, train-rollout-evaluation counts,
 batch/restart diagnostics, selected program, and limitation note. This is still
-not the paper's two-hour, ten-thread Direct-Opt protocol over the full continuous
-one-hot switching grammar. The metrics JSON also includes
+not the paper's two-hour, ten-thread Direct-Opt protocol over the optimized
+continuous one-hot switching grammar. The metrics JSON also includes
 `paper_protocol_status`, which keeps the full Direct-Opt protocol flag false
 unless the paper batch size, ten-thread/two-hour optimization budget, full
 continuous one-hot grammar, full test horizon, and `1000`-rollout evaluation

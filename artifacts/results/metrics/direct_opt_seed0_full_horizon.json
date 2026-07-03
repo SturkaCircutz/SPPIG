@@ -41,6 +41,7 @@
         0.5
       ]
     ],
+    "candidate_accounting": "searched_candidates and evaluated_candidates count candidate evaluation calls; train_rollout_evaluations counts individual selected-state train rollouts",
     "force_values": [
       -10.0,
       10.0
@@ -65,7 +66,7 @@
       5.0,
       10.0
     ],
-    "one_hot_switch_encoding": "records bounded discrete one-hot metadata for feature, relation, and depth-2 tree operator choices; does not optimize the paper's continuous one-hot relaxation",
+    "one_hot_switch_encoding": "records Appendix B.3 continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not optimize the paper's continuous one-hot relaxation",
     "paper_baseline": "Direct-Opt",
     "paper_batch_size": 10,
     "paper_parallel_threads": 10,
@@ -93,6 +94,9 @@
     "train_horizon_seconds": 5.0
   },
   "best_candidate": {
+    "first_appendix_b3_alpha_0": null,
+    "first_appendix_b3_alpha_s": null,
+    "first_appendix_b3_feature_weights": [],
     "first_feature": null,
     "first_feature_one_hot": [],
     "first_relation": null,
@@ -103,6 +107,9 @@
     "operator": null,
     "operator_one_hot": [],
     "right_force": 10.0,
+    "second_appendix_b3_alpha_0": null,
+    "second_appendix_b3_alpha_s": null,
+    "second_appendix_b3_feature_weights": [],
     "second_feature": null,
     "second_feature_one_hot": [],
     "second_relation": null,
@@ -132,6 +139,7 @@
   "eval_rollouts": 20,
   "paper_eval_rollouts": 1000,
   "paper_protocol_status": {
+    "appendix_b3_one_hot_vertex_metadata": true,
     "batch_optimization_seeded_from_best_so_far": true,
     "bounded_one_hot_switch_metadata": true,
     "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
@@ -175,19 +183,30 @@
   "search_diagnostics": {
     "accepted_batch_improvements": 0,
     "accepted_restarts": 0,
+    "batch_candidate_evaluation_calls": 11,
     "batch_count": 1,
     "batch_local_evaluations": 9,
+    "batch_local_rollout_evaluations": 90,
     "batch_refinement_candidates": 1,
+    "batch_rollout_evaluations": 110,
     "batch_rounds": 1,
     "batch_seed_evaluations": 1,
+    "batch_seed_rollout_evaluations": 10,
+    "boolean_candidates_with_appendix_b3_vertex_metadata": 216,
     "boolean_candidates_with_one_hot_metadata": 216,
     "boolean_depth2_candidates": 192,
     "boolean_stump_candidates": 24,
     "boolean_top_stumps_for_depth2": 4,
+    "candidate_evaluation_calls": 640,
     "evaluated_candidates": 640,
+    "evaluated_candidates_units": "candidate_evaluation_calls",
+    "full_train_candidate_evaluation_calls": 629,
+    "full_train_rollout_evaluations": 6290,
     "grid_candidates": 156,
     "random_candidates": 256,
-    "restart_evaluations": 1
+    "restart_evaluations": 1,
+    "restart_rollout_evaluations": 10,
+    "train_rollout_evaluations": 6400
   },
   "searched_candidates": 640,
   "space_spec": {

@@ -624,6 +624,18 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 direct_metrics["search_diagnostics"]["boolean_stump_candidates"]
                 + direct_metrics["search_diagnostics"]["boolean_depth2_candidates"],
             )
+            self.assertEqual(
+                direct_metrics["search_diagnostics"]["boolean_candidates_with_appendix_b3_vertex_metadata"],
+                direct_metrics["search_diagnostics"]["boolean_candidates_with_one_hot_metadata"],
+            )
+            self.assertEqual(
+                direct_metrics["search_diagnostics"]["evaluated_candidates_units"],
+                "candidate_evaluation_calls",
+            )
+            self.assertGreater(
+                direct_metrics["search_diagnostics"]["train_rollout_evaluations"],
+                direct_metrics["search_diagnostics"]["candidate_evaluation_calls"],
+            )
             self.assertGreater(direct_metrics["search_diagnostics"]["batch_local_evaluations"], 0)
             self.assertIn("steps_mean", direct_metrics["train"])
             self.assertIn("survival_seconds_mean", direct_metrics["train"])
