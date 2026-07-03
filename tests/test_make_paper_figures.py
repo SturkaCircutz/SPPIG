@@ -143,7 +143,7 @@ class MakePaperFiguresTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
             with open(metrics_path, "w", encoding="utf-8") as handle:
-                json.dump({"selected_result": {}}, handle)
+                json.dump({"paper_protocol_status": {"paper_scale_result": False}, "selected_result": {}}, handle)
 
             make_paper_figures.require_result_artifacts(
                 [
@@ -155,6 +155,24 @@ class MakePaperFiguresTest(unittest.TestCase):
                     }
                 ]
             )
+
+    def test_require_result_artifacts_rejects_missing_protocol_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump({"selected_result": {}}, handle)
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
 
     def test_require_result_artifacts_rejects_missing_eval_rollout_provenance(self):
         with tempfile.TemporaryDirectory() as tmpdir:

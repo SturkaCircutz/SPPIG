@@ -69,8 +69,12 @@ def truthy_csv(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes"}
 
 
+def row_metrics_path(row: dict[str, str]) -> str:
+    return row.get("best_metrics_output") or row.get("metrics_output") or ""
+
+
 def row_has_result_artifact(row: dict[str, str]) -> bool:
-    path = row.get("best_metrics_output") or row.get("metrics_output") or row.get("checkpoint")
+    path = row_metrics_path(row) or row.get("checkpoint")
     return bool(path and os.path.exists(artifact_path(path)))
 
 
@@ -101,6 +105,21 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         raise ValueError(
             "result rows lack evaluation-rollout provenance: "
             + ", ".join(missing_rollout_provenance)
+        )
+    missing_protocol_status: list[str] = []
+    for row in rows:
+        metrics_path = row_metrics_path(row)
+        if not metrics_path:
+            missing_protocol_status.append(row["policy"])
+            continue
+        with open(artifact_path(metrics_path), encoding="utf-8") as handle:
+            metrics = json.load(handle)
+        if "paper_protocol_status" not in metrics:
+            missing_protocol_status.append(row["policy"])
+    if missing_protocol_status:
+        raise ValueError(
+            "result metrics lack paper-protocol status: "
+            + ", ".join(missing_protocol_status)
         )
     paper_scale_rollout_mismatch = [
         row["policy"]
