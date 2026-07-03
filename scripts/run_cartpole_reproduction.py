@@ -248,6 +248,7 @@ def run_direct_opt(
     test_max_steps: int,
     quick: bool,
     outdir: Path,
+    parallel_threads: int,
 ) -> Dict[str, Any]:
     cfg = DirectOptConfig(
         seed=seed,
@@ -257,6 +258,7 @@ def run_direct_opt(
         batch_refinement_rounds=1,
         local_refinement_steps=1 if quick else 2,
         restart_candidates_on_stall=1,
+        parallel_threads=parallel_threads,
         eval_rollouts=eval_rollouts,
         test_max_steps=test_max_steps,
         quick=quick,
@@ -405,6 +407,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--include-ppo", action="store_true")
     parser.add_argument("--include-direct-opt", action="store_true")
+    parser.add_argument("--direct-opt-parallel-threads", type=int, default=1)
     parser.add_argument("--psm-teacher-theta-gain", type=float, default=default_psm.teacher_theta_gain)
     parser.add_argument("--psm-teacher-omega-gain", type=float, default=default_psm.teacher_omega_gain)
     parser.add_argument(
@@ -526,6 +529,7 @@ def main() -> None:
                     args.test_max_steps,
                     args.quick,
                     args.outdir,
+                    args.direct_opt_parallel_threads,
                 )
             )
 
@@ -534,6 +538,7 @@ def main() -> None:
         "quick": args.quick,
         "include_ppo": args.include_ppo,
         "include_direct_opt": args.include_direct_opt,
+        "direct_opt_parallel_threads": args.direct_opt_parallel_threads,
         "seeds": seeds,
         "eval_rollouts": args.eval_rollouts,
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,

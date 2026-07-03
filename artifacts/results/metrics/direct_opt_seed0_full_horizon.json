@@ -47,7 +47,7 @@
       10.0
     ],
     "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates with one-hot metadata and batch/restart local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
-    "local_parallel_threads": 1,
+    "local_parallel_threads": "configurable_via_parallel_threads",
     "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors",
     "local_time_limit_seconds": null,
     "not_paper_scale": true,
@@ -130,6 +130,7 @@
     "local_refinement_steps": 2,
     "local_step_fraction": 0.25,
     "num_train_states": 10,
+    "parallel_threads": 1,
     "quick": false,
     "random_candidates": 256,
     "restart_candidates_on_stall": 1,
@@ -203,10 +204,12 @@
     "full_train_candidate_evaluation_calls": 629,
     "full_train_rollout_evaluations": 6290,
     "grid_candidates": 156,
+    "parallel_threads": 1,
     "random_candidates": 256,
     "restart_evaluations": 1,
     "restart_rollout_evaluations": 10,
-    "train_rollout_evaluations": 6400
+    "train_rollout_evaluations": 6400,
+    "uses_parallel_candidate_evaluation": false
   },
   "searched_candidates": 640,
   "space_spec": {

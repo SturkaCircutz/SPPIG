@@ -343,7 +343,7 @@
           10.0
         ],
         "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates with one-hot metadata and batch/restart local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
-        "local_parallel_threads": 1,
+        "local_parallel_threads": "configurable_via_parallel_threads",
         "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors",
         "local_time_limit_seconds": null,
         "not_paper_scale": true,
@@ -426,13 +426,14 @@
         "local_refinement_steps": 2,
         "local_step_fraction": 0.25,
         "num_train_states": 10,
+        "parallel_threads": 1,
         "quick": false,
         "random_candidates": 256,
         "restart_candidates_on_stall": 1,
         "seed": 0,
         "test_max_steps": 15000
       },
-      "eval_rollouts": "20",
+      "eval_rollouts": 20,
       "metrics_command": "src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "metrics_output": "artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
       "notes": "bounded direct optimization diagnostic over two-mode CartPole PSM; not paper full Direct-Opt protocol",
@@ -502,10 +503,12 @@
         "full_train_candidate_evaluation_calls": 629,
         "full_train_rollout_evaluations": 6290,
         "grid_candidates": 156,
+        "parallel_threads": 1,
         "random_candidates": 256,
         "restart_evaluations": 1,
         "restart_rollout_evaluations": 10,
-        "train_rollout_evaluations": 6400
+        "train_rollout_evaluations": 6400,
+        "uses_parallel_candidate_evaluation": false
       },
       "searched_candidates": 640,
       "seed": "0",
@@ -567,11 +570,11 @@
         "success_rate": 0.1,
         "survival_seconds_mean": 86.22
       },
-      "test_horizon_steps": "15000",
-      "test_reward": "4311",
-      "test_steps": "4311",
-      "test_success": "0.10",
-      "test_survival_seconds": "86.22",
+      "test_horizon_steps": 15000,
+      "test_reward": 4311.0,
+      "test_steps": 4311.0,
+      "test_success": 0.1,
+      "test_survival_seconds": 86.22,
       "timesteps": "0",
       "train": {
         "reward_mean": 250.0,
@@ -579,11 +582,13 @@
         "success_rate": 1.0,
         "survival_seconds_mean": 5.0
       },
-      "train_reward": "250.0",
-      "train_steps": "250.0",
-      "train_success": "1.00",
-      "train_survival_seconds": "5.0",
-      "uses_paper_eval_rollouts": false
+      "train_reward": 250.0,
+      "train_steps": 250.0,
+      "train_success": 1.0,
+      "train_survival_seconds": 5.0,
+      "uses_paper_eval_rollouts": false,
+      "test_max_steps": 15000,
+      "paper_test_horizon_steps": 15000
     },
     {
       "checkpoint": "",

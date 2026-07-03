@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 import random
 from typing import Dict, List, Sequence, Tuple
@@ -48,6 +49,7 @@ class DirectOptConfig:
     local_refinement_steps: int = 2
     restart_candidates_on_stall: int = 1
     local_step_fraction: float = 0.25
+    parallel_threads: int = 1
     eval_rollouts: int = PAPER_EVAL_ROLLOUTS
     test_max_steps: int = 15_000
     quick: bool = False
@@ -114,7 +116,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "paper_batch_size": PAPER_DIRECT_OPT_BATCH_SIZE,
         "paper_parallel_threads": PAPER_DIRECT_OPT_PARALLEL_THREADS,
         "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
-        "local_parallel_threads": 1,
+        "local_parallel_threads": "configurable_via_parallel_threads",
         "local_time_limit_seconds": None,
         "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
         "candidate_accounting": (
@@ -153,6 +155,7 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
     paper_test_env = CartpoleEnv.test_env()
     configured_paper_batch_size = cfg.batch_size == PAPER_DIRECT_OPT_BATCH_SIZE
     uses_paper_batch_size = configured_paper_batch_size and cfg.num_train_states >= PAPER_DIRECT_OPT_BATCH_SIZE
+    selected_parallel_threads = max(1, int(cfg.parallel_threads))
     paper_test_horizon = cfg.test_max_steps == paper_test_env.cfg.max_steps
     paper_eval_rollouts = cfg.eval_rollouts == PAPER_EVAL_ROLLOUTS
     return {
@@ -162,8 +165,8 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "configured_paper_batch_size": configured_paper_batch_size,
         "uses_paper_batch_size": uses_paper_batch_size,
         "paper_parallel_threads": PAPER_DIRECT_OPT_PARALLEL_THREADS,
-        "selected_parallel_threads": 1,
-        "uses_paper_parallel_threads": False,
+        "selected_parallel_threads": selected_parallel_threads,
+        "uses_paper_parallel_threads": selected_parallel_threads == PAPER_DIRECT_OPT_PARALLEL_THREADS,
         "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
         "selected_time_limit_seconds": None,
         "uses_paper_time_limit": False,
@@ -268,24 +271,25 @@ def _direct_opt_candidates(
     rng: random.Random,
 ) -> Tuple[List[DirectOptCandidate], Dict[str, object]]:
     candidates: List[DirectOptCandidate] = []
-    for theta_weight in DIRECT_OPT_THETA_WEIGHTS:
-        for omega_weight in DIRECT_OPT_OMEGA_WEIGHTS:
-            candidates.append(
-                _evaluate_candidate(
-                    theta_weight,
-                    omega_weight,
-                    0.0,
-                    min(DIRECT_OPT_FORCE_VALUES),
-                    max(DIRECT_OPT_FORCE_VALUES),
-                    train_states,
-                    "grid",
-                )
-            )
-    for _ in range(max(0, cfg.random_candidates)):
-        candidates.append(
-            _evaluate_candidate(*_random_candidate_params(rng), train_states, "random_restart")
+    grid_params = [
+        (
+            theta_weight,
+            omega_weight,
+            0.0,
+            min(DIRECT_OPT_FORCE_VALUES),
+            max(DIRECT_OPT_FORCE_VALUES),
+            "grid",
         )
-    boolean_candidates, boolean_diagnostics = _boolean_tree_candidates(train_states)
+        for theta_weight in DIRECT_OPT_THETA_WEIGHTS
+        for omega_weight in DIRECT_OPT_OMEGA_WEIGHTS
+    ]
+    candidates.extend(_evaluate_candidate_params(grid_params, train_states, cfg))
+    random_params = [
+        (*_random_candidate_params(rng), "random_restart")
+        for _ in range(max(0, cfg.random_candidates))
+    ]
+    candidates.extend(_evaluate_candidate_params(random_params, train_states, cfg))
+    boolean_candidates, boolean_diagnostics = _boolean_tree_candidates(train_states, cfg)
     candidates.extend(boolean_candidates)
 
     best = max(candidates, key=_candidate_rank_key)
@@ -313,6 +317,8 @@ def _direct_opt_candidates(
         "random_candidates": max(0, cfg.random_candidates),
         **boolean_diagnostics,
         "batch_refinement_candidates": len(batch_candidates),
+        "parallel_threads": max(1, int(cfg.parallel_threads)),
+        "uses_parallel_candidate_evaluation": max(1, int(cfg.parallel_threads)) > 1,
         "candidate_evaluation_calls": evaluated_candidate_calls,
         "evaluated_candidates": evaluated_candidate_calls,
         "evaluated_candidates_units": "candidate_evaluation_calls",
@@ -330,20 +336,60 @@ def _direct_opt_candidates(
     return candidates, diagnostics
 
 
+def _evaluate_candidate_params(
+    params: List[Tuple[float, float, float, float, float, str]],
+    train_states: List[Sequence[float]],
+    cfg: DirectOptConfig,
+) -> List[DirectOptCandidate]:
+    if max(1, int(cfg.parallel_threads)) == 1 or len(params) <= 1:
+        return [
+            _evaluate_candidate(
+                theta_weight,
+                omega_weight,
+                threshold,
+                left_force,
+                right_force,
+                train_states,
+                source,
+            )
+            for theta_weight, omega_weight, threshold, left_force, right_force, source in params
+        ]
+    with ThreadPoolExecutor(max_workers=max(1, int(cfg.parallel_threads))) as executor:
+        futures = [
+            executor.submit(
+                _evaluate_candidate,
+                theta_weight,
+                omega_weight,
+                threshold,
+                left_force,
+                right_force,
+                train_states,
+                source,
+            )
+            for theta_weight, omega_weight, threshold, left_force, right_force, source in params
+        ]
+        return [future.result() for future in futures]
+
+
 def _boolean_tree_candidates(
     train_states: List[Sequence[float]],
+    cfg: DirectOptConfig | None = None,
 ) -> Tuple[List[DirectOptCandidate], Dict[str, int]]:
     stumps = [BooleanTreeSwitch(predicate) for predicate in _direct_opt_predicates()]
-    stump_candidates = [
-        _evaluate_boolean_candidate(
-            stump,
-            min(DIRECT_OPT_FORCE_VALUES),
-            max(DIRECT_OPT_FORCE_VALUES),
-            train_states,
-            "boolean_stump",
-        )
-        for stump in stumps
-    ]
+    eval_cfg = cfg or DirectOptConfig()
+    stump_candidates = _evaluate_boolean_candidates(
+        [
+            (
+                stump,
+                min(DIRECT_OPT_FORCE_VALUES),
+                max(DIRECT_OPT_FORCE_VALUES),
+                "boolean_stump",
+            )
+            for stump in stumps
+        ],
+        train_states,
+        eval_cfg,
+    )
     top_stumps = sorted(stump_candidates, key=_candidate_rank_key, reverse=True)[:DIRECT_OPT_BOOLEAN_TOP_STUMPS]
     depth2_switches: List[BooleanTreeSwitch] = []
     for candidate in top_stumps:
@@ -353,16 +399,19 @@ def _boolean_tree_candidates(
         for predicate in _direct_opt_predicates():
             depth2_switches.append(BooleanTreeSwitch(switch.first, predicate, "and"))
             depth2_switches.append(BooleanTreeSwitch(switch.first, predicate, "or"))
-    depth2_candidates = [
-        _evaluate_boolean_candidate(
-            switch,
-            min(DIRECT_OPT_FORCE_VALUES),
-            max(DIRECT_OPT_FORCE_VALUES),
-            train_states,
-            "boolean_depth2",
-        )
-        for switch in _unique_boolean_switches(depth2_switches)
-    ]
+    depth2_candidates = _evaluate_boolean_candidates(
+        [
+            (
+                switch,
+                min(DIRECT_OPT_FORCE_VALUES),
+                max(DIRECT_OPT_FORCE_VALUES),
+                "boolean_depth2",
+            )
+            for switch in _unique_boolean_switches(depth2_switches)
+        ],
+        train_states,
+        eval_cfg,
+    )
     return stump_candidates + depth2_candidates, {
         "boolean_stump_candidates": len(stump_candidates),
         "boolean_depth2_candidates": len(depth2_candidates),
@@ -370,6 +419,31 @@ def _boolean_tree_candidates(
         "boolean_candidates_with_one_hot_metadata": len(stump_candidates) + len(depth2_candidates),
         "boolean_candidates_with_appendix_b3_vertex_metadata": len(stump_candidates) + len(depth2_candidates),
     }
+
+
+def _evaluate_boolean_candidates(
+    params: List[Tuple[BooleanTreeSwitch, float, float, str]],
+    train_states: List[Sequence[float]],
+    cfg: DirectOptConfig,
+) -> List[DirectOptCandidate]:
+    if max(1, int(cfg.parallel_threads)) == 1 or len(params) <= 1:
+        return [
+            _evaluate_boolean_candidate(switch, left_force, right_force, train_states, source)
+            for switch, left_force, right_force, source in params
+        ]
+    with ThreadPoolExecutor(max_workers=max(1, int(cfg.parallel_threads))) as executor:
+        futures = [
+            executor.submit(
+                _evaluate_boolean_candidate,
+                switch,
+                left_force,
+                right_force,
+                train_states,
+                source,
+            )
+            for switch, left_force, right_force, source in params
+        ]
+        return [future.result() for future in futures]
 
 
 def _batch_restart_refinement_candidates(
@@ -418,10 +492,14 @@ def _batch_restart_refinement_candidates(
                     batch_best = local_best
                     accepted_improvements += 1
                     continue
-                restarts = [
-                    _evaluate_candidate(*_random_candidate_params(rng), batch, "batch_random_restart")
-                    for _ in range(max(0, cfg.restart_candidates_on_stall))
-                ]
+                restarts = _evaluate_candidate_params(
+                    [
+                        (*_random_candidate_params(rng), "batch_random_restart")
+                        for _ in range(max(0, cfg.restart_candidates_on_stall))
+                    ],
+                    batch,
+                    cfg,
+                )
                 restart_evaluations += len(restarts)
                 restart_rollout_evaluations += len(restarts) * len(batch)
                 restart_best = max(restarts, key=_candidate_rank_key) if restarts else batch_best
@@ -476,10 +554,14 @@ def _local_neighbor_candidates(
 ) -> List[DirectOptCandidate]:
     if candidate.switch_kind == "boolean_tree":
         return _boolean_local_neighbor_candidates(candidate, train_states, cfg)
-    return [
-        _evaluate_candidate(*params, train_states, "batch_local_refinement")
-        for params in _linear_local_neighbor_params(candidate, cfg)
-    ]
+    return _evaluate_candidate_params(
+        [
+            (*params, "batch_local_refinement")
+            for params in _linear_local_neighbor_params(candidate, cfg)
+        ],
+        train_states,
+        cfg,
+    )
 
 
 def _linear_local_neighbor_params(
@@ -554,6 +636,7 @@ def _boolean_local_neighbor_candidates(
             local_switch,
             _clamp(candidate.left_force + delta_left, force_lower, force_upper),
             _clamp(candidate.right_force + delta_right, force_lower, force_upper),
+            "batch_local_refinement",
         )
         for local_switch in [switch] + _unique_boolean_switches(threshold_switches)
         for delta_left, delta_right in (
@@ -564,16 +647,11 @@ def _boolean_local_neighbor_candidates(
             (0.0, -force_step),
         )
     ]
-    return [
-        _evaluate_boolean_candidate(
-            local_switch,
-            left_force,
-            right_force,
-            train_states,
-            "batch_local_refinement",
-        )
-        for local_switch, left_force, right_force in _unique_boolean_neighbor_params(params)
-    ]
+    return _evaluate_boolean_candidates(
+        _unique_boolean_neighbor_params(params),
+        train_states,
+        cfg,
+    )
 
 
 def _candidate_rank_key(candidate: DirectOptCandidate) -> Tuple[float, float, float]:
@@ -836,11 +914,14 @@ def _unique_boolean_switches(switches: List[BooleanTreeSwitch]) -> List[BooleanT
 
 
 def _unique_boolean_neighbor_params(
-    params: List[Tuple[BooleanTreeSwitch, float, float]],
-) -> List[Tuple[BooleanTreeSwitch, float, float]]:
-    unique: Dict[Tuple[str, float, float], Tuple[BooleanTreeSwitch, float, float]] = {}
-    for switch, left_force, right_force in params:
-        unique.setdefault((switch.describe(), left_force, right_force), (switch, left_force, right_force))
+    params: List[Tuple[BooleanTreeSwitch, float, float, str]],
+) -> List[Tuple[BooleanTreeSwitch, float, float, str]]:
+    unique: Dict[Tuple[str, float, float, str], Tuple[BooleanTreeSwitch, float, float, str]] = {}
+    for switch, left_force, right_force, source in params:
+        unique.setdefault(
+            (switch.describe(), left_force, right_force, source),
+            (switch, left_force, right_force, source),
+        )
     return list(unique.values())
 
 

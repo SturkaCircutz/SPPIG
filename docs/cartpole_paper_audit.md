@@ -52,7 +52,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   tree-operator metadata, plus a local batch/restart refinement seeded from the best candidate so far.
   Candidate selection optimizes mean train-horizon reward over the selected initial states, then
   success as a tie-breaker. This records exact search grids, search diagnostics, and selected program
-  provenance, but is not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
+  provenance, and can evaluate candidate pools with a configurable local thread count. It is still not
+  the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
   `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, full continuous
   one-hot grammar, combined-reward optimization over all selected finite training states, full test horizon, and `1000`-rollout evaluation;
   the full Direct-Opt protocol flag remains false for the bounded diagnostic.
@@ -187,8 +188,9 @@ These are implementation diagnostics, not paper-scale reproduced results.
   implementation optimizes mean reward over all selected finite initial states and records bounded
   Boolean-tree switch-candidate one-hot metadata, Appendix B.3 continuous one-hot vertex fields, and
   batch/restart diagnostics to mirror part of the paper baseline's grammar and batch seeding
-  structure. Its diagnostics separate candidate evaluation calls from individual selected-state train
-  rollout evaluations, while keeping `not_paper_scale` true.
+  structure. Candidate pools can now be evaluated with configurable local parallel threads, and
+  diagnostics record the selected thread count. Its diagnostics separate candidate evaluation calls
+  from individual selected-state train rollout evaluations, while keeping `not_paper_scale` true.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -440,7 +442,8 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
   the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
   non-paper-scale provenance, including local batch/restart diagnostics, Appendix B.3 one-hot vertex
-  metadata, candidate-call versus train-rollout accounting, and Direct-Opt protocol-status flags.
+  metadata, candidate-call versus train-rollout accounting, configurable parallel-candidate
+  evaluation metadata, and Direct-Opt protocol-status flags.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_marks_quick_diagnostic_limits`
   verifies that quick Direct-Opt diagnostics do not claim the paper batch size, full test horizon,
   `1000`-rollout metric, restart/batch optimization, or paper-scale Direct-Opt protocol.

@@ -599,8 +599,13 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(direct_metrics["algorithm_provenance"]["boolean_tree_depth"], 2)
             self.assertIn("one-hot", direct_metrics["algorithm_provenance"]["one_hot_switch_encoding"])
             self.assertEqual(direct_metrics["algorithm_provenance"]["paper_time_limit_seconds"], 7200)
+            self.assertEqual(
+                direct_metrics["algorithm_provenance"]["local_parallel_threads"],
+                "configurable_via_parallel_threads",
+            )
             direct_status = direct_metrics["paper_protocol_status"]
             self.assertEqual(direct_status["paper_baseline"], "Direct-Opt")
+            self.assertEqual(direct_status["selected_parallel_threads"], 1)
             self.assertFalse(direct_status["uses_paper_batch_size"])
             self.assertFalse(direct_status["uses_paper_parallel_threads"])
             self.assertFalse(direct_status["uses_paper_time_limit"])
@@ -613,9 +618,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertFalse(direct_status["paper_scale_direct_opt_protocol"])
             self.assertEqual(direct_metrics["config"]["quick"], True)
             self.assertEqual(direct_metrics["config"]["batch_size"], 2)
+            self.assertEqual(direct_metrics["config"]["parallel_threads"], 1)
             self.assertEqual(direct_metrics["config"]["batch_refinement_rounds"], 1)
             self.assertEqual(direct_metrics["config"]["local_refinement_steps"], 1)
             self.assertEqual(direct_metrics["search_diagnostics"]["batch_count"], 1)
+            self.assertEqual(direct_metrics["search_diagnostics"]["parallel_threads"], 1)
+            self.assertFalse(direct_metrics["search_diagnostics"]["uses_parallel_candidate_evaluation"])
             self.assertEqual(direct_metrics["search_diagnostics"]["batch_refinement_candidates"], 1)
             self.assertEqual(direct_metrics["search_diagnostics"]["boolean_stump_candidates"], 24)
             self.assertGreater(direct_metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
@@ -645,10 +653,46 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:
                 manifest = json.load(handle)
             self.assertTrue(manifest["include_direct_opt"])
+            self.assertEqual(manifest["direct_opt_parallel_threads"], 1)
             direct_manifest_row = manifest["rows"][1]
             self.assertEqual(direct_manifest_row["algorithm_provenance"]["baseline"], "direct_opt")
             self.assertEqual(direct_manifest_row["paper_protocol_status"], direct_status)
             self.assertIn("direct_opt_artifact_note", manifest)
+
+    def test_quick_runner_passes_direct_opt_parallel_threads(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--quick",
+                    "--seeds",
+                    "0",
+                    "--include-direct-opt",
+                    "--direct-opt-parallel-threads",
+                    "2",
+                    "--eval-rollouts",
+                    "1",
+                    "--test-max-steps",
+                    "20",
+                    "--outdir",
+                    tmpdir,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            with open(os.path.join(tmpdir, "cartpole_manifest.json"), encoding="utf-8") as handle:
+                manifest = json.load(handle)
+            direct_row = next(row for row in manifest["rows"] if row["policy"] == "Direct-Opt diagnostic")
+            with open(direct_row["metrics_output"], encoding="utf-8") as handle:
+                direct_metrics = json.load(handle)
+
+        self.assertEqual(manifest["direct_opt_parallel_threads"], 2)
+        self.assertEqual(direct_metrics["config"]["parallel_threads"], 2)
+        self.assertEqual(direct_metrics["search_diagnostics"]["parallel_threads"], 2)
+        self.assertTrue(direct_metrics["search_diagnostics"]["uses_parallel_candidate_evaluation"])
+        self.assertEqual(direct_row["paper_protocol_status"]["selected_parallel_threads"], 2)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO artifact checks")
     def test_quick_runner_with_ppo_writes_checkpoints_and_metrics(self):
