@@ -201,7 +201,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
                 "action_schedule": 1,
                 "duration_schedule": 1,
                 "time_increment_schedule": 1,
-                "joint_action_duration_time_increment_schedule": 1,
+                "joint_gain_action_duration_time_increment_schedule": 1,
             },
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
@@ -209,7 +209,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
                 "preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood"
             ),
             "student_sample_local_refinement": (
-                "mode_preserving_duration_time_increment_continuous_action_and_finite_difference_schedule_search"
+                "mode_preserving_duration_time_increment_continuous_action_gain_and_finite_difference_schedule_search"
             ),
             "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
             "elite_recombination": "top_rho_segment_mode_action_duration_time_increment_centroid",
@@ -2376,6 +2376,57 @@ def _schedule_gradient_refinement_candidate(
     duration_epsilon = max(1, TEACHER_DURATION_GRADIENT_EPS)
     increment_epsilon = max(MIN_GAUSSIAN_STD, env_cfg.dt * TEACHER_TIME_INCREMENT_GRADIENT_EPS_FRACTION)
     increment_step = env_cfg.dt * TEACHER_TIME_INCREMENT_GRADIENT_STEP_FRACTION
+    theta_scale = max(1.0, abs(trace.theta_gain))
+    omega_scale = max(1.0, abs(trace.omega_gain))
+    theta_epsilon = max(MIN_GAUSSIAN_STD, theta_scale * TEACHER_GAIN_GRADIENT_EPS_FRACTION)
+    omega_epsilon = max(MIN_GAUSSIAN_STD, omega_scale * TEACHER_GAIN_GRADIENT_EPS_FRACTION)
+
+    theta_minus = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain - theta_epsilon,
+        trace.omega_gain,
+        durations,
+        actions,
+        increments,
+        modes,
+    )
+    theta_plus = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain + theta_epsilon,
+        trace.omega_gain,
+        durations,
+        actions,
+        increments,
+        modes,
+    )
+    omega_minus = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain,
+        trace.omega_gain - omega_epsilon,
+        durations,
+        actions,
+        increments,
+        modes,
+    )
+    omega_plus = _rollout_with_teacher_gains(
+        initial_state,
+        env_cfg,
+        cfg,
+        trace.theta_gain,
+        trace.omega_gain + omega_epsilon,
+        durations,
+        actions,
+        increments,
+        modes,
+    )
+    theta_gradient = (objective(theta_plus) - objective(theta_minus)) / (2.0 * theta_epsilon)
+    omega_gradient = (objective(omega_plus) - objective(omega_minus)) / (2.0 * omega_epsilon)
 
     action_gradients: List[float] = []
     for index, current_action in enumerate(actions):
@@ -2482,11 +2533,15 @@ def _schedule_gradient_refinement_candidate(
         )
         increment_gradients.append((objective(plus) - objective(minus)) / (plus_increment - minus_increment))
 
+    scaled_theta_gradient = theta_gradient * TEACHER_GAIN_GRADIENT_STEP_FRACTION * theta_scale
+    scaled_omega_gradient = omega_gradient * TEACHER_GAIN_GRADIENT_STEP_FRACTION * omega_scale
     scaled_action_gradients = [gradient * action_step for gradient in action_gradients]
     scaled_duration_gradients = [gradient * TEACHER_DURATION_GRADIENT_STEP for gradient in duration_gradients]
     scaled_increment_gradients = [gradient * increment_step for gradient in increment_gradients]
     norm = math.sqrt(
-        sum(gradient * gradient for gradient in scaled_action_gradients)
+        scaled_theta_gradient * scaled_theta_gradient
+        + scaled_omega_gradient * scaled_omega_gradient
+        + sum(gradient * gradient for gradient in scaled_action_gradients)
         + sum(gradient * gradient for gradient in scaled_duration_gradients)
         + sum(gradient * gradient for gradient in scaled_increment_gradients)
     )
@@ -2495,6 +2550,14 @@ def _schedule_gradient_refinement_candidate(
 
     current_objective = objective(trace)
     for backtrack in TEACHER_GRADIENT_BACKTRACK_FACTORS:
+        updated_theta_gain = (
+            trace.theta_gain
+            + backtrack * TEACHER_GAIN_GRADIENT_STEP_FRACTION * theta_scale * scaled_theta_gradient / norm
+        )
+        updated_omega_gain = (
+            trace.omega_gain
+            + backtrack * TEACHER_GAIN_GRADIENT_STEP_FRACTION * omega_scale * scaled_omega_gradient / norm
+        )
         updated_actions = tuple(
             max(lower, min(upper, action + backtrack * action_step * gradient / norm))
             for action, gradient in zip(actions, scaled_action_gradients)
@@ -2511,7 +2574,9 @@ def _schedule_gradient_refinement_candidate(
             for increment, gradient in zip(increments, scaled_increment_gradients)
         )
         if (
-            all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_actions, actions))
+            abs(updated_theta_gain - trace.theta_gain) < MIN_GAUSSIAN_STD
+            and abs(updated_omega_gain - trace.omega_gain) < MIN_GAUSSIAN_STD
+            and all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_actions, actions))
             and updated_durations == durations
             and all(abs(left - right) < MIN_GAUSSIAN_STD for left, right in zip(updated_increments, increments))
         ):
@@ -2520,8 +2585,8 @@ def _schedule_gradient_refinement_candidate(
             initial_state,
             env_cfg,
             cfg,
-            trace.theta_gain,
-            trace.omega_gain,
+            updated_theta_gain,
+            updated_omega_gain,
             updated_durations,
             updated_actions,
             updated_increments,

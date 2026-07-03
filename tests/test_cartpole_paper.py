@@ -4471,6 +4471,45 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(candidate.segment_durations[0], trace.segment_durations[0])
         self.assertGreater(candidate.segment_time_increments[0], trace.segment_time_increments[0])
 
+    def test_cartpole_teacher_schedule_gradient_includes_teacher_gains(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=2, segments_per_trace=1)
+        initial_state = [0.0, 0.0, 0.05, 0.0]
+        trace = _rollout_with_teacher_gains(
+            initial_state,
+            env.cfg,
+            cfg,
+            theta_gain=10.0,
+            omega_gain=2.0,
+            segment_actions=(10.0,),
+            segment_durations=(2,),
+            segment_modes=(1,),
+        )
+        seen_gains = []
+
+        def objective(candidate):
+            seen_gains.append((candidate.theta_gain, candidate.omega_gain))
+            return candidate.theta_gain + 2.0 * candidate.omega_gain
+
+        candidate = _schedule_gradient_refinement_candidate(
+            trace,
+            initial_state,
+            env.cfg,
+            cfg,
+            objective,
+        )
+
+        self.assertIsNotNone(candidate)
+        self.assertIn((9.75, 2.0), seen_gains)
+        self.assertIn((10.25, 2.0), seen_gains)
+        self.assertIn((10.0, 1.95), seen_gains)
+        self.assertIn((10.0, 2.05), seen_gains)
+        assert candidate is not None
+        self.assertGreater(candidate.theta_gain, trace.theta_gain)
+        self.assertGreater(candidate.omega_gain, trace.omega_gain)
+        self.assertEqual(candidate.segment_actions, trace.segment_actions)
+        self.assertEqual(candidate.segment_durations, trace.segment_durations)
+
     def test_cartpole_teacher_schedule_gradient_backtracks_to_improving_step(self):
         env = CartpoleEnv.train_env(seed=0)
         cfg = CartpoleSynthesisConfig(segment_steps=4, segments_per_trace=1)

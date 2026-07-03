@@ -191,8 +191,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `47.1`, test reward mean `60.05`; the same artifact records train/test
-  survived-step means `47.1` and `60.05`, or `0.942s` and `1.201s`. The tracked artifact was
+  train reward mean `42.5`, test reward mean `55.0`; the same artifact records train/test
+  survived-step means `42.5` and `55.0`, or `0.85s` and `1.1s`. The tracked artifact was
   regenerated with the full selected-teacher-trace sidecar, inner student fit history, fixed initial-mode likelihood, and
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`)
@@ -202,8 +202,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
   elite-distribution refresh, first-iteration source counts
   `{"bootstrap_elite_centroid": 1, "bootstrap_student_sample_refined": 3}`,
-  final-iteration source counts `{"student_sample": 3, "student_sample_refined": 1}`, and policy
-  `m0 action=-0.018; m1 action=1.124; mode=1 if o[1] <= -0.334 or o[1] >= 0.713, else mode=0`; it also records
+  final-iteration source counts `{"student_elite_centroid": 2, "student_sample_refined": 2}`, and policy
+  `m0 action=-0.223; m1 action=0.236; mode=1 if 10.000*theta + -5.000*omega >= -0.676, else mode=0`; it also records
   `student_sample_segment_budget =
   preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
@@ -294,7 +294,7 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   force magnitude, adds one bounded finite-difference teacher-gain
   candidate, one bounded finite-difference action candidate, one bounded finite-difference
   integer-duration candidate, one bounded finite-difference time-increment candidate, and one bounded
-  joint action/duration/time-increment schedule candidate per refinement iteration with a short
+  joint gain/action/duration/time-increment schedule candidate per refinement iteration with a short
   backtracking line search, evaluates one centroid recombination of the
   elite action/duration/time-increment schedules plus configurable bounded rounds that fit a Gaussian
   schedule distribution over teacher gains and per-segment actions, durations, and time increments
@@ -783,7 +783,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   when the full normalized step is worse.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_schedule_gradient_uses_joint_central_differences`
   verifies that bounded teacher refinement can estimate one joint finite-difference direction across
-  loop-free actions, integer durations, and time increments.
+  teacher gains, loop-free actions, integer durations, and time increments.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_schedule_gradient_includes_teacher_gains`
+  verifies that the joint schedule-gradient candidate probes and can update teacher gains as part of
+  the same bounded line search.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_schedule_gradient_backtracks_to_improving_step`
   verifies that the joint schedule-gradient candidate can backtrack when the full normalized step is
   worse.
@@ -893,7 +896,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   top loop-free candidates with bounded coordinate search over teacher gains when available, integer
   segment durations, per-segment time increments, one-segment local continuous constant-action
   steps, and one teacher-gain plus one action plus one integer-duration plus one time-increment
-  finite-difference candidate per refinement iteration with short backtracking line search, evaluates one deterministic top-rho centroid recombination
+  finite-difference candidate plus one joint gain/action/duration/time-increment finite-difference
+  candidate per refinement iteration with short backtracking line search, evaluates one deterministic top-rho centroid recombination
   candidate plus configurable bounded rounds that refit a Gaussian schedule distribution over teacher
   gains and per-segment action, duration, and time-increment parameters from the refreshed top-rho set
   before drawing the next mean/sample candidates, and scores traces with reward plus Gaussian action likelihood and discrete switch timing

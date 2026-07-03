@@ -502,12 +502,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "action_schedule": 1,
                     "duration_schedule": 1,
                     "time_increment_schedule": 1,
-                    "joint_action_duration_time_increment_schedule": 1,
+                    "joint_gain_action_duration_time_increment_schedule": 1,
                 },
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_local_refinement"],
-                "mode_preserving_duration_time_increment_continuous_action_and_finite_difference_schedule_search",
+                "mode_preserving_duration_time_increment_continuous_action_gain_and_finite_difference_schedule_search",
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_segment_budget"],
@@ -651,12 +651,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "action_schedule": 1,
                     "duration_schedule": 1,
                     "time_increment_schedule": 1,
-                    "joint_action_duration_time_increment_schedule": 1,
+                    "joint_gain_action_duration_time_increment_schedule": 1,
                 },
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_local_refinement"],
-                "mode_preserving_duration_time_increment_continuous_action_and_finite_difference_schedule_search",
+                "mode_preserving_duration_time_increment_continuous_action_gain_and_finite_difference_schedule_search",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_segment_budget"],
