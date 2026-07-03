@@ -74,6 +74,9 @@ switches plus Boolean-tree CartPole switch candidates with one-hot metadata, not
 the paper's full two-hour parallel direct optimization protocol. The runner writes
 raw per-seed rows to `cartpole_results.csv`, grouped mean/std plus the best training seed to
 `cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
+The manifest includes a top-level `paper_protocol_status` block that records
+selected seeds, paper rollout/horizon coverage, PPO/Direct-Opt inclusion, and
+the remaining blockers to a paper-scale result claim.
 Those rows and summaries report mean survived simulator steps and survival
 seconds explicitly, rather than using reward as an implicit survival-time proxy.
 Paper-scale result claims also require the paper's `1000` evaluation rollouts;

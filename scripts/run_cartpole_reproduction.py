@@ -492,6 +492,66 @@ def psm_config(
     return CartpoleSynthesisConfig(**cfg_kwargs)
 
 
+def reproduction_protocol_status(
+    *,
+    seeds: List[int],
+    eval_rollouts: int,
+    test_max_steps: int,
+    include_ppo: bool,
+    include_direct_opt: bool,
+    quick: bool,
+    ppo_eval_interval: int,
+    psm_status: Dict[str, Any],
+) -> Dict[str, Any]:
+    paper_test_steps = CartpoleEnv.test_env().cfg.max_steps
+    distinct_seeds = sorted(set(seeds))
+    five_distinct_seeds = len(distinct_seeds) == 5
+    uses_full_test_horizon = test_max_steps == paper_test_steps
+    uses_paper_eval_rollouts = eval_rollouts == PAPER_EVAL_ROLLOUTS
+    ppo_fixed_config_only = include_ppo
+    ppo_hyperparameter_search = False
+    full_probabilistic_adaptive_teaching = bool(psm_status.get("full_probabilistic_adaptive_teaching"))
+    full_direct_opt_protocol = False
+    paper_scale_result = (
+        not quick
+        and five_distinct_seeds
+        and uses_full_test_horizon
+        and uses_paper_eval_rollouts
+        and include_ppo
+        and include_direct_opt
+        and ppo_hyperparameter_search
+        and full_probabilistic_adaptive_teaching
+        and full_direct_opt_protocol
+    )
+    return {
+        "artifact_kind": "cartpole_reproduction_runner_manifest",
+        "selected_seeds": seeds,
+        "distinct_seeds": distinct_seeds,
+        "uses_five_distinct_seeds": five_distinct_seeds,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "selected_eval_rollouts": eval_rollouts,
+        "uses_paper_eval_rollouts": uses_paper_eval_rollouts,
+        "paper_test_horizon_steps": paper_test_steps,
+        "selected_test_max_steps": test_max_steps,
+        "uses_full_test_horizon": uses_full_test_horizon,
+        "quick_diagnostic": quick,
+        "include_ppo": include_ppo,
+        "include_direct_opt": include_direct_opt,
+        "ppo_eval_interval": ppo_eval_interval,
+        "ppo_fixed_config_only": ppo_fixed_config_only,
+        "ppo_hyperparameter_search": ppo_hyperparameter_search,
+        "full_probabilistic_adaptive_teaching": full_probabilistic_adaptive_teaching,
+        "full_direct_opt_protocol": full_direct_opt_protocol,
+        "paper_scale_result": paper_scale_result,
+        "limitation": (
+            "This orchestrated runner records local diagnostic rows and exact artifact paths. "
+            "It does not perform the paper's PPO/PPO-LSTM hyperparameter search, the full "
+            "probabilistic adaptive-teaching algorithm, or the full Direct-Opt protocol, so its "
+            "manifest-level paper-scale result flag remains false."
+        ),
+    }
+
+
 def main() -> None:
     args = parse_args()
     seeds = [int(value) for value in args.seeds.split(",") if value]
@@ -537,6 +597,12 @@ def main() -> None:
                 )
             )
 
+    psm_status = cartpole_synthesis_protocol_status(
+        psm_config(seeds[0] if seeds else 0, args.quick, psm_teacher_overrides),
+        args.eval_rollouts,
+        args.test_max_steps,
+        args.quick,
+    )
     manifest = {
         "command": " ".join(sys.argv),
         "quick": args.quick,
@@ -553,11 +619,16 @@ def main() -> None:
         "test_max_steps": args.test_max_steps,
         "psm_teacher_overrides": psm_teacher_overrides,
         "psm_algorithm_provenance": cartpole_synthesis_algorithm_provenance(),
-        "psm_paper_protocol_status": cartpole_synthesis_protocol_status(
-            psm_config(seeds[0] if seeds else 0, args.quick, psm_teacher_overrides),
-            args.eval_rollouts,
-            args.test_max_steps,
-            args.quick,
+        "psm_paper_protocol_status": psm_status,
+        "paper_protocol_status": reproduction_protocol_status(
+            seeds=seeds,
+            eval_rollouts=args.eval_rollouts,
+            test_max_steps=args.test_max_steps,
+            include_ppo=args.include_ppo,
+            include_direct_opt=args.include_direct_opt,
+            quick=args.quick,
+            ppo_eval_interval=args.ppo_eval_interval,
+            psm_status=psm_status,
         ),
         "ppo_eval_interval": args.ppo_eval_interval,
         "paper_scale_note": (

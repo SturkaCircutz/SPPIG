@@ -91,6 +91,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   `cartpole_results.csv`, `cartpole_summary.csv`, and `cartpole_manifest.json` for selected seeds
   and settings. Its manifest records the evaluation rollout count, whether the run used the paper's
   `1000`-rollout metric, the PSM teacher overrides, and fixed local synthesis constants,
+  plus a top-level `paper_protocol_status` block that records selected seed coverage, paper
+  rollout/horizon coverage, PPO/Direct-Opt inclusion, and the still-false paper-scale result flag,
   and each PSM row links to a per-seed metrics JSON with the fitted probabilistic student and
   teacher-trace provenance. When PPO is included, it also writes per-row PPO checkpoints and metrics
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
@@ -739,7 +741,13 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
   a per-seed PSM metrics JSON artifact whose final per-iteration evaluation matches the top-level PSM
-  row.
+  row. It also verifies the manifest-level paper-protocol status block.
+- `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale`
+  verifies that a five-seed, full-horizon, 1000-rollout fixed-config runner setup is still not tagged
+  as paper-scale because it lacks PPO hyperparameter search, full probabilistic adaptive teaching, and
+  the full Direct-Opt protocol.
+- `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_rejects_duplicate_seed_coverage`
+  verifies that repeated seed entries are not treated as the paper's five distinct seeds.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_can_include_direct_opt_diagnostic`
   verifies that `--include-direct-opt` adds the bounded Direct-Opt diagnostic row and links its
   metrics artifact from the manifest.

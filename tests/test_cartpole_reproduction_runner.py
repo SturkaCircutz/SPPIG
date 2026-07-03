@@ -13,10 +13,53 @@ ROOT = os.path.dirname(os.path.dirname(__file__))
 SCRIPT = os.path.join(ROOT, "scripts", "run_cartpole_reproduction.py")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
-from run_cartpole_reproduction import HAS_TORCH, run_psm, summarize_rows  # noqa: E402
+from run_cartpole_reproduction import HAS_TORCH, reproduction_protocol_status, run_psm, summarize_rows  # noqa: E402
 
 
 class CartpoleReproductionRunnerTest(unittest.TestCase):
+    def test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale(self):
+        status = reproduction_protocol_status(
+            seeds=[0, 1, 2, 3, 4],
+            eval_rollouts=1000,
+            test_max_steps=15000,
+            include_ppo=True,
+            include_direct_opt=True,
+            quick=False,
+            ppo_eval_interval=0,
+            psm_status={"full_probabilistic_adaptive_teaching": False},
+        )
+
+        self.assertEqual(status["artifact_kind"], "cartpole_reproduction_runner_manifest")
+        self.assertEqual(status["selected_seeds"], [0, 1, 2, 3, 4])
+        self.assertEqual(status["distinct_seeds"], [0, 1, 2, 3, 4])
+        self.assertTrue(status["uses_five_distinct_seeds"])
+        self.assertTrue(status["uses_paper_eval_rollouts"])
+        self.assertTrue(status["uses_full_test_horizon"])
+        self.assertTrue(status["include_ppo"])
+        self.assertTrue(status["include_direct_opt"])
+        self.assertTrue(status["ppo_fixed_config_only"])
+        self.assertFalse(status["ppo_hyperparameter_search"])
+        self.assertFalse(status["full_probabilistic_adaptive_teaching"])
+        self.assertFalse(status["full_direct_opt_protocol"])
+        self.assertFalse(status["paper_scale_result"])
+        self.assertIn("does not perform the paper's PPO/PPO-LSTM hyperparameter search", status["limitation"])
+
+    def test_reproduction_protocol_status_rejects_duplicate_seed_coverage(self):
+        status = reproduction_protocol_status(
+            seeds=[0, 0, 1, 2, 3],
+            eval_rollouts=1000,
+            test_max_steps=15000,
+            include_ppo=True,
+            include_direct_opt=True,
+            quick=False,
+            ppo_eval_interval=0,
+            psm_status={"full_probabilistic_adaptive_teaching": True},
+        )
+
+        self.assertEqual(status["distinct_seeds"], [0, 1, 2, 3])
+        self.assertFalse(status["uses_five_distinct_seeds"])
+        self.assertFalse(status["paper_scale_result"])
+
     def test_summary_rows_report_mean_std_and_best_train_seed(self):
         summary = summarize_rows(
             [
@@ -257,6 +300,25 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_elite_distribution_rounds"], 2)
             manifest_psm_status = manifest["psm_paper_protocol_status"]
             self.assertEqual(manifest_psm_status, psm_status)
+            manifest_status = manifest["paper_protocol_status"]
+            self.assertEqual(manifest_status["artifact_kind"], "cartpole_reproduction_runner_manifest")
+            self.assertEqual(manifest_status["selected_seeds"], [0])
+            self.assertEqual(manifest_status["distinct_seeds"], [0])
+            self.assertFalse(manifest_status["uses_five_distinct_seeds"])
+            self.assertEqual(manifest_status["paper_eval_rollouts"], 1000)
+            self.assertEqual(manifest_status["selected_eval_rollouts"], 1)
+            self.assertFalse(manifest_status["uses_paper_eval_rollouts"])
+            self.assertEqual(manifest_status["paper_test_horizon_steps"], 15000)
+            self.assertEqual(manifest_status["selected_test_max_steps"], 20)
+            self.assertFalse(manifest_status["uses_full_test_horizon"])
+            self.assertTrue(manifest_status["quick_diagnostic"])
+            self.assertFalse(manifest_status["include_ppo"])
+            self.assertFalse(manifest_status["include_direct_opt"])
+            self.assertFalse(manifest_status["ppo_fixed_config_only"])
+            self.assertFalse(manifest_status["ppo_hyperparameter_search"])
+            self.assertFalse(manifest_status["full_probabilistic_adaptive_teaching"])
+            self.assertFalse(manifest_status["full_direct_opt_protocol"])
+            self.assertFalse(manifest_status["paper_scale_result"])
             provenance = manifest["psm_algorithm_provenance"]
             self.assertEqual(provenance["probabilistic_student"]["default_em_iters"], 4)
             self.assertEqual(provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
