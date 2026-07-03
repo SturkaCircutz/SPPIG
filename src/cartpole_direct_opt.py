@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 import random
+import time
 from typing import Dict, List, Sequence, Tuple
 
 from cartpole_env import (
@@ -50,6 +51,7 @@ class DirectOptConfig:
     restart_candidates_on_stall: int = 1
     local_step_fraction: float = 0.25
     parallel_threads: int = 1
+    time_limit_seconds: float | None = None
     eval_rollouts: int = PAPER_EVAL_ROLLOUTS
     test_max_steps: int = 15_000
     quick: bool = False
@@ -117,7 +119,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "paper_parallel_threads": PAPER_DIRECT_OPT_PARALLEL_THREADS,
         "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
         "local_parallel_threads": "configurable_via_parallel_threads",
-        "local_time_limit_seconds": None,
+        "local_time_limit_seconds": "configurable_via_time_limit_seconds",
         "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
         "candidate_accounting": (
             "searched_candidates and evaluated_candidates count candidate evaluation calls; "
@@ -156,6 +158,7 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
     configured_paper_batch_size = cfg.batch_size == PAPER_DIRECT_OPT_BATCH_SIZE
     uses_paper_batch_size = configured_paper_batch_size and cfg.num_train_states >= PAPER_DIRECT_OPT_BATCH_SIZE
     selected_parallel_threads = max(1, int(cfg.parallel_threads))
+    selected_time_limit_seconds = cfg.time_limit_seconds
     paper_test_horizon = cfg.test_max_steps == paper_test_env.cfg.max_steps
     paper_eval_rollouts = cfg.eval_rollouts == PAPER_EVAL_ROLLOUTS
     return {
@@ -168,8 +171,8 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "selected_parallel_threads": selected_parallel_threads,
         "uses_paper_parallel_threads": selected_parallel_threads == PAPER_DIRECT_OPT_PARALLEL_THREADS,
         "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
-        "selected_time_limit_seconds": None,
-        "uses_paper_time_limit": False,
+        "selected_time_limit_seconds": selected_time_limit_seconds,
+        "uses_paper_time_limit": selected_time_limit_seconds == PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
         "full_continuous_one_hot_switch_grammar": False,
         "bounded_one_hot_switch_metadata": True,
         "appendix_b3_one_hot_vertex_metadata": True,
@@ -271,6 +274,7 @@ def _direct_opt_candidates(
     rng: random.Random,
 ) -> Tuple[List[DirectOptCandidate], Dict[str, object]]:
     candidates: List[DirectOptCandidate] = []
+    deadline = _DirectOptDeadline(cfg.time_limit_seconds)
     grid_params = [
         (
             theta_weight,
@@ -283,21 +287,36 @@ def _direct_opt_candidates(
         for theta_weight in DIRECT_OPT_THETA_WEIGHTS
         for omega_weight in DIRECT_OPT_OMEGA_WEIGHTS
     ]
-    candidates.extend(_evaluate_candidate_params(grid_params, train_states, cfg))
+    grid_candidates = _evaluate_candidate_params(grid_params, train_states, cfg, deadline, allow_first=True)
+    candidates.extend(grid_candidates)
+    stopped_after_grid = deadline.expired()
     random_params = [
         (*_random_candidate_params(rng), "random_restart")
-        for _ in range(max(0, cfg.random_candidates))
+        for _ in range(0 if stopped_after_grid else max(0, cfg.random_candidates))
     ]
-    candidates.extend(_evaluate_candidate_params(random_params, train_states, cfg))
-    boolean_candidates, boolean_diagnostics = _boolean_tree_candidates(train_states, cfg)
+    random_candidates = _evaluate_candidate_params(random_params, train_states, cfg, deadline)
+    candidates.extend(random_candidates)
+    stopped_after_random = deadline.expired()
+    boolean_candidates, boolean_diagnostics = (
+        _boolean_tree_candidates(train_states, cfg, deadline)
+        if not stopped_after_random
+        else ([], _empty_boolean_diagnostics())
+    )
     candidates.extend(boolean_candidates)
 
     best = max(candidates, key=_candidate_rank_key)
-    batch_candidates, batch_diagnostics = _batch_restart_refinement_candidates(
-        best,
-        train_states,
-        cfg,
-        rng,
+    stopped_before_batch = deadline.expired()
+    planned_batch_count = len(_direct_opt_batches(train_states, max(1, cfg.batch_size)))
+    batch_candidates, batch_diagnostics = (
+        _batch_restart_refinement_candidates(
+            best,
+            train_states,
+            cfg,
+            rng,
+            deadline,
+        )
+        if not stopped_before_batch
+        else ([], _empty_batch_diagnostics(planned_batch_count, max(0, cfg.batch_refinement_rounds), deadline))
     )
     candidates.extend(batch_candidates)
     evaluated_candidate_calls = (
@@ -313,12 +332,14 @@ def _direct_opt_candidates(
         + int(batch_diagnostics["restart_rollout_evaluations"])
     )
     diagnostics = {
-        "grid_candidates": len(DIRECT_OPT_THETA_WEIGHTS) * len(DIRECT_OPT_OMEGA_WEIGHTS),
-        "random_candidates": max(0, cfg.random_candidates),
+        "grid_candidates": len(grid_candidates),
+        "random_candidates": len(random_candidates),
         **boolean_diagnostics,
         "batch_refinement_candidates": len(batch_candidates),
         "parallel_threads": max(1, int(cfg.parallel_threads)),
         "uses_parallel_candidate_evaluation": max(1, int(cfg.parallel_threads)) > 1,
+        "time_limit_seconds": cfg.time_limit_seconds,
+        "time_limit_reached": deadline.expired(),
         "candidate_evaluation_calls": evaluated_candidate_calls,
         "evaluated_candidates": evaluated_candidate_calls,
         "evaluated_candidates_units": "candidate_evaluation_calls",
@@ -336,44 +357,105 @@ def _direct_opt_candidates(
     return candidates, diagnostics
 
 
+class _DirectOptDeadline:
+    def __init__(self, time_limit_seconds: float | None) -> None:
+        self.time_limit_seconds = time_limit_seconds
+        self.started_at = time.monotonic()
+
+    def expired(self) -> bool:
+        if self.time_limit_seconds is None:
+            return False
+        return time.monotonic() - self.started_at >= max(0.0, float(self.time_limit_seconds))
+
+
+def _empty_boolean_diagnostics() -> Dict[str, int]:
+    return {
+        "boolean_stump_candidates": 0,
+        "boolean_depth2_candidates": 0,
+        "boolean_top_stumps_for_depth2": 0,
+        "boolean_candidates_with_one_hot_metadata": 0,
+        "boolean_candidates_with_appendix_b3_vertex_metadata": 0,
+    }
+
+
+def _empty_batch_diagnostics(
+    batch_count: int,
+    rounds: int,
+    deadline: "_DirectOptDeadline | None" = None,
+) -> Dict[str, int | bool]:
+    return {
+        "batch_count": batch_count,
+        "batch_rounds": rounds,
+        "batch_seed_evaluations": 0,
+        "batch_seed_rollout_evaluations": 0,
+        "batch_local_evaluations": 0,
+        "batch_local_rollout_evaluations": 0,
+        "restart_evaluations": 0,
+        "restart_rollout_evaluations": 0,
+        "accepted_batch_improvements": 0,
+        "accepted_restarts": 0,
+        "batch_time_limit_reached": bool(deadline and deadline.expired()),
+    }
+
+
 def _evaluate_candidate_params(
     params: List[Tuple[float, float, float, float, float, str]],
     train_states: List[Sequence[float]],
     cfg: DirectOptConfig,
+    deadline: _DirectOptDeadline | None = None,
+    allow_first: bool = False,
 ) -> List[DirectOptCandidate]:
-    if max(1, int(cfg.parallel_threads)) == 1 or len(params) <= 1:
-        return [
-            _evaluate_candidate(
-                theta_weight,
-                omega_weight,
-                threshold,
-                left_force,
-                right_force,
-                train_states,
-                source,
+    parallel_threads = max(1, int(cfg.parallel_threads))
+    if parallel_threads == 1 or len(params) <= 1:
+        candidates: List[DirectOptCandidate] = []
+        for theta_weight, omega_weight, threshold, left_force, right_force, source in params:
+            if not candidates and not allow_first and deadline is not None and deadline.expired():
+                break
+            if candidates and deadline is not None and deadline.expired():
+                break
+            candidates.append(
+                _evaluate_candidate(
+                    theta_weight,
+                    omega_weight,
+                    threshold,
+                    left_force,
+                    right_force,
+                    train_states,
+                    source,
+                )
             )
-            for theta_weight, omega_weight, threshold, left_force, right_force, source in params
-        ]
-    with ThreadPoolExecutor(max_workers=max(1, int(cfg.parallel_threads))) as executor:
-        futures = [
-            executor.submit(
-                _evaluate_candidate,
-                theta_weight,
-                omega_weight,
-                threshold,
-                left_force,
-                right_force,
-                train_states,
-                source,
-            )
-            for theta_weight, omega_weight, threshold, left_force, right_force, source in params
-        ]
-        return [future.result() for future in futures]
+        return candidates
+    candidates = []
+    start_index = 0
+    with ThreadPoolExecutor(max_workers=parallel_threads) as executor:
+        while start_index < len(params):
+            if candidates and deadline is not None and deadline.expired():
+                break
+            if not candidates and not allow_first and deadline is not None and deadline.expired():
+                break
+            chunk = params[start_index : start_index + parallel_threads]
+            start_index += parallel_threads
+            futures = [
+                executor.submit(
+                    _evaluate_candidate,
+                    theta_weight,
+                    omega_weight,
+                    threshold,
+                    left_force,
+                    right_force,
+                    train_states,
+                    source,
+                )
+                for theta_weight, omega_weight, threshold, left_force, right_force, source in chunk
+            ]
+            candidates.extend(future.result() for future in futures)
+    return candidates
 
 
 def _boolean_tree_candidates(
     train_states: List[Sequence[float]],
     cfg: DirectOptConfig | None = None,
+    deadline: _DirectOptDeadline | None = None,
 ) -> Tuple[List[DirectOptCandidate], Dict[str, int]]:
     stumps = [BooleanTreeSwitch(predicate) for predicate in _direct_opt_predicates()]
     eval_cfg = cfg or DirectOptConfig()
@@ -389,6 +471,7 @@ def _boolean_tree_candidates(
         ],
         train_states,
         eval_cfg,
+        deadline,
     )
     top_stumps = sorted(stump_candidates, key=_candidate_rank_key, reverse=True)[:DIRECT_OPT_BOOLEAN_TOP_STUMPS]
     depth2_switches: List[BooleanTreeSwitch] = []
@@ -411,6 +494,7 @@ def _boolean_tree_candidates(
         ],
         train_states,
         eval_cfg,
+        deadline,
     )
     return stump_candidates + depth2_candidates, {
         "boolean_stump_candidates": len(stump_candidates),
@@ -425,25 +509,39 @@ def _evaluate_boolean_candidates(
     params: List[Tuple[BooleanTreeSwitch, float, float, str]],
     train_states: List[Sequence[float]],
     cfg: DirectOptConfig,
+    deadline: _DirectOptDeadline | None = None,
 ) -> List[DirectOptCandidate]:
-    if max(1, int(cfg.parallel_threads)) == 1 or len(params) <= 1:
-        return [
-            _evaluate_boolean_candidate(switch, left_force, right_force, train_states, source)
-            for switch, left_force, right_force, source in params
-        ]
-    with ThreadPoolExecutor(max_workers=max(1, int(cfg.parallel_threads))) as executor:
-        futures = [
-            executor.submit(
-                _evaluate_boolean_candidate,
-                switch,
-                left_force,
-                right_force,
-                train_states,
-                source,
-            )
-            for switch, left_force, right_force, source in params
-        ]
-        return [future.result() for future in futures]
+    parallel_threads = max(1, int(cfg.parallel_threads))
+    if parallel_threads == 1 or len(params) <= 1:
+        candidates: List[DirectOptCandidate] = []
+        for switch, left_force, right_force, source in params:
+            if not candidates and deadline is not None and deadline.expired():
+                break
+            if candidates and deadline is not None and deadline.expired():
+                break
+            candidates.append(_evaluate_boolean_candidate(switch, left_force, right_force, train_states, source))
+        return candidates
+    candidates = []
+    start_index = 0
+    with ThreadPoolExecutor(max_workers=parallel_threads) as executor:
+        while start_index < len(params):
+            if deadline is not None and deadline.expired():
+                break
+            chunk = params[start_index : start_index + parallel_threads]
+            start_index += parallel_threads
+            futures = [
+                executor.submit(
+                    _evaluate_boolean_candidate,
+                    switch,
+                    left_force,
+                    right_force,
+                    train_states,
+                    source,
+                )
+                for switch, left_force, right_force, source in chunk
+            ]
+            candidates.extend(future.result() for future in futures)
+    return candidates
 
 
 def _batch_restart_refinement_candidates(
@@ -451,22 +549,12 @@ def _batch_restart_refinement_candidates(
     train_states: List[Sequence[float]],
     cfg: DirectOptConfig,
     rng: random.Random,
+    deadline: _DirectOptDeadline | None = None,
 ) -> Tuple[List[DirectOptCandidate], Dict[str, int]]:
     batches = _direct_opt_batches(train_states, max(1, cfg.batch_size))
     rounds = max(0, cfg.batch_refinement_rounds)
     if rounds == 0 or not batches:
-        return [], {
-            "batch_count": len(batches),
-            "batch_rounds": rounds,
-            "batch_seed_evaluations": 0,
-            "batch_seed_rollout_evaluations": 0,
-            "batch_local_evaluations": 0,
-            "batch_local_rollout_evaluations": 0,
-            "restart_evaluations": 0,
-            "restart_rollout_evaluations": 0,
-            "accepted_batch_improvements": 0,
-            "accepted_restarts": 0,
-        }
+        return [], _empty_batch_diagnostics(len(batches), rounds, deadline)
 
     candidates: List[DirectOptCandidate] = []
     current = seed_candidate
@@ -480,11 +568,27 @@ def _batch_restart_refinement_candidates(
     accepted_restarts = 0
     for _ in range(rounds):
         for batch in batches:
+            if deadline is not None and deadline.expired():
+                return candidates, {
+                    "batch_count": len(batches),
+                    "batch_rounds": rounds,
+                    "batch_seed_evaluations": batch_seed_evaluations,
+                    "batch_seed_rollout_evaluations": batch_seed_rollout_evaluations,
+                    "batch_local_evaluations": local_evaluations,
+                    "batch_local_rollout_evaluations": batch_local_rollout_evaluations,
+                    "restart_evaluations": restart_evaluations,
+                    "restart_rollout_evaluations": restart_rollout_evaluations,
+                    "accepted_batch_improvements": accepted_improvements,
+                    "accepted_restarts": accepted_restarts,
+                    "batch_time_limit_reached": True,
+                }
             batch_seed_evaluations += 1
             batch_seed_rollout_evaluations += len(batch)
             batch_best = _reevaluate_candidate(current, batch, "batch_seed")
             for _ in range(max(0, cfg.local_refinement_steps)):
-                neighbors = _local_neighbor_candidates(batch_best, batch, cfg)
+                if deadline is not None and deadline.expired():
+                    break
+                neighbors = _local_neighbor_candidates(batch_best, batch, cfg, deadline)
                 local_evaluations += len(neighbors)
                 batch_local_rollout_evaluations += len(neighbors) * len(batch)
                 local_best = max(neighbors, key=_candidate_rank_key) if neighbors else batch_best
@@ -499,6 +603,7 @@ def _batch_restart_refinement_candidates(
                     ],
                     batch,
                     cfg,
+                    deadline,
                 )
                 restart_evaluations += len(restarts)
                 restart_rollout_evaluations += len(restarts) * len(batch)
@@ -508,6 +613,8 @@ def _batch_restart_refinement_candidates(
                     accepted_restarts += 1
                     continue
                 break
+            if deadline is not None and deadline.expired():
+                continue
             full_candidate = _reevaluate_candidate(batch_best, train_states, "batch_refinement")
             candidates.append(full_candidate)
             if _candidate_rank_key(full_candidate) > _candidate_rank_key(current):
@@ -523,6 +630,7 @@ def _batch_restart_refinement_candidates(
         "restart_rollout_evaluations": restart_rollout_evaluations,
         "accepted_batch_improvements": accepted_improvements,
         "accepted_restarts": accepted_restarts,
+        "batch_time_limit_reached": bool(deadline and deadline.expired()),
     }
 
 
@@ -551,6 +659,7 @@ def _local_neighbor_candidates(
     candidate: DirectOptCandidate,
     train_states: List[Sequence[float]],
     cfg: DirectOptConfig,
+    deadline: _DirectOptDeadline | None = None,
 ) -> List[DirectOptCandidate]:
     if candidate.switch_kind == "boolean_tree":
         return _boolean_local_neighbor_candidates(candidate, train_states, cfg)
@@ -561,6 +670,7 @@ def _local_neighbor_candidates(
         ],
         train_states,
         cfg,
+        deadline,
     )
 
 

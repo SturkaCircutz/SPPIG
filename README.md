@@ -235,10 +235,10 @@ initial states, not the full initial-state distribution, before reevaluating the
 selected program on the full paper test horizon.
 Its metrics JSON records the exact grid, one-hot metadata counts,
 candidate-evaluation-call counts, train-rollout-evaluation counts,
-batch/restart diagnostics, configurable local parallel-candidate evaluation
-metadata, selected program, and limitation note. This is still not the paper's
-two-hour, ten-thread Direct-Opt protocol over the optimized continuous one-hot
-switching grammar. The metrics JSON also includes
+batch/restart diagnostics, configurable local parallel-candidate evaluation and
+time-limit metadata, selected program, and limitation note. This is still not
+the paper's two-hour, ten-thread Direct-Opt protocol over the optimized
+continuous one-hot switching grammar. The metrics JSON also includes
 `paper_protocol_status`, which keeps the full Direct-Opt protocol flag false
 unless the paper batch size, ten-thread/two-hour optimization budget, full
 continuous one-hot grammar, full test horizon, and `1000`-rollout evaluation

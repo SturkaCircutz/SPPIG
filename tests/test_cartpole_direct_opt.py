@@ -161,6 +161,10 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(parallel_status["selected_parallel_threads"], 10)
         self.assertTrue(parallel_status["uses_paper_parallel_threads"])
         self.assertFalse(parallel_status["paper_scale_direct_opt_protocol"])
+        timed_status = cartpole_direct_opt_protocol_status(DirectOptConfig(time_limit_seconds=7200))
+        self.assertEqual(timed_status["selected_time_limit_seconds"], 7200)
+        self.assertTrue(timed_status["uses_paper_time_limit"])
+        self.assertFalse(timed_status["paper_scale_direct_opt_protocol"])
         self.assertEqual(metrics["paper_eval_rollouts"], 1000)
         self.assertFalse(metrics["uses_paper_eval_rollouts"])
         self.assertTrue(metrics["reward_spec"]["reward_equals_survived_steps"])
@@ -227,6 +231,31 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(serial.policy.describe(), parallel.policy.describe())
         self.assertEqual(parallel.search_diagnostics["parallel_threads"], 2)
         self.assertTrue(parallel.search_diagnostics["uses_parallel_candidate_evaluation"])
+
+    def test_direct_opt_time_limit_records_early_stop(self):
+        result = run_cartpole_direct_opt(
+            DirectOptConfig(
+                seed=2,
+                num_train_states=2,
+                random_candidates=4,
+                batch_refinement_rounds=1,
+                eval_rollouts=1,
+                test_max_steps=20,
+                quick=True,
+                time_limit_seconds=0.0,
+            )
+        )
+
+        diagnostics = result.search_diagnostics
+        self.assertEqual(diagnostics["time_limit_seconds"], 0.0)
+        self.assertTrue(diagnostics["time_limit_reached"])
+        self.assertEqual(diagnostics["grid_candidates"], 1)
+        self.assertEqual(diagnostics["random_candidates"], 0)
+        self.assertEqual(diagnostics["boolean_stump_candidates"], 0)
+        self.assertEqual(diagnostics["boolean_depth2_candidates"], 0)
+        self.assertEqual(diagnostics["batch_count"], 1)
+        self.assertEqual(diagnostics["batch_refinement_candidates"], 0)
+        self.assertTrue(diagnostics["batch_time_limit_reached"])
 
     def test_direct_opt_can_disable_batch_refinement_for_grid_random_diagnostic(self):
         result = run_cartpole_direct_opt(
@@ -424,6 +453,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["config"]["local_refinement_steps"], 1)
         self.assertEqual(metrics["config"]["restart_candidates_on_stall"], 1)
         self.assertEqual(metrics["config"]["parallel_threads"], 1)
+        self.assertIsNone(metrics["config"]["time_limit_seconds"])
         status = metrics["paper_protocol_status"]
         self.assertFalse(status["uses_paper_batch_size"])
         self.assertEqual(status["selected_test_max_steps"], 20)
@@ -444,6 +474,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["search_diagnostics"]["evaluated_candidates_units"], "candidate_evaluation_calls")
         self.assertEqual(metrics["search_diagnostics"]["parallel_threads"], 1)
         self.assertFalse(metrics["search_diagnostics"]["uses_parallel_candidate_evaluation"])
+        self.assertIsNone(metrics["search_diagnostics"]["time_limit_seconds"])
+        self.assertFalse(metrics["search_diagnostics"]["time_limit_reached"])
         self.assertGreater(
             metrics["search_diagnostics"]["train_rollout_evaluations"],
             metrics["search_diagnostics"]["candidate_evaluation_calls"],
@@ -492,6 +524,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
                     "--quick",
                     "--parallel-threads",
                     "2",
+                    "--time-limit-seconds",
+                    "7200",
                     "--batch-refinement-rounds",
                     "0",
                     "--eval-rollouts",
@@ -509,10 +543,13 @@ class CartpoleDirectOptTest(unittest.TestCase):
                 metrics = json.load(handle)
 
         self.assertEqual(metrics["config"]["parallel_threads"], 2)
+        self.assertEqual(metrics["config"]["time_limit_seconds"], 7200)
         self.assertEqual(metrics["search_diagnostics"]["parallel_threads"], 2)
         self.assertTrue(metrics["search_diagnostics"]["uses_parallel_candidate_evaluation"])
         self.assertEqual(metrics["paper_protocol_status"]["selected_parallel_threads"], 2)
         self.assertFalse(metrics["paper_protocol_status"]["uses_paper_parallel_threads"])
+        self.assertEqual(metrics["paper_protocol_status"]["selected_time_limit_seconds"], 7200)
+        self.assertTrue(metrics["paper_protocol_status"]["uses_paper_time_limit"])
 
 
 if __name__ == "__main__":

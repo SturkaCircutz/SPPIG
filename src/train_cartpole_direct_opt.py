@@ -25,6 +25,7 @@ def main() -> None:
     parser.add_argument("--restart-candidates-on-stall", type=int, default=None)
     parser.add_argument("--local-step-fraction", type=float, default=defaults.local_step_fraction)
     parser.add_argument("--parallel-threads", type=int, default=defaults.parallel_threads)
+    parser.add_argument("--time-limit-seconds", type=float, default=defaults.time_limit_seconds)
     parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--quick", action="store_true")
@@ -65,6 +66,7 @@ def main() -> None:
         ),
         local_step_fraction=args.local_step_fraction,
         parallel_threads=args.parallel_threads,
+        time_limit_seconds=args.time_limit_seconds,
         eval_rollouts=args.eval_rollouts,
         test_max_steps=args.test_max_steps,
         quick=args.quick,

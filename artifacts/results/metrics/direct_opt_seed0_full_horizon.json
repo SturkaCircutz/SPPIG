@@ -49,7 +49,7 @@
     "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates with one-hot metadata and batch/restart local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
     "local_parallel_threads": "configurable_via_parallel_threads",
     "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors",
-    "local_time_limit_seconds": null,
+    "local_time_limit_seconds": "configurable_via_time_limit_seconds",
     "not_paper_scale": true,
     "omega_weight_grid": [
       -10.0,
@@ -135,7 +135,8 @@
     "random_candidates": 256,
     "restart_candidates_on_stall": 1,
     "seed": 0,
-    "test_max_steps": 15000
+    "test_max_steps": 15000,
+    "time_limit_seconds": null
   },
   "eval_rollouts": 20,
   "paper_eval_rollouts": 1000,
@@ -193,6 +194,7 @@
     "batch_rounds": 1,
     "batch_seed_evaluations": 1,
     "batch_seed_rollout_evaluations": 10,
+    "batch_time_limit_reached": false,
     "boolean_candidates_with_appendix_b3_vertex_metadata": 216,
     "boolean_candidates_with_one_hot_metadata": 216,
     "boolean_depth2_candidates": 192,
@@ -208,6 +210,8 @@
     "random_candidates": 256,
     "restart_evaluations": 1,
     "restart_rollout_evaluations": 10,
+    "time_limit_reached": false,
+    "time_limit_seconds": null,
     "train_rollout_evaluations": 6400,
     "uses_parallel_candidate_evaluation": false
   },
