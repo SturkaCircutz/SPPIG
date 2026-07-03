@@ -320,7 +320,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["teacher_search"]["student_sample_segment_budget"],
-                "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
+                "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
             )
             self.assertEqual(
                 provenance["teacher_search"]["teacher_rollout_horizon"],
@@ -461,7 +461,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_segment_budget"],
-                "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace",
+                "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["teacher_rollout_horizon"],

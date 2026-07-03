@@ -2234,6 +2234,33 @@ class CartpolePaperTest(unittest.TestCase):
             cfg.teacher_reward_lambda * projected.reward + 123.0,
         )
 
+    def test_cartpole_student_sample_projection_uses_single_likelihood_recompute(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=1, segments_per_trace=1)
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.5, 0.5)],
+        )
+
+        with patch("cartpole_synthesis._trace_log_probability", return_value=-7.0) as log_probability:
+            trace = _rollout_student_sampled_trace(
+                [0.0, 0.0, 0.05, 0.0],
+                env.cfg,
+                cfg,
+                student,
+                random.Random(0),
+            )
+
+        self.assertLessEqual(len(trace.segment_actions), cfg.segments_per_trace)
+        self.assertEqual(trace.student_log_probability, -7.0)
+        self.assertEqual(log_probability.call_count, 1)
+
     def test_cartpole_teacher_bootstrap_uses_probabilistic_student_prior(self):
         cfg = CartpoleSynthesisConfig(
             candidate_rollouts=4,

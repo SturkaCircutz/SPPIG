@@ -1376,7 +1376,8 @@ def _rollout_student_sampled_trace(
         teacher_source="student_sample",
     )
     trace = _limit_loop_free_trace_segment_budget(trace, initial_state, env_cfg, cfg, student)
-    trace.student_log_probability = _trace_log_probability(trace, student)
+    if trace.student_log_probability is None:
+        trace.student_log_probability = _trace_log_probability(trace, student)
     return trace
 
 
