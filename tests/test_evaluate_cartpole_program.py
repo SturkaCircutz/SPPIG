@@ -83,6 +83,41 @@ class EvaluateCartpoleProgramTest(unittest.TestCase):
         self.assertIn("steps_mean", metrics["test"])
         self.assertIn("survival_seconds_mean", metrics["test"])
 
+    def test_script_writes_paper_figure19_reference_metrics(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "figure19_metrics.json")
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--paper-figure19",
+                    "--eval-rollouts",
+                    "2",
+                    "--test-max-steps",
+                    "20",
+                    "--metrics-output",
+                    metrics_path,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            with open(metrics_path, encoding="utf-8") as handle:
+                metrics = json.load(handle)
+
+        self.assertIn("paper Figure 19 CartPole", metrics["policy_description"])
+        self.assertEqual(metrics["program_parameters"]["figure"], "SPPIG paper Figure 19")
+        self.assertEqual(
+            metrics["program_parameters"]["source"],
+            "manual_visual_inspection_of_pdf_page_21_figure_19",
+        )
+        self.assertEqual(metrics["program_parameters"]["modes"]["m1"]["action"], -3.3)
+        self.assertEqual(metrics["program_parameters"]["modes"]["m2"]["action"], 3.98)
+        status = metrics["paper_protocol_status"]
+        self.assertEqual(status["policy_source"], "paper_figure19_manual_transcription")
+        self.assertFalse(status["synthesized_by_current_algorithm"])
+        self.assertFalse(status["paper_scale_fixed_program_result"])
+
     def test_fixed_program_matches_checked_in_result_row(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "program_metrics.json")

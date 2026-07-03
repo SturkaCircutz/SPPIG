@@ -16,6 +16,7 @@ CARTPOLE_ACTION_DIMENSION = 1
 CARTPOLE_OBSERVATION_DIMENSION = len(CARTPOLE_OBSERVATION_NAMES)
 CARTPOLE_PSM_PRETRAIN_TEACHER_POLICY = "BangBangCartpolePSM"
 CARTPOLE_PSM_MODE_UPDATE_ORDER = "act_with_current_mode_then_update_next_mode"
+PAPER_FIGURE19_CARTPOLE_POLICY_SOURCE = "manual_visual_inspection_of_pdf_page_21_figure_19"
 
 
 def cartpole_reward_spec() -> dict[str, Any]:
@@ -261,6 +262,61 @@ class BangBangCartpolePSM:
         return (
             "m0 action=-force, m1 action=+force; "
             "act with current mode, then switch by theta + 0.25 * theta_dot >= 0"
+        )
+
+
+def cartpole_paper_figure19_policy_spec() -> dict[str, Any]:
+    return {
+        "source": PAPER_FIGURE19_CARTPOLE_POLICY_SOURCE,
+        "figure": "SPPIG paper Figure 19",
+        "page": 21,
+        "transcription_note": (
+            "Manually transcribed from the rendered PDF because text extraction "
+            "does not expose the figure labels."
+        ),
+        "observation_features": list(CARTPOLE_OBSERVATION_NAMES),
+        "start": {
+            "m1": "omega >= 0.02",
+            "m2": "omega < 0.02",
+        },
+        "modes": {
+            "m1": {"action": -3.3, "switch_to_m2": "omega >= 0.46 and theta >= -0.06"},
+            "m2": {"action": 3.98, "switch_to_m1": "omega < -0.49"},
+        },
+        "mode_update_order": (
+            "start selects the initial concrete mode from the first observation; "
+            "after that, act with current mode before updating next mode"
+        ),
+    }
+
+
+class PaperFigure19CartpolePSM:
+    """Manual transcription of the CartPole policy shown in paper Figure 19."""
+
+    def __init__(self) -> None:
+        self.mode = "start"
+
+    def reset(self) -> None:
+        self.mode = "start"
+
+    def act(self, observation: Observation) -> float:
+        _, _, theta, omega = observation
+        if self.mode == "start":
+            self.mode = "m1" if omega >= 0.02 else "m2"
+
+        current_mode = self.mode
+        action = -3.3 if current_mode == "m1" else 3.98
+        if current_mode == "m1" and omega >= 0.46 and theta >= -0.06:
+            self.mode = "m2"
+        elif current_mode == "m2" and omega < -0.49:
+            self.mode = "m1"
+        return action
+
+    def describe(self) -> str:
+        return (
+            "paper Figure 19 CartPole: start -> m1 if omega >= 0.020 else m2; "
+            "m1 action=-3.300, switch to m2 if omega >= 0.460 and theta >= -0.060; "
+            "m2 action=3.980, switch to m1 if omega < -0.490"
         )
 
 

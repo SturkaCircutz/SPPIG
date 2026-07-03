@@ -31,15 +31,17 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 
 - Exact numerical Cartpole train/test success rates from Figure 4. The PDF text extraction exposes the
   graphical comparison but not the Cartpole bar values.
-- Exact synthesized Cartpole state-machine formula from Figure 19. The extracted text names Figure 19
-  but does not expose its switch predicates or constants.
+- Figure 19's Cartpole state-machine formula is not exposed by text extraction, but the rendered PDF
+  page is readable and has been manually transcribed as reference provenance.
 
 ## Implementation Mapping
 
 - `src/cartpole_env.py`: continuous-force Cartpole with the train/test pole length and horizon split.
   It exposes a machine-readable reward spec for the standard OpenAI CartPole reward used by the
   paper's classic-control baselines: `+1` per survived simulator step and no extra terminal bonus or
-  penalty.
+  penalty. It also includes `PaperFigure19CartpolePSM`, a manual visual transcription of the
+  CartPole policy diagram in paper Figure 19 for reference reevaluation and exact-policy comparison;
+  this is not produced by the current synthesizer.
 - `src/ppo_cartpole.py`: local PyTorch PPO implementation with MLP and LSTM policy classes.
 - `src/train_cartpole_ppo.py`: CLI for PPO and PPO-LSTM experiments; with `--eval-interval`, it can
   persist per-evaluation train/test metrics to JSON for checkpoint provenance. Its default
@@ -81,6 +83,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
+- `scripts/evaluate_cartpole_program.py`: reevaluates fixed two-mode CartPole programs and writes a
+  `paper_protocol_status` block that keeps manual programs distinct from the current synthesis
+  algorithm. With `--paper-figure19`, it reevaluates the manually transcribed Figure 19 reference
+  policy while still marking `synthesized_by_current_algorithm = false`.
 - `scripts/run_cartpole_reproduction.py`: orchestrated Cartpole runner that writes
   `cartpole_results.csv`, `cartpole_summary.csv`, and `cartpole_manifest.json` for selected seeds
   and settings. Its manifest records the evaluation rollout count, whether the run used the paper's
@@ -157,6 +163,12 @@ These are implementation diagnostics, not paper-scale reproduced results.
   Its `paper_protocol_status` marks this as a fixed two-mode program reevaluation with
   `synthesized_by_current_algorithm = false` and `paper_scale_fixed_program_result = false`;
   it is not evidence that the current synthesis implementation reproduced the paper result.
+- Paper Figure 19 reference policy, manually transcribed from rendered PDF page 21:
+  start chooses `m1` when `omega >= 0.02` and `m2` when `omega < 0.02`; `m1` uses constant action
+  `-3.3` and switches to `m2` when `omega >= 0.46 and theta >= -0.06`; `m2` uses constant action
+  `3.98` and switches to `m1` when `omega < -0.49`. It can be reevaluated with
+  `python scripts/evaluate_cartpole_program.py --paper-figure19 ...`, and its metrics mark
+  `policy_source = paper_figure19_manual_transcription` and `synthesized_by_current_algorithm = false`.
 - Current synthesizer diagnostic command:
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
@@ -780,4 +792,3 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   previous student, with the elite-distance kernel including teacher gains plus normalized segment action,
   duration, and time-increment schedules, but it does not yet perform the paper's full CEM procedure or continuous
   gradient-based optimization over loop-free action functions and durations.
-- Recover or manually inspect the Figure 19 Cartpole policy if exact state-machine comparison is required.

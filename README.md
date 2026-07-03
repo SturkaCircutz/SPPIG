@@ -212,6 +212,21 @@ paper-reported reward scale `lambda = 100` by default. This is provenance for
 the current partial student implementation, not evidence that the full
 probabilistic adaptive-teaching algorithm has been completed.
 
+Paper Figure 19 CartPole reference policy:
+
+```bash
+.venv/bin/python scripts/evaluate_cartpole_program.py \
+  --paper-figure19 \
+  --eval-rollouts 20 \
+  --test-max-steps 15000 \
+  --metrics-output artifacts/results/metrics/figure19_cartpole_reference.json
+```
+
+This reevaluates the manually transcribed Figure 19 CartPole state machine from
+the rendered paper PDF. The metrics mark it as
+`paper_figure19_manual_transcription` and keep
+`synthesized_by_current_algorithm` false.
+
 Direct-Opt diagnostic:
 
 ```bash

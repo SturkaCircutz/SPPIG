@@ -18,12 +18,19 @@ try:
 except Exception:
     HAS_TORCH = False
 
-from cartpole_env import BangBangCartpolePSM, CartpoleConfig, CartpoleEnv, evaluate_cartpole_policy
+from cartpole_env import (
+    BangBangCartpolePSM,
+    CartpoleConfig,
+    CartpoleEnv,
+    PaperFigure19CartpolePSM,
+    evaluate_cartpole_policy,
+)
 from cartpole_env import PAPER_EVAL_ROLLOUTS
 from cartpole_env import (
     CARTPOLE_RESET_HIGH,
     CARTPOLE_RESET_LOW,
     STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP,
+    cartpole_paper_figure19_policy_spec,
     cartpole_reward_spec,
     cartpole_space_spec,
 )
@@ -202,6 +209,33 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(second_action, -10.0)
         self.assertEqual(policy.mode, "push_right")
         self.assertIn("act with current mode", policy.describe())
+
+    def test_paper_figure19_cartpole_policy_transcribes_visible_switches(self):
+        spec = cartpole_paper_figure19_policy_spec()
+        policy = PaperFigure19CartpolePSM()
+
+        policy.reset()
+        first_action = policy.act([0.0, 0.0, 0.0, 0.03])
+        second_action = policy.act([0.0, 0.0, -0.05, 0.47])
+        third_action = policy.act([0.0, 0.0, 0.0, -0.50])
+
+        self.assertEqual(spec["source"], "manual_visual_inspection_of_pdf_page_21_figure_19")
+        self.assertEqual(spec["modes"]["m1"]["action"], -3.3)
+        self.assertEqual(spec["modes"]["m2"]["action"], 3.98)
+        self.assertEqual(first_action, -3.3)
+        self.assertEqual(second_action, -3.3)
+        self.assertEqual(third_action, 3.98)
+        self.assertEqual(policy.mode, "m1")
+        self.assertIn("omega >= 0.020", policy.describe())
+
+    def test_paper_figure19_cartpole_policy_start_can_select_second_mode(self):
+        policy = PaperFigure19CartpolePSM()
+
+        policy.reset()
+        action = policy.act([0.0, 0.0, 0.0, 0.0])
+
+        self.assertEqual(action, 3.98)
+        self.assertEqual(policy.mode, "m2")
 
     def test_cartpole_synthesis_returns_two_mode_policy(self):
         policy, traces = synthesize_cartpole_policy(
