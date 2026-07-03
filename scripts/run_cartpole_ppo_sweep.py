@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
-from cartpole_env import PAPER_EVAL_ROLLOUTS, cartpole_reward_spec  # noqa: E402
+from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec, cartpole_space_spec  # noqa: E402
 
 
 PAPER_TIMESTEPS = 10_000_000
@@ -629,6 +629,7 @@ def write_manifest(
             "test_max_steps": PAPER_TEST_MAX_STEPS,
             "eval_rollouts": PAPER_EVAL_ROLLOUTS,
             "reward_spec": cartpole_reward_spec(),
+            "space_spec": cartpole_space_spec(CartpoleEnv.train_env().cfg),
             "hyperparameter_sampling": (
                 "10 uniformly sampled configs from the reported space per policy, evaluated for each seed"
             ),

@@ -9,6 +9,11 @@ from typing import Any, List, Optional, Protocol, Sequence
 Observation = List[float]
 PAPER_EVAL_ROLLOUTS = 1000
 STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP = 1.0
+CARTPOLE_RESET_LOW = -0.05
+CARTPOLE_RESET_HIGH = 0.05
+CARTPOLE_OBSERVATION_NAMES = ("x", "cart_velocity", "theta", "omega")
+CARTPOLE_ACTION_DIMENSION = 1
+CARTPOLE_OBSERVATION_DIMENSION = len(CARTPOLE_OBSERVATION_NAMES)
 
 
 def cartpole_reward_spec() -> dict[str, Any]:
@@ -50,6 +55,58 @@ class CartpoleConfig:
         return int(self.horizon_seconds / self.dt)
 
 
+def cartpole_space_spec(cfg: CartpoleConfig | None = None) -> dict[str, Any]:
+    env_cfg = cfg or CartpoleConfig(pole_length=0.5, horizon_seconds=5.0)
+    return {
+        "paper_sources": [
+            "SPPIG paper Figure 8 CartPole #A/#O row",
+            "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement",
+        ],
+        "paper_specified_fields": [
+            "action_dimension",
+            "observation_dimension",
+            "shared_action_observation_initial_state_contract",
+        ],
+        "local_provenance_fields": [
+            "action_space_bounds",
+            "observation_feature_names",
+            "initial_state_distribution",
+        ],
+        "action_dimension": CARTPOLE_ACTION_DIMENSION,
+        "action_dimension_source": "paper_figure_8",
+        "action_space": {
+            "type": "continuous_scalar_force",
+            "low": -env_cfg.force_limit,
+            "high": env_cfg.force_limit,
+            "clipped_to_bounds": True,
+            "source": "local_cartpole_env_implementation",
+        },
+        "observation_dimension": CARTPOLE_OBSERVATION_DIMENSION,
+        "observation_dimension_source": "paper_figure_8",
+        "observation_space": {
+            "type": "full_state_vector",
+            "features": list(CARTPOLE_OBSERVATION_NAMES),
+            "source": "local_cartpole_env_implementation",
+        },
+        "initial_state_distribution": {
+            "type": "independent_uniform",
+            "low": CARTPOLE_RESET_LOW,
+            "high": CARTPOLE_RESET_HIGH,
+            "features": list(CARTPOLE_OBSERVATION_NAMES),
+            "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+            "explicit_state_override": True,
+            "source": "local_cartpole_env_reset",
+        },
+        "note": (
+            "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines "
+            "use the same action spaces, observation spaces, and initial states as the "
+            "programmatic-policy approach. Force bounds, feature names, and the numeric "
+            "reset distribution are local implementation provenance, not separately specified "
+            "by the paper."
+        ),
+    }
+
+
 @dataclass
 class CartpoleResult:
     success: bool
@@ -85,10 +142,10 @@ class CartpoleEnv:
     def reset(self, state: Optional[Sequence[float]] = None) -> Observation:
         if state is None:
             self.state = [
-                self.rng.uniform(-0.05, 0.05),
-                self.rng.uniform(-0.05, 0.05),
-                self.rng.uniform(-0.05, 0.05),
-                self.rng.uniform(-0.05, 0.05),
+                self.rng.uniform(CARTPOLE_RESET_LOW, CARTPOLE_RESET_HIGH),
+                self.rng.uniform(CARTPOLE_RESET_LOW, CARTPOLE_RESET_HIGH),
+                self.rng.uniform(CARTPOLE_RESET_LOW, CARTPOLE_RESET_HIGH),
+                self.rng.uniform(CARTPOLE_RESET_LOW, CARTPOLE_RESET_HIGH),
             ]
         else:
             self.state = [float(value) for value in state]

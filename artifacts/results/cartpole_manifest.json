@@ -71,6 +71,58 @@
         "termination_reward": 0.0
       },
       "seed": "0",
+      "space_spec": {
+        "action_dimension": 1,
+        "action_dimension_source": "paper_figure_8",
+        "action_space": {
+          "clipped_to_bounds": true,
+          "high": 10.0,
+          "low": -10.0,
+          "source": "local_cartpole_env_implementation",
+          "type": "continuous_scalar_force"
+        },
+        "initial_state_distribution": {
+          "explicit_state_override": true,
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "high": 0.05,
+          "low": -0.05,
+          "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+          "source": "local_cartpole_env_reset",
+          "type": "independent_uniform"
+        },
+        "local_provenance_fields": [
+          "action_space_bounds",
+          "observation_feature_names",
+          "initial_state_distribution"
+        ],
+        "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+        "observation_dimension": 4,
+        "observation_dimension_source": "paper_figure_8",
+        "observation_space": {
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "source": "local_cartpole_env_implementation",
+          "type": "full_state_vector"
+        },
+        "paper_sources": [
+          "SPPIG paper Figure 8 CartPole #A/#O row",
+          "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+        ],
+        "paper_specified_fields": [
+          "action_dimension",
+          "observation_dimension",
+          "shared_action_observation_initial_state_contract"
+        ]
+      },
       "test_horizon_steps": "15000",
       "test_reward": "910.6",
       "test_steps": "910.6",
@@ -126,6 +178,58 @@
         "termination_reward": 0.0
       },
       "seed": "0",
+      "space_spec": {
+        "action_dimension": 1,
+        "action_dimension_source": "paper_figure_8",
+        "action_space": {
+          "clipped_to_bounds": true,
+          "high": 10.0,
+          "low": -10.0,
+          "source": "local_cartpole_env_implementation",
+          "type": "continuous_scalar_force"
+        },
+        "initial_state_distribution": {
+          "explicit_state_override": true,
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "high": 0.05,
+          "low": -0.05,
+          "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+          "source": "local_cartpole_env_reset",
+          "type": "independent_uniform"
+        },
+        "local_provenance_fields": [
+          "action_space_bounds",
+          "observation_feature_names",
+          "initial_state_distribution"
+        ],
+        "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+        "observation_dimension": 4,
+        "observation_dimension_source": "paper_figure_8",
+        "observation_space": {
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "source": "local_cartpole_env_implementation",
+          "type": "full_state_vector"
+        },
+        "paper_sources": [
+          "SPPIG paper Figure 8 CartPole #A/#O row",
+          "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+        ],
+        "paper_specified_fields": [
+          "action_dimension",
+          "observation_dimension",
+          "shared_action_observation_initial_state_contract"
+        ]
+      },
       "test_horizon_steps": "15000",
       "test_reward": "912.25",
       "test_steps": "912.25",
@@ -261,6 +365,58 @@
         "termination_reward": 0.0
       },
       "seed": "0",
+      "space_spec": {
+        "action_dimension": 1,
+        "action_dimension_source": "paper_figure_8",
+        "action_space": {
+          "clipped_to_bounds": true,
+          "high": 10.0,
+          "low": -10.0,
+          "source": "local_cartpole_env_implementation",
+          "type": "continuous_scalar_force"
+        },
+        "initial_state_distribution": {
+          "explicit_state_override": true,
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "high": 0.05,
+          "low": -0.05,
+          "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+          "source": "local_cartpole_env_reset",
+          "type": "independent_uniform"
+        },
+        "local_provenance_fields": [
+          "action_space_bounds",
+          "observation_feature_names",
+          "initial_state_distribution"
+        ],
+        "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+        "observation_dimension": 4,
+        "observation_dimension_source": "paper_figure_8",
+        "observation_space": {
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "source": "local_cartpole_env_implementation",
+          "type": "full_state_vector"
+        },
+        "paper_sources": [
+          "SPPIG paper Figure 8 CartPole #A/#O row",
+          "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+        ],
+        "paper_specified_fields": [
+          "action_dimension",
+          "observation_dimension",
+          "shared_action_observation_initial_state_contract"
+        ]
+      },
       "test_horizon_steps": "15000",
       "test_reward": "4220.05",
       "test_steps": "4220.05",
@@ -290,6 +446,58 @@
         "termination_reward": 0.0
       },
       "seed": "0",
+      "space_spec": {
+        "action_dimension": 1,
+        "action_dimension_source": "paper_figure_8",
+        "action_space": {
+          "clipped_to_bounds": true,
+          "high": 10.0,
+          "low": -10.0,
+          "source": "local_cartpole_env_implementation",
+          "type": "continuous_scalar_force"
+        },
+        "initial_state_distribution": {
+          "explicit_state_override": true,
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "high": 0.05,
+          "low": -0.05,
+          "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+          "source": "local_cartpole_env_reset",
+          "type": "independent_uniform"
+        },
+        "local_provenance_fields": [
+          "action_space_bounds",
+          "observation_feature_names",
+          "initial_state_distribution"
+        ],
+        "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+        "observation_dimension": 4,
+        "observation_dimension_source": "paper_figure_8",
+        "observation_space": {
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "source": "local_cartpole_env_implementation",
+          "type": "full_state_vector"
+        },
+        "paper_sources": [
+          "SPPIG paper Figure 8 CartPole #A/#O row",
+          "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+        ],
+        "paper_specified_fields": [
+          "action_dimension",
+          "observation_dimension",
+          "shared_action_observation_initial_state_contract"
+        ]
+      },
       "test_horizon_steps": "15000",
       "test_reward": "6275.35",
       "test_steps": "6275.35",
@@ -484,6 +692,65 @@
         "paper_test_horizon_steps": 15000,
         "quick_diagnostic": false,
         "resamples_parameters_on_mode_entry": true,
+        "reward_spec": {
+          "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+          "reward_equals_survived_steps": true,
+          "reward_per_alive_step": 1.0,
+          "source": "OpenAI Gym classic-control CartPole standard reward",
+          "termination_reward": 0.0
+        },
+        "space_spec": {
+          "action_dimension": 1,
+          "action_dimension_source": "paper_figure_8",
+          "action_space": {
+            "clipped_to_bounds": true,
+            "high": 10.0,
+            "low": -10.0,
+            "source": "local_cartpole_env_implementation",
+            "type": "continuous_scalar_force"
+          },
+          "initial_state_distribution": {
+            "explicit_state_override": true,
+            "features": [
+              "x",
+              "cart_velocity",
+              "theta",
+              "omega"
+            ],
+            "high": 0.05,
+            "low": -0.05,
+            "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+            "source": "local_cartpole_env_reset",
+            "type": "independent_uniform"
+          },
+          "local_provenance_fields": [
+            "action_space_bounds",
+            "observation_feature_names",
+            "initial_state_distribution"
+          ],
+          "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+          "observation_dimension": 4,
+          "observation_dimension_source": "paper_figure_8",
+          "observation_space": {
+            "features": [
+              "x",
+              "cart_velocity",
+              "theta",
+              "omega"
+            ],
+            "source": "local_cartpole_env_implementation",
+            "type": "full_state_vector"
+          },
+          "paper_sources": [
+            "SPPIG paper Figure 8 CartPole #A/#O row",
+            "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+          ],
+          "paper_specified_fields": [
+            "action_dimension",
+            "observation_dimension",
+            "shared_action_observation_initial_state_contract"
+          ]
+        },
         "student_em_iters": 4,
         "student_switch_responsibility_passes": 1,
         "teacher_elite_distribution_resamples": 1,
@@ -507,6 +774,58 @@
         "termination_reward": 0.0
       },
       "seed": "0",
+      "space_spec": {
+        "action_dimension": 1,
+        "action_dimension_source": "paper_figure_8",
+        "action_space": {
+          "clipped_to_bounds": true,
+          "high": 10.0,
+          "low": -10.0,
+          "source": "local_cartpole_env_implementation",
+          "type": "continuous_scalar_force"
+        },
+        "initial_state_distribution": {
+          "explicit_state_override": true,
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "high": 0.05,
+          "low": -0.05,
+          "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+          "source": "local_cartpole_env_reset",
+          "type": "independent_uniform"
+        },
+        "local_provenance_fields": [
+          "action_space_bounds",
+          "observation_feature_names",
+          "initial_state_distribution"
+        ],
+        "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+        "observation_dimension": 4,
+        "observation_dimension_source": "paper_figure_8",
+        "observation_space": {
+          "features": [
+            "x",
+            "cart_velocity",
+            "theta",
+            "omega"
+          ],
+          "source": "local_cartpole_env_implementation",
+          "type": "full_state_vector"
+        },
+        "paper_sources": [
+          "SPPIG paper Figure 8 CartPole #A/#O row",
+          "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+        ],
+        "paper_specified_fields": [
+          "action_dimension",
+          "observation_dimension",
+          "shared_action_observation_initial_state_contract"
+        ]
+      },
       "test_horizon_steps": "15000",
       "test_reward": "47.2",
       "test_steps": "47.2",
@@ -521,6 +840,58 @@
     }
   ],
   "source_results_csv": "artifacts/results/cartpole_results.csv",
+  "space_spec": {
+    "action_dimension": 1,
+    "action_dimension_source": "paper_figure_8",
+    "action_space": {
+      "clipped_to_bounds": true,
+      "high": 10.0,
+      "low": -10.0,
+      "source": "local_cartpole_env_implementation",
+      "type": "continuous_scalar_force"
+    },
+    "initial_state_distribution": {
+      "explicit_state_override": true,
+      "features": [
+        "x",
+        "cart_velocity",
+        "theta",
+        "omega"
+      ],
+      "high": 0.05,
+      "low": -0.05,
+      "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+      "source": "local_cartpole_env_reset",
+      "type": "independent_uniform"
+    },
+    "local_provenance_fields": [
+      "action_space_bounds",
+      "observation_feature_names",
+      "initial_state_distribution"
+    ],
+    "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+    "observation_dimension": 4,
+    "observation_dimension_source": "paper_figure_8",
+    "observation_space": {
+      "features": [
+        "x",
+        "cart_velocity",
+        "theta",
+        "omega"
+      ],
+      "source": "local_cartpole_env_implementation",
+      "type": "full_state_vector"
+    },
+    "paper_sources": [
+      "SPPIG paper Figure 8 CartPole #A/#O row",
+      "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+    ],
+    "paper_specified_fields": [
+      "action_dimension",
+      "observation_dimension",
+      "shared_action_observation_initial_state_contract"
+    ]
+  },
   "summary": [
     {
       "best_checkpoint": "artifacts/progress_mlp_128k_seed0.pt",

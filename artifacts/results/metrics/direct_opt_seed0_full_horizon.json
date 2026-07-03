@@ -130,8 +130,16 @@
     "test_max_steps": 15000
   },
   "eval_rollouts": 20,
+  "paper_eval_rollouts": 1000,
   "paper_test_horizon_steps": 15000,
   "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
+  "reward_spec": {
+    "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+    "reward_equals_survived_steps": true,
+    "reward_per_alive_step": 1.0,
+    "source": "OpenAI Gym classic-control CartPole standard reward",
+    "termination_reward": 0.0
+  },
   "search_diagnostics": {
     "accepted_batch_improvements": 0,
     "accepted_restarts": 0,
@@ -150,6 +158,58 @@
     "restart_evaluations": 1
   },
   "searched_candidates": 640,
+  "space_spec": {
+    "action_dimension": 1,
+    "action_dimension_source": "paper_figure_8",
+    "action_space": {
+      "clipped_to_bounds": true,
+      "high": 10.0,
+      "low": -10.0,
+      "source": "local_cartpole_env_implementation",
+      "type": "continuous_scalar_force"
+    },
+    "initial_state_distribution": {
+      "explicit_state_override": true,
+      "features": [
+        "x",
+        "cart_velocity",
+        "theta",
+        "omega"
+      ],
+      "high": 0.05,
+      "low": -0.05,
+      "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+      "source": "local_cartpole_env_reset",
+      "type": "independent_uniform"
+    },
+    "local_provenance_fields": [
+      "action_space_bounds",
+      "observation_feature_names",
+      "initial_state_distribution"
+    ],
+    "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+    "observation_dimension": 4,
+    "observation_dimension_source": "paper_figure_8",
+    "observation_space": {
+      "features": [
+        "x",
+        "cart_velocity",
+        "theta",
+        "omega"
+      ],
+      "source": "local_cartpole_env_implementation",
+      "type": "full_state_vector"
+    },
+    "paper_sources": [
+      "SPPIG paper Figure 8 CartPole #A/#O row",
+      "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+    ],
+    "paper_specified_fields": [
+      "action_dimension",
+      "observation_dimension",
+      "shared_action_observation_initial_state_contract"
+    ]
+  },
   "test": {
     "reward_mean": 4220.05,
     "steps_mean": 4220.05,
@@ -162,5 +222,6 @@
     "steps_mean": 250.0,
     "success_rate": 1.0,
     "survival_seconds_mean": 5.0
-  }
+  },
+  "uses_paper_eval_rollouts": false
 }

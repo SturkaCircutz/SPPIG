@@ -85,6 +85,11 @@ diagnostics such as rollout reward, horizon truncations, and failure
 terminations. CartPole metrics and manifests include a `reward_spec` block
 recording the standard OpenAI classic-control reward used here: `+1` per
 survived simulator step, with no extra terminal bonus or penalty.
+They also include a `space_spec` block. Its action/observation dimensions come
+from the paper's CartPole row (`#A = 1`, `#O = 4`), while force bounds,
+feature names, and the numeric independent-uniform reset range `[-0.05, 0.05]`
+are recorded as local implementation provenance rather than paper-specified
+constants.
 
 Programmatic state machine:
 

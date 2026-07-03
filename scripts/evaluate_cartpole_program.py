@@ -17,6 +17,7 @@ from cartpole_env import (  # noqa: E402
     PAPER_EVAL_ROLLOUTS,
     CartpoleEnv,
     cartpole_reward_spec,
+    cartpole_space_spec,
     summarize_cartpole_results,
 )
 from cartpole_synthesis import Depth2Switch, SynthesizedCartpolePSM  # noqa: E402
@@ -54,6 +55,7 @@ def main() -> None:
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "reward_spec": cartpole_reward_spec(),
+        "space_spec": cartpole_space_spec(train_env.cfg),
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "program_parameters": {

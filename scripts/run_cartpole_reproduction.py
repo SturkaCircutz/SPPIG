@@ -15,7 +15,7 @@ SRC = ROOT / "src"
 # Keep this script runnable from a fresh checkout without requiring package install.
 sys.path.insert(0, str(SRC))
 
-from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec  # noqa: E402
+from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec, cartpole_space_spec  # noqa: E402
 from cartpole_direct_opt import (  # noqa: E402
     DirectOptConfig,
     direct_opt_metrics,
@@ -135,6 +135,7 @@ def run_psm(
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "uses_paper_eval_rollouts": eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "reward_spec": cartpole_reward_spec(),
+        "space_spec": cartpole_space_spec(CartpoleEnv.train_env().cfg),
         "test_max_steps": test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
@@ -536,6 +537,7 @@ def main() -> None:
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "reward_spec": cartpole_reward_spec(),
+        "space_spec": cartpole_space_spec(CartpoleEnv.train_env().cfg),
         "test_max_steps": args.test_max_steps,
         "psm_teacher_overrides": psm_teacher_overrides,
         "psm_algorithm_provenance": cartpole_synthesis_algorithm_provenance(),

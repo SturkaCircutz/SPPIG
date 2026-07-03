@@ -67,6 +67,12 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   compact `adaptive_teacher_summary` for each teacher/student iteration, recording the teacher
   sampling model, selected trace-source counts, reward summary, student log-probability coverage, and
   the recorded reward-plus-student-likelihood objective components when available.
+- `src/cartpole_env.py::cartpole_space_spec`: records CartPole action/observation space provenance.
+  The paper-derived claims are limited to Figure 8's `#A = 1` and `#O = 4` plus Appendix B.4's
+  statement that RL baselines used the same action spaces, observation spaces, and set of initial
+  states as the programmatic-policy approach. Force bounds, feature names, and the local
+  independent-uniform reset range `[-0.05, 0.05]` are explicitly tagged as local implementation
+  provenance, not as separately paper-specified numeric details.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
@@ -318,6 +324,9 @@ paper-scale PPO2 runs.
   `tests/test_cartpole_ppo_cli.py::test_cli_defaults_to_paper_timestep_budget_without_running`
   verify that the standalone PPO config and CLI default to the paper's `10^7` timestep budget
   without making smoke tests execute that budget.
+- `tests/test_cartpole_paper.py::test_cartpole_space_spec_records_action_observation_and_reset_contract`
+  verifies the CartPole action/observation dimensions and local reset bounds, including provenance
+  tags that prevent the local numeric reset distribution from being overclaimed as paper-specified.
 - `tests/test_cartpole_psm_cli.py::test_cli_writes_metrics_json` verifies that synthesized
   programmatic-policy metrics are persisted to JSON and that the file records the full paper test
   horizon even when a quick test cap is supplied. It also verifies that exposed teacher

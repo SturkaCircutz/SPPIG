@@ -14,7 +14,7 @@ SRC = ROOT / "src"
 # Keep this script runnable from a fresh checkout without requiring package install.
 sys.path.insert(0, str(SRC))
 
-from cartpole_env import PAPER_EVAL_ROLLOUTS, cartpole_reward_spec  # noqa: E402
+from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec, cartpole_space_spec  # noqa: E402
 from ppo_cartpole import LSTMActorCritic, MLPActorCritic, evaluate_ppo_model, result_to_metrics  # noqa: E402
 
 
@@ -66,6 +66,7 @@ def main() -> None:
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "reward_spec": cartpole_reward_spec(),
+        "space_spec": cartpole_space_spec(CartpoleEnv.train_env().cfg),
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": 15_000,
         "selected_result": result_to_metrics(result),

@@ -14,6 +14,7 @@ from cartpole_env import (
     cartpole_done,
     cartpole_next_state,
     cartpole_reward_spec,
+    cartpole_space_spec,
 )
 
 
@@ -232,6 +233,7 @@ def cartpole_synthesis_protocol_status(
         "test_horizon_seconds": paper_test_env.cfg.horizon_seconds,
         "test_pole_length": paper_test_env.cfg.pole_length,
         "reward_spec": cartpole_reward_spec(),
+        "space_spec": cartpole_space_spec(paper_train_env.cfg),
         "training_horizon_steps": paper_train_env.cfg.max_steps,
         "loop_free_teacher_horizon_steps": loop_free_training_horizon,
         "loop_free_teacher_spans_training_horizon": loop_free_training_horizon >= paper_train_env.cfg.max_steps,

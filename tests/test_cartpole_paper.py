@@ -20,7 +20,13 @@ except Exception:
 
 from cartpole_env import BangBangCartpolePSM, CartpoleEnv, evaluate_cartpole_policy
 from cartpole_env import PAPER_EVAL_ROLLOUTS
-from cartpole_env import STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP, cartpole_reward_spec
+from cartpole_env import (
+    CARTPOLE_RESET_HIGH,
+    CARTPOLE_RESET_LOW,
+    STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP,
+    cartpole_reward_spec,
+    cartpole_space_spec,
+)
 from cartpole_synthesis import (
     BooleanTreeSwitch,
     CartpoleSegment,
@@ -128,6 +134,37 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(spec["termination_reward"], 0.0)
         self.assertTrue(spec["reward_equals_survived_steps"])
         self.assertIn("OpenAI", spec["source"])
+
+    def test_cartpole_space_spec_records_action_observation_and_reset_contract(self):
+        env = CartpoleEnv.train_env(seed=0)
+        spec = cartpole_space_spec(env.cfg)
+
+        self.assertIn("action_dimension", spec["paper_specified_fields"])
+        self.assertIn("observation_dimension", spec["paper_specified_fields"])
+        self.assertIn("initial_state_distribution", spec["local_provenance_fields"])
+        self.assertEqual(spec["action_dimension_source"], "paper_figure_8")
+        self.assertEqual(spec["observation_dimension_source"], "paper_figure_8")
+        self.assertEqual(spec["action_dimension"], 1)
+        self.assertEqual(spec["action_space"]["type"], "continuous_scalar_force")
+        self.assertEqual(spec["action_space"]["low"], -10.0)
+        self.assertEqual(spec["action_space"]["high"], 10.0)
+        self.assertEqual(spec["action_space"]["source"], "local_cartpole_env_implementation")
+        self.assertEqual(spec["observation_dimension"], 4)
+        self.assertEqual(
+            spec["observation_space"]["features"],
+            ["x", "cart_velocity", "theta", "omega"],
+        )
+        self.assertEqual(spec["observation_space"]["source"], "local_cartpole_env_implementation")
+        reset_spec = spec["initial_state_distribution"]
+        self.assertEqual(reset_spec["type"], "independent_uniform")
+        self.assertEqual(reset_spec["low"], CARTPOLE_RESET_LOW)
+        self.assertEqual(reset_spec["high"], CARTPOLE_RESET_HIGH)
+        self.assertEqual(reset_spec["source"], "local_cartpole_env_reset")
+        self.assertIn("not separately specified by the paper", spec["note"])
+        for _ in range(8):
+            obs = env.reset()
+            self.assertEqual(len(obs), 4)
+            self.assertTrue(all(CARTPOLE_RESET_LOW <= value <= CARTPOLE_RESET_HIGH for value in obs))
 
     def test_programmatic_policy_evaluates(self):
         metrics = evaluate_cartpole_policy(
@@ -3041,6 +3078,10 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(status["test_horizon_seconds"], 300.0)
         self.assertEqual(status["test_pole_length"], 1.0)
         self.assertTrue(status["reward_spec"]["reward_equals_survived_steps"])
+        self.assertEqual(status["space_spec"]["action_dimension"], 1)
+        self.assertEqual(status["space_spec"]["observation_dimension"], 4)
+        self.assertEqual(status["space_spec"]["initial_state_distribution"]["low"], -0.05)
+        self.assertEqual(status["space_spec"]["initial_state_distribution"]["high"], 0.05)
         self.assertTrue(status["paper_timestep_budget"])
         self.assertTrue(status["paper_test_horizon"])
         self.assertEqual(status["paper_eval_rollouts"], 1000)
@@ -3106,6 +3147,8 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(metrics["paper_protocol_status"]["selected_test_max_steps"], 20)
         self.assertTrue(metrics["reward_spec"]["reward_equals_survived_steps"])
         self.assertTrue(metrics["paper_protocol_status"]["reward_spec"]["reward_equals_survived_steps"])
+        self.assertEqual(metrics["space_spec"]["action_dimension"], 1)
+        self.assertEqual(metrics["paper_protocol_status"]["space_spec"]["observation_dimension"], 4)
         self.assertEqual(metrics["paper_protocol_status"]["selected_eval_rollouts"], 1)
         self.assertFalse(metrics["paper_protocol_status"]["uses_paper_eval_rollouts"])
         self.assertFalse(metrics["paper_protocol_status"]["paper_timestep_budget"])
