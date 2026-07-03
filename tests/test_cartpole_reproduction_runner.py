@@ -824,7 +824,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(direct_metrics["algorithm_provenance"]["batch_refinement"], "seed_each_batch_from_best_so_far_and_restart_on_stall")
             self.assertEqual(
                 direct_metrics["algorithm_provenance"]["switch_search_space"],
-                "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
+                "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_mixtures",
             )
             self.assertEqual(direct_metrics["algorithm_provenance"]["boolean_tree_depth"], 2)
             self.assertIn("one-hot", direct_metrics["algorithm_provenance"]["one_hot_switch_encoding"])
@@ -841,6 +841,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertFalse(direct_status["uses_paper_parallel_threads"])
             self.assertFalse(direct_status["uses_paper_time_limit"])
             self.assertFalse(direct_status["full_continuous_one_hot_switch_grammar"])
+            self.assertTrue(direct_status["bounded_continuous_one_hot_switch_relaxation"])
             self.assertTrue(direct_status["optimizes_combined_reward_over_selected_initial_states"])
             self.assertTrue(direct_status["optimizes_combined_reward_over_all_selected_initial_states"])
             self.assertFalse(direct_status["optimizes_full_initial_state_distribution"])
@@ -861,6 +862,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(direct_metrics["search_diagnostics"]["batch_refinement_candidates"], 1)
             self.assertEqual(direct_metrics["search_diagnostics"]["boolean_stump_candidates"], 24)
             self.assertGreater(direct_metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
+            self.assertEqual(direct_metrics["search_diagnostics"]["continuous_one_hot_candidates"], 24)
             self.assertEqual(
                 direct_metrics["search_diagnostics"]["boolean_candidates_with_one_hot_metadata"],
                 direct_metrics["search_diagnostics"]["boolean_stump_candidates"]

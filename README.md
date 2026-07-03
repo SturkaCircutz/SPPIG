@@ -70,8 +70,9 @@ PPO/PPO-LSTM, and add `--include-direct-opt` to include the bounded Direct-Opt
 diagnostic baseline. Without `--quick`, PPO uses the paper-scale `10^7`
 timestep budget per seed; the runner still does not perform the paper's
 hyperparameter search. The Direct-Opt path is a local bounded search over linear
-switches plus Boolean-tree CartPole switch candidates with one-hot metadata, not
-the paper's full two-hour parallel direct optimization protocol. The runner writes
+switches, Boolean-tree CartPole switch candidates, and bounded Appendix B.3-style
+continuous one-hot feature-mixture candidates, not the paper's full two-hour
+parallel direct optimization protocol. The runner writes
 raw per-seed rows to `cartpole_results.csv`, grouped mean/std plus the best training seed to
 `cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
 The manifest includes a top-level `paper_protocol_status` block that records
@@ -262,15 +263,15 @@ Direct-Opt diagnostic:
 ```
 
 This baseline searches a bounded two-mode constant-action CartPole PSM directly
-on the 5-second training split, including the previous linear switch grid plus
+on the 5-second training split, including the previous linear switch grid,
 bounded depth-1/depth-2 Boolean-tree switch predicates with explicit one-hot
-feature, relation, and tree-operator metadata recorded for each Boolean
-candidate, plus the corresponding Appendix B.3 continuous one-hot vertex fields.
-It then applies a bounded batch/restart local refinement seeded from
-the best candidate so far, optimizing mean reward over all selected finite
-initial states, not the full initial-state distribution, before reevaluating the
-selected program on the full paper test horizon.
-Its metrics JSON records the exact grid, one-hot metadata counts,
+feature, relation, and tree-operator metadata, and a bounded Appendix B.3-style
+continuous one-hot feature-mixture candidate family. It then applies a bounded
+batch/restart local refinement seeded from the best candidate so far, optimizing
+mean reward over all selected finite initial states, not the full initial-state
+distribution, before reevaluating the selected program on the full paper test
+horizon.
+Its metrics JSON records the exact grid, Boolean/continuous one-hot counts,
 candidate-evaluation-call counts, train-rollout-evaluation counts,
 batch/restart diagnostics, configurable local parallel-candidate evaluation and
 time-limit metadata, selected program, and limitation note. This is still not

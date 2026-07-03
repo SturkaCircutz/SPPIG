@@ -14,10 +14,13 @@ SCRIPT = os.path.join(ROOT, "src", "train_cartpole_direct_opt.py")
 from cartpole_direct_opt import (  # noqa: E402
     DirectOptConfig,
     DirectOptCandidate,
+    DirectOptContinuousOneHotSwitch,
     _boolean_local_neighbor_candidates,
     _boolean_tree_candidates,
     _candidate_policy,
     _candidate_switch,
+    _continuous_one_hot_candidates,
+    _continuous_one_hot_local_neighbor_candidates,
     cartpole_direct_opt_protocol_status,
     direct_opt_metrics,
     run_cartpole_direct_opt,
@@ -46,6 +49,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
             + diagnostics["random_candidates"]
             + diagnostics["boolean_stump_candidates"]
             + diagnostics["boolean_depth2_candidates"]
+            + diagnostics["continuous_one_hot_candidates"]
             + diagnostics["batch_refinement_candidates"]
             + diagnostics["batch_seed_evaluations"]
             + diagnostics["batch_local_evaluations"]
@@ -60,6 +64,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
             + diagnostics["random_candidates"]
             + diagnostics["boolean_stump_candidates"]
             + diagnostics["boolean_depth2_candidates"]
+            + diagnostics["continuous_one_hot_candidates"]
             + diagnostics["batch_refinement_candidates"]
         ) * metrics["config"]["num_train_states"]
         expected_batch_rollouts = (
@@ -84,7 +89,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["algorithm_provenance"]["local_parallel_threads"], "configurable_via_parallel_threads")
         self.assertEqual(
             metrics["algorithm_provenance"]["policy_class"],
-            "two_mode_constant_action_linear_or_depth2_boolean_tree_switch",
+            "two_mode_constant_action_linear_depth2_boolean_or_continuous_one_hot_switch",
         )
         self.assertEqual(
             metrics["algorithm_provenance"]["selection_objective"],
@@ -92,7 +97,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         )
         self.assertEqual(
             metrics["algorithm_provenance"]["switch_search_space"],
-            "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
+            "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_mixtures",
         )
         self.assertEqual(metrics["algorithm_provenance"]["boolean_tree_depth"], 2)
         self.assertEqual(
@@ -101,8 +106,12 @@ class CartpoleDirectOptTest(unittest.TestCase):
         )
         self.assertEqual(metrics["algorithm_provenance"]["boolean_tree_relations"], [">=", "<="])
         self.assertEqual(metrics["algorithm_provenance"]["boolean_tree_operator_choices"], ["leaf", "and", "or"])
-        self.assertIn("one-hot", metrics["algorithm_provenance"]["one_hot_switch_encoding"])
-        self.assertIn("one-hot metadata", metrics["algorithm_provenance"]["limitations"])
+        self.assertEqual(
+            metrics["algorithm_provenance"]["continuous_one_hot_candidate_family"],
+            "bounded_appendix_b3_alpha_s_feature_mix_leaf_predicates",
+        )
+        self.assertIn("bounded Appendix B.3", metrics["algorithm_provenance"]["one_hot_switch_encoding"])
+        self.assertIn("bounded continuous one-hot", metrics["algorithm_provenance"]["limitations"])
         self.assertEqual(diagnostics["grid_candidates"], 156)
         self.assertEqual(diagnostics["random_candidates"], 4)
         self.assertEqual(diagnostics["boolean_stump_candidates"], 24)
@@ -115,6 +124,11 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(
             diagnostics["boolean_candidates_with_appendix_b3_vertex_metadata"],
             diagnostics["boolean_candidates_with_one_hot_metadata"],
+        )
+        self.assertEqual(diagnostics["continuous_one_hot_candidates"], 24)
+        self.assertEqual(
+            diagnostics["continuous_one_hot_candidates_with_appendix_b3_metadata"],
+            diagnostics["continuous_one_hot_candidates"],
         )
         self.assertEqual(diagnostics["batch_count"], 1)
         self.assertEqual(diagnostics["batch_rounds"], 1)
@@ -143,6 +157,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertFalse(status["uses_paper_time_limit"])
         self.assertFalse(status["full_continuous_one_hot_switch_grammar"])
         self.assertTrue(status["bounded_one_hot_switch_metadata"])
+        self.assertTrue(status["bounded_continuous_one_hot_switch_relaxation"])
         self.assertTrue(status["appendix_b3_one_hot_vertex_metadata"])
         self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
         self.assertTrue(status["optimizes_combined_reward_over_all_selected_initial_states"])
@@ -253,6 +268,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(diagnostics["random_candidates"], 0)
         self.assertEqual(diagnostics["boolean_stump_candidates"], 0)
         self.assertEqual(diagnostics["boolean_depth2_candidates"], 0)
+        self.assertEqual(diagnostics["continuous_one_hot_candidates"], 0)
         self.assertEqual(diagnostics["batch_count"], 1)
         self.assertEqual(diagnostics["batch_refinement_candidates"], 0)
         self.assertTrue(diagnostics["batch_time_limit_reached"])
@@ -276,6 +292,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
             + diagnostics["random_candidates"]
             + diagnostics["boolean_stump_candidates"]
             + diagnostics["boolean_depth2_candidates"]
+            + diagnostics["continuous_one_hot_candidates"]
         )
         self.assertEqual(result.searched_candidates, expected_evaluations)
         self.assertEqual(result.search_diagnostics["batch_refinement_candidates"], 0)
@@ -316,6 +333,37 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertIsNotNone(depth2.second_appendix_b3_alpha_0)
         self.assertEqual(sum(depth2.second_appendix_b3_feature_weights), 1.0)
         self.assertIn(" o[", policy.describe())
+
+    def test_direct_opt_continuous_one_hot_candidates_use_appendix_b3_mixture(self):
+        env = CartpoleEnv.train_env(seed=0)
+        train_states = [env.reset() for _ in range(2)]
+
+        candidates, diagnostics = _continuous_one_hot_candidates(train_states, DirectOptConfig())
+        candidate = next(
+            candidate
+            for candidate in candidates
+            if candidate.continuous_one_hot_alpha_s == 1.0
+            and candidate.continuous_one_hot_feature_weights == (0.0, 0.0, 0.5, 0.5)
+            and candidate.continuous_one_hot_alpha_0 == 0.0
+        )
+        switch = _candidate_switch(candidate)
+        policy = _candidate_policy(candidate)
+
+        self.assertEqual(diagnostics["continuous_one_hot_candidates"], 24)
+        self.assertEqual(diagnostics["continuous_one_hot_candidates_with_appendix_b3_metadata"], 24)
+        self.assertEqual(candidate.switch_kind, "continuous_one_hot")
+        self.assertEqual(sum(candidate.continuous_one_hot_feature_weights), 1.0)
+        self.assertEqual(
+            candidate.first_appendix_b3_feature_weights,
+            candidate.continuous_one_hot_feature_weights,
+        )
+        self.assertEqual(candidate.first_appendix_b3_alpha_s, 1.0)
+        self.assertEqual(candidate.first_appendix_b3_alpha_0, 0.0)
+        self.assertEqual(candidate.operator_one_hot, (1, 0, 0))
+        self.assertIsInstance(switch, DirectOptContinuousOneHotSwitch)
+        self.assertEqual(switch.decide([0.0, 0.0, -0.2, 0.1]), 1)
+        self.assertEqual(switch.decide([0.0, 0.0, 0.2, -0.1]), 0)
+        self.assertIn("0.500*o[2] + 0.500*o[3]", policy.describe())
 
     def test_direct_opt_appendix_b3_vertex_encoding_matches_predicate(self):
         env = CartpoleEnv.train_env(seed=1)
@@ -390,6 +438,65 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertLess(
             len(neighbors),
             len(raw_switches) * 5,
+        )
+
+    def test_direct_opt_continuous_one_hot_local_refinement_preserves_metadata(self):
+        candidate = DirectOptCandidate(
+            theta_weight=0.0,
+            omega_weight=0.0,
+            threshold=0.0,
+            left_force=-10.0,
+            right_force=10.0,
+            train_reward_mean=1.0,
+            train_success_rate=0.0,
+            switch_kind="continuous_one_hot",
+            continuous_one_hot_alpha_s=1.0,
+            continuous_one_hot_feature_weights=(0.0, 0.0, 0.5, 0.5),
+            continuous_one_hot_alpha_0=0.0,
+            continuous_one_hot_operator="leaf",
+        )
+        evaluated: list[tuple[str, float, float]] = []
+
+        def fake_evaluate(switch, left_force, right_force, *_args):
+            evaluated.append((switch.describe(), left_force, right_force))
+            return DirectOptCandidate(
+                theta_weight=0.0,
+                omega_weight=0.0,
+                threshold=0.0,
+                left_force=left_force,
+                right_force=right_force,
+                train_reward_mean=1.0,
+                train_success_rate=0.0,
+                source="batch_local_refinement",
+                switch_kind="continuous_one_hot",
+                continuous_one_hot_alpha_s=switch.first.alpha_s,
+                continuous_one_hot_feature_weights=switch.first.feature_weights,
+                continuous_one_hot_alpha_0=switch.first.alpha_0,
+                continuous_one_hot_operator=switch.operator,
+                first_appendix_b3_alpha_s=switch.first.alpha_s,
+                first_appendix_b3_feature_weights=switch.first.feature_weights,
+                first_appendix_b3_alpha_0=switch.first.alpha_0,
+            )
+
+        with patch("cartpole_direct_opt._evaluate_continuous_one_hot_candidate", side_effect=fake_evaluate):
+            neighbors = _continuous_one_hot_local_neighbor_candidates(
+                candidate,
+                [[0.0, 0.0, 0.0, 0.0]],
+                DirectOptConfig(local_step_fraction=0.25),
+            )
+
+        thresholds = {neighbor.continuous_one_hot_alpha_0 for neighbor in neighbors}
+        self.assertEqual(len(evaluated), len(neighbors))
+        self.assertEqual(len(evaluated), len(set(evaluated)))
+        self.assertTrue(all(neighbor.switch_kind == "continuous_one_hot" for neighbor in neighbors))
+        self.assertIn(-0.0625, thresholds)
+        self.assertIn(0.0625, thresholds)
+        self.assertTrue(
+            all(
+                neighbor.first_appendix_b3_feature_weights
+                == neighbor.continuous_one_hot_feature_weights
+                for neighbor in neighbors
+            )
         )
 
     def test_direct_opt_batch_refinement_preserves_full_train_best_so_far(self):
@@ -471,6 +578,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["algorithm_provenance"]["baseline"], "direct_opt")
         self.assertEqual(metrics["search_diagnostics"]["boolean_stump_candidates"], 24)
         self.assertGreater(metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
+        self.assertEqual(metrics["search_diagnostics"]["continuous_one_hot_candidates"], 24)
         self.assertEqual(metrics["search_diagnostics"]["evaluated_candidates_units"], "candidate_evaluation_calls")
         self.assertEqual(metrics["search_diagnostics"]["parallel_threads"], 1)
         self.assertFalse(metrics["search_diagnostics"]["uses_parallel_candidate_evaluation"])

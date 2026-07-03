@@ -35,9 +35,64 @@ DIRECT_OPT_BOOLEAN_TOP_STUMPS = 4
 DIRECT_OPT_OBSERVATION_FEATURES = ("x", "cart_velocity", "theta", "omega")
 DIRECT_OPT_RELATIONS = (">=", "<=")
 DIRECT_OPT_TREE_OPERATORS = ("leaf", "and", "or")
+DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES = (
+    (0.0, 0.0, 0.5, 0.5),
+    (0.0, 0.0, 0.75, 0.25),
+    (0.0, 0.0, 0.25, 0.75),
+    (0.25, 0.25, 0.25, 0.25),
+)
+DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS = (-0.5, 0.0, 0.5)
 PAPER_DIRECT_OPT_BATCH_SIZE = 10
 PAPER_DIRECT_OPT_PARALLEL_THREADS = 10
 PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS = 7200
+
+
+@dataclass(frozen=True)
+class DirectOptContinuousOneHotPredicate:
+    alpha_s: float
+    feature_weights: Tuple[float, ...]
+    alpha_0: float
+
+    def evaluate(self, observation: Sequence[float]) -> bool:
+        weighted_observation = sum(
+            weight * value
+            for weight, value in zip(self.feature_weights, observation)
+        )
+        return self.alpha_s * weighted_observation <= self.alpha_0
+
+    def describe(self) -> str:
+        terms = " + ".join(
+            f"{weight:.3f}*o[{index}]"
+            for index, weight in enumerate(self.feature_weights)
+            if abs(weight) > 1e-12
+        )
+        return f"{self.alpha_s:.3f}*({terms or '0.000'}) <= {self.alpha_0:.3f}"
+
+
+@dataclass(frozen=True)
+class DirectOptContinuousOneHotSwitch:
+    first: DirectOptContinuousOneHotPredicate
+    second: DirectOptContinuousOneHotPredicate | None = None
+    operator: str = "leaf"
+
+    def decide(self, observation: Sequence[float]) -> int:
+        first_enabled = self.first.evaluate(observation)
+        if self.second is None or self.operator == "leaf":
+            return 1 if first_enabled else 0
+        second_enabled = self.second.evaluate(observation)
+        if self.operator == "and":
+            return 1 if first_enabled and second_enabled else 0
+        if self.operator == "or":
+            return 1 if first_enabled or second_enabled else 0
+        raise ValueError(f"unknown DirectOptContinuousOneHotSwitch operator: {self.operator}")
+
+    def describe(self) -> str:
+        if self.second is None or self.operator == "leaf":
+            return f"mode=1 if {self.first.describe()}, else mode=0"
+        return (
+            f"mode=1 if {self.first.describe()} {self.operator} "
+            f"{self.second.describe()}, else mode=0"
+        )
 
 
 @dataclass
@@ -68,6 +123,10 @@ class DirectOptCandidate:
     train_success_rate: float
     source: str = "grid"
     switch_kind: str = "linear"
+    continuous_one_hot_alpha_s: float | None = None
+    continuous_one_hot_feature_weights: Tuple[float, ...] = ()
+    continuous_one_hot_alpha_0: float | None = None
+    continuous_one_hot_operator: str | None = None
     first_feature: int | None = None
     first_relation: str | None = None
     first_threshold: float | None = None
@@ -112,7 +171,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "paper_baseline": "Direct-Opt",
         "not_paper_scale": True,
         "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
-        "policy_class": "two_mode_constant_action_linear_or_depth2_boolean_tree_switch",
+        "policy_class": "two_mode_constant_action_linear_depth2_boolean_or_continuous_one_hot_switch",
         "selection_objective": "mean_combined_reward_over_selected_initial_states_then_success",
         "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall",
         "paper_batch_size": PAPER_DIRECT_OPT_BATCH_SIZE,
@@ -120,7 +179,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
         "local_parallel_threads": "configurable_via_parallel_threads",
         "local_time_limit_seconds": "configurable_via_time_limit_seconds",
-        "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
+        "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_mixtures",
         "candidate_accounting": (
             "searched_candidates and evaluated_candidates count candidate evaluation calls; "
             "train_rollout_evaluations counts individual selected-state train rollouts"
@@ -131,12 +190,18 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "boolean_tree_operator_choices": list(DIRECT_OPT_TREE_OPERATORS),
         "boolean_tree_threshold_grids": [list(grid) for grid in DIRECT_OPT_BOOLEAN_THRESHOLD_GRIDS],
         "boolean_tree_expansion": "evaluate_all_stumps_then_depth2_expansions_from_top_training_reward_stumps",
+        "continuous_one_hot_feature_mixes": [list(weights) for weights in DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES],
+        "continuous_one_hot_thresholds": list(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS),
+        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_predicates",
         "one_hot_switch_encoding": (
-            "records Appendix B.3 continuous one-hot vertex fields plus bounded discrete metadata for "
-            "feature, relation, and depth-2 tree operator choices; "
-            "does not optimize the paper's continuous one-hot relaxation"
+            "evaluates a bounded Appendix B.3 continuous feature-mixture candidate family and records "
+            "continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, "
+            "and depth-2 tree operator choices; does not optimize the paper's full continuous "
+            "one-hot relaxation"
         ),
-        "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors",
+        "local_refinement": (
+            "linear_weight_threshold_force_neighbors_or_boolean_or_continuous_one_hot_threshold_force_neighbors"
+        ),
         "train_horizon_seconds": CartpoleEnv.train_env().cfg.horizon_seconds,
         "test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "theta_weight_grid": list(DIRECT_OPT_THETA_WEIGHTS),
@@ -146,9 +211,10 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "limitations": (
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
             "It optimizes mean train-horizon reward over the selected initial states and includes "
-            "bounded Boolean-tree switch candidates with one-hot metadata and batch/restart local "
-            "refinement, but is not the paper's two-hour, ten-thread continuous numerical "
-            "optimization over the full one-hot switching grammar."
+            "bounded Boolean-tree switch candidates, a bounded continuous one-hot feature-mixture "
+            "candidate family, and batch/restart local refinement, but is not the paper's "
+            "two-hour, ten-thread continuous numerical optimization over the full one-hot "
+            "switching grammar."
         ),
     }
 
@@ -175,6 +241,7 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "uses_paper_time_limit": selected_time_limit_seconds == PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
         "full_continuous_one_hot_switch_grammar": False,
         "bounded_one_hot_switch_metadata": True,
+        "bounded_continuous_one_hot_switch_relaxation": True,
         "appendix_b3_one_hot_vertex_metadata": True,
         "linear_switch_encoding": True,
         "batch_optimization_seeded_from_best_so_far": cfg.batch_refinement_rounds > 0,
@@ -193,9 +260,10 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "quick_diagnostic": cfg.quick,
         "paper_scale_direct_opt_protocol": False,
         "limitation": (
-            "Bounded local Direct-Opt diagnostic: records batch/restart structure and one-hot "
-            "metadata, but does not run the paper's ten-thread, two-hour continuous optimization "
-            "over the full one-hot switching grammar."
+            "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates "
+            "a bounded continuous one-hot feature-mixture candidate family, but does not run the "
+            "paper's ten-thread, two-hour continuous optimization over the full one-hot "
+            "switching grammar."
         ),
     }
 
@@ -303,6 +371,13 @@ def _direct_opt_candidates(
         else ([], _empty_boolean_diagnostics())
     )
     candidates.extend(boolean_candidates)
+    stopped_after_boolean = deadline.expired()
+    continuous_one_hot_candidates, continuous_one_hot_diagnostics = (
+        _continuous_one_hot_candidates(train_states, cfg, deadline)
+        if not stopped_after_boolean
+        else ([], _empty_continuous_one_hot_diagnostics())
+    )
+    candidates.extend(continuous_one_hot_candidates)
 
     best = max(candidates, key=_candidate_rank_key)
     stopped_before_batch = deadline.expired()
@@ -335,6 +410,7 @@ def _direct_opt_candidates(
         "grid_candidates": len(grid_candidates),
         "random_candidates": len(random_candidates),
         **boolean_diagnostics,
+        **continuous_one_hot_diagnostics,
         "batch_refinement_candidates": len(batch_candidates),
         "parallel_threads": max(1, int(cfg.parallel_threads)),
         "uses_parallel_candidate_evaluation": max(1, int(cfg.parallel_threads)) > 1,
@@ -375,6 +451,13 @@ def _empty_boolean_diagnostics() -> Dict[str, int]:
         "boolean_top_stumps_for_depth2": 0,
         "boolean_candidates_with_one_hot_metadata": 0,
         "boolean_candidates_with_appendix_b3_vertex_metadata": 0,
+    }
+
+
+def _empty_continuous_one_hot_diagnostics() -> Dict[str, int]:
+    return {
+        "continuous_one_hot_candidates": 0,
+        "continuous_one_hot_candidates_with_appendix_b3_metadata": 0,
     }
 
 
@@ -503,6 +586,82 @@ def _boolean_tree_candidates(
         "boolean_candidates_with_one_hot_metadata": len(stump_candidates) + len(depth2_candidates),
         "boolean_candidates_with_appendix_b3_vertex_metadata": len(stump_candidates) + len(depth2_candidates),
     }
+
+
+def _continuous_one_hot_candidates(
+    train_states: List[Sequence[float]],
+    cfg: DirectOptConfig,
+    deadline: _DirectOptDeadline | None = None,
+) -> Tuple[List[DirectOptCandidate], Dict[str, int]]:
+    predicates = [
+        DirectOptContinuousOneHotPredicate(alpha_s, tuple(feature_weights), alpha_0)
+        for feature_weights in DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES
+        for alpha_s in (-1.0, 1.0)
+        for alpha_0 in DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS
+    ]
+    candidates = _evaluate_continuous_one_hot_candidates(
+        [
+            (
+                DirectOptContinuousOneHotSwitch(predicate),
+                min(DIRECT_OPT_FORCE_VALUES),
+                max(DIRECT_OPT_FORCE_VALUES),
+                "continuous_one_hot",
+            )
+            for predicate in predicates
+        ],
+        train_states,
+        cfg,
+        deadline,
+    )
+    return candidates, {
+        "continuous_one_hot_candidates": len(candidates),
+        "continuous_one_hot_candidates_with_appendix_b3_metadata": len(candidates),
+    }
+
+
+def _evaluate_continuous_one_hot_candidates(
+    params: List[Tuple[DirectOptContinuousOneHotSwitch, float, float, str]],
+    train_states: List[Sequence[float]],
+    cfg: DirectOptConfig,
+    deadline: _DirectOptDeadline | None = None,
+) -> List[DirectOptCandidate]:
+    parallel_threads = max(1, int(cfg.parallel_threads))
+    if parallel_threads == 1 or len(params) <= 1:
+        candidates: List[DirectOptCandidate] = []
+        for switch, left_force, right_force, source in params:
+            if deadline is not None and deadline.expired():
+                break
+            candidates.append(
+                _evaluate_continuous_one_hot_candidate(
+                    switch,
+                    left_force,
+                    right_force,
+                    train_states,
+                    source,
+                )
+            )
+        return candidates
+    candidates = []
+    start_index = 0
+    with ThreadPoolExecutor(max_workers=parallel_threads) as executor:
+        while start_index < len(params):
+            if deadline is not None and deadline.expired():
+                break
+            chunk = params[start_index : start_index + parallel_threads]
+            start_index += parallel_threads
+            futures = [
+                executor.submit(
+                    _evaluate_continuous_one_hot_candidate,
+                    switch,
+                    left_force,
+                    right_force,
+                    train_states,
+                    source,
+                )
+                for switch, left_force, right_force, source in chunk
+            ]
+            candidates.extend(future.result() for future in futures)
+    return candidates
 
 
 def _evaluate_boolean_candidates(
@@ -661,6 +820,8 @@ def _local_neighbor_candidates(
     cfg: DirectOptConfig,
     deadline: _DirectOptDeadline | None = None,
 ) -> List[DirectOptCandidate]:
+    if candidate.switch_kind == "continuous_one_hot":
+        return _continuous_one_hot_local_neighbor_candidates(candidate, train_states, cfg, deadline)
     if candidate.switch_kind == "boolean_tree":
         return _boolean_local_neighbor_candidates(candidate, train_states, cfg)
     return _evaluate_candidate_params(
@@ -764,6 +925,68 @@ def _boolean_local_neighbor_candidates(
     )
 
 
+def _continuous_one_hot_local_neighbor_candidates(
+    candidate: DirectOptCandidate,
+    train_states: List[Sequence[float]],
+    cfg: DirectOptConfig,
+    deadline: _DirectOptDeadline | None = None,
+) -> List[DirectOptCandidate]:
+    switch = _candidate_switch(candidate)
+    if not isinstance(switch, DirectOptContinuousOneHotSwitch):
+        return []
+    force_lower = min(DIRECT_OPT_FORCE_VALUES)
+    force_upper = max(DIRECT_OPT_FORCE_VALUES)
+    force_step = (force_upper - force_lower) * max(0.0, cfg.local_step_fraction)
+    threshold_step = DIRECT_OPT_THRESHOLD_SCALE * max(0.0, cfg.local_step_fraction)
+    threshold_lower = min(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS)
+    threshold_upper = max(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS)
+    switches = [
+        switch,
+        DirectOptContinuousOneHotSwitch(
+            DirectOptContinuousOneHotPredicate(
+                switch.first.alpha_s,
+                switch.first.feature_weights,
+                _clamp(switch.first.alpha_0 + threshold_step, threshold_lower, threshold_upper),
+            ),
+            operator=switch.operator,
+        ),
+        DirectOptContinuousOneHotSwitch(
+            DirectOptContinuousOneHotPredicate(
+                switch.first.alpha_s,
+                switch.first.feature_weights,
+                _clamp(switch.first.alpha_0 - threshold_step, threshold_lower, threshold_upper),
+            ),
+            operator=switch.operator,
+        ),
+    ]
+    params = [
+        (
+            local_switch,
+            _clamp(candidate.left_force + delta_left, force_lower, force_upper),
+            _clamp(candidate.right_force + delta_right, force_lower, force_upper),
+            "batch_local_refinement",
+        )
+        for local_switch in switches
+        for delta_left, delta_right in (
+            (0.0, 0.0),
+            (force_step, 0.0),
+            (-force_step, 0.0),
+            (0.0, force_step),
+            (0.0, -force_step),
+        )
+    ]
+    unique: Dict[
+        Tuple[str, float, float, str],
+        Tuple[DirectOptContinuousOneHotSwitch, float, float, str],
+    ] = {}
+    for local_switch, left_force, right_force, source in params:
+        unique.setdefault(
+            (local_switch.describe(), left_force, right_force, source),
+            (local_switch, left_force, right_force, source),
+        )
+    return _evaluate_continuous_one_hot_candidates(list(unique.values()), train_states, cfg, deadline)
+
+
 def _candidate_rank_key(candidate: DirectOptCandidate) -> Tuple[float, float, float]:
     return (
         candidate.train_reward_mean,
@@ -817,8 +1040,27 @@ def _evaluate_boolean_candidate(
     )
 
 
+def _evaluate_continuous_one_hot_candidate(
+    switch: DirectOptContinuousOneHotSwitch,
+    left_force: float,
+    right_force: float,
+    train_states: List[Sequence[float]],
+    source: str,
+) -> DirectOptCandidate:
+    return _evaluate_switch_candidate(
+        switch,
+        left_force,
+        right_force,
+        train_states,
+        source,
+        theta_weight=0.0,
+        omega_weight=0.0,
+        threshold=0.0,
+    )
+
+
 def _evaluate_switch_candidate(
-    switch: Depth2Switch | BooleanTreeSwitch,
+    switch: Depth2Switch | BooleanTreeSwitch | DirectOptContinuousOneHotSwitch,
     left_force: float,
     right_force: float,
     train_states: List[Sequence[float]],
@@ -849,7 +1091,7 @@ def _evaluate_switch_candidate(
 
 
 def _candidate_from_switch(
-    switch: Depth2Switch | BooleanTreeSwitch,
+    switch: Depth2Switch | BooleanTreeSwitch | DirectOptContinuousOneHotSwitch,
     left_force: float,
     right_force: float,
     train_reward_mean: float,
@@ -859,6 +1101,26 @@ def _candidate_from_switch(
     omega_weight: float = 0.0,
     threshold: float = 0.0,
 ) -> DirectOptCandidate:
+    if isinstance(switch, DirectOptContinuousOneHotSwitch):
+        return DirectOptCandidate(
+            theta_weight=theta_weight,
+            omega_weight=omega_weight,
+            threshold=threshold,
+            left_force=left_force,
+            right_force=right_force,
+            train_reward_mean=train_reward_mean,
+            train_success_rate=train_success_rate,
+            source=source,
+            switch_kind="continuous_one_hot",
+            continuous_one_hot_alpha_s=switch.first.alpha_s,
+            continuous_one_hot_feature_weights=switch.first.feature_weights,
+            continuous_one_hot_alpha_0=switch.first.alpha_0,
+            continuous_one_hot_operator=switch.operator,
+            first_appendix_b3_alpha_s=switch.first.alpha_s,
+            first_appendix_b3_feature_weights=switch.first.feature_weights,
+            first_appendix_b3_alpha_0=switch.first.alpha_0,
+            operator_one_hot=_operator_one_hot(switch.operator),
+        )
     if isinstance(switch, BooleanTreeSwitch):
         first_alpha_s, first_feature_weights, first_alpha_0 = _appendix_b3_predicate_encoding(switch.first)
         second_alpha_s: float | None = None
@@ -923,7 +1185,18 @@ def _candidate_policy(candidate: DirectOptCandidate) -> SynthesizedCartpolePSM:
     )
 
 
-def _candidate_switch(candidate: DirectOptCandidate) -> Depth2Switch | BooleanTreeSwitch:
+def _candidate_switch(
+    candidate: DirectOptCandidate,
+) -> Depth2Switch | BooleanTreeSwitch | DirectOptContinuousOneHotSwitch:
+    if candidate.switch_kind == "continuous_one_hot":
+        return DirectOptContinuousOneHotSwitch(
+            DirectOptContinuousOneHotPredicate(
+                float(candidate.continuous_one_hot_alpha_s),
+                tuple(candidate.continuous_one_hot_feature_weights),
+                float(candidate.continuous_one_hot_alpha_0),
+            ),
+            operator=candidate.continuous_one_hot_operator or "leaf",
+        )
     if candidate.switch_kind == "boolean_tree":
         first = ObservationPredicate(
             int(candidate.first_feature),
@@ -1036,6 +1309,8 @@ def _unique_boolean_neighbor_params(
 
 
 def _candidate_threshold_magnitude(candidate: DirectOptCandidate) -> float:
+    if candidate.switch_kind == "continuous_one_hot":
+        return abs(float(candidate.continuous_one_hot_alpha_0 or 0.0))
     if candidate.switch_kind != "boolean_tree":
         return abs(candidate.threshold)
     thresholds = [

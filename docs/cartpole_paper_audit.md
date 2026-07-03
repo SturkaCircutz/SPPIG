@@ -51,12 +51,13 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py`: bounded diagnostic Direct-Opt
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
-  tree-operator metadata, plus a local batch/restart refinement seeded from the best candidate so far.
+  tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot feature-mixture
+  candidates and a local batch/restart refinement seeded from the best candidate so far.
   Candidate selection optimizes mean train-horizon reward over the selected initial states, then
   success as a tie-breaker. This records exact search grids, search diagnostics, and selected program
   provenance, and can evaluate candidate pools with a configurable local thread count and optional
   wall-clock stop. It is still not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
-  `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, full continuous
+  `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, bounded versus full continuous
   one-hot grammar, combined-reward optimization over all selected finite training states, full test horizon, and `1000`-rollout evaluation;
   the full Direct-Opt protocol flag remains false for the bounded diagnostic.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
@@ -215,10 +216,10 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train reward mean `250.0`, test reward mean `4311.0`. The selected bounded two-mode policy is
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
-  implementation optimizes mean reward over all selected finite initial states and records bounded
-  Boolean-tree switch-candidate one-hot metadata, Appendix B.3 continuous one-hot vertex fields, and
-  batch/restart diagnostics to mirror part of the paper baseline's grammar and batch seeding
-  structure. Candidate pools can now be evaluated with configurable local parallel threads and an
+  implementation optimizes mean reward over all selected finite initial states, evaluates bounded
+  Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot feature-mixture
+  candidates, and records batch/restart diagnostics to mirror part of the paper baseline's grammar
+  and batch seeding structure. Candidate pools can now be evaluated with configurable local parallel threads and an
   optional wall-clock stop, and diagnostics record the selected thread count and time-limit status.
   Its diagnostics separate candidate evaluation calls from individual selected-state train rollout
   evaluations, while keeping `not_paper_scale` true.
@@ -539,6 +540,12 @@ paper-scale PPO2 runs.
   verifies that the Direct-Opt diagnostic evaluates serializable depth-2 Boolean-tree switch
   candidates from the Cartpole switch grammar and records bounded one-hot feature/relation/operator
   metadata for those candidates.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_candidates_use_appendix_b3_mixture`
+  verifies that the Direct-Opt diagnostic evaluates bounded Appendix B.3-style continuous one-hot
+  feature-mixture candidates and serializes their vertex fields.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_local_refinement_preserves_metadata`
+  verifies that local Direct-Opt refinement preserves continuous one-hot metadata while varying the
+  bounded threshold and force parameters.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_cli_writes_metrics_json` verifies that the
   Direct-Opt CLI writes config, selected candidate, train/test metrics, search diagnostics, and
   provenance JSON.
