@@ -382,6 +382,18 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(first_teacher_summary["trace_count"], 2)
         self.assertIn("teacher_source_counts", first_teacher_summary)
+        first_components = first_teacher_summary["objective_component_summary"]
+        self.assertEqual(first_components["reward_term"]["count"], 2)
+        self.assertIn("direct_objective", first_components)
+        self.assertEqual(
+            first_components["direct_objective"]["count"],
+            first_teacher_summary["recorded_teacher_objective_direct_count"],
+        )
+        self.assertEqual(
+            first_components["refinement_objective"]["count"],
+            first_teacher_summary["recorded_teacher_refinement_objective_count"],
+        )
+        self.assertIn("refinement_minus_direct_objective", first_components)
         self.assertEqual(
             first_teacher_summary["teacher_reward_lambda"],
             metrics["config"]["teacher_reward_lambda"],
@@ -400,6 +412,24 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(second_teacher_summary["trace_count"], 2)
         self.assertGreaterEqual(second_teacher_summary["recorded_student_log_probability_count"], 1)
         self.assertGreater(second_teacher_summary["recorded_student_log_probability_fraction"], 0.0)
+        second_components = second_teacher_summary["objective_component_summary"]
+        self.assertEqual(
+            second_components["student_log_probability"]["count"],
+            second_teacher_summary["recorded_student_log_probability_count"],
+        )
+        self.assertEqual(
+            second_components["student_regularizer_term"]["count"],
+            second_teacher_summary["recorded_student_log_probability_count"],
+        )
+        self.assertEqual(
+            second_components["direct_objective_formula_residual"]["count"],
+            second_teacher_summary["recorded_student_log_probability_count"],
+        )
+        if second_components["direct_objective_formula_residual"]["count"]:
+            self.assertAlmostEqual(
+                second_components["direct_objective_formula_residual"]["mean"],
+                0.0,
+            )
         self.assertEqual(second_teacher_summary["recorded_teacher_objective_direct_count"], 2)
         self.assertEqual(second_teacher_summary["recorded_teacher_refinement_objective_count"], 2)
         status = metrics["paper_protocol_status"]

@@ -273,7 +273,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - Programmatic-state-machine synthesis can now write metrics JSON containing the synthesis config,
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
   compact teacher-trace examples with segment-duration and time-increment schedules, per-teacher/student-iteration
-  `synthesis_history`, compact adaptive-teacher objective summaries, number of teacher traces,
+  `synthesis_history`, compact adaptive-teacher objective summaries with reward-term,
+  student-regularizer-term, direct-objective, and refinement-objective component accounting, number of teacher traces,
   optional full selected-teacher-trace/per-iteration trace-history sidecar paths, evaluation settings,
   switch-fit diagnostics, and train/test metrics.
 - The Cartpole deterministic and probabilistic PSM executors, plus the local bang-bang evaluator and

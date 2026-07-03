@@ -242,14 +242,29 @@ def _mean_or_none(values: list[float]):
     return sum(values) / len(values) if values else None
 
 
+def _summary_stats(values: list[float]):
+    return {
+        "count": len(values),
+        "mean": _mean_or_none(values),
+        "min": min(values) if values else None,
+        "max": max(values) if values else None,
+    }
+
+
 def summarize_adaptive_teacher_iteration(
     entry: CartpoleSynthesisIteration,
     cfg: CartpoleSynthesisConfig,
 ):
     traces = entry.traces
     rewards = [trace.reward for trace in traces]
+    reward_terms = [cfg.teacher_reward_lambda * trace.reward for trace in traces]
     log_probabilities = [
         trace.student_log_probability
+        for trace in traces
+        if trace.student_log_probability is not None
+    ]
+    regularizer_terms = [
+        cfg.teacher_student_regularizer * trace.student_log_probability
         for trace in traces
         if trace.student_log_probability is not None
     ]
@@ -268,6 +283,22 @@ def summarize_adaptive_teacher_iteration(
         + cfg.teacher_student_regularizer * trace.student_log_probability
         for trace in traces
         if trace.student_log_probability is not None
+    ]
+    direct_objective_residuals = [
+        trace.teacher_objective
+        - (
+            cfg.teacher_reward_lambda * trace.reward
+            + cfg.teacher_student_regularizer * trace.student_log_probability
+        )
+        for trace in traces
+        if trace.teacher_objective is not None
+        and trace.student_log_probability is not None
+    ]
+    refinement_objective_deltas = [
+        trace.teacher_refinement_objective - trace.teacher_objective
+        for trace in traces
+        if trace.teacher_refinement_objective is not None
+        and trace.teacher_objective is not None
     ]
     source_counts: dict[str, int] = {}
     for trace in traces:
@@ -288,6 +319,15 @@ def summarize_adaptive_teacher_iteration(
         "teacher_student_regularizer": cfg.teacher_student_regularizer,
         "trace_count": len(traces),
         "teacher_source_counts": source_counts,
+        "objective_component_summary": {
+            "reward_term": _summary_stats(reward_terms),
+            "student_log_probability": _summary_stats(log_probabilities),
+            "student_regularizer_term": _summary_stats(regularizer_terms),
+            "direct_objective": _summary_stats(teacher_objectives),
+            "direct_objective_formula_residual": _summary_stats(direct_objective_residuals),
+            "refinement_objective": _summary_stats(teacher_refinement_objectives),
+            "refinement_minus_direct_objective": _summary_stats(refinement_objective_deltas),
+        },
         "reward_mean": _mean_or_none(rewards),
         "reward_min": min(rewards) if rewards else None,
         "reward_max": max(rewards) if rewards else None,

@@ -137,7 +137,8 @@ The top-level
 `adaptive_teacher_summary` array records each iteration's teacher sampling
 model, teacher-source counts, reward summary, recorded student log-probability
 coverage, and the recorded reward-plus-student-likelihood objective components
-when available.
+when available, including reward-term, student-regularizer-term, direct-objective,
+and refinement-objective summaries.
 Pass `--traces-output path/to/traces.json` to write the full selected teacher
 traces and per-iteration teacher-trace history as a sidecar artifact;
 orchestrated reproduction runs write this sidecar for each PSM row automatically.
