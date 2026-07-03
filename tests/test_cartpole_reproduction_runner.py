@@ -374,7 +374,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["teacher_search"]["elite_distance_metric"],
-                "normalized_l2_over_teacher_gains_segment_actions_durations_and_time_increments",
+                "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments",
             )
             self.assertEqual(provenance["teacher_search"]["elite_distance_action_scale"], "max_abs_segment_action_floor_1")
             self.assertEqual(
@@ -518,7 +518,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distance_metric"],
-                "normalized_l2_over_teacher_gains_segment_actions_durations_and_time_increments",
+                "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distance_action_scale"],

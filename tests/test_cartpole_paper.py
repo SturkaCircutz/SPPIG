@@ -1999,19 +1999,42 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertGreater(_loop_free_trace_distance(reference, same_schedule_different_gains), 0.0)
 
+    def test_cartpole_teacher_elite_distance_includes_recorded_modes(self):
+        reference = CartpoleTrace(
+            observations=[],
+            actions=[10.0, 10.0],
+            mode_labels=[0, 1],
+            reward=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_durations=(1, 1),
+        )
+        same_schedule_different_modes = CartpoleTrace(
+            observations=[],
+            actions=[10.0, 10.0],
+            mode_labels=[1, 1],
+            reward=0.0,
+            segment_actions=(10.0, 10.0),
+            segment_durations=(1, 1),
+        )
+
+        self.assertEqual(
+            _loop_free_trace_distance(reference, same_schedule_different_modes),
+            1.0,
+        )
+
     def test_cartpole_teacher_elite_distance_normalizes_actions(self):
         left = CartpoleTrace(
             observations=[],
-            actions=[],
-            mode_labels=[],
+            actions=[-10.0],
+            mode_labels=[0],
             reward=0.0,
             segment_actions=(-10.0,),
             segment_durations=(1,),
         )
         right = CartpoleTrace(
             observations=[],
-            actions=[],
-            mode_labels=[],
+            actions=[10.0],
+            mode_labels=[0],
             reward=0.0,
             segment_actions=(10.0,),
             segment_durations=(1,),

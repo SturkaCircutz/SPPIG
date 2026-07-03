@@ -227,7 +227,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
                 "teacher_objective",
                 "teacher_refinement_objective",
             ],
-            "elite_distance_metric": "normalized_l2_over_teacher_gains_segment_actions_durations_and_time_increments",
+            "elite_distance_metric": (
+                "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments"
+            ),
             "elite_distance_action_scale": "max_abs_segment_action_floor_1",
             "elite_distance_duration_scale_floor": TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR,
             "bootstrap_source": "probabilistic_student_prior",
@@ -2242,6 +2244,8 @@ def _loop_free_trace_distance(left: CartpoleTrace, right: CartpoleTrace) -> floa
     right_durations = right.segment_durations or _mode_run_lengths(right.mode_labels)
     left_increments = _distance_time_increments(left.segment_time_increments, left_durations)
     right_increments = _distance_time_increments(right.segment_time_increments, right_durations)
+    left_modes = _segment_modes_from_trace(left, left_actions, left_durations)
+    right_modes = _segment_modes_from_trace(right, right_actions, right_durations)
     length = max(
         len(left_actions),
         len(right_actions),
@@ -2249,6 +2253,8 @@ def _loop_free_trace_distance(left: CartpoleTrace, right: CartpoleTrace) -> floa
         len(right_durations),
         len(left_increments),
         len(right_increments),
+        len(left_modes),
+        len(right_modes),
     )
     if length == 0:
         return 0.0
@@ -2280,6 +2286,9 @@ def _loop_free_trace_distance(left: CartpoleTrace, right: CartpoleTrace) -> floa
         right_duration = right_durations[index] if index < len(right_durations) else 0
         left_increment = left_increments[index] if index < len(left_increments) else 0.0
         right_increment = right_increments[index] if index < len(right_increments) else 0.0
+        left_mode = left_modes[index] if index < len(left_modes) else 0
+        right_mode = right_modes[index] if index < len(right_modes) else 0
+        total += float(left_mode != right_mode)
         total += ((left_action - right_action) / action_scale) ** 2
         total += ((left_duration - right_duration) / duration_scale) ** 2
         total += ((left_increment - right_increment) / increment_scale) ** 2
