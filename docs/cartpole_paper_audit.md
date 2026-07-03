@@ -357,7 +357,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   uncapped job count for the selected search space in a manifest. It writes machine-readable
   `paper_protocol_status` flags to distinguish full
   paper-scale plans from quick/truncated/grid-diagnostic or dry-run diagnostics and to mark
-  paper-scale execution only when all planned jobs complete with zero failures. The full-plan flag
+  paper-scale execution only when all planned jobs complete with zero failures. The status block
+  records selected and distinct seed/policy lists so duplicate entries cannot masquerade as the
+  paper's five-seed/two-baseline protocol. The full-plan flag
   now requires `paper-random` mode with 10 samples per policy, five seeds, both PPO MLP and PPO-LSTM,
   `10^7` timesteps, and the full 15,000-step/300-second test horizon. Grid mode remains available as
   a local diagnostic extension. Paper-scale execution additionally requires the planned job count to

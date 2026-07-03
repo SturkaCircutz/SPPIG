@@ -283,6 +283,7 @@ def paper_protocol_status(
     clip_ranges = _parse_floats(args.clip_ranges)
     learning_rates = _parse_floats(args.learning_rates)
     requested_policy_set = set(policies)
+    distinct_seeds = sorted(set(seeds))
     full_baseline_policy_set = requested_policy_set == {"mlp", "lstm"} and len(policies) == 2
     grid_mode = args.hyperparam_mode == "grid"
     paper_random_mode = args.hyperparam_mode == "paper-random"
@@ -346,7 +347,12 @@ def paper_protocol_status(
         "selected_eval_rollouts": int(args.eval_rollouts),
         "uses_paper_eval_rollouts": paper_eval_rollouts,
         "paper_seed_count": paper_seed_count,
+        "selected_seeds": seeds,
+        "distinct_seeds": distinct_seeds,
         "selected_seed_count": len(seeds),
+        "distinct_seed_count": len(distinct_seeds),
+        "selected_policies": policies,
+        "distinct_policies": sorted(requested_policy_set),
         "includes_ppo_mlp": "mlp" in requested_policy_set,
         "includes_ppo_lstm": "lstm" in requested_policy_set,
         "full_baseline_policy_set": full_baseline_policy_set,

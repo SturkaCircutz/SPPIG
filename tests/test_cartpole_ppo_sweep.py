@@ -410,6 +410,12 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(status["paper_eval_rollouts"], 1000)
         self.assertEqual(status["selected_eval_rollouts"], 1000)
         self.assertTrue(status["uses_paper_eval_rollouts"])
+        self.assertEqual(status["selected_seeds"], [0, 1, 2, 3, 4])
+        self.assertEqual(status["distinct_seeds"], [0, 1, 2, 3, 4])
+        self.assertEqual(status["selected_seed_count"], 5)
+        self.assertEqual(status["distinct_seed_count"], 5)
+        self.assertEqual(status["selected_policies"], ["mlp", "lstm"])
+        self.assertEqual(status["distinct_policies"], ["lstm", "mlp"])
         self.assertTrue(status["paper_seed_count"])
         self.assertTrue(status["full_baseline_policy_set"])
         self.assertEqual(status["hyperparam_mode"], "paper-random")
@@ -493,6 +499,10 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
         status = paper_protocol_status(args, jobs_planned=10, jobs_completed=10, jobs_failed=0)
 
+        self.assertEqual(status["selected_seeds"], [0, 0, 0, 0, 0])
+        self.assertEqual(status["distinct_seeds"], [0])
+        self.assertEqual(status["selected_seed_count"], 5)
+        self.assertEqual(status["distinct_seed_count"], 1)
         self.assertFalse(status["paper_seed_count"])
         self.assertFalse(status["paper_scale_plan"])
         self.assertFalse(status["paper_scale_execution"])
@@ -599,6 +609,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
         self.assertTrue(status["includes_ppo_mlp"])
         self.assertTrue(status["includes_ppo_lstm"])
+        self.assertEqual(status["selected_policies"], ["mlp", "lstm", "lstm"])
+        self.assertEqual(status["distinct_policies"], ["lstm", "mlp"])
         self.assertFalse(status["full_baseline_policy_set"])
         self.assertFalse(status["paper_scale_plan"])
 

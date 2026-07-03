@@ -352,7 +352,8 @@ both the jobs actually planned and the uncapped job count for the selected
 search space, the concrete sampled hyperparameter configs, plus
 `paper_protocol_status` flags showing whether the plan is paper-scale, whether
 all planned jobs completed with zero failures, whether it is quick/truncated or
-dry-run only, and whether both PPO MLP and PPO-LSTM are included. By default the
+dry-run only, the selected and distinct seed/policy lists, and whether both PPO
+MLP and PPO-LSTM are included. By default the
 sweep now uses `--hyperparam-mode paper-random`, which
 plans 10 uniformly sampled PPO hyperparameter configs per policy from the
 reported ranges and evaluates each config for every selected seed, with
