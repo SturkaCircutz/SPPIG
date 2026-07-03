@@ -153,6 +153,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         "switch_search": {
             "boolean_tree_depth": 2,
             "greedy_second_predicate_expands_switch_and_no_switch_leaves": True,
+            "greedy_second_predicate_prefilter_top_k": SWITCH_STRUCTURE_RESCORING_TOP_K,
             "structure_label_objective": (
                 "responsibility_weighted_expected_label_loss_when_available_else_hard_label_mistakes"
             ),
@@ -3487,11 +3488,15 @@ def _threshold_label_mistakes(
 def _prefilter_switches_by_label_mistakes(
     candidates: List[Tuple[SwitchProgram, int]],
 ) -> List[SwitchProgram]:
-    if len(candidates) <= SWITCH_STRUCTURE_RESCORING_TOP_K:
-        return [switch for switch, _ in candidates]
-    ranked_mistakes = sorted(mistakes for _, mistakes in candidates)
-    cutoff = ranked_mistakes[SWITCH_STRUCTURE_RESCORING_TOP_K - 1]
-    return [switch for switch, mistakes in candidates if mistakes <= cutoff]
+    ranked = sorted(
+        candidates,
+        key=lambda item: (
+            item[1],
+            item[0].node_count if isinstance(item[0], BooleanTreeSwitch) else 1,
+            item[0].describe(),
+        ),
+    )
+    return [switch for switch, _ in ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]]
 
 
 def _greedy_boolean_tree_candidates(
@@ -3549,7 +3554,12 @@ def _greedy_boolean_tree_candidates(
     if conjunctions:
         result.append(
             _best_switch(
-                conjunctions,
+                _prefilter_switches_by_label_mistakes(
+                    [
+                        (switch, _switch_label_mistakes(switch, examples, switch_examples))
+                        for switch in conjunctions
+                    ]
+                ),
                 examples,
                 segments_by_trace,
                 responsibilities,
@@ -3560,7 +3570,12 @@ def _greedy_boolean_tree_candidates(
     if disjunctions:
         result.append(
             _best_switch(
-                disjunctions,
+                _prefilter_switches_by_label_mistakes(
+                    [
+                        (switch, _switch_label_mistakes(switch, examples, switch_examples))
+                        for switch in disjunctions
+                    ]
+                ),
                 examples,
                 segments_by_trace,
                 responsibilities,

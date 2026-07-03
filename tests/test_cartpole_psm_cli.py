@@ -151,6 +151,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
         self.assertTrue(provenance["switch_search"]["greedy_second_predicate_expands_switch_and_no_switch_leaves"])
+        self.assertEqual(provenance["switch_search"]["greedy_second_predicate_prefilter_top_k"], 32)
         self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
         self.assertEqual(provenance["switch_search"]["max_threshold_candidates"], 64)
         self.assertEqual(provenance["switch_search"]["distribution_rescore_top_k"], 32)

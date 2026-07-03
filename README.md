@@ -184,10 +184,11 @@ the CartPole simulator step, so per-segment time increments influence the
 bounded Eq. (12)-style timing terms.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
-plus bounded coordinate steps and finite-difference gradient polishing with backtracking. Switch structures are
-prefiltered by a cheaper hard-label/timing objective, then the top 32 are
-ranked first by responsibility-weighted expected label loss over non-boundary
-segment observations and then by this bounded distribution-timing objective.
+plus bounded coordinate steps and finite-difference gradient polishing with backtracking. Depth-2 Boolean-tree
+expansions and final switch candidates are prefiltered by a cheaper hard-label/timing
+objective, then bounded top-32 subsets are ranked first by
+responsibility-weighted expected label loss over non-boundary segment
+observations and then by this bounded distribution-timing objective.
 The teacher regularizer scores both action
 likelihood and switch timing under the current student's Gaussian switch
 distributions. The teacher objective uses the

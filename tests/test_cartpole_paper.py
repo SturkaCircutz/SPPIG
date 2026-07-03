@@ -63,6 +63,7 @@ from cartpole_synthesis import (
     _mode_run_actions,
     _optimize_loop_free_trace,
     _loop_free_trace_distance,
+    _prefilter_switches_by_label_mistakes,
     _refine_responsibilities_with_switch_timing,
     _refine_loop_free_trace,
     _refine_switch_distribution_means,
@@ -1193,6 +1194,24 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(selected), 32)
         self.assertIn(Depth2Switch(1.0, 0.0, 0.0), selected)
         self.assertNotIn(Depth2Switch(1.0, 0.0, 1.29), selected)
+
+    def test_cartpole_switch_prefilter_caps_tied_candidates_deterministically(self):
+        best = BooleanTreeSwitch(ObservationPredicate(2, ">=", 0.0))
+        tied = [
+            (BooleanTreeSwitch(ObservationPredicate(2, ">=", threshold / 100.0)), 0)
+            for threshold in range(80)
+        ]
+        worse = [
+            (BooleanTreeSwitch(ObservationPredicate(3, ">=", threshold / 100.0)), 1)
+            for threshold in range(10)
+        ]
+
+        selected = _prefilter_switches_by_label_mistakes([(best, 0), *worse, *tied])
+
+        self.assertEqual(len(selected), 32)
+        self.assertIn(best, selected)
+        self.assertTrue(all(_switch.node_count == 1 for _switch in selected))
+        self.assertNotIn(worse[0][0], selected)
 
     def test_cartpole_depth2_prefilter_mistakes_match_switch_cost(self):
         examples = [

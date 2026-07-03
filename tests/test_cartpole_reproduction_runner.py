@@ -285,6 +285,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(
                 provenance["switch_search"]["greedy_second_predicate_expands_switch_and_no_switch_leaves"]
             )
+            self.assertEqual(provenance["switch_search"]["greedy_second_predicate_prefilter_top_k"], 32)
             self.assertIn(50.0, provenance["switch_search"]["oblique_theta_weights"])
             self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
             self.assertEqual(

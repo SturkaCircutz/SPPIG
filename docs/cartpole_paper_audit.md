@@ -223,8 +223,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   likelihood, while using responsibility-weighted expected label loss over non-boundary segment
   observations as the primary structure/refinement label objective when soft EM responsibilities are
   available. This moves the switch M-step closer to the paper's latent-responsibility objective, but
-  remains a diagnostic approximation: switch structure is prefiltered by a cheaper hard-label/timing
-  objective before bounded distribution rescoring, depth-2 Boolean-tree probabilities use a
+  remains a diagnostic approximation: second-predicate Boolean-tree expansions and final switch
+  structures are prefiltered by a cheaper hard-label/timing objective before bounded top-32
+  distribution rescoring, depth-2 Boolean-tree probabilities use a
   shared-threshold rectangle-union calculation, and this is not the paper's full continuous
   switch-parameter optimizer.
 - The first Cartpole teacher iteration now samples from an explicit probabilistic student prior, and
@@ -644,6 +645,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_greedy_boolean_tree_expansion_improves_stump`
   verifies that the greedy Boolean-tree expansion can choose a depth-2 switch when it improves over
   the best depth-1 stump.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_prefilter_caps_tied_candidates_deterministically`
+  verifies that tied switch-structure candidates are capped to a deterministic top-32 subset before
+  bounded distribution rescoring.
 - `tests/test_cartpole_paper.py::test_cartpole_boolean_tree_switch_has_gaussian_parameter_per_predicate`
   verifies that a depth-2 Boolean-tree switch gets one Gaussian threshold distribution per predicate.
 - `tests/test_cartpole_paper.py::test_cartpole_sampled_switch_uses_gaussian_thresholds` verifies
