@@ -963,7 +963,7 @@
           "student_sample_fraction_after_first_iteration": 1.0,
           "student_sample_local_refinement": "duration_time_increment_continuous_action_and_finite_difference_schedule_search",
           "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
-          "student_sample_segment_budget": "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
+          "student_sample_segment_budget": "preserve_sampled_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
           "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
           "theta_refinement_min_delta": 0.1,
           "time_increment_gradient_epsilon_fraction": 0.05,
@@ -2066,10 +2066,10 @@
         }
       ],
       "test": {
-        "reward_mean": 41.75,
-        "steps_mean": 41.75,
+        "reward_mean": 55.9,
+        "steps_mean": 55.9,
         "success_rate": 0.0,
-        "survival_seconds_mean": 0.835
+        "survival_seconds_mean": 1.118
       },
       "test_horizon_steps": 15000,
       "test_max_steps": 15000,
@@ -2623,10 +2623,10 @@
         }
       },
       "train": {
-        "reward_mean": 33.65,
-        "steps_mean": 33.65,
+        "reward_mean": 41.15,
+        "steps_mean": 41.15,
         "success_rate": 0.0,
-        "survival_seconds_mean": 0.6729999999999999
+        "survival_seconds_mean": 0.823
       },
       "train_reward": 41.15,
       "train_steps": 41.15,

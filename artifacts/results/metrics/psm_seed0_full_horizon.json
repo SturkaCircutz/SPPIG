@@ -217,7 +217,7 @@
       "student_sample_fraction_after_first_iteration": 1.0,
       "student_sample_local_refinement": "duration_time_increment_continuous_action_and_finite_difference_schedule_search",
       "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
-      "student_sample_segment_budget": "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
+      "student_sample_segment_budget": "preserve_sampled_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
       "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
       "theta_refinement_min_delta": 0.1,
       "time_increment_gradient_epsilon_fraction": 0.05,

@@ -1802,15 +1802,21 @@ class CartpolePaperTest(unittest.TestCase):
             responsibilities=[(0.5, 0.5)],
         )
         matching_trace = CartpoleTrace(
-            observations=[[0.0, 0.0, 0.0, 0.0]],
-            actions=[10.0],
-            mode_labels=[1],
+            observations=[
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, 10.0],
+            mode_labels=[0, 1],
             reward=1.0,
         )
         mismatched_trace = CartpoleTrace(
-            observations=[[0.0, 0.0, 0.0, 0.0]],
-            actions=[0.0],
-            mode_labels=[1],
+            observations=[
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, 0.0],
+            mode_labels=[0, 1],
             reward=2.0,
         )
 
@@ -2450,6 +2456,31 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertTrue(all(duration <= cfg.segment_steps for duration in trace.segment_durations))
         self.assertEqual(len(trace.segment_actions), len(trace.segment_durations))
         self.assertEqual(sum(trace.segment_durations), len(trace.actions))
+
+    def test_cartpole_student_sample_projection_preserves_action_runs(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(segment_steps=3, segments_per_trace=3)
+        raw_trace = CartpoleTrace(
+            observations=[[0.0, 0.0, 0.0, 0.0] for _ in range(7)],
+            actions=(-10.0, -10.0, 10.0, 10.0, 10.0, -10.0, -10.0),
+            mode_labels=[0, 0, 1, 1, 1, 0, 0],
+            reward=7.0,
+            segment_actions=(-10.0, 10.0, -10.0),
+            segment_durations=(2, 3, 2),
+            teacher_source="student_sample",
+        )
+
+        trace = _limit_loop_free_trace_segment_budget(
+            raw_trace,
+            [0.0, 0.0, -0.1, -1.0],
+            env.cfg,
+            cfg,
+        )
+
+        self.assertEqual(trace.segment_actions, (-10.0, 10.0, -10.0))
+        self.assertEqual(trace.segment_durations, (2, 3, 2))
+        self.assertTrue(all(action in {-10.0, 10.0} for action in trace.segment_actions))
+        self.assertEqual(len(trace.segment_time_increments), len(trace.segment_durations))
 
     def test_cartpole_projected_student_sample_recomputes_student_log_probability(self):
         env = CartpoleEnv.train_env(seed=0)

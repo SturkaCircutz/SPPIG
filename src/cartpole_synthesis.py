@@ -204,7 +204,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
             "student_sample_segment_budget": (
-                "chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood"
+                "preserve_sampled_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood"
             ),
             "student_sample_local_refinement": (
                 "duration_time_increment_continuous_action_and_finite_difference_schedule_search"
@@ -1486,13 +1486,24 @@ def _chunk_actions_to_loop_free_segments(
 
     projected_actions: List[float] = []
     projected_durations: List[int] = []
-    limit = min(len(actions), max_segment_steps * max_segments)
-    for start in range(0, limit, max_segment_steps):
-        chunk = actions[start : start + max_segment_steps]
-        if not chunk:
-            break
-        projected_actions.append(sum(chunk) / len(chunk))
-        projected_durations.append(len(chunk))
+    current_action: float | None = None
+    current_duration = 0
+    for action in actions:
+        if current_action is None:
+            current_action = action
+            current_duration = 1
+        elif action == current_action and current_duration < max_segment_steps:
+            current_duration += 1
+        else:
+            projected_actions.append(float(current_action))
+            projected_durations.append(current_duration)
+            if len(projected_actions) >= max_segments:
+                break
+            current_action = action
+            current_duration = 1
+    if current_action is not None and len(projected_actions) < max_segments:
+        projected_actions.append(float(current_action))
+        projected_durations.append(current_duration)
     return tuple(projected_actions), tuple(projected_durations)
 
 
