@@ -1131,6 +1131,39 @@ class CartpolePaperTest(unittest.TestCase):
             _switch_cost(wrong_feature, examples, segments_by_trace, responsibilities)[1],
         )
 
+    def test_cartpole_switch_structure_cost_uses_soft_responsibility_label_loss(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=2,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.05, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(0.1, 0.9), (0.1, 0.9)]
+        examples = [
+            (observation, trace_segment.hard_mode)
+            for trace_segments in segments_by_trace
+            for trace_segment in trace_segments
+            for observation in trace_segment.observations
+        ]
+        hard_aligned = Depth2Switch(1.0, 0.0, 0.0)
+        soft_aligned = Depth2Switch(1.0, 0.0, -0.3)
+
+        hard_cost = _switch_structure_cost(hard_aligned, examples, segments_by_trace, responsibilities)
+        soft_cost = _switch_structure_cost(soft_aligned, examples, segments_by_trace, responsibilities)
+
+        self.assertLess(_switch_cost(hard_aligned, examples)[0], _switch_cost(soft_aligned, examples)[0])
+        self.assertGreater(hard_cost[0], soft_cost[0])
+
     def test_cartpole_switch_structure_cost_falls_back_without_timing_evidence(self):
         examples = [
             ([0.0, 0.0, -0.1, 0.0], 0),

@@ -72,7 +72,7 @@ SWITCH_PARAMETER_GRADIENT_LOG_STD_STEP = 0.25
 SWITCH_PARAMETER_GRADIENT_EPS_FRACTION = 0.25
 SWITCH_PARAMETER_GRADIENT_BACKTRACK_FACTORS = (1.0, 0.5, 0.25, 0.125)
 SWITCH_SELECTION_OBJECTIVE_ORDER = (
-    "hard_label_mistakes",
+    "responsibility_weighted_label_loss",
     "bounded_eq12_style_distribution_loss",
     "program_complexity",
     "description",
@@ -152,6 +152,10 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         "switch_search": {
             "boolean_tree_depth": 2,
             "greedy_second_predicate_expands_switch_and_no_switch_leaves": True,
+            "structure_label_objective": (
+                "responsibility_weighted_expected_label_loss_when_available_else_hard_label_mistakes"
+            ),
+            "structure_label_observations": "nonboundary_segment_observations_boundary_observations_scored_by_timing_loss",
             "oblique_theta_weights": list(SWITCH_OBLIQUE_THETA_WEIGHTS),
             "oblique_omega_weights": list(SWITCH_OBLIQUE_OMEGA_WEIGHTS),
             "max_threshold_candidates": MAX_SWITCH_THRESHOLD_CANDIDATES,
@@ -519,7 +523,7 @@ def _switch_fit_summary(
     )
     (
         refined_switch,
-        structure_mistakes,
+        structure_label_loss,
         distribution_loss,
         structure_complexity,
         structure_description,
@@ -531,6 +535,7 @@ def _switch_fit_summary(
     )
     example_count = len(examples)
     num_boundaries = _trace_boundary_count(segments_by_trace)
+    structure_mistakes = _switch_label_mistakes(refined_switch, examples)
     label_error_rate = structure_mistakes / example_count if example_count else 0.0
     deterministic_label_error_rate = mistakes / example_count if example_count else 0.0
     return {
@@ -540,6 +545,7 @@ def _switch_fit_summary(
         "label_error_rate": label_error_rate,
         "hard_label_mistakes": structure_mistakes,
         "hard_label_mistake_rate": label_error_rate,
+        "responsibility_weighted_label_loss": structure_label_loss,
         "timing_loss_total": distribution_loss,
         "timing_loss_per_boundary": distribution_loss / num_boundaries if num_boundaries else 0.0,
         "bounded_eq12_style_distribution_loss": distribution_loss,
@@ -551,7 +557,7 @@ def _switch_fit_summary(
         "deterministic_objective_tuple": [mistakes, timing_loss, complexity, description],
         "boundary_alignment": _switch_boundary_alignment(switch, segments_by_trace),
         "objective_boundary_alignment": _switch_boundary_alignment(refined_switch, segments_by_trace),
-        "objective_tuple": [structure_mistakes, distribution_loss, structure_complexity, structure_description],
+        "objective_tuple": [structure_label_loss, distribution_loss, structure_complexity, structure_description],
     }
 
 
@@ -2446,17 +2452,23 @@ def _refine_switch_parameter_distributions(
     example_cache = _switch_example_cache(examples)
     timing_pairs = _switch_timing_pairs(segments_by_trace, responsibilities)
     scalar_timing_pairs = _scalar_switch_timing_pairs(switch, timing_pairs)
-    mistake_cache: Dict[str, int] = {}
+    label_loss_cache: Dict[str, float] = {}
 
-    def label_mistakes(candidate: SwitchProgram) -> int:
+    def label_loss(candidate: SwitchProgram) -> float:
         key = _switch_cache_key(candidate)
-        if key not in mistake_cache:
-            mistake_cache[key] = _switch_label_mistakes(candidate, examples, example_cache)
-        return mistake_cache[key]
+        if key not in label_loss_cache:
+            label_loss_cache[key] = _switch_structure_label_loss(
+                candidate,
+                examples,
+                segments_by_trace,
+                responsibilities,
+                example_cache,
+            )
+        return label_loss_cache[key]
 
     best_distributions = _distributions_with_switch_means(switch, distributions)
     best_switch = _switch_with_distribution_means(switch, best_distributions)
-    best_mistakes = label_mistakes(best_switch)
+    best_label_loss = label_loss(best_switch)
     best_loss = _switch_distribution_timing_loss(
         best_switch,
         best_distributions,
@@ -2477,9 +2489,7 @@ def _refine_switch_parameter_distributions(
                 candidate_distributions = list(best_distributions)
                 candidate_distributions[param_index] = GaussianScalar(candidate_mean, candidate_std)
                 candidate_switch = _switch_with_distribution_means(switch, candidate_distributions)
-                candidate_mistakes = label_mistakes(candidate_switch)
-                if candidate_mistakes > best_mistakes:
-                    continue
+                candidate_label_loss = label_loss(candidate_switch)
                 candidate_loss = _switch_distribution_timing_loss(
                     candidate_switch,
                     candidate_distributions,
@@ -2488,10 +2498,10 @@ def _refine_switch_parameter_distributions(
                     timing_pairs,
                     scalar_timing_pairs,
                 )
-                if candidate_loss < best_loss:
+                if _switch_refinement_improves(candidate_label_loss, candidate_loss, best_label_loss, best_loss):
                     best_distributions = candidate_distributions
                     best_switch = candidate_switch
-                    best_mistakes = candidate_mistakes
+                    best_label_loss = candidate_label_loss
                     best_loss = candidate_loss
     return _gradient_refine_switch_parameter_distributions(
         switch,
@@ -2499,11 +2509,11 @@ def _refine_switch_parameter_distributions(
             switch,
             best_distributions,
             best_switch,
-            best_mistakes,
+            best_label_loss,
             best_loss,
             examples,
             example_cache,
-            mistake_cache,
+            label_loss_cache,
             timing_pairs,
             scalar_timing_pairs,
             segments_by_trace,
@@ -2511,7 +2521,7 @@ def _refine_switch_parameter_distributions(
         ),
         examples,
         example_cache,
-        mistake_cache,
+        label_loss_cache,
         timing_pairs,
         scalar_timing_pairs,
         segments_by_trace,
@@ -2524,17 +2534,23 @@ def _evaluate_switch_parameter_candidate(
     distributions: List[GaussianScalar],
     examples: List[Tuple[Observation, int]],
     example_cache: _SwitchExampleCache,
-    mistake_cache: Dict[str, int],
+    label_loss_cache: Dict[str, float],
     timing_pairs: List[_SwitchTimingPair],
     scalar_timing_pairs: List[_ScalarSwitchTimingPair] | None,
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
-) -> Tuple[SwitchProgram, int, float]:
+) -> Tuple[SwitchProgram, float, float]:
     candidate_switch = _switch_with_distribution_means(switch, distributions)
     key = _switch_cache_key(candidate_switch)
-    if key not in mistake_cache:
-        mistake_cache[key] = _switch_label_mistakes(candidate_switch, examples, example_cache)
-    candidate_mistakes = mistake_cache[key]
+    if key not in label_loss_cache:
+        label_loss_cache[key] = _switch_structure_label_loss(
+            candidate_switch,
+            examples,
+            segments_by_trace,
+            responsibilities,
+            example_cache,
+        )
+    candidate_label_loss = label_loss_cache[key]
     candidate_loss = _switch_distribution_timing_loss(
         candidate_switch,
         distributions,
@@ -2543,7 +2559,7 @@ def _evaluate_switch_parameter_candidate(
         timing_pairs,
         scalar_timing_pairs,
     )
-    return candidate_switch, candidate_mistakes, candidate_loss
+    return candidate_switch, candidate_label_loss, candidate_loss
 
 
 def _switch_cache_key(switch: SwitchProgram) -> str:
@@ -2563,11 +2579,11 @@ def _coordinate_refine_switch_parameter_distributions(
     switch: SwitchProgram,
     distributions: List[GaussianScalar],
     current_switch: SwitchProgram,
-    current_mistakes: int,
+    current_label_loss: float,
     current_loss: float,
     examples: List[Tuple[Observation, int]],
     example_cache: _SwitchExampleCache,
-    mistake_cache: Dict[str, int],
+    label_loss_cache: Dict[str, float],
     timing_pairs: List[_SwitchTimingPair],
     scalar_timing_pairs: List[_ScalarSwitchTimingPair] | None,
     segments_by_trace: List[List[CartpoleSegment]],
@@ -2577,7 +2593,7 @@ def _coordinate_refine_switch_parameter_distributions(
     # a replacement for the discrete grammar search.
     best_distributions = list(distributions)
     best_switch = current_switch
-    best_mistakes = current_mistakes
+    best_label_loss = current_label_loss
     best_loss = current_loss
     mean_steps = _switch_distribution_coordinate_mean_steps(switch, segments_by_trace, best_distributions)
     log_std_step = SWITCH_PARAMETER_COORDINATE_LOG_STD_STEP
@@ -2597,23 +2613,21 @@ def _coordinate_refine_switch_parameter_distributions(
                 current = candidate_distributions[param_index]
                 candidate_std = max(MIN_GAUSSIAN_STD, current.std * math.exp(delta_log_std))
                 candidate_distributions[param_index] = GaussianScalar(current.mean + delta_mean, candidate_std)
-                candidate_switch, candidate_mistakes, candidate_loss = _evaluate_switch_parameter_candidate(
+                candidate_switch, candidate_label_loss, candidate_loss = _evaluate_switch_parameter_candidate(
                     switch,
                     candidate_distributions,
                     examples,
                     example_cache,
-                    mistake_cache,
+                    label_loss_cache,
                     timing_pairs,
                     scalar_timing_pairs,
                     segments_by_trace,
                     responsibilities,
                 )
-                if candidate_mistakes > best_mistakes:
-                    continue
-                if candidate_loss < best_loss:
+                if _switch_refinement_improves(candidate_label_loss, candidate_loss, best_label_loss, best_loss):
                     best_distributions = candidate_distributions
                     best_switch = candidate_switch
-                    best_mistakes = candidate_mistakes
+                    best_label_loss = candidate_label_loss
                     best_loss = candidate_loss
                     improved = True
         if not improved:
@@ -2630,7 +2644,7 @@ def _gradient_refine_switch_parameter_distributions(
     distributions: List[GaussianScalar],
     examples: List[Tuple[Observation, int]],
     example_cache: _SwitchExampleCache,
-    mistake_cache: Dict[str, int],
+    label_loss_cache: Dict[str, float],
     timing_pairs: List[_SwitchTimingPair],
     scalar_timing_pairs: List[_ScalarSwitchTimingPair] | None,
     segments_by_trace: List[List[CartpoleSegment]],
@@ -2638,12 +2652,12 @@ def _gradient_refine_switch_parameter_distributions(
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
     best_distributions = list(distributions)
     best_switch = current_switch
-    _, best_mistakes, best_loss = _evaluate_switch_parameter_candidate(
+    _, best_label_loss, best_loss = _evaluate_switch_parameter_candidate(
         switch,
         best_distributions,
         examples,
         example_cache,
-        mistake_cache,
+        label_loss_cache,
         timing_pairs,
         scalar_timing_pairs,
         segments_by_trace,
@@ -2667,7 +2681,7 @@ def _gradient_refine_switch_parameter_distributions(
                 0.0,
                 examples,
                 example_cache,
-                mistake_cache,
+                label_loss_cache,
                 timing_pairs,
                 scalar_timing_pairs,
                 segments_by_trace,
@@ -2681,7 +2695,7 @@ def _gradient_refine_switch_parameter_distributions(
                 log_std_epsilon,
                 examples,
                 example_cache,
-                mistake_cache,
+                label_loss_cache,
                 timing_pairs,
                 scalar_timing_pairs,
                 segments_by_trace,
@@ -2706,27 +2720,42 @@ def _gradient_refine_switch_parameter_distributions(
                 norm,
                 backtrack,
             )
-            candidate_switch, candidate_mistakes, candidate_loss = _evaluate_switch_parameter_candidate(
+            candidate_switch, candidate_label_loss, candidate_loss = _evaluate_switch_parameter_candidate(
                 switch,
                 candidate_distributions,
                 examples,
                 example_cache,
-                mistake_cache,
+                label_loss_cache,
                 timing_pairs,
                 scalar_timing_pairs,
                 segments_by_trace,
                 responsibilities,
             )
-            if candidate_mistakes <= best_mistakes and candidate_loss < best_loss:
+            if _switch_refinement_improves(candidate_label_loss, candidate_loss, best_label_loss, best_loss):
                 best_distributions = candidate_distributions
                 best_switch = candidate_switch
-                best_mistakes = candidate_mistakes
+                best_label_loss = candidate_label_loss
                 best_loss = candidate_loss
                 accepted = True
                 break
         if not accepted:
             break
     return best_switch, best_distributions
+
+
+def _switch_refinement_improves(
+    candidate_label_loss: float,
+    candidate_timing_loss: float,
+    best_label_loss: float,
+    best_timing_loss: float,
+) -> bool:
+    return (
+        candidate_label_loss < best_label_loss
+        and candidate_timing_loss <= best_timing_loss
+    ) or (
+        candidate_label_loss <= best_label_loss
+        and candidate_timing_loss < best_timing_loss
+    )
 
 
 def _gradient_switch_parameter_candidate_distributions(
@@ -2764,7 +2793,7 @@ def _switch_parameter_loss_gradient(
     delta_log_std: float,
     examples: List[Tuple[Observation, int]],
     example_cache: _SwitchExampleCache,
-    mistake_cache: Dict[str, int],
+    label_loss_cache: Dict[str, float],
     timing_pairs: List[_SwitchTimingPair],
     scalar_timing_pairs: List[_ScalarSwitchTimingPair] | None,
     segments_by_trace: List[List[CartpoleSegment]],
@@ -2786,7 +2815,7 @@ def _switch_parameter_loss_gradient(
         minus,
         examples,
         example_cache,
-        mistake_cache,
+        label_loss_cache,
         timing_pairs,
         scalar_timing_pairs,
         segments_by_trace,
@@ -2797,7 +2826,7 @@ def _switch_parameter_loss_gradient(
         plus,
         examples,
         example_cache,
-        mistake_cache,
+        label_loss_cache,
         timing_pairs,
         scalar_timing_pairs,
         segments_by_trace,
@@ -3107,6 +3136,47 @@ def _switch_label_mistakes(
     )
 
 
+def _switch_structure_label_loss(
+    switch: SwitchProgram,
+    examples: List[Tuple[Observation, int]],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    example_cache: _SwitchExampleCache | None = None,
+) -> float:
+    weighted_loss = _responsibility_weighted_switch_label_loss(
+        switch,
+        segments_by_trace,
+        responsibilities,
+    )
+    if weighted_loss is not None:
+        return weighted_loss
+    return float(_switch_label_mistakes(switch, examples, example_cache))
+
+
+def _responsibility_weighted_switch_label_loss(
+    switch: SwitchProgram,
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> float | None:
+    flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
+    if not flat_segments or len(flat_segments) != len(responsibilities):
+        return None
+
+    loss = 0.0
+    responsibility_by_id = {
+        id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
+    }
+    for trace_segments in segments_by_trace:
+        for segment_index, segment in enumerate(trace_segments):
+            off_weight, on_weight = responsibility_by_id[id(segment)]
+            observations = segment.observations
+            if segment_index < len(trace_segments) - 1:
+                observations = observations[:-1]
+            for observation in observations:
+                loss += off_weight if switch.decide(observation) == 1 else on_weight
+    return loss
+
+
 def _switch_example_cache(examples: List[Tuple[Observation, int]]) -> _SwitchExampleCache:
     if not examples:
         return _SwitchExampleCache((), ())
@@ -3302,7 +3372,7 @@ def _learn_depth2_switch(
         return Depth2Switch(1.0, 0.0, 0.0)
 
     example_cache = _switch_example_cache(examples)
-    objective_cache: Dict[str, Tuple[int, float, int, str]] = {}
+    objective_cache: Dict[str, Tuple[float, float, int, str]] = {}
     boolean_switches = _greedy_boolean_tree_candidates(
         examples,
         segments_by_trace=segments_by_trace,
@@ -3397,7 +3467,7 @@ def _greedy_boolean_tree_candidates(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
-    cache: Dict[str, Tuple[int, float, int, str]] | None = None,
+    cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
 ) -> List[BooleanTreeSwitch]:
     stumps = [BooleanTreeSwitch(predicate) for predicate in _predicate_candidates(examples)]
@@ -3475,10 +3545,10 @@ def _best_switch(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None,
     responsibilities: List[Tuple[float, float]] | None,
-    cache: Dict[str, Tuple[int, float, int, str]] | None = None,
+    cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
 ) -> BooleanTreeSwitch:
-    objective_cache: Dict[str, Tuple[int, float, int, str]] = cache if cache is not None else {}
+    objective_cache: Dict[str, Tuple[float, float, int, str]] = cache if cache is not None else {}
     switch_examples = example_cache or _switch_example_cache(examples)
     return min(
         _switch_structure_rescore_candidates(
@@ -3533,12 +3603,12 @@ def _switch_structure_rescore_candidates(
         ]
     ranked = sorted(
         prefiltered,
-        key=lambda switch: _switch_cost(
+        key=lambda switch: _switch_structure_cost(
             switch,
             examples,
             segments_by_trace,
             responsibilities,
-            switch_examples,
+            example_cache=switch_examples,
         ),
     )
     return ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]
@@ -3549,9 +3619,9 @@ def _switch_structure_cost(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
-    cache: Dict[str, Tuple[int, float, int, str]] | None = None,
+    cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
-) -> Tuple[int, float, int, str]:
+) -> Tuple[float, float, int, str]:
     if segments_by_trace is None or responsibilities is None:
         return _switch_cost(switch, examples, segments_by_trace, responsibilities, example_cache)
     cache_key = switch.describe()
@@ -3560,14 +3630,14 @@ def _switch_structure_cost(
 
     # Score a candidate structure after bounded Gaussian threshold refinement,
     # matching the objective reported in metrics provenance.
-    _, mistakes, timing_loss, complexity, description = _fit_switch_structure_objective(
+    _, label_loss, timing_loss, complexity, description = _fit_switch_structure_objective(
         switch,
         examples,
         segments_by_trace,
         responsibilities,
         example_cache=example_cache,
     )
-    result = (mistakes, timing_loss, complexity, description)
+    result = (label_loss, timing_loss, complexity, description)
     if cache is not None:
         cache[cache_key] = result
     return result
@@ -3579,10 +3649,16 @@ def _fit_switch_structure_objective(
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
     example_cache: _SwitchExampleCache | None = None,
-) -> Tuple[SwitchProgram, int, float, int, str]:
+) -> Tuple[SwitchProgram, float, float, int, str]:
     distributions = _fit_switch_parameter_distributions(switch, segments_by_trace, responsibilities)
     refined_switch = _switch_with_distribution_means(switch, distributions)
-    mistakes = _switch_label_mistakes(refined_switch, examples, example_cache)
+    label_loss = _switch_structure_label_loss(
+        refined_switch,
+        examples,
+        segments_by_trace,
+        responsibilities,
+        example_cache,
+    )
     timing_loss = _switch_distribution_timing_loss(
         refined_switch,
         distributions,
@@ -3590,7 +3666,7 @@ def _fit_switch_structure_objective(
         responsibilities,
     )
     complexity = refined_switch.node_count if isinstance(refined_switch, BooleanTreeSwitch) else 1
-    return refined_switch, mistakes, timing_loss, complexity, refined_switch.describe()
+    return refined_switch, label_loss, timing_loss, complexity, refined_switch.describe()
 
 
 def _switch_cost(

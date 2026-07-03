@@ -160,11 +160,19 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["switch_search"]["selection_objective_order"][0],
-            "hard_label_mistakes",
+            "responsibility_weighted_label_loss",
         )
         self.assertEqual(
             provenance["switch_search"]["selection_objective_order"][1],
             "bounded_eq12_style_distribution_loss",
+        )
+        self.assertEqual(
+            provenance["switch_search"]["structure_label_objective"],
+            "responsibility_weighted_expected_label_loss_when_available_else_hard_label_mistakes",
+        )
+        self.assertEqual(
+            provenance["switch_search"]["structure_label_observations"],
+            "nonboundary_segment_observations_boundary_observations_scored_by_timing_loss",
         )
         self.assertEqual(provenance["teacher_search"]["duration_refinement_deltas"], [-1, 1])
         self.assertEqual(
@@ -363,7 +371,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         diagnostics = metrics["switch_fit_diagnostics"]
         self.assertEqual(diagnostics["diagnostic_scope"], "local_teacher_trace_fit")
         self.assertTrue(diagnostics["not_paper_reproduction"])
-        self.assertEqual(diagnostics["selection_objective_order"][0], "hard_label_mistakes")
+        self.assertEqual(diagnostics["selection_objective_order"][0], "responsibility_weighted_label_loss")
         self.assertEqual(
             diagnostics["selection_objective_order"][1],
             "bounded_eq12_style_distribution_loss",
@@ -379,6 +387,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("fixed_local_reference_switch", diagnostics["candidates"])
         selected = diagnostics["candidates"]["selected_student_switch"]
         self.assertIn("hard_label_mistakes", selected)
+        self.assertIn("responsibility_weighted_label_loss", selected)
         self.assertIn("bounded_eq12_style_distribution_loss", selected)
         self.assertIn("eq12_style_timing_loss", selected)
         self.assertIn("deterministic_objective_tuple", selected)
@@ -389,7 +398,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             selected["boundary_alignment"]["enabled_boundary_count"],
             selected["boundary_alignment"]["num_boundaries"],
         )
-        self.assertEqual(selected["objective_tuple"][0], selected["hard_label_mistakes"])
+        self.assertEqual(selected["objective_tuple"][0], selected["responsibility_weighted_label_loss"])
         self.assertEqual(selected["objective_tuple"][1], selected["bounded_eq12_style_distribution_loss"])
         self.assertEqual(selected["deterministic_objective_tuple"][1], selected["eq12_style_timing_loss"])
         self.assertIn("not paper-scale reproduction results", diagnostics["note"])

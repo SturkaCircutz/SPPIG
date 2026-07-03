@@ -216,11 +216,13 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The Cartpole switch learner now performs bounded local grid, coordinate refinement, and
   finite-difference gradient polishing of selected switch-threshold Gaussian means and standard
   deviations against a discrete Eq. (12)-style
-  likelihood, while rejecting candidate means that increase hard segment-label mistakes. This moves
-  the switch-parameter M-step closer to the paper's numerical optimization, but remains a diagnostic
-  approximation: switch structure is prefiltered by a cheaper hard-label/timing objective before
-  bounded distribution rescoring, depth-2 Boolean-tree probabilities use a shared-threshold
-  rectangle-union calculation, and this is not the paper's full continuous switch-parameter optimizer.
+  likelihood, while using responsibility-weighted expected label loss over non-boundary segment
+  observations as the primary structure/refinement label objective when soft EM responsibilities are
+  available. This moves the switch M-step closer to the paper's latent-responsibility objective, but
+  remains a diagnostic approximation: switch structure is prefiltered by a cheaper hard-label/timing
+  objective before bounded distribution rescoring, depth-2 Boolean-tree probabilities use a
+  shared-threshold rectangle-union calculation, and this is not the paper's full continuous
+  switch-parameter optimizer.
 - The first Cartpole teacher iteration now samples from an explicit probabilistic student prior, and
   later teacher candidate pools are sampled from the current probabilistic student before top-rho
   selection. These sampled rollouts now resample action and switch parameters whenever execution
@@ -482,8 +484,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_std_refinement_uses_boundary_variance_candidate`
   verifies that the bounded std grid includes transition-boundary variance evidence.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_parameter_refinement_rejects_more_label_mistakes`
-  verifies that probabilistic timing refinement does not accept a switch mean that increases hard
-  segment-label mistakes.
+  verifies that probabilistic timing refinement does not accept a switch mean that worsens the
+  current responsibility-weighted label objective.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_structure_cost_uses_soft_responsibility_label_loss`
+  verifies that the switch structure objective uses soft EM responsibilities even when hard trace
+  labels favor a different selector.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_timing_loss_rejects_responsibility_mismatch`
   verifies that malformed segment/responsibility inputs do not silently produce a zero timing loss.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_probability_uses_gaussian_threshold_distribution`
