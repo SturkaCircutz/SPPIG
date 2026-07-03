@@ -285,7 +285,11 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_distribution_update"],
-            "fit_gaussian_schedule_distribution_from_current_top_rho_each_round",
+            "fit_objective_weighted_gaussian_schedule_distribution_from_current_top_rho_each_round",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["elite_distribution_weighting"],
+            "softmax_teacher_objective_when_student_available_else_uniform",
         )
         self.assertEqual(
             provenance["teacher_search"]["elite_distribution_parameters"],

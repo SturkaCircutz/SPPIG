@@ -222,8 +222,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "elite_distribution_min_action_std": TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD,
             "elite_distribution_phase": "bounded_cem_style_distribution_refit_top_rho_refresh",
             "elite_distribution_update": (
-                "fit_gaussian_schedule_distribution_from_current_top_rho_each_round"
+                "fit_objective_weighted_gaussian_schedule_distribution_from_current_top_rho_each_round"
             ),
+            "elite_distribution_weighting": "softmax_teacher_objective_when_student_available_else_uniform",
             "elite_distribution_parameters": [
                 "teacher_gain_schedule",
                 "segment_action_schedule",
@@ -1116,7 +1117,7 @@ def _refresh_teacher_elites_with_distribution(
     rounds = max(0, cfg.teacher_elite_distribution_rounds)
     for _ in range(rounds):
         schedules = _elite_loop_free_schedules(current_elites, env_cfg.dt)
-        distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg)
+        distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg, student)
         if distribution is None:
             break
         round_samples: List[CartpoleTrace] = []
@@ -1188,7 +1189,7 @@ def _elite_distribution_mean_trace(
     cfg: CartpoleSynthesisConfig,
     student: ProbabilisticCartpoleStudent | None = None,
 ) -> CartpoleTrace | None:
-    distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg)
+    distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg, student)
     if distribution is None:
         return None
     return _elite_distribution_mean_trace_from_distribution(
@@ -1204,6 +1205,7 @@ def _fit_elite_schedule_distribution(
     schedules: List[EliteSchedule],
     env_cfg: CartpoleConfig,
     cfg: CartpoleSynthesisConfig,
+    student: ProbabilisticCartpoleStudent | None = None,
 ) -> _EliteScheduleDistribution | None:
     if not schedules:
         return None
@@ -1213,11 +1215,12 @@ def _fit_elite_schedule_distribution(
     )
     lower = max(min(cfg.force_values), -env_cfg.force_limit)
     upper = min(max(cfg.force_values), env_cfg.force_limit)
+    schedule_weights = _elite_schedule_weights(schedules, student, cfg)
     segment_distributions: List[_EliteSegmentDistribution] = []
     for index in range(max_segments):
         pairs = [
-            (actions[index], durations[index], increments[index], modes[index])
-            for actions, durations, increments, modes, _ in schedules
+            (actions[index], durations[index], increments[index], modes[index], schedule_weights[schedule_index])
+            for schedule_index, (actions, durations, increments, modes, _) in enumerate(schedules)
             if (
                 index < len(actions)
                 and index < len(durations)
@@ -1227,30 +1230,37 @@ def _fit_elite_schedule_distribution(
         ]
         if not pairs:
             break
-        action_mean, action_std = _mean_and_std([pair[0] for pair in pairs], TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD)
+        weights = [pair[4] for pair in pairs]
+        action_mean, action_std = _weighted_mean_and_std(
+            [pair[0] for pair in pairs],
+            weights,
+            TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD,
+        )
         action_distribution = GaussianScalar(
             max(lower, min(upper, action_mean)),
             action_std,
         )
-        duration_mean, duration_std = _mean_and_std([float(pair[1]) for pair in pairs], 1.0)
-        increment_mean, increment_std = _mean_and_std([pair[2] for pair in pairs], MIN_GAUSSIAN_STD)
+        duration_mean, duration_std = _weighted_mean_and_std([float(pair[1]) for pair in pairs], weights, 1.0)
+        increment_mean, increment_std = _weighted_mean_and_std([pair[2] for pair in pairs], weights, MIN_GAUSSIAN_STD)
         segment_distributions.append(
             _EliteSegmentDistribution(
                 action=action_distribution,
                 duration=GaussianScalar(duration_mean, duration_std),
                 time_increment=GaussianScalar(increment_mean, increment_std),
-                mode=_majority_mode([pair[3] for pair in pairs]),
+                mode=_weighted_majority_mode([pair[3] for pair in pairs], weights),
             )
         )
     if not segment_distributions:
         return None
 
-    theta_gain_mean, theta_gain_std = _mean_and_std(
+    theta_gain_mean, theta_gain_std = _weighted_mean_and_std(
         [trace.theta_gain for _, _, _, _, trace in schedules],
+        schedule_weights,
         TEACHER_GAIN_SAMPLE_MIN_STD,
     )
-    omega_gain_mean, omega_gain_std = _mean_and_std(
+    omega_gain_mean, omega_gain_std = _weighted_mean_and_std(
         [trace.omega_gain for _, _, _, _, trace in schedules],
+        schedule_weights,
         TEACHER_GAIN_SAMPLE_MIN_STD,
     )
     return _EliteScheduleDistribution(
@@ -1487,9 +1497,51 @@ def _majority_mode(modes: List[int]) -> int:
     return 1 if sum(1 for mode in modes if mode == 1) > len(modes) / 2.0 else 0
 
 
+def _weighted_majority_mode(modes: List[int], weights: List[float]) -> int:
+    if not modes or len(modes) != len(weights):
+        return _majority_mode(modes)
+    positive_weight = sum(weight for mode, weight in zip(modes, weights) if mode == 1)
+    total_weight = sum(weights)
+    return 1 if positive_weight > total_weight / 2.0 else 0
+
+
+def _elite_schedule_weights(
+    schedules: List[EliteSchedule],
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+) -> List[float]:
+    if not schedules:
+        return []
+    if student is None:
+        return [1.0 / len(schedules) for _ in schedules]
+    objective_values = [
+        _teacher_objective(trace, student, cfg)
+        for _, _, _, _, trace in schedules
+    ]
+    max_objective = max(objective_values)
+    raw_weights = [math.exp(value - max_objective) for value in objective_values]
+    total = sum(raw_weights)
+    if total <= 0.0:
+        return [1.0 / len(schedules) for _ in schedules]
+    return [weight / total for weight in raw_weights]
+
+
 def _mean_and_std(values: List[float], std_floor: float) -> Tuple[float, float]:
     mean = sum(values) / len(values)
     variance = sum((value - mean) ** 2 for value in values) / len(values)
+    return mean, max(std_floor, math.sqrt(max(variance, 0.0)))
+
+
+def _weighted_mean_and_std(values: List[float], weights: List[float], std_floor: float) -> Tuple[float, float]:
+    if not values:
+        return 0.0, std_floor
+    if len(values) != len(weights):
+        return _mean_and_std(values, std_floor)
+    total = sum(weights)
+    if total <= 0.0:
+        return _mean_and_std(values, std_floor)
+    mean = sum(value * weight for value, weight in zip(values, weights)) / total
+    variance = sum(weight * (value - mean) ** 2 for value, weight in zip(values, weights)) / total
     return mean, max(std_floor, math.sqrt(max(variance, 0.0)))
 
 

@@ -66,6 +66,7 @@ from cartpole_synthesis import (
     _elite_distribution_sample_trace,
     _elite_distribution_sample_traces,
     _elite_distribution_mean_trace,
+    _elite_schedule_weights,
     _fit_elite_schedule_distribution,
     _fit_student_switch,
     _elite_loop_free_schedules,
@@ -3619,6 +3620,142 @@ class CartpolePaperTest(unittest.TestCase):
             0.75 * env.cfg.dt,
         )
         self.assertEqual(distribution.source_elites, (left, right))
+
+    def test_cartpole_teacher_elite_schedule_weights_follow_student_objective(self):
+        cfg = CartpoleSynthesisConfig(teacher_reward_lambda=1.0, teacher_student_regularizer=0.0)
+        low = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            segment_actions=(0.0,),
+            segment_durations=(1,),
+        )
+        high = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=2.0,
+            segment_actions=(10.0,),
+            segment_durations=(1,),
+        )
+        student = _bootstrap_probabilistic_student(cfg)
+        schedules = _elite_loop_free_schedules([low, high], CartpoleEnv.train_env(seed=0).cfg.dt)
+
+        weights = _elite_schedule_weights(schedules, student, cfg)
+
+        self.assertAlmostEqual(sum(weights), 1.0)
+        self.assertGreater(weights[1], weights[0])
+
+    def test_cartpole_teacher_elite_schedule_weights_include_student_likelihood(self):
+        cfg = CartpoleSynthesisConfig(teacher_reward_lambda=0.0, teacher_student_regularizer=1.0)
+        likely = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -1.0, 0.0],
+                [0.0, 0.0, -1.0, 0.0],
+            ],
+            actions=[-10.0, -10.0],
+            mode_labels=[0, 0],
+            reward=1.0,
+            segment_actions=(-10.0,),
+            segment_durations=(2,),
+        )
+        unlikely = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -1.0, 0.0],
+                [0.0, 0.0, -1.0, 0.0],
+            ],
+            actions=[0.0, 0.0],
+            mode_labels=[0, 0],
+            reward=1.0,
+            segment_actions=(0.0,),
+            segment_durations=(2,),
+        )
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 1.0),
+            switch_threshold_distribution=GaussianScalar(1.0, 0.1),
+            switch_parameter_distributions=[GaussianScalar(1.0, 0.1)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        schedules = _elite_loop_free_schedules([unlikely, likely], CartpoleEnv.train_env(seed=0).cfg.dt)
+
+        weights = _elite_schedule_weights(schedules, student, cfg)
+
+        self.assertAlmostEqual(sum(weights), 1.0)
+        self.assertGreater(weights[1], weights[0])
+
+    def test_cartpole_teacher_elite_schedule_weights_are_uniform_without_student(self):
+        cfg = CartpoleSynthesisConfig()
+        left = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            segment_actions=(0.0,),
+            segment_durations=(1,),
+        )
+        right = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=100.0,
+            segment_actions=(10.0,),
+            segment_durations=(1,),
+        )
+        schedules = _elite_loop_free_schedules([left, right], CartpoleEnv.train_env(seed=0).cfg.dt)
+
+        self.assertEqual(_elite_schedule_weights(schedules, None, cfg), [0.5, 0.5])
+
+    def test_cartpole_teacher_elite_distribution_weights_top_rho_statistics_by_objective(self):
+        env = CartpoleEnv.train_env(seed=0)
+        cfg = CartpoleSynthesisConfig(
+            segment_steps=4,
+            segments_per_trace=1,
+            teacher_reward_lambda=1.0,
+            teacher_student_regularizer=0.0,
+        )
+        low = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=0.0,
+            theta_gain=0.0,
+            omega_gain=0.0,
+            segment_actions=(0.0,),
+            segment_durations=(1,),
+            segment_time_increments=(env.cfg.dt / 2.0,),
+            teacher_source="student_sample",
+        )
+        high = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=2.0,
+            theta_gain=10.0,
+            omega_gain=2.0,
+            segment_actions=(10.0,),
+            segment_durations=(3,),
+            segment_time_increments=(env.cfg.dt,),
+            teacher_source="student_sample",
+        )
+        schedules = _elite_loop_free_schedules([low, high], env.cfg.dt)
+        student = _bootstrap_probabilistic_student(cfg)
+
+        uniform_distribution = _fit_elite_schedule_distribution(schedules, env.cfg, cfg)
+        weighted_distribution = _fit_elite_schedule_distribution(schedules, env.cfg, cfg, student)
+
+        self.assertIsNotNone(uniform_distribution)
+        self.assertIsNotNone(weighted_distribution)
+        assert uniform_distribution is not None
+        assert weighted_distribution is not None
+        self.assertAlmostEqual(uniform_distribution.segments[0].action.mean, 5.0)
+        self.assertGreater(weighted_distribution.segments[0].action.mean, uniform_distribution.segments[0].action.mean)
+        self.assertGreater(weighted_distribution.theta_gain.mean, uniform_distribution.theta_gain.mean)
+        self.assertEqual(weighted_distribution.segments[0].mode, 1)
 
     def test_cartpole_teacher_elite_distribution_rounds_refresh_elites(self):
         env = CartpoleEnv.train_env(seed=0)
