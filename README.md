@@ -76,6 +76,9 @@ local examples in this README often pass `--eval-rollouts 20` only to keep
 diagnostics cheap.
 Each PSM row records a metrics JSON path with the fitted probabilistic student
 and per-iteration teacher-trace provenance.
+The checked-in fixed-program reevaluation metrics instead record
+`paper_protocol_status` with `synthesized_by_current_algorithm` false, so that
+the full-horizon fixed PSM row is not confused with a current synthesis result.
 When PPO is included, each PPO row also records its checkpoint path and metrics
 JSON path under the output directory. Use `--ppo-eval-interval N` to record
 intermediate train/test evaluations in each PPO metrics JSON; quick runs default

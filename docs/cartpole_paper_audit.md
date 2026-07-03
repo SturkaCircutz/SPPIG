@@ -149,6 +149,9 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train success `1.000`, test success over the full 15000-step/300-second horizon `0.200`,
   train reward mean `250.0`, test reward mean `6275.35`; the same artifact records
   train/test survived-step means `250.0` and `6275.35`, or `5.0s` and `125.507s`.
+  Its `paper_protocol_status` marks this as a fixed two-mode program reevaluation with
+  `synthesized_by_current_algorithm = false` and `paper_scale_fixed_program_result = false`;
+  it is not evidence that the current synthesis implementation reproduced the paper result.
 - Current synthesizer diagnostic command used for the regenerated artifact:
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:

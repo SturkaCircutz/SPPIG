@@ -27,6 +27,36 @@ def summarize_rollouts(results):
     return summarize_cartpole_results(results)
 
 
+def fixed_program_protocol_status(eval_rollouts: int, test_max_steps: int) -> dict[str, object]:
+    train_env = CartpoleEnv.train_env()
+    test_env = CartpoleEnv.test_env()
+    return {
+        "artifact_kind": "fixed_cartpole_program_reevaluation",
+        "policy_source": "fixed_two_mode_program_parameters",
+        "synthesized_by_current_algorithm": False,
+        "full_probabilistic_adaptive_teaching": False,
+        "train_horizon_seconds": train_env.cfg.horizon_seconds,
+        "train_pole_length": train_env.cfg.pole_length,
+        "training_horizon_steps": train_env.cfg.max_steps,
+        "test_horizon_seconds": test_env.cfg.horizon_seconds,
+        "test_pole_length": test_env.cfg.pole_length,
+        "paper_test_horizon_steps": test_env.cfg.max_steps,
+        "selected_test_max_steps": test_max_steps,
+        "uses_full_test_horizon": test_max_steps == test_env.cfg.max_steps,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "selected_eval_rollouts": eval_rollouts,
+        "uses_paper_eval_rollouts": eval_rollouts == PAPER_EVAL_ROLLOUTS,
+        "reward_spec": cartpole_reward_spec(),
+        "space_spec": cartpole_space_spec(train_env.cfg),
+        "paper_scale_fixed_program_result": False,
+        "limitation": (
+            "Reevaluates a fixed two-mode CartPole program under the requested horizon and "
+            "rollout count; it is not evidence that the current synthesis implementation "
+            "reproduced the paper's probabilistic adaptive-teaching result."
+        ),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate a fixed two-mode CartPole program.")
     parser.add_argument("--theta-weight", type=float, required=True)
@@ -56,6 +86,7 @@ def main() -> None:
         "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "reward_spec": cartpole_reward_spec(),
         "space_spec": cartpole_space_spec(train_env.cfg),
+        "paper_protocol_status": fixed_program_protocol_status(args.eval_rollouts, args.test_max_steps),
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "program_parameters": {

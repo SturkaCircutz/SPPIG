@@ -40,6 +40,12 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertEqual({row["policy"] for row in summary}, set(manifest["policies"]))
         self.assertTrue(all(row["best_metrics_output"] for row in summary))
         self.assertTrue(all(os.path.exists(os.path.join(ROOT, row["best_metrics_output"])) for row in summary))
+        fixed_psm_row = next(row for row in manifest["rows"] if row["policy"] == "Programmatic state machine")
+        with open(os.path.join(ROOT, fixed_psm_row["metrics_output"]), encoding="utf-8") as handle:
+            fixed_psm_metrics = json.load(handle)
+        self.assertEqual(fixed_psm_row["paper_protocol_status"], fixed_psm_metrics["paper_protocol_status"])
+        self.assertFalse(fixed_psm_row["paper_protocol_status"]["synthesized_by_current_algorithm"])
+        self.assertFalse(fixed_psm_row["paper_protocol_status"]["paper_scale_fixed_program_result"])
         self.assertIn("PPO MLP", manifest["reproduction_commands"])
         self.assertIn("--test-max-steps 15000", manifest["reproduction_commands"]["PPO MLP"])
 
