@@ -122,6 +122,8 @@ class CartpolePSMCliTest(unittest.TestCase):
         )
         self.assertTrue(provenance["probabilistic_student"]["switch_responsibility_passes_are_per_em_iteration"])
         self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
+        self.assertEqual(provenance["probabilistic_student"]["initial_mode"], 0)
+        self.assertEqual(provenance["probabilistic_student"]["initial_mode_prior"], "fixed_mode_0")
         self.assertEqual(provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
         self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
         self.assertEqual(

@@ -21,6 +21,7 @@ from cartpole_env import (
 
 MIN_GAUSSIAN_STD = 1e-3
 DEFAULT_CARTPOLE_TIME_INCREMENT = 0.02
+INITIAL_CARTPOLE_PSM_MODE = 0
 PROBABILISTIC_STUDENT_EM_ITERS = 4
 PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES = 1
 SWITCH_TIMING_STD_STEPS = 2.0
@@ -135,6 +136,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "switch_responsibility_passes_are_per_em_iteration": True,
             "mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER,
             "rollout_parameter_resampling": "on_mode_entry",
+            "initial_mode": INITIAL_CARTPOLE_PSM_MODE,
+            "initial_mode_prior": "fixed_mode_0",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
             "log_probability_floor": LOG_PROBABILITY_FLOOR,
         },
@@ -768,6 +771,7 @@ def fit_probabilistic_cartpole_student(
     for iteration in range(max(1, cfg.student_em_iters)):
         if iteration == 0 or cfg.student_switch_responsibility_passes <= 0:
             responsibilities = _action_likelihood_responsibilities(segments, action_distributions)
+            responsibilities = _condition_initial_mode_responsibilities(segments_by_trace, responsibilities)
             action_distributions = _fit_action_distributions(
                 segments,
                 responsibilities,
@@ -834,6 +838,19 @@ def _action_likelihood_responsibilities(
         _mode_responsibilities(segment.action_parameter, action_distributions)
         for segment in segments
     ]
+
+
+def _condition_initial_mode_responsibilities(
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+) -> List[Tuple[float, float]]:
+    conditioned = list(responsibilities)
+    offset = 0
+    for trace_segments in segments_by_trace:
+        if trace_segments and offset < len(conditioned):
+            conditioned[offset] = (1.0, 0.0)
+        offset += len(trace_segments)
+    return conditioned
 
 
 def _bootstrap_probabilistic_student(cfg: CartpoleSynthesisConfig) -> ProbabilisticCartpoleStudent:
@@ -2173,7 +2190,6 @@ def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleS
     trace_segments = _segments_from_traces([trace])[0]
     if not trace_segments:
         return 0.0
-    mode_prior = math.log(0.5)
     emissions = [
         [
             student.action_distributions[mode].log_pdf(segment.action_parameter)
@@ -2181,7 +2197,7 @@ def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleS
         ]
         for segment in trace_segments
     ]
-    forward: List[List[float]] = [[mode_prior + emissions[0][0], mode_prior + emissions[0][1]]]
+    forward: List[List[float]] = [[emissions[0][0], -math.inf]]
     for index in range(1, len(trace_segments)):
         previous = forward[-1]
         pair = _switch_responsibility_pair_log_potentials(
@@ -2349,8 +2365,9 @@ def _refine_responsibilities_with_switch_timing(
             for segment in trace_segments[:-1]
         ]
 
-        # Forward scores accumulate prefix evidence for the two latent modes.
-        forward: List[List[float]] = [[emissions[0][0], emissions[0][1]]]
+        # Forward scores accumulate prefix evidence from the fixed initial
+        # memory state used by the executable CartPole PSM.
+        forward: List[List[float]] = [[emissions[0][0], -math.inf]]
         for index in range(1, len(trace_segments)):
             previous = forward[-1]
             pair = pair_potentials[index - 1]

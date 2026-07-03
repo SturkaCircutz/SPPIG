@@ -152,6 +152,9 @@ matched CartPole train/test horizons and the remaining algorithmic gaps. That
 block deliberately keeps `full_probabilistic_adaptive_teaching`,
 `full_continuous_switch_m_step`, `full_cem_teacher_optimizer`, and
 `paper_scale_result` false for the current bounded diagnostic implementation.
+The probabilistic student likelihood and EM responsibility refinement are
+conditioned on the executable CartPole PSM's fixed initial mode `0`, matching
+the paper's fixed initial memory-state assumption.
 The first teacher iteration uses an explicit probabilistic student prior, then
 later teacher candidate pools are sampled from the current probabilistic
 student before top-rho local refinement, matching the paper's sampled-teacher
@@ -185,6 +188,8 @@ full CEM plus gradient optimizer.
 The student starts with action-likelihood responsibilities, then each configured
 EM iteration alternates bounded forward-backward refinements using the learned
 switch-timing likelihood with action-distribution and switch-parameter refits.
+The first segment of each trace is fixed to mode `0` in these responsibility
+updates, rather than using a uniform latent initial-mode prior.
 That timing likelihood now treats selector-off to
 selector-on and selector-on to selector-off transitions as separate directed
 events, and it treats loop-free segment durations as elapsed time normalized to

@@ -50,6 +50,7 @@ from cartpole_synthesis import (
     _fit_switch_parameter_distributions,
     _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
+    _condition_initial_mode_responsibilities,
     _duration_refinement_candidates,
     _action_gradient_refinement_candidate,
     _elite_centroid_trace,
@@ -372,6 +373,39 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(responsibilities[1][0], action_only_second[0])
         for left_weight, right_weight in responsibilities:
             self.assertAlmostEqual(left_weight + right_weight, 1.0)
+
+    def test_cartpole_initial_segment_responsibility_is_fixed_to_mode_zero(self):
+        segments_by_trace = [
+            [
+                CartpoleSegment(
+                    observations=[[0.0, 0.0, 0.1, 0.0]],
+                    action_parameter=10.0,
+                    duration=1,
+                    hard_mode=1,
+                ),
+                CartpoleSegment(
+                    observations=[[0.0, 0.0, -0.1, 0.0]],
+                    action_parameter=-10.0,
+                    duration=1,
+                    hard_mode=0,
+                ),
+            ],
+            [
+                CartpoleSegment(
+                    observations=[[0.0, 0.0, 0.2, 0.0]],
+                    action_parameter=10.0,
+                    duration=1,
+                    hard_mode=1,
+                ),
+            ],
+        ]
+
+        conditioned = _condition_initial_mode_responsibilities(
+            segments_by_trace,
+            [(0.1, 0.9), (0.8, 0.2), (0.25, 0.75)],
+        )
+
+        self.assertEqual(conditioned, [(1.0, 0.0), (0.8, 0.2), (1.0, 0.0)])
 
     def test_cartpole_switch_timing_responsibilities_are_directed_by_next_mode(self):
         segment = CartpoleSegment(
@@ -1785,10 +1819,10 @@ class CartpolePaperTest(unittest.TestCase):
             _teacher_objective(mismatched_trace, student, cfg),
         )
 
-    def test_cartpole_trace_log_probability_marginalizes_latent_modes(self):
+    def test_cartpole_trace_log_probability_uses_fixed_initial_mode(self):
         student = ProbabilisticCartpoleStudent(
             action_distributions={
-                0: GaussianScalar(1.0, 1.0),
+                0: GaussianScalar(-1.0, 1.0),
                 1: GaussianScalar(1.0, 1.0),
             },
             switch=Depth2Switch(1.0, 0.0, 10.0),
@@ -1805,7 +1839,7 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertAlmostEqual(
             _trace_log_probability(trace, student),
-            GaussianScalar(1.0, 1.0).log_pdf(1.0),
+            GaussianScalar(-1.0, 1.0).log_pdf(1.0),
         )
 
     def test_cartpole_teacher_regularizer_uses_switch_timing_likelihood(self):

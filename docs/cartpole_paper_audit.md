@@ -160,18 +160,19 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `28.8`, test reward mean `39.8`; the same artifact records train/test
-  survived-step means `28.8` and `39.8`, or `0.576s` and `0.796s`. The tracked artifact was
-  regenerated after normalizing the elite-distance action component and records
+  train reward mean `41.15`, test reward mean `55.9`; the same artifact records train/test
+  survived-step means `41.15` and `55.9`, or `0.823s` and `1.118s`. The tracked artifact was
+  regenerated after conditioning the probabilistic student likelihood on the fixed initial mode and records
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`)
   so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
+  `initial_mode_prior = fixed_mode_0`,
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
   elite-distribution refresh, first-iteration source counts
   `{"bootstrap_elite_centroid": 1, "bootstrap_student_sample_refined": 3}`,
-  final-iteration source counts `{"student_elite_centroid": 1, "student_sample": 3}`, and policy
-  `m0 action=-0.330; m1 action=0.790; mode=1 if o[1] >= -0.046 and o[3] >= -1.163, else mode=0`; it also records
+  final-iteration source counts `{"student_sample_refined": 4}`, and policy
+  `m0 action=0.249; m1 action=0.138; mode=1 if 50.000*theta + -10.000*omega >= -0.220, else mode=0`; it also records
   `student_sample_segment_budget =
   chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
@@ -243,8 +244,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   switch-parameter optimizer.
 - The first Cartpole teacher iteration now samples from an explicit probabilistic student prior, and
   later teacher candidate pools are sampled from the current probabilistic student before top-rho
-  selection. These sampled rollouts now resample action and switch parameters whenever execution
-  enters a mode segment, matching the paper's probabilistic PSM execution model more closely. The
+  selection. These sampled rollouts now start from fixed mode `0` and resample action and switch
+  parameters whenever execution enters a mode segment, matching the paper's probabilistic PSM
+  execution model more closely. The
   teacher locally refines top sampled loop-free traces by duration/time-increment/action coordinate search under a
   top-rho elite-distance kernel approximation with action differences normalized by the larger sampled
   force magnitude, adds one bounded finite-difference teacher-gain
@@ -270,7 +272,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   teacher's per-segment time increments affect the bounded switch-timing likelihood.
 - The Cartpole student now initializes latent segment responsibilities from action likelihoods, then
   alternates the configured bounded forward-backward switch-timing passes with action-distribution and
-  switch-parameter refits inside each EM iteration. The E-step pair potentials and bounded switch
+  switch-parameter refits inside each EM iteration. The first segment of each trace is conditioned on
+  the executable PSM's fixed initial mode `0` instead of a uniform latent start prior. The E-step pair potentials and bounded switch
   timing loss use directed 0-to-1 and 1-to-0 selector events, closer to the directed transition terms
   in Eq. (12). This moves Eq. (10) closer to the paper by using both `H` and `G` evidence throughout
   the bounded EM loop, but it remains a local bounded approximation rather than the paper's full
@@ -461,6 +464,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_responsibility_refinement_uses_switch_timing` verifies
   that switch-timing likelihood can shift ambiguous latent segment responsibilities away from the
   action-only posterior while preserving normalization.
+- `tests/test_cartpole_paper.py::test_cartpole_initial_segment_responsibility_is_fixed_to_mode_zero`
+  verifies that the first segment of each trace is conditioned on the CartPole PSM's fixed initial
+  mode rather than a free latent start mode.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_timing_responsibilities_are_directed_by_next_mode`
   verifies that the bounded two-mode responsibility likelihood distinguishes selector-off to
   selector-on transitions from selector-on to selector-off transitions.
@@ -544,9 +550,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_objective_uses_student_regularizer` verifies
   that, once a previous student exists, the teacher objective can prefer a lower-reward loop-free trace
   that has higher probability under the student's Gaussian action distributions.
-- `tests/test_cartpole_paper.py::test_cartpole_trace_log_probability_marginalizes_latent_modes`
-  verifies that the teacher regularizer marginalizes over latent segment modes instead of treating
-  posterior responsibilities as extra priors.
+- `tests/test_cartpole_paper.py::test_cartpole_trace_log_probability_uses_fixed_initial_mode`
+  verifies that the teacher regularizer marginalizes over latent segment modes after conditioning the
+  first segment on the fixed initial mode instead of treating posterior responsibilities as extra priors.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_regularizer_uses_switch_timing_likelihood`
   verifies that the teacher regularizer also prefers traces with switch timing that the current
   student explains better. These regularizer tests cover a partial implementation of the probability
@@ -736,7 +742,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   exact union of axis-aligned threshold rectangles for conjunctions and disjunctions under
   independent predicate-threshold Gaussians, with threshold samples shared across the segment. The
   current Cartpole teacher samples the first iteration from a Gaussian PSM prior and later iterations
-  from the current probabilistic student, resampling action/switch parameters on mode entry, refines
+  from the current probabilistic student with fixed initial mode `0`, resampling action/switch parameters on mode entry, refines
   top loop-free candidates with bounded coordinate search over teacher gains when available, integer
   segment durations, per-segment time increments, one-segment local continuous constant-action
   steps, and one teacher-gain plus one action plus one integer-duration plus one time-increment
