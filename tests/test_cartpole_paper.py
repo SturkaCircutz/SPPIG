@@ -738,6 +738,54 @@ class CartpolePaperTest(unittest.TestCase):
             _eq12_switch_log_likelihood(early_switch, segment, (1.0, 0.0), (1.0, 0.0)),
         )
 
+    def test_cartpole_switch_timing_loss_penalizes_final_segment_early_transition(self):
+        final_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, 0.4, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        segments_by_trace = [[final_segment]]
+        responsibilities = [(1.0, 0.0)]
+
+        self.assertGreater(
+            _switch_timing_loss(Depth2Switch(1.0, 0.0, 0.0), segments_by_trace, responsibilities),
+            _switch_timing_loss(Depth2Switch(1.0, 0.0, 1.0), segments_by_trace, responsibilities),
+        )
+
+    def test_cartpole_switch_distribution_timing_loss_penalizes_final_segment_early_transition(self):
+        final_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, 0.4, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        segments_by_trace = [[final_segment]]
+        responsibilities = [(1.0, 0.0)]
+
+        self.assertGreater(
+            _switch_distribution_timing_loss(
+                Depth2Switch(1.0, 0.0, 0.0),
+                [GaussianScalar(0.0, 0.001)],
+                segments_by_trace,
+                responsibilities,
+            ),
+            _switch_distribution_timing_loss(
+                Depth2Switch(1.0, 0.0, 1.0),
+                [GaussianScalar(1.0, 0.001)],
+                segments_by_trace,
+                responsibilities,
+            ),
+        )
+
     def test_cartpole_eq12_likelihood_is_directed_for_selector_off_transition(self):
         segment = CartpoleSegment(
             observations=[
@@ -1849,6 +1897,42 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertAlmostEqual(
             _trace_log_probability(trace, student),
             GaussianScalar(-1.0, 1.0).log_pdf(1.0),
+        )
+
+    def test_cartpole_trace_log_probability_penalizes_final_segment_early_transition(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, 0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, 0.4, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0],
+            mode_labels=[0, 0, 0],
+            reward=3.0,
+            segment_actions=(-10.0,),
+            segment_durations=(3,),
+        )
+        early_switch_student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.001),
+            switch_parameter_distributions=[GaussianScalar(0.0, 0.001)],
+            responsibilities=[(1.0, 0.0)],
+        )
+        staying_student = ProbabilisticCartpoleStudent(
+            action_distributions=early_switch_student.action_distributions,
+            switch=Depth2Switch(1.0, 0.0, 1.0),
+            switch_threshold_distribution=GaussianScalar(1.0, 0.001),
+            switch_parameter_distributions=[GaussianScalar(1.0, 0.001)],
+            responsibilities=[(1.0, 0.0)],
+        )
+
+        self.assertGreater(
+            _trace_log_probability(trace, staying_student),
+            _trace_log_probability(trace, early_switch_student),
         )
 
     def test_cartpole_teacher_regularizer_uses_switch_timing_likelihood(self):

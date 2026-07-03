@@ -130,6 +130,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["switch_timing"]["duration_units"],
             "segment_elapsed_time_normalized_to_default_cartpole_dt",
         )
+        self.assertTrue(provenance["switch_timing"]["final_segment_stay_evidence"])
         self.assertTrue(provenance["switch_timing"]["scalar_threshold_uses_shared_sample"])
         self.assertEqual(
             provenance["switch_timing"]["depth2_boolean_probability"],

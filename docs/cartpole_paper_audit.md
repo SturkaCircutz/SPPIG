@@ -276,15 +276,17 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   uses the learned Gaussian switch-parameter distribution with one sampled threshold shared across a
   segment, matching the paper's probabilistic-state-machine sampling model. Loop-free segment
   durations are interpreted as elapsed time normalized to the CartPole simulator step, so the
-  teacher's per-segment time increments affect the bounded switch-timing likelihood.
+  teacher's per-segment time increments affect the bounded switch-timing likelihood. The final
+  observed segment now contributes no-transition-before-duration evidence, so single-segment traces
+  and final teacher segments are not scored only by action likelihood.
 - The Cartpole student now initializes latent segment responsibilities from action likelihoods, then
   alternates the configured bounded forward-backward switch-timing passes with action-distribution and
   switch-parameter refits inside each EM iteration. The first segment of each trace is conditioned on
   the executable PSM's fixed initial mode `0` instead of a uniform latent start prior. The E-step pair potentials and bounded switch
-  timing loss use directed 0-to-1 and 1-to-0 selector events, closer to the directed transition terms
-  in Eq. (12). This moves Eq. (10) closer to the paper by using both `H` and `G` evidence throughout
-  the bounded EM loop, but it remains a local bounded approximation rather than the paper's full
-  EM/M-step optimizer.
+  timing loss use directed 0-to-1 and 1-to-0 selector events plus final-segment stay evidence, closer
+  to the transition and no-transition terms in Eq. (12). This moves Eq. (10) closer to the paper by
+  using both `H` and `G` evidence throughout the bounded EM loop, but it remains a local bounded
+  approximation rather than the paper's full EM/M-step optimizer.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
   corresponding constant-action sequence, duration-only refinement preserves that action sequence
@@ -505,6 +507,12 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   normalized to the CartPole simulator step, rather than only raw simulator-step counts.
 - `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_penalizes_early_transition_when_staying`
   verifies the no-transition-before-duration term in the discrete Eq. (12)-style switch likelihood.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_timing_loss_penalizes_final_segment_early_transition`,
+  `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_timing_loss_penalizes_final_segment_early_transition`,
+  and `tests/test_cartpole_paper.py::test_cartpole_trace_log_probability_penalizes_final_segment_early_transition`
+  verify that final observed segments contribute no-transition-before-duration evidence to the
+  deterministic timing comparator, Gaussian switch-parameter timing loss, and teacher trace
+  log-probability.
 - `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_is_directed_for_selector_off_transition`
   verifies that the deterministic Eq. (12)-style timing approximation scores selector-on to
   selector-off transitions separately from selector-off to selector-on transitions.

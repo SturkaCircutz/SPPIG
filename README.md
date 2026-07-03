@@ -195,7 +195,9 @@ That timing likelihood now treats selector-off to
 selector-on and selector-on to selector-off transitions as separate directed
 events, and it treats loop-free segment durations as elapsed time normalized to
 the CartPole simulator step, so per-segment time increments influence the
-bounded Eq. (12)-style timing terms.
+bounded Eq. (12)-style timing terms. The final observed segment contributes
+no-transition-before-duration evidence, so a trace that stays in a mode is not
+scored only by its action likelihood.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
 plus bounded coordinate steps and finite-difference gradient polishing with backtracking. Depth-2 Boolean-tree

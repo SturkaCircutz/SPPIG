@@ -144,6 +144,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         "switch_timing": {
             "std_steps": SWITCH_TIMING_STD_STEPS,
             "duration_units": "segment_elapsed_time_normalized_to_default_cartpole_dt",
+            "final_segment_stay_evidence": True,
             "scalar_threshold_uses_shared_sample": True,
             "depth2_boolean_probability": "shared_threshold_rectangle_union",
             "std_refinement_multipliers": list(SWITCH_STD_REFINEMENT_MULTIPLIERS),
@@ -2434,7 +2435,15 @@ def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleS
                 for mode in (0, 1)
             ]
         )
-    return _logsumexp(forward[-1])
+    terminal_stay = _switch_terminal_stay_log_potentials(
+        student.switch,
+        student.switch_parameter_distributions,
+        trace_segments[-1],
+    )
+    return _logsumexp([
+        forward[-1][mode] + terminal_stay[mode]
+        for mode in (0, 1)
+    ])
 
 
 def _logsumexp(values: List[float]) -> float:
@@ -2606,8 +2615,19 @@ def _refine_responsibilities_with_switch_timing(
                 ]
             )
 
+        terminal_stay = _switch_terminal_stay_log_potentials(
+            switch,
+            switch_parameter_distributions,
+            trace_segments[-1],
+        )
+        forward_with_terminal_stay = [
+            forward[-1][mode] + terminal_stay[mode]
+            for mode in (0, 1)
+        ]
+
         # Backward scores accumulate suffix evidence without changing ordering.
         backward: List[List[float]] = [[0.0, 0.0] for _ in trace_segments]
+        backward[-1] = list(terminal_stay)
         for index in range(len(trace_segments) - 2, -1, -1):
             pair = pair_potentials[index]
             backward[index] = [
@@ -2623,7 +2643,7 @@ def _refine_responsibilities_with_switch_timing(
             ]
 
         # Posterior marginals are flattened in segment order for later M-steps.
-        norm = _logsumexp(forward[-1])
+        norm = _logsumexp(forward_with_terminal_stay)
         for index in range(len(trace_segments)):
             posterior_logs = [
                 forward[index][mode] + backward[index][mode] - norm
@@ -2659,6 +2679,24 @@ def _switch_responsibility_pair_log_potentials(
             math.log(max(on_to_off, LOG_PROBABILITY_FLOOR)),
             math.log(max(stay_on, LOG_PROBABILITY_FLOOR)),
         ],
+    ]
+
+
+def _switch_terminal_stay_log_potentials(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    segment: CartpoleSegment,
+) -> List[float]:
+    _, _, stay_off, stay_on = _switch_selector_transition_probabilities(
+        switch,
+        distributions,
+        segment.observations,
+        segment.switch_timing_duration,
+        segment.timing_step_scale,
+    )
+    return [
+        math.log(max(stay_off, LOG_PROBABILITY_FLOOR)),
+        math.log(max(stay_on, LOG_PROBABILITY_FLOOR)),
     ]
 
 
@@ -3182,9 +3220,13 @@ def _switch_timing_pairs(
     }
     pairs: List[_SwitchTimingPair] = []
     for trace_segments in segments_by_trace:
-        for current_segment, next_segment in zip(trace_segments, trace_segments[1:]):
+        for index, current_segment in enumerate(trace_segments):
             current_resp = responsibility_by_id.get(id(current_segment), (0.5, 0.5))
-            next_resp = responsibility_by_id.get(id(next_segment), (0.5, 0.5))
+            next_resp = (
+                responsibility_by_id.get(id(trace_segments[index + 1]), (0.5, 0.5))
+                if index + 1 < len(trace_segments)
+                else None
+            )
             observations = tuple(current_segment.observations)
             pairs.append(
                 _SwitchTimingPair(
@@ -3193,10 +3235,10 @@ def _switch_timing_pairs(
                     duration=current_segment.duration,
                     timing_duration=current_segment.switch_timing_duration,
                     timing_step_scale=current_segment.timing_step_scale,
-                    off_to_on_weight=current_resp[0] * next_resp[1],
-                    on_to_off_weight=current_resp[1] * next_resp[0],
-                    stay_off_weight=current_resp[0] * next_resp[0],
-                    stay_on_weight=current_resp[1] * next_resp[1],
+                    off_to_on_weight=current_resp[0] * next_resp[1] if next_resp is not None else 0.0,
+                    on_to_off_weight=current_resp[1] * next_resp[0] if next_resp is not None else 0.0,
+                    stay_off_weight=current_resp[0] * next_resp[0] if next_resp is not None else current_resp[0],
+                    stay_on_weight=current_resp[1] * next_resp[1] if next_resp is not None else current_resp[1],
                 )
             )
     return pairs
@@ -4029,18 +4071,42 @@ def _switch_timing_loss(
 
     loss = 0.0
     for trace_segments in segments_by_trace:
-        for current_segment, next_segment in zip(trace_segments, trace_segments[1:]):
+        for index, current_segment in enumerate(trace_segments):
             current_resp = responsibility_by_id.get(id(current_segment), (0.5, 0.5))
-            next_resp = responsibility_by_id.get(id(next_segment), (0.5, 0.5))
-            # This timing term is a local approximation to the paper's switch
-            # likelihood: prefer enabling the switch at the observed boundary.
-            loss -= _eq12_switch_log_likelihood(
-                switch,
-                current_segment,
-                current_resp,
-                next_resp,
-            )
+            if index + 1 < len(trace_segments):
+                next_resp = responsibility_by_id.get(id(trace_segments[index + 1]), (0.5, 0.5))
+                # This timing term is a local approximation to the paper's
+                # switch likelihood: prefer enabling the switch at observed
+                # boundaries.
+                loss -= _eq12_switch_log_likelihood(
+                    switch,
+                    current_segment,
+                    current_resp,
+                    next_resp,
+                )
+            else:
+                loss -= _final_segment_stay_log_likelihood(switch, current_segment, current_resp)
     return loss
+
+
+def _final_segment_stay_log_likelihood(
+    switch: SwitchProgram,
+    segment: CartpoleSegment,
+    current_resp: Tuple[float, float],
+) -> float:
+    first_enabled_time = _enabled_step_elapsed_time(
+        _first_enabled_step(switch, segment.observations),
+        segment.timing_step_scale,
+    )
+    first_disabled_time = _enabled_step_elapsed_time(
+        _first_disabled_step(switch, segment.observations),
+        segment.timing_step_scale,
+    )
+    duration = segment.switch_timing_duration
+    return (
+        current_resp[0] * _log_no_transition_before_duration(first_enabled_time, duration)
+        + current_resp[1] * _log_no_transition_before_duration(first_disabled_time, duration)
+    )
 
 
 def _eq12_switch_log_likelihood(
