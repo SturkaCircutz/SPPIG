@@ -85,6 +85,7 @@ from cartpole_synthesis import (
     _segments_from_traces,
     _switch_structure_rescore_candidates,
     _switch_structure_cost,
+    _switch_selector_transition_probabilities,
     _switch_transition_and_stay_probabilities,
     _switch_transition_probability_at_duration,
     _switch_no_transition_probability_before_duration,
@@ -1693,6 +1694,31 @@ class CartpolePaperTest(unittest.TestCase):
             stay,
             _switch_no_transition_probability_before_duration(switch, distributions, observations, 3),
         )
+
+    def test_cartpole_first_step_selector_probability_matches_switch_state_mass(self):
+        switch = BooleanTreeSwitch(
+            ObservationPredicate(2, ">=", 0.0),
+            ObservationPredicate(3, "<=", 0.5),
+            "and",
+        )
+        distributions = [GaussianScalar(0.0, 0.2), GaussianScalar(0.5, 0.2)]
+        observation = [0.0, 0.0, 0.1, 0.4]
+
+        off_to_on, on_to_off, stay_off, stay_on = _switch_selector_transition_probabilities(
+            switch,
+            distributions,
+            [observation],
+            1,
+        )
+        expected_on = (
+            _gaussian_threshold_pass_probability(observation[2], distributions[0], ">=")
+            * _gaussian_threshold_pass_probability(observation[3], distributions[1], "<=")
+        )
+
+        self.assertAlmostEqual(off_to_on, expected_on)
+        self.assertAlmostEqual(on_to_off, 1.0 - expected_on)
+        self.assertEqual(stay_off, 1.0)
+        self.assertEqual(stay_on, 1.0)
 
     def test_cartpole_teacher_objective_defaults_to_reward(self):
         cfg = CartpoleSynthesisConfig()

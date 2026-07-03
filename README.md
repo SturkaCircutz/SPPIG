@@ -32,8 +32,8 @@ steps. Pure PPO-LSTM is implemented, but it did not solve the training split
 within the local diagnostic budget. The displayed programmatic row is a fixed
 two-mode policy reevaluation; current synthesis metrics are tracked separately
 and should not be read as a completed probabilistic adaptive-teaching result.
-The checked-in synthesized PSM diagnostic artifact is marked as historical
-until it is regenerated under the current mode-order semantics.
+The checked-in synthesized PSM diagnostic artifact has been regenerated under
+the current mode-order semantics, but remains a bounded local diagnostic.
 Programmatic policies execute the current mode's action before applying the
 switch predicate to update the next mode, matching the paper's state-machine
 semantics.

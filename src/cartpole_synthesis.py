@@ -3859,6 +3859,15 @@ def _switch_selector_transition_probabilities(
     duration: float,
     timing_step_scale: float = 1.0,
 ) -> Tuple[float, float, float, float]:
+    first_step = _first_step_selector_transition_probabilities(
+        switch,
+        distributions,
+        observations,
+        duration,
+        timing_step_scale,
+    )
+    if first_step is not None:
+        return first_step
     scalar = _single_threshold_view(switch, distributions, observations)
     if scalar is not None:
         values, distribution, relation = scalar
@@ -3897,6 +3906,15 @@ def _switch_selector_transition_probabilities_for_pair(
     distributions: List[GaussianScalar],
     pair: _SwitchTimingPair,
 ) -> Tuple[float, float, float, float]:
+    first_step = _first_step_selector_transition_probabilities(
+        switch,
+        distributions,
+        pair.observations,
+        pair.timing_duration,
+        pair.timing_step_scale,
+    )
+    if first_step is not None:
+        return first_step
     scalar = _single_threshold_pair_view(switch, distributions, pair)
     if scalar is not None:
         values, distribution, relation = scalar
@@ -3924,6 +3942,28 @@ def _switch_selector_transition_probabilities_for_pair(
         pair.timing_step_scale,
     )
     return off_to_on, on_to_off, stay_off, stay_on
+
+
+def _first_step_selector_transition_probabilities(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    observations: Sequence[Observation],
+    duration: float,
+    timing_step_scale: float,
+) -> Tuple[float, float, float, float] | None:
+    if duration <= 0:
+        return 0.0, 0.0, 1.0, 1.0
+    if not observations:
+        return 0.0, 0.0, 1.0, 1.0
+    current_index = _timing_duration_step_index(
+        duration,
+        timing_step_scale,
+        len(observations),
+    )
+    if current_index != 0:
+        return None
+    enabled = min(max(_switch_enabled_probability(switch, distributions, observations[0]), 0.0), 1.0)
+    return enabled, 1.0 - enabled, 1.0, 1.0
 
 
 def _single_threshold_selector_transition_probabilities(

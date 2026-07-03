@@ -49,9 +49,17 @@ class MakePaperFiguresTest(unittest.TestCase):
         synthesized_psm_row = next(row for row in manifest["rows"] if row["policy"] == "Synthesized PSM diagnostic")
         with open(os.path.join(ROOT, synthesized_psm_row["metrics_output"]), encoding="utf-8") as handle:
             synthesized_psm_metrics = json.load(handle)
-        self.assertFalse(synthesized_psm_metrics["artifact_status"]["current_code_result"])
-        self.assertEqual(synthesized_psm_row["artifact_status"], synthesized_psm_metrics["artifact_status"])
-        self.assertIn("pre-mode-order-change", synthesized_psm_row["notes"])
+        self.assertNotIn("artifact_status", synthesized_psm_metrics)
+        self.assertNotIn("artifact_status", synthesized_psm_row)
+        self.assertEqual(
+            synthesized_psm_metrics["algorithm_provenance"]["probabilistic_student"]["mode_update_order"],
+            "act_with_current_mode_then_update_next_mode",
+        )
+        self.assertEqual(
+            synthesized_psm_row["algorithm_provenance"]["probabilistic_student"]["mode_update_order"],
+            synthesized_psm_metrics["algorithm_provenance"]["probabilistic_student"]["mode_update_order"],
+        )
+        self.assertIn("current probabilistic adaptive-teaching diagnostic", synthesized_psm_row["notes"])
         self.assertIn("PPO MLP", manifest["reproduction_commands"])
         self.assertIn("--test-max-steps 15000", manifest["reproduction_commands"]["PPO MLP"])
 

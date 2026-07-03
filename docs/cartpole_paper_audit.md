@@ -154,23 +154,22 @@ These are implementation diagnostics, not paper-scale reproduced results.
   Its `paper_protocol_status` marks this as a fixed two-mode program reevaluation with
   `synthesized_by_current_algorithm = false` and `paper_scale_fixed_program_result = false`;
   it is not evidence that the current synthesis implementation reproduced the paper result.
-- Historical synthesizer diagnostic command for the tracked stale artifact:
+- Current synthesizer diagnostic command:
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json`
-- Historical synthesizer diagnostic output:
+- Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `26.7`, test reward mean `44.7`; the same artifact records train/test
-  survived-step means `26.7` and `44.7`, or `0.534s` and `0.894s`. This artifact predates the
-  action-before-transition PSM mode-order correction and is marked with `artifact_status.current_code_result = false`;
-  the full local synthesized PSM diagnostic was not regenerated because the rerun exceeded the
-  interactive runtime budget. The tracked artifact uses the CartPole PSM loop-free teacher profile
+  train reward mean `33.65`, test reward mean `41.75`; the same artifact records train/test
+  survived-step means `33.65` and `41.75`, or `0.673s` and `0.835s`. The tracked artifact was
+  regenerated after the action-before-transition PSM mode-order correction and records
+  `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`)
   so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
   elite-distribution refresh, first-iteration source counts
-  `{"bootstrap_elite_centroid": 3, "bootstrap_student_sample": 1}`, final-iteration source
-  counts `{"student_sample": 3, "student_sample_refined": 1}`, and policy
-  `m0 action=-2.012; m1 action=1.403; mode=1 if -10.000*theta + 0.500*omega >= -0.798, else mode=0`; it also records
+  `{"bootstrap_elite_centroid": 1, "bootstrap_student_sample": 1, "bootstrap_student_sample_refined": 2}`,
+  final-iteration source counts `{"student_elite_centroid": 1, "student_sample": 3}`, and policy
+  `m0 action=-1.881; m1 action=0.133; mode=1 if 20.000*theta + -5.000*omega >= -0.298, else mode=0`; it also records
   `student_sample_segment_budget =
   chunk_sampled_actions_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
