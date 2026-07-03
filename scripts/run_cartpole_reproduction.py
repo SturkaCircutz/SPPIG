@@ -18,6 +18,7 @@ sys.path.insert(0, str(SRC))
 from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec, cartpole_space_spec  # noqa: E402
 from cartpole_direct_opt import (  # noqa: E402
     DirectOptConfig,
+    cartpole_direct_opt_protocol_status,
     direct_opt_metrics,
     run_cartpole_direct_opt,
 )
@@ -284,6 +285,7 @@ def run_direct_opt(
         "metrics_output": str(metrics_path),
         "config": asdict(cfg),
         "algorithm_provenance": result.algorithm_provenance,
+        "paper_protocol_status": cartpole_direct_opt_protocol_status(cfg),
         "policy_description": result.policy.describe(),
         "searched_candidates": result.searched_candidates,
     }

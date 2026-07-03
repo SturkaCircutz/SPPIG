@@ -207,7 +207,11 @@ the best candidate so far, and reevaluates the selected program on the full pape
 test horizon. Its metrics JSON records the exact grid, one-hot metadata counts,
 batch/restart diagnostics, selected program, and limitation note. This is still
 not the paper's two-hour, ten-thread Direct-Opt protocol over the full continuous
-one-hot switching grammar.
+one-hot switching grammar. The metrics JSON also includes
+`paper_protocol_status`, which keeps the full Direct-Opt protocol flag false
+unless the paper batch size, ten-thread/two-hour optimization budget, full
+continuous one-hot grammar, full test horizon, and `1000`-rollout evaluation
+are actually satisfied.
 
 PPO MLP:
 

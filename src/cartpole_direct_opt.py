@@ -33,6 +33,9 @@ DIRECT_OPT_BOOLEAN_TOP_STUMPS = 4
 DIRECT_OPT_OBSERVATION_FEATURES = ("x", "cart_velocity", "theta", "omega")
 DIRECT_OPT_RELATIONS = (">=", "<=")
 DIRECT_OPT_TREE_OPERATORS = ("leaf", "and", "or")
+PAPER_DIRECT_OPT_BATCH_SIZE = 10
+PAPER_DIRECT_OPT_PARALLEL_THREADS = 10
+PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS = 7200
 
 
 @dataclass
@@ -102,9 +105,9 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "policy_class": "two_mode_constant_action_linear_or_depth2_boolean_tree_switch",
         "selection_objective": "mean_train_horizon_reward_then_success",
         "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall",
-        "paper_batch_size": 10,
-        "paper_parallel_threads": 10,
-        "paper_time_limit_seconds": 7200,
+        "paper_batch_size": PAPER_DIRECT_OPT_BATCH_SIZE,
+        "paper_parallel_threads": PAPER_DIRECT_OPT_PARALLEL_THREADS,
+        "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
         "local_parallel_threads": 1,
         "local_time_limit_seconds": None,
         "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
@@ -130,6 +133,47 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
             "It includes bounded Boolean-tree switch candidates with one-hot metadata and batch/restart "
             "local refinement, but is not the paper's two-hour, ten-thread continuous numerical "
             "optimization over the full one-hot switching grammar."
+        ),
+    }
+
+
+def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, object]:
+    paper_test_env = CartpoleEnv.test_env()
+    configured_paper_batch_size = cfg.batch_size == PAPER_DIRECT_OPT_BATCH_SIZE
+    uses_paper_batch_size = configured_paper_batch_size and cfg.num_train_states >= PAPER_DIRECT_OPT_BATCH_SIZE
+    paper_test_horizon = cfg.test_max_steps == paper_test_env.cfg.max_steps
+    paper_eval_rollouts = cfg.eval_rollouts == PAPER_EVAL_ROLLOUTS
+    return {
+        "paper_baseline": "Direct-Opt",
+        "paper_batch_size": PAPER_DIRECT_OPT_BATCH_SIZE,
+        "selected_batch_size": cfg.batch_size,
+        "configured_paper_batch_size": configured_paper_batch_size,
+        "uses_paper_batch_size": uses_paper_batch_size,
+        "paper_parallel_threads": PAPER_DIRECT_OPT_PARALLEL_THREADS,
+        "selected_parallel_threads": 1,
+        "uses_paper_parallel_threads": False,
+        "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
+        "selected_time_limit_seconds": None,
+        "uses_paper_time_limit": False,
+        "full_continuous_one_hot_switch_grammar": False,
+        "bounded_one_hot_switch_metadata": True,
+        "linear_switch_encoding": True,
+        "batch_optimization_seeded_from_best_so_far": cfg.batch_refinement_rounds > 0,
+        "random_restart_on_stall": cfg.restart_candidates_on_stall > 0,
+        "optimizes_combined_reward_over_all_initial_states": False,
+        "selected_train_initial_states": cfg.num_train_states,
+        "paper_test_horizon_steps": paper_test_env.cfg.max_steps,
+        "selected_test_max_steps": cfg.test_max_steps,
+        "uses_full_test_horizon": paper_test_horizon,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "selected_eval_rollouts": cfg.eval_rollouts,
+        "uses_paper_eval_rollouts": paper_eval_rollouts,
+        "quick_diagnostic": cfg.quick,
+        "paper_scale_direct_opt_protocol": False,
+        "limitation": (
+            "Bounded local Direct-Opt diagnostic: records batch/restart structure and one-hot "
+            "metadata, but does not run the paper's ten-thread, two-hour continuous optimization "
+            "over the full one-hot switching grammar."
         ),
     }
 
@@ -175,6 +219,7 @@ def direct_opt_metrics(result: DirectOptResult) -> Dict[str, object]:
     return {
         "config": asdict(result.config),
         "algorithm_provenance": result.algorithm_provenance,
+        "paper_protocol_status": cartpole_direct_opt_protocol_status(result.config),
         "search_diagnostics": result.search_diagnostics,
         "policy_description": result.policy.describe(),
         "best_candidate": asdict(result.candidate),

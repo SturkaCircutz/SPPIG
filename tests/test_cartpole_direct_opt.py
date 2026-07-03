@@ -17,6 +17,7 @@ from cartpole_direct_opt import (  # noqa: E402
     _boolean_local_neighbor_candidates,
     _boolean_tree_candidates,
     _candidate_policy,
+    cartpole_direct_opt_protocol_status,
     direct_opt_metrics,
     run_cartpole_direct_opt,
 )
@@ -90,6 +91,27 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertGreater(diagnostics["batch_local_evaluations"], 0)
         self.assertGreaterEqual(diagnostics["restart_evaluations"], 0)
         self.assertEqual(metrics["best_candidate"]["source"], result.candidate.source)
+        status = metrics["paper_protocol_status"]
+        self.assertEqual(status["paper_baseline"], "Direct-Opt")
+        self.assertEqual(status["paper_batch_size"], 10)
+        self.assertEqual(status["selected_batch_size"], 10)
+        self.assertTrue(status["configured_paper_batch_size"])
+        self.assertFalse(status["uses_paper_batch_size"])
+        self.assertEqual(status["selected_train_initial_states"], 2)
+        self.assertEqual(status["paper_parallel_threads"], 10)
+        self.assertEqual(status["selected_parallel_threads"], 1)
+        self.assertFalse(status["uses_paper_parallel_threads"])
+        self.assertEqual(status["paper_time_limit_seconds"], 7200)
+        self.assertIsNone(status["selected_time_limit_seconds"])
+        self.assertFalse(status["uses_paper_time_limit"])
+        self.assertFalse(status["full_continuous_one_hot_switch_grammar"])
+        self.assertTrue(status["bounded_one_hot_switch_metadata"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
+
+        default_status = cartpole_direct_opt_protocol_status(DirectOptConfig())
+        self.assertTrue(default_status["configured_paper_batch_size"])
+        self.assertTrue(default_status["uses_paper_batch_size"])
+        self.assertEqual(default_status["selected_train_initial_states"], 10)
         self.assertEqual(metrics["paper_eval_rollouts"], 1000)
         self.assertFalse(metrics["uses_paper_eval_rollouts"])
         self.assertTrue(metrics["reward_spec"]["reward_equals_survived_steps"])
@@ -103,6 +125,26 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertIn("survival_seconds_mean", metrics["train"])
         self.assertIn("steps_mean", metrics["test"])
         self.assertIn("survival_seconds_mean", metrics["test"])
+
+    def test_direct_opt_protocol_status_marks_quick_diagnostic_limits(self):
+        status = cartpole_direct_opt_protocol_status(
+            DirectOptConfig(
+                batch_size=2,
+                batch_refinement_rounds=0,
+                restart_candidates_on_stall=0,
+                eval_rollouts=1,
+                test_max_steps=20,
+                quick=True,
+            )
+        )
+
+        self.assertFalse(status["uses_paper_batch_size"])
+        self.assertFalse(status["batch_optimization_seeded_from_best_so_far"])
+        self.assertFalse(status["random_restart_on_stall"])
+        self.assertFalse(status["uses_full_test_horizon"])
+        self.assertFalse(status["uses_paper_eval_rollouts"])
+        self.assertTrue(status["quick_diagnostic"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
 
     def test_direct_opt_can_disable_batch_refinement_for_grid_random_diagnostic(self):
         result = run_cartpole_direct_opt(
@@ -266,6 +308,12 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["config"]["batch_refinement_rounds"], 1)
         self.assertEqual(metrics["config"]["local_refinement_steps"], 1)
         self.assertEqual(metrics["config"]["restart_candidates_on_stall"], 1)
+        status = metrics["paper_protocol_status"]
+        self.assertFalse(status["uses_paper_batch_size"])
+        self.assertEqual(status["selected_test_max_steps"], 20)
+        self.assertFalse(status["uses_full_test_horizon"])
+        self.assertFalse(status["uses_paper_eval_rollouts"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["paper_eval_rollouts"], 1000)
         self.assertFalse(metrics["uses_paper_eval_rollouts"])
@@ -306,6 +354,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
 
         self.assertEqual(metrics["config"]["quick"], True)
         self.assertEqual(metrics["config"]["batch_refinement_rounds"], 0)
+        self.assertFalse(metrics["paper_protocol_status"]["batch_optimization_seeded_from_best_so_far"])
         self.assertEqual(metrics["search_diagnostics"]["batch_refinement_candidates"], 0)
         self.assertEqual(metrics["search_diagnostics"]["batch_seed_evaluations"], 0)
 

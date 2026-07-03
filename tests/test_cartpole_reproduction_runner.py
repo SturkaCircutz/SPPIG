@@ -552,6 +552,15 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(direct_metrics["algorithm_provenance"]["boolean_tree_depth"], 2)
             self.assertIn("one-hot", direct_metrics["algorithm_provenance"]["one_hot_switch_encoding"])
             self.assertEqual(direct_metrics["algorithm_provenance"]["paper_time_limit_seconds"], 7200)
+            direct_status = direct_metrics["paper_protocol_status"]
+            self.assertEqual(direct_status["paper_baseline"], "Direct-Opt")
+            self.assertFalse(direct_status["uses_paper_batch_size"])
+            self.assertFalse(direct_status["uses_paper_parallel_threads"])
+            self.assertFalse(direct_status["uses_paper_time_limit"])
+            self.assertFalse(direct_status["full_continuous_one_hot_switch_grammar"])
+            self.assertFalse(direct_status["uses_full_test_horizon"])
+            self.assertFalse(direct_status["uses_paper_eval_rollouts"])
+            self.assertFalse(direct_status["paper_scale_direct_opt_protocol"])
             self.assertEqual(direct_metrics["config"]["quick"], True)
             self.assertEqual(direct_metrics["config"]["batch_size"], 2)
             self.assertEqual(direct_metrics["config"]["batch_refinement_rounds"], 1)
@@ -576,6 +585,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(manifest["include_direct_opt"])
             direct_manifest_row = manifest["rows"][1]
             self.assertEqual(direct_manifest_row["algorithm_provenance"]["baseline"], "direct_opt")
+            self.assertEqual(direct_manifest_row["paper_protocol_status"], direct_status)
             self.assertIn("direct_opt_artifact_note", manifest)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO artifact checks")

@@ -51,7 +51,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
   tree-operator metadata, plus a local batch/restart refinement seeded from the best candidate so far.
   This records exact search grids, search diagnostics, and selected program provenance, but is not the
-  paper's full two-hour parallel direct optimization protocol.
+  paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
+  `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, full continuous
+  one-hot grammar, combined-reward optimization, full test horizon, and `1000`-rollout evaluation;
+  the full Direct-Opt protocol flag remains false for the bounded diagnostic.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
@@ -386,7 +389,11 @@ paper-scale PPO2 runs.
   still stop the sweep by default.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` verifies that
   the bounded Direct-Opt diagnostic baseline selects a Cartpole PSM and records explicit
-  non-paper-scale provenance, including local batch/restart diagnostics.
+  non-paper-scale provenance, including local batch/restart diagnostics and Direct-Opt
+  protocol-status flags.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_marks_quick_diagnostic_limits`
+  verifies that quick Direct-Opt diagnostics do not claim the paper batch size, full test horizon,
+  `1000`-rollout metric, restart/batch optimization, or paper-scale Direct-Opt protocol.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_can_disable_batch_refinement_for_grid_random_diagnostic`
   verifies that the grid/random/Boolean-tree diagnostic can still be isolated when batch refinement is
   disabled.
