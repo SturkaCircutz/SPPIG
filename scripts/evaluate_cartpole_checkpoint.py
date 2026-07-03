@@ -6,8 +6,6 @@ import os
 import sys
 from pathlib import Path
 
-import torch
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -22,16 +20,23 @@ from cartpole_env import (  # noqa: E402
     cartpole_reward_spec,
     cartpole_space_spec,
 )
-from ppo_cartpole import (  # noqa: E402
-    PAPER_PPO_TIMESTEPS,
-    LSTMActorCritic,
-    MLPActorCritic,
-    evaluate_ppo_model,
-    result_to_metrics,
-)
+
+PAPER_PPO_TIMESTEPS = 10_000_000
+
+
+def _load_ppo_runtime():
+    try:
+        import torch
+        from ppo_cartpole import LSTMActorCritic, MLPActorCritic, evaluate_ppo_model, result_to_metrics
+    except ModuleNotFoundError as exc:
+        if exc.name == "torch":
+            raise RuntimeError("PyTorch is required to reevaluate PPO checkpoints") from exc
+        raise
+    return torch, LSTMActorCritic, MLPActorCritic, evaluate_ppo_model, result_to_metrics
 
 
 def load_model(checkpoint_path: Path):
+    torch, LSTMActorCritic, MLPActorCritic, _, _ = _load_ppo_runtime()
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     config = checkpoint["config"]
     if config["policy_type"] == "mlp":
@@ -113,6 +118,7 @@ def main() -> None:
 
     checkpoint_path = Path(args.checkpoint)
     checkpoint, model = load_model(checkpoint_path)
+    _, _, _, evaluate_ppo_model, result_to_metrics = _load_ppo_runtime()
     prior_result = checkpoint.get("result", {})
     timesteps = int(prior_result.get("timesteps", checkpoint["config"].get("total_timesteps", 0)))
     result = evaluate_ppo_model(
