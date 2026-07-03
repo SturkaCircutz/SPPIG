@@ -44,6 +44,7 @@ from cartpole_synthesis import (
     _eq12_switch_log_likelihood,
     _action_refinement_candidates,
     _boolean_tree_candidates,
+    _best_switch,
     _bootstrap_probabilistic_student,
     _fit_switch_parameter_distributions,
     _gaussian_threshold_pass_probability,
@@ -1194,6 +1195,47 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(selected), 32)
         self.assertIn(Depth2Switch(1.0, 0.0, 0.0), selected)
         self.assertNotIn(Depth2Switch(1.0, 0.0, 1.29), selected)
+
+    def test_cartpole_switch_structure_rescore_candidates_caps_distribution_scoring(self):
+        examples = [
+            ([0.0, 0.0, -0.2, 0.0], 0),
+            ([0.0, 0.0, -0.1, 0.0], 0),
+        ]
+        switches = [
+            Depth2Switch(1.0, 0.0, threshold / 100.0)
+            for threshold in range(80)
+        ]
+
+        cache = {}
+        with patch(
+            "cartpole_synthesis._fit_switch_structure_objective",
+            return_value=(Depth2Switch(1.0, 0.0, 0.0), 0.0, 0.0, 1, "stub"),
+        ) as fit_objective:
+            selected = _switch_structure_rescore_candidates(switches, examples, [], [], cache=cache)
+            for switch in selected:
+                _switch_structure_cost(switch, examples, [], [], cache=cache)
+
+        self.assertEqual(len(selected), 32)
+        self.assertEqual(fit_objective.call_count, 32)
+
+    def test_cartpole_best_switch_reuses_rescore_cache(self):
+        examples = [
+            ([0.0, 0.0, -0.2, 0.0], 0),
+            ([0.0, 0.0, -0.1, 0.0], 0),
+        ]
+        switches = [
+            BooleanTreeSwitch(ObservationPredicate(2, ">=", threshold / 100.0))
+            for threshold in range(80)
+        ]
+
+        with patch(
+            "cartpole_synthesis._fit_switch_structure_objective",
+            return_value=(switches[0], 0.0, 0.0, 1, "stub"),
+        ) as fit_objective:
+            selected = _best_switch(switches, examples, [], [])
+
+        self.assertIn(selected, switches)
+        self.assertEqual(fit_objective.call_count, 32)
 
     def test_cartpole_switch_prefilter_caps_tied_candidates_deterministically(self):
         best = BooleanTreeSwitch(ObservationPredicate(2, ">=", 0.0))

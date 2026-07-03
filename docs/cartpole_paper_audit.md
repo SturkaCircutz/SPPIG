@@ -648,6 +648,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_prefilter_caps_tied_candidates_deterministically`
   verifies that tied switch-structure candidates are capped to a deterministic top-32 subset before
   bounded distribution rescoring.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_structure_rescore_candidates_caps_distribution_scoring`
+  verifies that final switch-structure rescoring caps expensive distribution-objective fits to the
+  bounded top-32 subset.
+- `tests/test_cartpole_paper.py::test_cartpole_best_switch_reuses_rescore_cache` verifies that
+  final switch selection reuses the structure-objective cache populated during bounded rescoring.
 - `tests/test_cartpole_paper.py::test_cartpole_boolean_tree_switch_has_gaussian_parameter_per_predicate`
   verifies that a depth-2 Boolean-tree switch gets one Gaussian threshold distribution per predicate.
 - `tests/test_cartpole_paper.py::test_cartpole_sampled_switch_uses_gaussian_thresholds` verifies

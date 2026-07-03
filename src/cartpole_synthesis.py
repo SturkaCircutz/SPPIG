@@ -3427,6 +3427,7 @@ def _learn_depth2_switch(
         examples,
         segments_by_trace=segments_by_trace,
         responsibilities=responsibilities,
+        cache=objective_cache,
         example_cache=example_cache,
     ):
         candidates.append(
@@ -3602,6 +3603,7 @@ def _best_switch(
             examples,
             segments_by_trace,
             responsibilities,
+            cache=objective_cache,
             example_cache=switch_examples,
         ),
         key=lambda switch: _switch_structure_cost(
@@ -3620,33 +3622,20 @@ def _switch_structure_rescore_candidates(
     examples: List[Tuple[Observation, int]],
     segments_by_trace: List[List[CartpoleSegment]] | None,
     responsibilities: List[Tuple[float, float]] | None,
+    cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
 ) -> List[SwitchProgram]:
     if segments_by_trace is None or responsibilities is None or len(switches) <= SWITCH_STRUCTURE_RESCORING_TOP_K:
         return switches
 
     switch_examples = example_cache or _switch_example_cache(examples)
-    mistake_ranked = sorted(
-        switches,
-        key=lambda switch: (
-            _switch_label_mistakes(switch, examples, switch_examples),
-            switch.node_count if isinstance(switch, BooleanTreeSwitch) else 1,
-            switch.describe(),
-        ),
-    )
-    if len(mistake_ranked) <= SWITCH_STRUCTURE_RESCORING_TOP_K:
-        prefiltered = mistake_ranked
-    else:
-        cutoff_mistakes = _switch_label_mistakes(
-            mistake_ranked[SWITCH_STRUCTURE_RESCORING_TOP_K - 1],
-            examples,
-            switch_examples,
-        )
-        prefiltered = [
-            switch
-            for switch in mistake_ranked
-            if _switch_label_mistakes(switch, examples, switch_examples) <= cutoff_mistakes
+    prefiltered = _prefilter_switches_by_label_mistakes(
+        [
+            (switch, _switch_label_mistakes(switch, examples, switch_examples))
+            for switch in switches
         ]
+    )
+    objective_cache: Dict[str, Tuple[float, float, int, str]] = cache if cache is not None else {}
     ranked = sorted(
         prefiltered,
         key=lambda switch: _switch_structure_cost(
@@ -3654,6 +3643,7 @@ def _switch_structure_rescore_candidates(
             examples,
             segments_by_trace,
             responsibilities,
+            cache=objective_cache,
             example_cache=switch_examples,
         ),
     )
