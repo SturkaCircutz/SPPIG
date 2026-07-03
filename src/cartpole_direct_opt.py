@@ -43,6 +43,7 @@ DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES = (
     (0.25, 0.25, 0.25, 0.25),
 )
 DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS = (-0.5, 0.0, 0.5)
+DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_STEP_SCALE = 1.0
 DIRECT_OPT_CONTINUOUS_ONE_HOT_WEIGHT_STEP_SCALE = 0.25
 PAPER_DIRECT_OPT_BATCH_SIZE = 10
 PAPER_DIRECT_OPT_PARALLEL_THREADS = 10
@@ -195,6 +196,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "continuous_one_hot_feature_mixes": [list(weights) for weights in DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES],
         "continuous_one_hot_thresholds": list(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS),
         "continuous_one_hot_top_leaves_for_depth2": DIRECT_OPT_CONTINUOUS_ONE_HOT_TOP_LEAVES,
+        "continuous_one_hot_alpha_s_step_scale": DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_STEP_SCALE,
         "continuous_one_hot_weight_step_scale": DIRECT_OPT_CONTINUOUS_ONE_HOT_WEIGHT_STEP_SCALE,
         "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
         "continuous_one_hot_expansion": "evaluate_all_leaf_mixtures_then_depth2_expansions_from_top_training_reward_leaves",
@@ -206,7 +208,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         ),
         "local_refinement": (
             "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_"
-            "continuous_one_hot_weight_threshold_force_neighbors"
+            "continuous_one_hot_alpha_s_weight_threshold_force_neighbors"
         ),
         "train_horizon_seconds": CartpoleEnv.train_env().cfg.horizon_seconds,
         "test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
@@ -218,7 +220,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
             "It optimizes mean train-horizon reward over the selected initial states and includes "
             "bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 "
-            "feature-mixture candidate family, and bounded weight/threshold/force local refinement, but is not the paper's "
+            "feature-mixture candidate family, and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's "
             "two-hour, ten-thread continuous numerical optimization over the full one-hot "
             "switching grammar."
         ),
@@ -268,7 +270,7 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "limitation": (
             "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates "
             "a bounded continuous one-hot leaf/depth2 feature-mixture candidate family with local "
-            "feature-weight neighbors, but does not run the "
+            "alpha_s and feature-weight neighbors, but does not run the "
             "paper's ten-thread, two-hour continuous optimization over the full one-hot "
             "switching grammar."
         ),
@@ -1015,6 +1017,18 @@ def _continuous_one_hot_local_neighbor_candidates(
                 operator=switch.operator,
             )
         )
+    for first_alpha_s in _continuous_one_hot_alpha_s_neighbors(switch.first.alpha_s, cfg):
+        switches.append(
+            DirectOptContinuousOneHotSwitch(
+                DirectOptContinuousOneHotPredicate(
+                    first_alpha_s,
+                    switch.first.feature_weights,
+                    switch.first.alpha_0,
+                ),
+                switch.second,
+                operator=switch.operator,
+            )
+        )
     if switch.second is not None:
         for second_weights in _continuous_one_hot_weight_neighbors(switch.second.feature_weights, cfg):
             switches.append(
@@ -1023,6 +1037,18 @@ def _continuous_one_hot_local_neighbor_candidates(
                     DirectOptContinuousOneHotPredicate(
                         switch.second.alpha_s,
                         second_weights,
+                        switch.second.alpha_0,
+                    ),
+                    operator=switch.operator,
+                )
+            )
+        for second_alpha_s in _continuous_one_hot_alpha_s_neighbors(switch.second.alpha_s, cfg):
+            switches.append(
+                DirectOptContinuousOneHotSwitch(
+                    switch.first,
+                    DirectOptContinuousOneHotPredicate(
+                        second_alpha_s,
+                        switch.second.feature_weights,
                         switch.second.alpha_0,
                     ),
                     operator=switch.operator,
@@ -1054,6 +1080,21 @@ def _continuous_one_hot_local_neighbor_candidates(
             (local_switch, left_force, right_force, source),
         )
     return _evaluate_continuous_one_hot_candidates(list(unique.values()), train_states, cfg, deadline)
+
+
+def _continuous_one_hot_alpha_s_neighbors(
+    alpha_s: float,
+    cfg: DirectOptConfig,
+) -> List[float]:
+    step = DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_STEP_SCALE * max(0.0, cfg.local_step_fraction)
+    if step <= 0.0:
+        return []
+    candidates = [
+        _clamp(alpha_s + step, -1.0, 1.0),
+        _clamp(alpha_s - step, -1.0, 1.0),
+        -alpha_s,
+    ]
+    return [value for value in dict.fromkeys(candidates) if abs(value - alpha_s) > 1e-12]
 
 
 def _continuous_one_hot_weight_neighbors(

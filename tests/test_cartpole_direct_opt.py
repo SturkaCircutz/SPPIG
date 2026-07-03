@@ -20,6 +20,7 @@ from cartpole_direct_opt import (  # noqa: E402
     _candidate_policy,
     _candidate_rank_key,
     _candidate_switch,
+    _continuous_one_hot_alpha_s_neighbors,
     _continuous_one_hot_candidates,
     _continuous_one_hot_local_neighbor_candidates,
     _continuous_one_hot_weight_neighbors,
@@ -113,6 +114,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
             "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
         )
         self.assertEqual(metrics["algorithm_provenance"]["continuous_one_hot_top_leaves_for_depth2"], 4)
+        self.assertEqual(metrics["algorithm_provenance"]["continuous_one_hot_alpha_s_step_scale"], 1.0)
         self.assertEqual(metrics["algorithm_provenance"]["continuous_one_hot_weight_step_scale"], 0.25)
         self.assertIn("depth2", metrics["algorithm_provenance"]["continuous_one_hot_expansion"])
         self.assertIn("bounded Appendix B.3", metrics["algorithm_provenance"]["one_hot_switch_encoding"])
@@ -552,10 +554,13 @@ class CartpoleDirectOptTest(unittest.TestCase):
             )
 
         thresholds = {neighbor.continuous_one_hot_alpha_0 for neighbor in neighbors}
+        alpha_s_values = {neighbor.continuous_one_hot_alpha_s for neighbor in neighbors}
         feature_weights = {neighbor.continuous_one_hot_feature_weights for neighbor in neighbors}
         self.assertEqual(len(evaluated), len(neighbors))
         self.assertEqual(len(evaluated), len(set(evaluated)))
         self.assertTrue(all(neighbor.switch_kind == "continuous_one_hot" for neighbor in neighbors))
+        self.assertIn(-1.0, alpha_s_values)
+        self.assertIn(0.75, alpha_s_values)
         self.assertIn(-0.0625, thresholds)
         self.assertIn(0.0625, thresholds)
         self.assertIn((0.0625, 0.0, 0.4375, 0.5), feature_weights)
@@ -566,6 +571,16 @@ class CartpoleDirectOptTest(unittest.TestCase):
                 == neighbor.continuous_one_hot_feature_weights
                 for neighbor in neighbors
             )
+        )
+
+    def test_direct_opt_continuous_one_hot_alpha_s_neighbors_stay_bounded(self):
+        self.assertEqual(
+            _continuous_one_hot_alpha_s_neighbors(1.0, DirectOptConfig(local_step_fraction=0.25)),
+            [0.75, -1.0],
+        )
+        self.assertEqual(
+            _continuous_one_hot_alpha_s_neighbors(0.0, DirectOptConfig(local_step_fraction=0.25)),
+            [0.25, -0.25],
         )
 
     def test_direct_opt_continuous_one_hot_weight_neighbors_stay_on_simplex(self):

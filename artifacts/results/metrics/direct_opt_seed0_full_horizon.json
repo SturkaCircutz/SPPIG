@@ -42,6 +42,7 @@
       ]
     ],
     "candidate_accounting": "searched_candidates and evaluated_candidates count candidate evaluation calls; train_rollout_evaluations counts individual selected-state train rollouts",
+    "continuous_one_hot_alpha_s_step_scale": 1.0,
     "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
     "continuous_one_hot_expansion": "evaluate_all_leaf_mixtures_then_depth2_expansions_from_top_training_reward_leaves",
     "continuous_one_hot_feature_mixes": [
@@ -81,9 +82,9 @@
       -10.0,
       10.0
     ],
-    "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, and bounded weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
+    "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
     "local_parallel_threads": "configurable_via_parallel_threads",
-    "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_continuous_one_hot_weight_threshold_force_neighbors",
+    "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_continuous_one_hot_alpha_s_weight_threshold_force_neighbors",
     "local_time_limit_seconds": "configurable_via_time_limit_seconds",
     "not_paper_scale": true,
     "omega_weight_grid": [
@@ -187,7 +188,7 @@
     "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
     "configured_paper_batch_size": true,
     "full_continuous_one_hot_switch_grammar": false,
-    "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates a bounded continuous one-hot leaf/depth2 feature-mixture candidate family with local feature-weight neighbors, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
+    "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates a bounded continuous one-hot leaf/depth2 feature-mixture candidate family with local alpha_s and feature-weight neighbors, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
     "linear_switch_encoding": true,
     "optimizes_combined_reward_over_all_selected_initial_states": true,
     "optimizes_combined_reward_over_selected_initial_states": true,
