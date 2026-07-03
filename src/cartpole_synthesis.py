@@ -217,7 +217,17 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "elite_distribution_samples_teacher_gains": True,
             "elite_distribution_mean_candidate_per_round": 1,
             "elite_distribution_min_action_std": TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD,
-            "elite_distribution_phase": "bounded_cem_style_top_rho_refresh",
+            "elite_distribution_phase": "bounded_cem_style_distribution_refit_top_rho_refresh",
+            "elite_distribution_update": (
+                "fit_gaussian_schedule_distribution_from_current_top_rho_each_round"
+            ),
+            "elite_distribution_parameters": [
+                "teacher_gain_schedule",
+                "segment_action_schedule",
+                "integer_segment_duration_schedule",
+                "segment_time_increment_schedule",
+                "majority_segment_mode_schedule",
+            ],
             "elite_distribution_selection_objective": (
                 "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_student_log_probability"
             ),
@@ -1026,14 +1036,28 @@ def _refresh_teacher_elites_with_distribution(
     rounds = max(0, cfg.teacher_elite_distribution_rounds)
     for _ in range(rounds):
         schedules = _elite_loop_free_schedules(current_elites, env_cfg.dt)
-        if not schedules:
+        distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg)
+        if distribution is None:
             break
         round_samples: List[CartpoleTrace] = []
-        mean_trace = _elite_distribution_mean_trace(schedules, initial_state, env_cfg, cfg, student)
+        mean_trace = _elite_distribution_mean_trace_from_distribution(
+            distribution,
+            initial_state,
+            env_cfg,
+            cfg,
+            student,
+        )
         if mean_trace is not None:
             round_samples.append(mean_trace)
         for _ in range(max(0, cfg.teacher_elite_distribution_resamples)):
-            sample = _elite_distribution_sample_trace(schedules, initial_state, env_cfg, cfg, rng, student)
+            sample = _elite_distribution_sample_trace_from_distribution(
+                distribution,
+                initial_state,
+                env_cfg,
+                cfg,
+                rng,
+                student,
+            )
             if sample is not None:
                 round_samples.append(sample)
         if not round_samples:
@@ -1061,6 +1085,22 @@ def _top_teacher_elites(
 EliteSchedule = Tuple[Tuple[float, ...], Tuple[int, ...], Tuple[float, ...], Tuple[int, ...], CartpoleTrace]
 
 
+@dataclass(frozen=True)
+class _EliteSegmentDistribution:
+    action: GaussianScalar
+    duration: GaussianScalar
+    time_increment: GaussianScalar
+    mode: int
+
+
+@dataclass(frozen=True)
+class _EliteScheduleDistribution:
+    segments: Tuple[_EliteSegmentDistribution, ...]
+    theta_gain: GaussianScalar
+    omega_gain: GaussianScalar
+    source_elites: Tuple[CartpoleTrace, ...]
+
+
 def _elite_distribution_mean_trace(
     schedules: List[EliteSchedule],
     initial_state: Sequence[float],
@@ -1068,17 +1108,32 @@ def _elite_distribution_mean_trace(
     cfg: CartpoleSynthesisConfig,
     student: ProbabilisticCartpoleStudent | None = None,
 ) -> CartpoleTrace | None:
+    distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg)
+    if distribution is None:
+        return None
+    return _elite_distribution_mean_trace_from_distribution(
+        distribution,
+        initial_state,
+        env_cfg,
+        cfg,
+        student,
+    )
+
+
+def _fit_elite_schedule_distribution(
+    schedules: List[EliteSchedule],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+) -> _EliteScheduleDistribution | None:
+    if not schedules:
+        return None
     max_segments = min(
         max(1, cfg.segments_per_trace),
         max(len(actions) for actions, _, _, _, _ in schedules),
     )
-    max_duration = max(1, cfg.segment_steps)
     lower = max(min(cfg.force_values), -env_cfg.force_limit)
     upper = min(max(cfg.force_values), env_cfg.force_limit)
-    mean_actions: List[float] = []
-    mean_durations: List[int] = []
-    mean_increments: List[float] = []
-    mean_modes: List[int] = []
+    segment_distributions: List[_EliteSegmentDistribution] = []
     for index in range(max_segments):
         pairs = [
             (actions[index], durations[index], increments[index], modes[index])
@@ -1092,30 +1147,77 @@ def _elite_distribution_mean_trace(
         ]
         if not pairs:
             break
-        action_mean, _ = _mean_and_std([pair[0] for pair in pairs], TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD)
-        duration_mean, _ = _mean_and_std([float(pair[1]) for pair in pairs], 1.0)
-        increment_mean, _ = _mean_and_std([pair[2] for pair in pairs], MIN_GAUSSIAN_STD)
-        mean_actions.append(max(lower, min(upper, action_mean)))
-        mean_durations.append(min(max_duration, max(1, int(math.floor(duration_mean + 0.5)))))
-        mean_increments.append(_clamp_time_increment(env_cfg, increment_mean))
-        mean_modes.append(_majority_mode([pair[3] for pair in pairs]))
-    if not mean_actions or not mean_durations or not mean_increments:
+        action_mean, action_std = _mean_and_std([pair[0] for pair in pairs], TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD)
+        action_distribution = GaussianScalar(
+            max(lower, min(upper, action_mean)),
+            action_std,
+        )
+        duration_mean, duration_std = _mean_and_std([float(pair[1]) for pair in pairs], 1.0)
+        increment_mean, increment_std = _mean_and_std([pair[2] for pair in pairs], MIN_GAUSSIAN_STD)
+        segment_distributions.append(
+            _EliteSegmentDistribution(
+                action=action_distribution,
+                duration=GaussianScalar(duration_mean, duration_std),
+                time_increment=GaussianScalar(increment_mean, increment_std),
+                mode=_majority_mode([pair[3] for pair in pairs]),
+            )
+        )
+    if not segment_distributions:
         return None
 
-    theta_gain, _ = _mean_and_std([trace.theta_gain for _, _, _, _, trace in schedules], TEACHER_GAIN_SAMPLE_MIN_STD)
-    omega_gain, _ = _mean_and_std([trace.omega_gain for _, _, _, _, trace in schedules], TEACHER_GAIN_SAMPLE_MIN_STD)
+    theta_gain_mean, theta_gain_std = _mean_and_std(
+        [trace.theta_gain for _, _, _, _, trace in schedules],
+        TEACHER_GAIN_SAMPLE_MIN_STD,
+    )
+    omega_gain_mean, omega_gain_std = _mean_and_std(
+        [trace.omega_gain for _, _, _, _, trace in schedules],
+        TEACHER_GAIN_SAMPLE_MIN_STD,
+    )
+    return _EliteScheduleDistribution(
+        segments=tuple(segment_distributions),
+        theta_gain=GaussianScalar(theta_gain_mean, theta_gain_std),
+        omega_gain=GaussianScalar(omega_gain_mean, omega_gain_std),
+        source_elites=tuple(trace for _, _, _, _, trace in schedules),
+    )
+
+
+def _elite_distribution_mean_trace_from_distribution(
+    distribution: _EliteScheduleDistribution,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    student: ProbabilisticCartpoleStudent | None = None,
+) -> CartpoleTrace | None:
+    if not distribution.segments:
+        return None
+    max_duration = max(1, cfg.segment_steps)
+    lower = max(min(cfg.force_values), -env_cfg.force_limit)
+    upper = min(max(cfg.force_values), env_cfg.force_limit)
+    mean_actions = [
+        max(lower, min(upper, segment.action.mean))
+        for segment in distribution.segments
+    ]
+    mean_durations = [
+        min(max_duration, max(1, int(math.floor(segment.duration.mean + 0.5))))
+        for segment in distribution.segments
+    ]
+    mean_increments = [
+        _clamp_time_increment(env_cfg, segment.time_increment.mean)
+        for segment in distribution.segments
+    ]
+    mean_modes = [segment.mode for segment in distribution.segments]
     mean_trace = _rollout_with_teacher_gains(
         initial_state,
         env_cfg,
         cfg,
-        theta_gain,
-        omega_gain,
+        distribution.theta_gain.mean,
+        distribution.omega_gain.mean,
         tuple(mean_durations),
         tuple(mean_actions),
         tuple(mean_increments),
         tuple(mean_modes),
     )
-    mean_trace.teacher_source = _elite_distribution_mean_source([trace for _, _, _, _, trace in schedules])
+    mean_trace.teacher_source = _elite_distribution_mean_source(list(distribution.source_elites))
     mean_trace.student_log_probability = (
         _trace_log_probability(mean_trace, student)
         if student is not None
@@ -1199,10 +1301,29 @@ def _elite_distribution_sample_trace(
     rng: random.Random,
     student: ProbabilisticCartpoleStudent | None = None,
 ) -> CartpoleTrace | None:
-    max_segments = min(
-        max(1, cfg.segments_per_trace),
-        max(len(actions) for actions, _, _, _, _ in schedules),
+    distribution = _fit_elite_schedule_distribution(schedules, env_cfg, cfg)
+    if distribution is None:
+        return None
+    return _elite_distribution_sample_trace_from_distribution(
+        distribution,
+        initial_state,
+        env_cfg,
+        cfg,
+        rng,
+        student,
     )
+
+
+def _elite_distribution_sample_trace_from_distribution(
+    distribution: _EliteScheduleDistribution,
+    initial_state: Sequence[float],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    rng: random.Random,
+    student: ProbabilisticCartpoleStudent | None = None,
+) -> CartpoleTrace | None:
+    if not distribution.segments:
+        return None
     max_duration = max(1, cfg.segment_steps)
     lower = max(min(cfg.force_values), -env_cfg.force_limit)
     upper = min(max(cfg.force_values), env_cfg.force_limit)
@@ -1210,52 +1331,30 @@ def _elite_distribution_sample_trace(
     sampled_durations: List[int] = []
     sampled_increments: List[float] = []
     sampled_modes: List[int] = []
-    for index in range(max_segments):
-        pairs = [
-            (actions[index], durations[index], increments[index], modes[index])
-            for actions, durations, increments, modes, _ in schedules
-            if (
-                index < len(actions)
-                and index < len(durations)
-                and index < len(increments)
-                and index < len(modes)
+    for segment in distribution.segments:
+        sampled_actions.append(max(lower, min(upper, rng.gauss(segment.action.mean, segment.action.std))))
+        sampled_durations.append(
+            min(
+                max_duration,
+                max(1, int(math.floor(rng.gauss(segment.duration.mean, segment.duration.std) + 0.5))),
             )
-        ]
-        if not pairs:
-            break
-        actions = [pair[0] for pair in pairs]
-        durations = [float(pair[1]) for pair in pairs]
-        increments = [pair[2] for pair in pairs]
-        action_mean, action_std = _mean_and_std(actions, TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD)
-        duration_mean, duration_std = _mean_and_std(durations, 1.0)
-        increment_mean, increment_std = _mean_and_std(increments, MIN_GAUSSIAN_STD)
-        sampled_actions.append(max(lower, min(upper, rng.gauss(action_mean, action_std))))
-        sampled_durations.append(min(max_duration, max(1, int(math.floor(rng.gauss(duration_mean, duration_std) + 0.5)))))
-        sampled_increments.append(_clamp_time_increment(env_cfg, rng.gauss(increment_mean, increment_std)))
-        sampled_modes.append(_majority_mode([pair[3] for pair in pairs]))
-    if not sampled_actions or not sampled_durations or not sampled_increments:
-        return None
-
-    theta_gain_mean, theta_gain_std = _mean_and_std(
-        [trace.theta_gain for _, _, _, _, trace in schedules],
-        TEACHER_GAIN_SAMPLE_MIN_STD,
-    )
-    omega_gain_mean, omega_gain_std = _mean_and_std(
-        [trace.omega_gain for _, _, _, _, trace in schedules],
-        TEACHER_GAIN_SAMPLE_MIN_STD,
-    )
+        )
+        sampled_increments.append(
+            _clamp_time_increment(env_cfg, rng.gauss(segment.time_increment.mean, segment.time_increment.std))
+        )
+        sampled_modes.append(segment.mode)
     sample = _rollout_with_teacher_gains(
         initial_state,
         env_cfg,
         cfg,
-        rng.gauss(theta_gain_mean, theta_gain_std),
-        rng.gauss(omega_gain_mean, omega_gain_std),
+        rng.gauss(distribution.theta_gain.mean, distribution.theta_gain.std),
+        rng.gauss(distribution.omega_gain.mean, distribution.omega_gain.std),
         tuple(sampled_durations),
         tuple(sampled_actions),
         tuple(sampled_increments),
         tuple(sampled_modes),
     )
-    sample.teacher_source = _elite_distribution_source([trace for _, _, _, _, trace in schedules])
+    sample.teacher_source = _elite_distribution_source(list(distribution.source_elites))
     sample.student_log_probability = (
         _trace_log_probability(sample, student)
         if student is not None

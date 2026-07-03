@@ -358,7 +358,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
             self.assertEqual(
                 provenance["teacher_search"]["elite_distribution_phase"],
-                "bounded_cem_style_top_rho_refresh",
+                "bounded_cem_style_distribution_refit_top_rho_refresh",
+            )
+            self.assertEqual(
+                provenance["teacher_search"]["elite_distribution_update"],
+                "fit_gaussian_schedule_distribution_from_current_top_rho_each_round",
             )
             self.assertEqual(
                 provenance["teacher_search"]["elite_distribution_selection_objective"],
@@ -502,7 +506,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(row_provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distribution_phase"],
-                "bounded_cem_style_top_rho_refresh",
+                "bounded_cem_style_distribution_refit_top_rho_refresh",
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["elite_distribution_update"],
+                "fit_gaussian_schedule_distribution_from_current_top_rho_each_round",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distribution_selection_objective"],

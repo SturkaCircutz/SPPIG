@@ -258,9 +258,11 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   candidate, one bounded finite-difference action candidate, one bounded finite-difference
   integer-duration candidate, and one bounded finite-difference time-increment candidate per
   refinement iteration with a short backtracking line search, evaluates one centroid recombination of the
-  elite action/duration/time-increment schedules plus configurable bounded rounds of fitted
-  per-segment distribution mean candidates and samples, refreshing the top-rho set
-  between rounds and using the refreshed top-rho set for the refinement objective, and records
+  elite action/duration/time-increment schedules plus configurable bounded rounds that fit a Gaussian
+  schedule distribution over teacher gains and per-segment actions, durations, and time increments
+  from the current top-rho set. Each bounded round evaluates the fitted distribution mean, samples
+  from that distribution, refreshes the top-rho set, and refits before the next round; local refinement
+  then uses the refreshed top-rho set for its objective. The teacher also records
   selected trace sources plus sampled-trace log probabilities in metrics JSON. When a sampled
   closed-loop rollout is projected back into the loop-free teacher budget, its student likelihood is
   recomputed on the projected trace before teacher-objective ranking. This moves
@@ -591,10 +593,16 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_mean_uses_fitted_statistics`
   verifies that the teacher can evaluate the deterministic per-segment fitted-distribution mean
   candidate before local refinement.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_fits_schedule_parameters`
+  verifies that the bounded CEM-style step fits a reusable schedule distribution over teacher gains,
+  per-segment actions, durations, time increments, and majority modes.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_resample_count_is_configurable`
   verifies that the bounded elite distribution sample count is configured rather than hard-coded.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refresh_elites`
   verifies that bounded elite distribution rounds refresh the top-rho set between sampling rounds.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refit_distribution`
+  verifies that each bounded distribution round samples from a distribution refit on the refreshed
+  top-rho set, rather than repeatedly sampling around the original elites.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_uses_refreshed_distribution_elites`
   verifies that local refinement uses the refreshed top-rho elite set produced by the bounded
   distribution rounds.
@@ -753,8 +761,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   segment durations, per-segment time increments, one-segment local continuous constant-action
   steps, and one teacher-gain plus one action plus one integer-duration plus one time-increment
   finite-difference candidate per refinement iteration with short backtracking line search, evaluates one deterministic top-rho centroid recombination
-  candidate plus configurable bounded rounds of fitted teacher-gain and per-segment
-  distribution mean candidates and samples, refreshing the top-rho set between rounds, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
+  candidate plus configurable bounded rounds that refit a Gaussian schedule distribution over teacher
+  gains and per-segment action, duration, and time-increment parameters from the refreshed top-rho set
+  before drawing the next mean/sample candidates, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the
   previous student, with the elite-distance kernel including teacher gains plus normalized segment action,
   duration, and time-increment schedules, but it does not yet perform the paper's full CEM procedure or continuous

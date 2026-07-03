@@ -940,9 +940,17 @@
           "elite_distance_metric": "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments",
           "elite_distribution_mean_candidate_per_round": 1,
           "elite_distribution_min_action_std": 0.001,
-          "elite_distribution_phase": "bounded_cem_style_top_rho_refresh",
+          "elite_distribution_parameters": [
+            "teacher_gain_schedule",
+            "segment_action_schedule",
+            "integer_segment_duration_schedule",
+            "segment_time_increment_schedule",
+            "majority_segment_mode_schedule"
+          ],
+          "elite_distribution_phase": "bounded_cem_style_distribution_refit_top_rho_refresh",
           "elite_distribution_samples_teacher_gains": true,
           "elite_distribution_selection_objective": "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_student_log_probability",
+          "elite_distribution_update": "fit_gaussian_schedule_distribution_from_current_top_rho_each_round",
           "elite_recombination": "top_rho_segment_mode_action_duration_time_increment_centroid",
           "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
           "elite_refinement_elite_set": "refreshed_top_rho_after_distribution_rounds",
