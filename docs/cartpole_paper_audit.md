@@ -122,7 +122,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   per-hyperparameter summary aggregating completed seeds for each sampled config, including
   survived-step, survival-second, and evaluation-rollout
   provenance for executed rows. Its paper-scale plan/execution flags require the generated
-  sampled configs themselves to satisfy the paper's reported discrete hyperparameter ranges,
+  sampled configs themselves to satisfy the paper's reported exact discrete hyperparameter ranges,
   learning-rate interval, and PPO-LSTM `nminibatches = 1` rule, plus the paper's
   `1000` evaluation rollouts. Its manifest records the standard CartPole reward spec. This is
   search infrastructure; the full paper-scale sweep has not been run.
@@ -463,6 +463,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_sampled_lstm_minibatch_violation`
   verifies that paper-scale plan status is rejected if generated PPO-LSTM configs do not keep
   `nminibatches = 1`.
+- `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_rejects_fractional_sampled_discrete_values`
+  verifies that fractional sampled `update_epochs` or `nminibatches` values are not accepted by
+  truncating them to nearby reported discrete values.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_requires_full_test_horizon`
   verifies that the paper-scale plan flag requires the paper's full 15,000-step/300-second test
   horizon.

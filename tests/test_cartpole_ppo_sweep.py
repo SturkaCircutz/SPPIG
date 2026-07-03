@@ -339,6 +339,31 @@ class CartpolePPOSweepTest(unittest.TestCase):
             for field in ("minibatches", "learning_rate", "entropy_coef", "update_epochs", "clip_range"):
                 self.assertTrue(all(job[field] == sample[field] for job in matching_jobs))
 
+    def test_sampled_hyperparameter_manifest_preserves_fractional_discrete_values(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--policies", "mlp"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        def fractional_configs(_args, _policy):
+            return [
+                {
+                    "minibatches": 1.5,
+                    "learning_rate": 1e-4,
+                    "entropy_coef": 0.01,
+                    "update_epochs": 8.5,
+                    "clip_range": 0.2,
+                }
+            ]
+
+        with patch("run_cartpole_ppo_sweep.hyperparameter_configs", side_effect=fractional_configs):
+            samples = sampled_hyperparameter_manifest(args)
+
+        self.assertEqual(samples[0]["minibatches"], 1.5)
+        self.assertEqual(samples[0]["update_epochs"], 8.5)
+
     def test_dry_run_writes_plan_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(
@@ -487,6 +512,35 @@ class CartpolePPOSweepTest(unittest.TestCase):
             status = paper_protocol_status(args)
 
         self.assertTrue(status["sampled_hyperparameters_follow_paper_ranges"])
+        self.assertFalse(status["sampled_hyperparameters_follow_paper_minibatch_rules"])
+        self.assertFalse(status["ppo_lstm_minibatches_fixed_to_one"])
+        self.assertFalse(status["paper_scale_plan"])
+
+    def test_paper_protocol_status_rejects_fractional_sampled_discrete_values(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        def fractional_configs(_args, policy):
+            minibatches = 1.5
+            return [
+                {
+                    "minibatches": minibatches,
+                    "learning_rate": 1e-4,
+                    "entropy_coef": 0.01,
+                    "update_epochs": 8.5,
+                    "clip_range": 0.2,
+                }
+                for _ in range(PAPER_HYPERPARAMETER_SAMPLES)
+            ]
+
+        with patch("run_cartpole_ppo_sweep.hyperparameter_configs", side_effect=fractional_configs):
+            status = paper_protocol_status(args)
+
+        self.assertFalse(status["sampled_hyperparameters_follow_paper_ranges"])
         self.assertFalse(status["sampled_hyperparameters_follow_paper_minibatch_rules"])
         self.assertFalse(status["ppo_lstm_minibatches_fixed_to_one"])
         self.assertFalse(status["paper_scale_plan"])

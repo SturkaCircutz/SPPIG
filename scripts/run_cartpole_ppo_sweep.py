@@ -259,10 +259,10 @@ def sampled_hyperparameter_manifest(args: argparse.Namespace) -> List[Dict[str, 
                     "policy": policy,
                     "hyperparam_mode": args.hyperparam_mode,
                     "hyperparam_sample": sample_index,
-                    "minibatches": int(config["minibatches"]),
+                    "minibatches": config["minibatches"],
                     "learning_rate": float(config["learning_rate"]),
                     "entropy_coef": float(config["entropy_coef"]),
-                    "update_epochs": int(config["update_epochs"]),
+                    "update_epochs": config["update_epochs"],
                     "clip_range": float(config["clip_range"]),
                 }
             )
@@ -276,9 +276,21 @@ def _policy_hyperparameter_configs(args: argparse.Namespace) -> Dict[str, List[D
     }
 
 
-def _all_config_values_in(values: Iterable[Any], allowed: Iterable[Any]) -> bool:
+def _config_int_value_in(value: Any, allowed: Iterable[int]) -> bool:
+    if isinstance(value, bool):
+        return False
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return False
+    if not numeric.is_integer():
+        return False
+    return int(numeric) in set(allowed)
+
+
+def _all_config_int_values_in(values: Iterable[Any], allowed: Iterable[int]) -> bool:
     allowed_set = set(allowed)
-    return all(value in allowed_set for value in values)
+    return all(_config_int_value_in(value, allowed_set) for value in values)
 
 
 def _all_config_float_values_in(values: Iterable[Any], allowed: Iterable[float]) -> bool:
@@ -304,7 +316,7 @@ def _configs_follow_paper_ranges(configs_by_policy: Dict[str, List[Dict[str, Any
         return False
     return (
         _all_config_float_values_in((config["entropy_coef"] for config in all_configs), PAPER_ENT_COEFS)
-        and _all_config_values_in((int(config["update_epochs"]) for config in all_configs), PAPER_UPDATE_EPOCHS)
+        and _all_config_int_values_in((config["update_epochs"] for config in all_configs), PAPER_UPDATE_EPOCHS)
         and _all_config_float_values_in((config["clip_range"] for config in all_configs), PAPER_CLIP_RANGES)
         and _all_learning_rates_in_paper_interval(configs_by_policy)
     )
@@ -313,8 +325,8 @@ def _configs_follow_paper_ranges(configs_by_policy: Dict[str, List[Dict[str, Any
 def _configs_follow_paper_minibatch_rules(configs_by_policy: Dict[str, List[Dict[str, Any]]]) -> bool:
     mlp_configs = configs_by_policy.get("mlp", [])
     lstm_configs = configs_by_policy.get("lstm", [])
-    mlp_ok = all(int(config["minibatches"]) in PAPER_NMINIBATCHES for config in mlp_configs)
-    lstm_ok = all(int(config["minibatches"]) == 1 for config in lstm_configs)
+    mlp_ok = all(_config_int_value_in(config["minibatches"], PAPER_NMINIBATCHES) for config in mlp_configs)
+    lstm_ok = all(_config_int_value_in(config["minibatches"], [1]) for config in lstm_configs)
     return mlp_ok and lstm_ok
 
 
@@ -432,7 +444,7 @@ def paper_protocol_status(
         "sampled_hyperparameters_follow_paper_minibatch_rules": sampled_configs_follow_paper_minibatch_rules,
         "ppo_lstm_minibatches_fixed_to_one": (
             "lstm" in requested_policy_set
-            and all(int(config["minibatches"]) == 1 for config in configs_by_policy.get("lstm", []))
+            and all(_config_int_value_in(config["minibatches"], [1]) for config in configs_by_policy.get("lstm", []))
         ),
         "learning_rate_interval_only": True,
         "grid_learning_rate_values_within_reported_interval": grid_learning_rates_in_interval,
