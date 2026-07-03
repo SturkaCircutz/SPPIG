@@ -51,7 +51,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py`: bounded diagnostic Direct-Opt
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
-  tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot feature-mixture
+  tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
   candidates and a local batch/restart refinement seeded from the best candidate so far.
   Candidate selection optimizes mean train-horizon reward over the selected initial states, then
   success as a tie-breaker. This records exact search grids, search diagnostics, and selected program
@@ -217,7 +217,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
   implementation optimizes mean reward over all selected finite initial states, evaluates bounded
-  Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot feature-mixture
+  Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
   candidates, and records batch/restart diagnostics to mirror part of the paper baseline's grammar
   and batch seeding structure. Candidate pools can now be evaluated with configurable local parallel threads and an
   optional wall-clock stop, and diagnostics record the selected thread count and time-limit status.
@@ -542,7 +542,10 @@ paper-scale PPO2 runs.
   metadata for those candidates.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_candidates_use_appendix_b3_mixture`
   verifies that the Direct-Opt diagnostic evaluates bounded Appendix B.3-style continuous one-hot
-  feature-mixture candidates and serializes their vertex fields.
+  leaf/depth-2 feature-mixture candidates and serializes their vertex fields.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_depth2_candidates_preserve_second_predicate`
+  verifies that depth-2 continuous one-hot Direct-Opt candidates preserve their second predicate
+  through candidate serialization and reconstruction.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_local_refinement_preserves_metadata`
   verifies that local Direct-Opt refinement preserves continuous one-hot metadata while varying the
   bounded threshold and force parameters.

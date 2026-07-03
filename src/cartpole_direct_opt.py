@@ -35,6 +35,7 @@ DIRECT_OPT_BOOLEAN_TOP_STUMPS = 4
 DIRECT_OPT_OBSERVATION_FEATURES = ("x", "cart_velocity", "theta", "omega")
 DIRECT_OPT_RELATIONS = (">=", "<=")
 DIRECT_OPT_TREE_OPERATORS = ("leaf", "and", "or")
+DIRECT_OPT_CONTINUOUS_ONE_HOT_TOP_LEAVES = 4
 DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES = (
     (0.0, 0.0, 0.5, 0.5),
     (0.0, 0.0, 0.75, 0.25),
@@ -179,7 +180,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
         "local_parallel_threads": "configurable_via_parallel_threads",
         "local_time_limit_seconds": "configurable_via_time_limit_seconds",
-        "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_mixtures",
+        "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_leaf_depth2_mixtures",
         "candidate_accounting": (
             "searched_candidates and evaluated_candidates count candidate evaluation calls; "
             "train_rollout_evaluations counts individual selected-state train rollouts"
@@ -192,9 +193,11 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "boolean_tree_expansion": "evaluate_all_stumps_then_depth2_expansions_from_top_training_reward_stumps",
         "continuous_one_hot_feature_mixes": [list(weights) for weights in DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES],
         "continuous_one_hot_thresholds": list(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS),
-        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_predicates",
+        "continuous_one_hot_top_leaves_for_depth2": DIRECT_OPT_CONTINUOUS_ONE_HOT_TOP_LEAVES,
+        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
+        "continuous_one_hot_expansion": "evaluate_all_leaf_mixtures_then_depth2_expansions_from_top_training_reward_leaves",
         "one_hot_switch_encoding": (
-            "evaluates a bounded Appendix B.3 continuous feature-mixture candidate family and records "
+            "evaluates a bounded Appendix B.3 continuous leaf/depth2 feature-mixture candidate family and records "
             "continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, "
             "and depth-2 tree operator choices; does not optimize the paper's full continuous "
             "one-hot relaxation"
@@ -211,8 +214,8 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "limitations": (
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
             "It optimizes mean train-horizon reward over the selected initial states and includes "
-            "bounded Boolean-tree switch candidates, a bounded continuous one-hot feature-mixture "
-            "candidate family, and batch/restart local refinement, but is not the paper's "
+            "bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 "
+            "feature-mixture candidate family, and batch/restart local refinement, but is not the paper's "
             "two-hour, ten-thread continuous numerical optimization over the full one-hot "
             "switching grammar."
         ),
@@ -261,7 +264,7 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "paper_scale_direct_opt_protocol": False,
         "limitation": (
             "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates "
-            "a bounded continuous one-hot feature-mixture candidate family, but does not run the "
+            "a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, but does not run the "
             "paper's ten-thread, two-hour continuous optimization over the full one-hot "
             "switching grammar."
         ),
@@ -456,6 +459,9 @@ def _empty_boolean_diagnostics() -> Dict[str, int]:
 
 def _empty_continuous_one_hot_diagnostics() -> Dict[str, int]:
     return {
+        "continuous_one_hot_leaf_candidates": 0,
+        "continuous_one_hot_depth2_candidates": 0,
+        "continuous_one_hot_top_leaves_for_depth2": 0,
         "continuous_one_hot_candidates": 0,
         "continuous_one_hot_candidates_with_appendix_b3_metadata": 0,
     }
@@ -599,7 +605,7 @@ def _continuous_one_hot_candidates(
         for alpha_s in (-1.0, 1.0)
         for alpha_0 in DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS
     ]
-    candidates = _evaluate_continuous_one_hot_candidates(
+    leaf_candidates = _evaluate_continuous_one_hot_candidates(
         [
             (
                 DirectOptContinuousOneHotSwitch(predicate),
@@ -613,9 +619,37 @@ def _continuous_one_hot_candidates(
         cfg,
         deadline,
     )
-    return candidates, {
-        "continuous_one_hot_candidates": len(candidates),
-        "continuous_one_hot_candidates_with_appendix_b3_metadata": len(candidates),
+    top_leaves = sorted(leaf_candidates, key=_candidate_rank_key, reverse=True)[:DIRECT_OPT_CONTINUOUS_ONE_HOT_TOP_LEAVES]
+    depth2_switches: List[DirectOptContinuousOneHotSwitch] = []
+    if not (deadline is not None and deadline.expired()):
+        for candidate in top_leaves:
+            switch = _candidate_switch(candidate)
+            if not isinstance(switch, DirectOptContinuousOneHotSwitch):
+                continue
+            for predicate in predicates:
+                depth2_switches.append(DirectOptContinuousOneHotSwitch(switch.first, predicate, "and"))
+                depth2_switches.append(DirectOptContinuousOneHotSwitch(switch.first, predicate, "or"))
+    depth2_candidates = _evaluate_continuous_one_hot_candidates(
+        [
+            (
+                switch,
+                min(DIRECT_OPT_FORCE_VALUES),
+                max(DIRECT_OPT_FORCE_VALUES),
+                "continuous_one_hot_depth2",
+            )
+            for switch in _unique_continuous_one_hot_switches(depth2_switches)
+        ],
+        train_states,
+        cfg,
+        deadline,
+    )
+    candidate_count = len(leaf_candidates) + len(depth2_candidates)
+    return leaf_candidates + depth2_candidates, {
+        "continuous_one_hot_leaf_candidates": len(leaf_candidates),
+        "continuous_one_hot_depth2_candidates": len(depth2_candidates),
+        "continuous_one_hot_top_leaves_for_depth2": len(top_leaves),
+        "continuous_one_hot_candidates": candidate_count,
+        "continuous_one_hot_candidates_with_appendix_b3_metadata": candidate_count,
     }
 
 
@@ -940,25 +974,31 @@ def _continuous_one_hot_local_neighbor_candidates(
     threshold_step = DIRECT_OPT_THRESHOLD_SCALE * max(0.0, cfg.local_step_fraction)
     threshold_lower = min(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS)
     threshold_upper = max(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS)
-    switches = [
-        switch,
-        DirectOptContinuousOneHotSwitch(
-            DirectOptContinuousOneHotPredicate(
-                switch.first.alpha_s,
-                switch.first.feature_weights,
-                _clamp(switch.first.alpha_0 + threshold_step, threshold_lower, threshold_upper),
-            ),
-            operator=switch.operator,
-        ),
-        DirectOptContinuousOneHotSwitch(
-            DirectOptContinuousOneHotPredicate(
-                switch.first.alpha_s,
-                switch.first.feature_weights,
-                _clamp(switch.first.alpha_0 - threshold_step, threshold_lower, threshold_upper),
-            ),
-            operator=switch.operator,
-        ),
-    ]
+    switches = [switch]
+    for direction in (-1.0, 1.0):
+        switches.append(
+            DirectOptContinuousOneHotSwitch(
+                DirectOptContinuousOneHotPredicate(
+                    switch.first.alpha_s,
+                    switch.first.feature_weights,
+                    _clamp(switch.first.alpha_0 + direction * threshold_step, threshold_lower, threshold_upper),
+                ),
+                switch.second,
+                operator=switch.operator,
+            )
+        )
+        if switch.second is not None:
+            switches.append(
+                DirectOptContinuousOneHotSwitch(
+                    switch.first,
+                    DirectOptContinuousOneHotPredicate(
+                        switch.second.alpha_s,
+                        switch.second.feature_weights,
+                        _clamp(switch.second.alpha_0 + direction * threshold_step, threshold_lower, threshold_upper),
+                    ),
+                    operator=switch.operator,
+                )
+            )
     params = [
         (
             local_switch,
@@ -1119,6 +1159,15 @@ def _candidate_from_switch(
             first_appendix_b3_alpha_s=switch.first.alpha_s,
             first_appendix_b3_feature_weights=switch.first.feature_weights,
             first_appendix_b3_alpha_0=switch.first.alpha_0,
+            second_appendix_b3_alpha_s=(
+                switch.second.alpha_s if switch.second is not None else None
+            ),
+            second_appendix_b3_feature_weights=(
+                switch.second.feature_weights if switch.second is not None else ()
+            ),
+            second_appendix_b3_alpha_0=(
+                switch.second.alpha_0 if switch.second is not None else None
+            ),
             operator_one_hot=_operator_one_hot(switch.operator),
         )
     if isinstance(switch, BooleanTreeSwitch):
@@ -1189,12 +1238,20 @@ def _candidate_switch(
     candidate: DirectOptCandidate,
 ) -> Depth2Switch | BooleanTreeSwitch | DirectOptContinuousOneHotSwitch:
     if candidate.switch_kind == "continuous_one_hot":
+        second = None
+        if candidate.second_appendix_b3_alpha_s is not None:
+            second = DirectOptContinuousOneHotPredicate(
+                float(candidate.second_appendix_b3_alpha_s),
+                tuple(candidate.second_appendix_b3_feature_weights),
+                float(candidate.second_appendix_b3_alpha_0),
+            )
         return DirectOptContinuousOneHotSwitch(
             DirectOptContinuousOneHotPredicate(
                 float(candidate.continuous_one_hot_alpha_s),
                 tuple(candidate.continuous_one_hot_feature_weights),
                 float(candidate.continuous_one_hot_alpha_0),
             ),
+            second,
             operator=candidate.continuous_one_hot_operator or "leaf",
         )
     if candidate.switch_kind == "boolean_tree":
@@ -1296,6 +1353,15 @@ def _unique_boolean_switches(switches: List[BooleanTreeSwitch]) -> List[BooleanT
     return list(unique.values())
 
 
+def _unique_continuous_one_hot_switches(
+    switches: List[DirectOptContinuousOneHotSwitch],
+) -> List[DirectOptContinuousOneHotSwitch]:
+    unique: Dict[str, DirectOptContinuousOneHotSwitch] = {}
+    for switch in switches:
+        unique.setdefault(switch.describe(), switch)
+    return list(unique.values())
+
+
 def _unique_boolean_neighbor_params(
     params: List[Tuple[BooleanTreeSwitch, float, float, str]],
 ) -> List[Tuple[BooleanTreeSwitch, float, float, str]]:
@@ -1310,7 +1376,12 @@ def _unique_boolean_neighbor_params(
 
 def _candidate_threshold_magnitude(candidate: DirectOptCandidate) -> float:
     if candidate.switch_kind == "continuous_one_hot":
-        return abs(float(candidate.continuous_one_hot_alpha_0 or 0.0))
+        thresholds = [
+            value
+            for value in (candidate.continuous_one_hot_alpha_0, candidate.second_appendix_b3_alpha_0)
+            if value is not None
+        ]
+        return sum(abs(value) for value in thresholds)
     if candidate.switch_kind != "boolean_tree":
         return abs(candidate.threshold)
     thresholds = [

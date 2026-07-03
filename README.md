@@ -71,7 +71,7 @@ diagnostic baseline. Without `--quick`, PPO uses the paper-scale `10^7`
 timestep budget per seed; the runner still does not perform the paper's
 hyperparameter search. The Direct-Opt path is a local bounded search over linear
 switches, Boolean-tree CartPole switch candidates, and bounded Appendix B.3-style
-continuous one-hot feature-mixture candidates, not the paper's full two-hour
+continuous one-hot leaf/depth-2 feature-mixture candidates, not the paper's full two-hour
 parallel direct optimization protocol. The runner writes
 raw per-seed rows to `cartpole_results.csv`, grouped mean/std plus the best training seed to
 `cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
@@ -266,12 +266,12 @@ This baseline searches a bounded two-mode constant-action CartPole PSM directly
 on the 5-second training split, including the previous linear switch grid,
 bounded depth-1/depth-2 Boolean-tree switch predicates with explicit one-hot
 feature, relation, and tree-operator metadata, and a bounded Appendix B.3-style
-continuous one-hot feature-mixture candidate family. It then applies a bounded
+continuous one-hot leaf/depth-2 feature-mixture candidate family. It then applies a bounded
 batch/restart local refinement seeded from the best candidate so far, optimizing
 mean reward over all selected finite initial states, not the full initial-state
 distribution, before reevaluating the selected program on the full paper test
 horizon.
-Its metrics JSON records the exact grid, Boolean/continuous one-hot counts,
+Its metrics JSON records the exact grid, Boolean/continuous one-hot leaf/depth-2 counts,
 candidate-evaluation-call counts, train-rollout-evaluation counts,
 batch/restart diagnostics, configurable local parallel-candidate evaluation and
 time-limit metadata, selected program, and limitation note. This is still not

@@ -371,7 +371,8 @@
           ]
         ],
         "candidate_accounting": "searched_candidates and evaluated_candidates count candidate evaluation calls; train_rollout_evaluations counts individual selected-state train rollouts",
-        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_predicates",
+        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
+        "continuous_one_hot_expansion": "evaluate_all_leaf_mixtures_then_depth2_expansions_from_top_training_reward_leaves",
         "continuous_one_hot_feature_mixes": [
           [
             0.0,
@@ -403,11 +404,12 @@
           0.0,
           0.5
         ],
+        "continuous_one_hot_top_leaves_for_depth2": 4,
         "force_values": [
           -10.0,
           10.0
         ],
-        "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot feature-mixture candidate family, and batch/restart local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
+        "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, and batch/restart local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
         "local_parallel_threads": "configurable_via_parallel_threads",
         "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_or_continuous_one_hot_threshold_force_neighbors",
         "local_time_limit_seconds": "configurable_via_time_limit_seconds",
@@ -427,7 +429,7 @@
           5.0,
           10.0
         ],
-        "one_hot_switch_encoding": "evaluates a bounded Appendix B.3 continuous feature-mixture candidate family and records continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not optimize the paper's full continuous one-hot relaxation",
+        "one_hot_switch_encoding": "evaluates a bounded Appendix B.3 continuous leaf/depth2 feature-mixture candidate family and records continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not optimize the paper's full continuous one-hot relaxation",
         "paper_baseline": "Direct-Opt",
         "paper_batch_size": 10,
         "paper_parallel_threads": 10,
@@ -435,7 +437,7 @@
         "policy_class": "two_mode_constant_action_linear_depth2_boolean_or_continuous_one_hot_switch",
         "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
         "selection_objective": "mean_combined_reward_over_selected_initial_states_then_success",
-        "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_mixtures",
+        "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_leaf_depth2_mixtures",
         "test_horizon_steps": 15000,
         "theta_weight_grid": [
           -50.0,
@@ -516,7 +518,7 @@
         "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
         "configured_paper_batch_size": true,
         "full_continuous_one_hot_switch_grammar": false,
-        "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates a bounded continuous one-hot feature-mixture candidate family, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
+        "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
         "linear_switch_encoding": true,
         "optimizes_combined_reward_over_all_selected_initial_states": true,
         "optimizes_combined_reward_over_selected_initial_states": true,
@@ -570,13 +572,16 @@
         "boolean_depth2_candidates": 192,
         "boolean_stump_candidates": 24,
         "boolean_top_stumps_for_depth2": 4,
-        "candidate_evaluation_calls": 664,
-        "continuous_one_hot_candidates": 24,
-        "continuous_one_hot_candidates_with_appendix_b3_metadata": 24,
-        "evaluated_candidates": 664,
+        "candidate_evaluation_calls": 856,
+        "continuous_one_hot_candidates": 216,
+        "continuous_one_hot_candidates_with_appendix_b3_metadata": 216,
+        "continuous_one_hot_depth2_candidates": 192,
+        "continuous_one_hot_leaf_candidates": 24,
+        "continuous_one_hot_top_leaves_for_depth2": 4,
+        "evaluated_candidates": 856,
         "evaluated_candidates_units": "candidate_evaluation_calls",
-        "full_train_candidate_evaluation_calls": 653,
-        "full_train_rollout_evaluations": 6530,
+        "full_train_candidate_evaluation_calls": 845,
+        "full_train_rollout_evaluations": 8450,
         "grid_candidates": 156,
         "parallel_threads": 1,
         "random_candidates": 256,
@@ -584,10 +589,10 @@
         "restart_rollout_evaluations": 10,
         "time_limit_reached": false,
         "time_limit_seconds": null,
-        "train_rollout_evaluations": 6640,
+        "train_rollout_evaluations": 8560,
         "uses_parallel_candidate_evaluation": false
       },
-      "searched_candidates": 664,
+      "searched_candidates": 856,
       "seed": "0",
       "space_spec": {
         "action_dimension": 1,
