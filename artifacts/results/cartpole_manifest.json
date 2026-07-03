@@ -323,7 +323,7 @@
           -10.0,
           10.0
         ],
-        "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It includes bounded Boolean-tree switch candidates with one-hot metadata and batch/restart local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
+        "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates with one-hot metadata and batch/restart local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
         "local_parallel_threads": 1,
         "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors",
         "local_time_limit_seconds": null,
@@ -350,7 +350,7 @@
         "paper_time_limit_seconds": 7200,
         "policy_class": "two_mode_constant_action_linear_or_depth2_boolean_tree_switch",
         "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
-        "selection_objective": "mean_train_horizon_reward_then_success",
+        "selection_objective": "mean_combined_reward_over_selected_initial_states_then_success",
         "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
         "test_horizon_steps": 15000,
         "theta_weight_grid": [
@@ -369,6 +369,29 @@
         ],
         "threshold_scale": 0.25,
         "train_horizon_seconds": 5.0
+      },
+      "best_candidate": {
+        "first_feature": null,
+        "first_feature_one_hot": [],
+        "first_relation": null,
+        "first_relation_one_hot": [],
+        "first_threshold": null,
+        "left_force": -10.0,
+        "omega_weight": 0.25,
+        "operator": null,
+        "operator_one_hot": [],
+        "right_force": 10.0,
+        "second_feature": null,
+        "second_feature_one_hot": [],
+        "second_relation": null,
+        "second_relation_one_hot": [],
+        "second_threshold": null,
+        "source": "grid",
+        "switch_kind": "linear",
+        "theta_weight": 1.0,
+        "threshold": 0.0,
+        "train_reward_mean": 250.0,
+        "train_success_rate": 1.0
       },
       "checkpoint": "",
       "config": {
@@ -392,11 +415,13 @@
       "paper_protocol_status": {
         "batch_optimization_seeded_from_best_so_far": true,
         "bounded_one_hot_switch_metadata": true,
+        "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
         "configured_paper_batch_size": true,
         "full_continuous_one_hot_switch_grammar": false,
         "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and one-hot metadata, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
         "linear_switch_encoding": true,
-        "optimizes_combined_reward_over_all_initial_states": false,
+        "optimizes_combined_reward_over_all_initial_states": true,
+        "optimizes_combined_reward_over_selected_initial_states": true,
         "paper_baseline": "Direct-Opt",
         "paper_batch_size": 10,
         "paper_eval_rollouts": 1000,
@@ -427,6 +452,24 @@
         "source": "OpenAI Gym classic-control CartPole standard reward",
         "termination_reward": 0.0
       },
+      "search_diagnostics": {
+        "accepted_batch_improvements": 0,
+        "accepted_restarts": 0,
+        "batch_count": 1,
+        "batch_local_evaluations": 9,
+        "batch_refinement_candidates": 1,
+        "batch_rounds": 1,
+        "batch_seed_evaluations": 1,
+        "boolean_candidates_with_one_hot_metadata": 216,
+        "boolean_depth2_candidates": 192,
+        "boolean_stump_candidates": 24,
+        "boolean_top_stumps_for_depth2": 4,
+        "evaluated_candidates": 640,
+        "grid_candidates": 156,
+        "random_candidates": 256,
+        "restart_evaluations": 1
+      },
+      "searched_candidates": 640,
       "seed": "0",
       "space_spec": {
         "action_dimension": 1,
@@ -480,12 +523,24 @@
           "shared_action_observation_initial_state_contract"
         ]
       },
+      "test": {
+        "reward_mean": 4311.0,
+        "steps_mean": 4311.0,
+        "success_rate": 0.1,
+        "survival_seconds_mean": 86.22
+      },
       "test_horizon_steps": "15000",
       "test_reward": "4311",
       "test_steps": "4311",
       "test_success": "0.10",
       "test_survival_seconds": "86.22",
       "timesteps": "0",
+      "train": {
+        "reward_mean": 250.0,
+        "steps_mean": 250.0,
+        "success_rate": 1.0,
+        "survival_seconds_mean": 5.0
+      },
       "train_reward": "250.0",
       "train_steps": "250.0",
       "train_success": "1.00",

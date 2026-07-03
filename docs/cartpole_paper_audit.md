@@ -50,8 +50,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
   tree-operator metadata, plus a local batch/restart refinement seeded from the best candidate so far.
-  This records exact search grids, search diagnostics, and selected program provenance, but is not the
-  paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
+  Candidate selection optimizes mean train-horizon reward over the selected initial states, then
+  success as a tie-breaker. This records exact search grids, search diagnostics, and selected program
+  provenance, but is not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
   `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, full continuous
   one-hot grammar, combined-reward optimization, full test horizon, and `1000`-rollout evaluation;
   the full Direct-Opt protocol flag remains false for the bounded diagnostic.
@@ -181,9 +182,9 @@ These are implementation diagnostics, not paper-scale reproduced results.
   train reward mean `250.0`, test reward mean `4311.0`. The selected bounded two-mode policy is
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
-  implementation records bounded Boolean-tree switch-candidate one-hot metadata plus batch/restart diagnostics
-  to mirror part of the paper baseline's grammar and batch seeding structure, while keeping
-  `not_paper_scale` true.
+  implementation optimizes mean reward over the selected initial states and records bounded
+  Boolean-tree switch-candidate one-hot metadata plus batch/restart diagnostics to mirror part of the
+  paper baseline's grammar and batch seeding structure, while keeping `not_paper_scale` true.
 - PPO MLP command:
   `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
 - PPO MLP selected checkpoint:
@@ -709,9 +710,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - Run 5 random seeds and choose best training performer.
 - Run hyperparameter search over the paper's specified ranges.
 - Replace the bounded Direct-Opt diagnostic with the paper's full direct optimization protocol:
-  optimize the combined reward over all initial states using batch optimization, random restarts when
-  stalled, the full continuous one-hot switching-condition encoding, and the reported
-  two-hour/parallel budget.
+  keep the combined-reward-over-initial-states objective, but replace the bounded local search with
+  the full batch optimization, random restarts when stalled, full continuous one-hot
+  switching-condition encoding, and reported two-hour/parallel budget.
 - Complete the probabilistic adaptive-teaching implementation: continuous optimization of switch
   Gaussian parameters and the paper's full teacher optimization procedure. The current Cartpole switch
   learner performs a depth-2 greedy Boolean-tree expansion, stores Gaussian threshold distributions

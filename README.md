@@ -223,8 +223,9 @@ on the 5-second training split, including the previous linear switch grid plus
 bounded depth-1/depth-2 Boolean-tree switch predicates with explicit one-hot
 feature, relation, and tree-operator metadata recorded for each Boolean
 candidate. It then applies a bounded batch/restart local refinement seeded from
-the best candidate so far, and reevaluates the selected program on the full paper
-test horizon. Its metrics JSON records the exact grid, one-hot metadata counts,
+the best candidate so far, optimizing mean reward over the selected initial
+states before reevaluating the selected program on the full paper test horizon.
+Its metrics JSON records the exact grid, one-hot metadata counts,
 batch/restart diagnostics, selected program, and limitation note. This is still
 not the paper's two-hour, ten-thread Direct-Opt protocol over the full continuous
 one-hot switching grammar. The metrics JSON also includes

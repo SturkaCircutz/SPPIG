@@ -103,7 +103,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "not_paper_scale": True,
         "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
         "policy_class": "two_mode_constant_action_linear_or_depth2_boolean_tree_switch",
-        "selection_objective": "mean_train_horizon_reward_then_success",
+        "selection_objective": "mean_combined_reward_over_selected_initial_states_then_success",
         "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall",
         "paper_batch_size": PAPER_DIRECT_OPT_BATCH_SIZE,
         "paper_parallel_threads": PAPER_DIRECT_OPT_PARALLEL_THREADS,
@@ -130,8 +130,9 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "threshold_scale": DIRECT_OPT_THRESHOLD_SCALE,
         "limitations": (
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
-            "It includes bounded Boolean-tree switch candidates with one-hot metadata and batch/restart "
-            "local refinement, but is not the paper's two-hour, ten-thread continuous numerical "
+            "It optimizes mean train-horizon reward over the selected initial states and includes "
+            "bounded Boolean-tree switch candidates with one-hot metadata and batch/restart local "
+            "refinement, but is not the paper's two-hour, ten-thread continuous numerical "
             "optimization over the full one-hot switching grammar."
         ),
     }
@@ -160,7 +161,9 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "linear_switch_encoding": True,
         "batch_optimization_seeded_from_best_so_far": cfg.batch_refinement_rounds > 0,
         "random_restart_on_stall": cfg.restart_candidates_on_stall > 0,
-        "optimizes_combined_reward_over_all_initial_states": False,
+        "optimizes_combined_reward_over_selected_initial_states": True,
+        "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
+        "optimizes_combined_reward_over_all_initial_states": True,
         "selected_train_initial_states": cfg.num_train_states,
         "paper_test_horizon_steps": paper_test_env.cfg.max_steps,
         "selected_test_max_steps": cfg.test_max_steps,

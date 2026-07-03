@@ -63,6 +63,10 @@ class CartpoleDirectOptTest(unittest.TestCase):
             "two_mode_constant_action_linear_or_depth2_boolean_tree_switch",
         )
         self.assertEqual(
+            metrics["algorithm_provenance"]["selection_objective"],
+            "mean_combined_reward_over_selected_initial_states_then_success",
+        )
+        self.assertEqual(
             metrics["algorithm_provenance"]["switch_search_space"],
             "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_with_one_hot_metadata",
         )
@@ -106,6 +110,12 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertFalse(status["uses_paper_time_limit"])
         self.assertFalse(status["full_continuous_one_hot_switch_grammar"])
         self.assertTrue(status["bounded_one_hot_switch_metadata"])
+        self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
+        self.assertTrue(status["optimizes_combined_reward_over_all_initial_states"])
+        self.assertEqual(
+            status["combined_reward_aggregation"],
+            "mean_train_horizon_reward_over_selected_initial_states",
+        )
         self.assertFalse(status["paper_scale_direct_opt_protocol"])
 
         default_status = cartpole_direct_opt_protocol_status(DirectOptConfig())
@@ -143,6 +153,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertFalse(status["random_restart_on_stall"])
         self.assertFalse(status["uses_full_test_horizon"])
         self.assertFalse(status["uses_paper_eval_rollouts"])
+        self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
         self.assertTrue(status["quick_diagnostic"])
         self.assertFalse(status["paper_scale_direct_opt_protocol"])
 
