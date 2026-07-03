@@ -93,6 +93,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   five-seed paper baseline protocol. Result rows, summaries, and metrics JSON explicitly record mean
   survived steps and survival seconds so long-horizon plots do not rely on reward as an implicit
   survival-time proxy.
+- `scripts/evaluate_cartpole_checkpoint.py`: reevaluates existing PPO/PPO-LSTM checkpoints and writes
+  a `paper_protocol_status` block that separates the checkpoint's original training/evaluation budget
+  from the later full-horizon reevaluation budget, keeping paper-scale checkpoint-result claims false
+  for short or warm-started local checkpoints.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that defaults to 10
   uniformly sampled hyperparameter configs from the reported ranges per policy, evaluates each
   config for every selected seed, writes a plan/manifest, and can execute jobs with per-config
@@ -323,6 +327,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_ppo_protocol_status_distinguishes_single_run_from_full_baseline`
   verifies that PPO metrics can mark a single configured run as matching the paper timestep/test
   horizon budget while still marking the full five-seed paper baseline protocol as incomplete.
+- `tests/test_evaluate_cartpole_checkpoint.py::test_checkpoint_reevaluation_protocol_status_distinguishes_checkpoint_from_reeval`
+  verifies that checkpoint reevaluation metrics do not conflate the checkpoint's original diagnostic
+  eval horizon with a later full-horizon reevaluation.
 - `tests/test_cartpole_paper.py::test_ppo_config_defaults_to_paper_timestep_budget` and
   `tests/test_cartpole_ppo_cli.py::test_cli_defaults_to_paper_timestep_budget_without_running`
   verify that the standalone PPO config and CLI default to the paper's `10^7` timestep budget

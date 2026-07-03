@@ -265,6 +265,10 @@ paper `10^7` timestep budget, 300s test horizon, and `1000` evaluation rollouts,
 while keeping the full five-seed baseline protocol claim false for standalone runs. This is
 training-curve provenance for local diagnostics; it is not a substitute for the
 missing paper-scale `10^7` timestep, five-seed hyperparameter search.
+Checkpoint reevaluation metrics from `scripts/evaluate_cartpole_checkpoint.py`
+also include `paper_protocol_status`, separating the checkpoint's original
+training/evaluation settings from the later reevaluation horizon and rollout
+count.
 
 PPO hyperparameter sweep plan/execution:
 

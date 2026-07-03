@@ -15,7 +15,13 @@ SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec, cartpole_space_spec  # noqa: E402
-from ppo_cartpole import LSTMActorCritic, MLPActorCritic, evaluate_ppo_model, result_to_metrics  # noqa: E402
+from ppo_cartpole import (  # noqa: E402
+    PAPER_PPO_TIMESTEPS,
+    LSTMActorCritic,
+    MLPActorCritic,
+    evaluate_ppo_model,
+    result_to_metrics,
+)
 
 
 def load_model(checkpoint_path: Path):
@@ -37,6 +43,37 @@ def load_model(checkpoint_path: Path):
         raise ValueError("checkpoint config policy_type must be 'mlp' or 'lstm'")
     model.load_state_dict(checkpoint["state_dict"])
     return checkpoint, model
+
+
+def checkpoint_reevaluation_protocol_status(
+    checkpoint_config: dict,
+    eval_rollouts: int,
+    test_max_steps: int,
+) -> dict[str, object]:
+    paper_test_steps = CartpoleEnv.test_env().cfg.max_steps
+    checkpoint_timesteps = int(checkpoint_config.get("total_timesteps", 0))
+    checkpoint_eval_steps = int(checkpoint_config.get("eval_test_max_steps", 0))
+    return {
+        "artifact_kind": "ppo_checkpoint_reevaluation",
+        "policy_type": checkpoint_config.get("policy_type"),
+        "paper_timestep_budget": PAPER_PPO_TIMESTEPS,
+        "checkpoint_total_timesteps": checkpoint_timesteps,
+        "checkpoint_uses_paper_timestep_budget": checkpoint_timesteps == PAPER_PPO_TIMESTEPS,
+        "checkpoint_eval_test_max_steps": checkpoint_eval_steps,
+        "checkpoint_eval_used_full_test_horizon": checkpoint_eval_steps == paper_test_steps,
+        "paper_test_horizon_steps": paper_test_steps,
+        "selected_test_max_steps": test_max_steps,
+        "reevaluation_uses_full_test_horizon": test_max_steps == paper_test_steps,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "selected_eval_rollouts": eval_rollouts,
+        "uses_paper_eval_rollouts": eval_rollouts == PAPER_EVAL_ROLLOUTS,
+        "paper_scale_checkpoint_result": False,
+        "limitation": (
+            "Reevaluates an existing local PPO checkpoint under the requested horizon and rollout "
+            "count; it does not turn a short or warm-started checkpoint into the paper's full "
+            "10^7-timestep, five-seed PPO/PPO-LSTM baseline protocol."
+        ),
+    }
 
 
 def main() -> None:
@@ -67,6 +104,11 @@ def main() -> None:
         "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
         "reward_spec": cartpole_reward_spec(),
         "space_spec": cartpole_space_spec(CartpoleEnv.train_env().cfg),
+        "paper_protocol_status": checkpoint_reevaluation_protocol_status(
+            checkpoint["config"],
+            args.eval_rollouts,
+            args.test_max_steps,
+        ),
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": 15_000,
         "selected_result": result_to_metrics(result),

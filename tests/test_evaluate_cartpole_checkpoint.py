@@ -7,6 +7,7 @@ import unittest
 
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
 SCRIPT = os.path.join(ROOT, "scripts", "evaluate_cartpole_checkpoint.py")
 
 try:
@@ -18,6 +19,30 @@ except Exception:
 
 
 class EvaluateCartpoleCheckpointTest(unittest.TestCase):
+    def test_checkpoint_reevaluation_protocol_status_distinguishes_checkpoint_from_reeval(self):
+        from evaluate_cartpole_checkpoint import checkpoint_reevaluation_protocol_status
+
+        status = checkpoint_reevaluation_protocol_status(
+            {
+                "policy_type": "mlp",
+                "total_timesteps": 131072,
+                "eval_test_max_steps": 1000,
+            },
+            eval_rollouts=20,
+            test_max_steps=15000,
+        )
+
+        self.assertEqual(status["artifact_kind"], "ppo_checkpoint_reevaluation")
+        self.assertEqual(status["policy_type"], "mlp")
+        self.assertEqual(status["paper_timestep_budget"], 10_000_000)
+        self.assertFalse(status["checkpoint_uses_paper_timestep_budget"])
+        self.assertEqual(status["checkpoint_eval_test_max_steps"], 1000)
+        self.assertFalse(status["checkpoint_eval_used_full_test_horizon"])
+        self.assertTrue(status["reevaluation_uses_full_test_horizon"])
+        self.assertEqual(status["selected_eval_rollouts"], 20)
+        self.assertFalse(status["uses_paper_eval_rollouts"])
+        self.assertFalse(status["paper_scale_checkpoint_result"])
+
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_script_writes_full_horizon_checkpoint_metrics(self):
         checkpoint_path = os.path.join(ROOT, "artifacts", "progress_mlp_128k_seed0.pt")
@@ -56,6 +81,13 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
         self.assertEqual(metrics["space_spec"]["initial_state_distribution"]["high"], 0.05)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
+        status = metrics["paper_protocol_status"]
+        self.assertEqual(status["artifact_kind"], "ppo_checkpoint_reevaluation")
+        self.assertEqual(status["policy_type"], "mlp")
+        self.assertFalse(status["checkpoint_uses_paper_timestep_budget"])
+        self.assertFalse(status["reevaluation_uses_full_test_horizon"])
+        self.assertFalse(status["uses_paper_eval_rollouts"])
+        self.assertFalse(status["paper_scale_checkpoint_result"])
         self.assertIn("selected_result", metrics)
         self.assertIn("train_steps_mean", metrics["selected_result"])
         self.assertIn("test_steps_mean", metrics["selected_result"])
@@ -121,6 +153,8 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
                 metrics = json.load(handle)
 
         self.assertEqual(metrics["selected_result"]["train_success_rate"], 1.0)
+        self.assertTrue(metrics["paper_protocol_status"]["reevaluation_uses_full_test_horizon"])
+        self.assertFalse(metrics["paper_protocol_status"]["uses_paper_eval_rollouts"])
         self.assertEqual(metrics["selected_result"]["test_success_rate"], 0.0)
         self.assertEqual(metrics["selected_result"]["train_reward_mean"], 250.0)
         self.assertEqual(metrics["selected_result"]["test_reward_mean"], 910.6)
@@ -157,6 +191,8 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
                 metrics = json.load(handle)
 
         self.assertEqual(metrics["selected_result"]["train_success_rate"], 1.0)
+        self.assertTrue(metrics["paper_protocol_status"]["reevaluation_uses_full_test_horizon"])
+        self.assertFalse(metrics["paper_protocol_status"]["checkpoint_uses_paper_timestep_budget"])
         self.assertEqual(metrics["selected_result"]["test_success_rate"], 0.0)
         self.assertEqual(metrics["selected_result"]["train_reward_mean"], 250.0)
         self.assertEqual(metrics["selected_result"]["test_reward_mean"], 912.25)
