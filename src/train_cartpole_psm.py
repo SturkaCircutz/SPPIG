@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from dataclasses import asdict
@@ -51,9 +52,28 @@ def summarize_student(student: ProbabilisticCartpoleStudent):
     if responsibilities:
         mean_left = sum(left for left, _ in responsibilities) / len(responsibilities)
         mean_right = sum(right for _, right in responsibilities) / len(responsibilities)
+        max_weights = [max(left, right) for left, right in responsibilities]
+        entropy_values = [
+            -sum(weight * math.log(weight) for weight in (left, right) if weight > 0.0)
+            for left, right in responsibilities
+        ]
+        hard_mode_0 = sum(1 for left, right in responsibilities if left >= right)
+        hard_mode_1 = len(responsibilities) - hard_mode_0
+        ambiguous_segments = sum(1 for weight in max_weights if weight < 0.75)
+        mean_max_weight = sum(max_weights) / len(max_weights)
+        min_max_weight = min(max_weights)
+        mean_entropy = sum(entropy_values) / len(entropy_values)
+        max_entropy = max(entropy_values)
     else:
         mean_left = 0.0
         mean_right = 0.0
+        hard_mode_0 = 0
+        hard_mode_1 = 0
+        ambiguous_segments = 0
+        mean_max_weight = 0.0
+        min_max_weight = 0.0
+        mean_entropy = 0.0
+        max_entropy = 0.0
     return {
         "description": student.describe(),
         "action_distributions": {
@@ -79,6 +99,14 @@ def summarize_student(student: ProbabilisticCartpoleStudent):
             "segments": len(responsibilities),
             "mean_mode_0": mean_left,
             "mean_mode_1": mean_right,
+            "hard_mode_0_count": hard_mode_0,
+            "hard_mode_1_count": hard_mode_1,
+            "ambiguous_segment_count": ambiguous_segments,
+            "ambiguous_segment_threshold": 0.75,
+            "mean_max_responsibility": mean_max_weight,
+            "min_max_responsibility": min_max_weight,
+            "mean_entropy_nats": mean_entropy,
+            "max_entropy_nats": max_entropy,
         },
     }
 

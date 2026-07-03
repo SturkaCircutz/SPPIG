@@ -118,9 +118,10 @@ Programmatic state machine:
 
 The PSM metrics JSON records the deterministic policy plus the fitted
 probabilistic student summary: Gaussian constant-action distributions, switch
-parameter distributions, latent responsibility totals, and compact teacher
-trace examples with reward, length, gains, segment durations, switches, and
-boundary observations. Trace examples include the loop-free segment action
+parameter distributions, latent responsibility totals, hard/ambiguous latent
+mode counts, responsibility entropy, and compact teacher trace examples with
+reward, length, gains, segment durations, switches, and boundary observations.
+Trace examples include the loop-free segment action
 sequence, duration sequence, and per-segment time increments used by the teacher. It also records
 `synthesis_history`, a compact row for each teacher/student iteration with
 trace summaries, fitted student parameters, local switch-fit diagnostics,

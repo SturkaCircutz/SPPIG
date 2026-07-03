@@ -9,9 +9,42 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 SCRIPT = os.path.join(ROOT, "src", "train_cartpole_psm.py")
+sys.path.insert(0, os.path.join(ROOT, "src"))
+
+from cartpole_synthesis import Depth2Switch, GaussianScalar, ProbabilisticCartpoleStudent  # noqa: E402
+from train_cartpole_psm import summarize_student  # noqa: E402
 
 
 class CartpolePSMCliTest(unittest.TestCase):
+    def test_summarize_student_reports_responsibility_confidence(self):
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 1.0),
+                1: GaussianScalar(10.0, 1.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 1.0),
+            switch_parameter_distributions=[GaussianScalar(0.0, 1.0)],
+            responsibilities=[(0.9, 0.1), (0.4, 0.6), (0.2, 0.8)],
+        )
+
+        summary = summarize_student(student)["responsibility_summary"]
+
+        self.assertEqual(summary["segments"], 3)
+        self.assertEqual(summary["hard_mode_0_count"], 1)
+        self.assertEqual(summary["hard_mode_1_count"], 2)
+        self.assertEqual(summary["ambiguous_segment_count"], 1)
+        self.assertEqual(summary["ambiguous_segment_threshold"], 0.75)
+        self.assertAlmostEqual(summary["mean_max_responsibility"], (0.9 + 0.6 + 0.8) / 3.0)
+        self.assertAlmostEqual(summary["min_max_responsibility"], 0.6)
+        expected_entropy = (
+            -(0.9 * math.log(0.9) + 0.1 * math.log(0.1))
+            -(0.4 * math.log(0.4) + 0.6 * math.log(0.6))
+            -(0.2 * math.log(0.2) + 0.8 * math.log(0.8))
+        ) / 3.0
+        self.assertAlmostEqual(summary["mean_entropy_nats"], expected_entropy)
+        self.assertAlmostEqual(summary["max_entropy_nats"], -(0.4 * math.log(0.4) + 0.6 * math.log(0.6)))
+
     def test_cli_default_teacher_profile_matches_cartpole_training_horizon(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "psm_metrics.json")
@@ -402,6 +435,15 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("action_distributions", metrics["probabilistic_student"])
         self.assertIn("switch_parameter_distributions", metrics["probabilistic_student"])
         self.assertGreaterEqual(metrics["probabilistic_student"]["responsibility_summary"]["segments"], 1)
+        responsibility_summary = metrics["probabilistic_student"]["responsibility_summary"]
+        self.assertIn("hard_mode_0_count", responsibility_summary)
+        self.assertIn("hard_mode_1_count", responsibility_summary)
+        self.assertIn("ambiguous_segment_count", responsibility_summary)
+        self.assertEqual(responsibility_summary["ambiguous_segment_threshold"], 0.75)
+        self.assertIn("mean_max_responsibility", responsibility_summary)
+        self.assertIn("min_max_responsibility", responsibility_summary)
+        self.assertIn("mean_entropy_nats", responsibility_summary)
+        self.assertIn("max_entropy_nats", responsibility_summary)
         diagnostics = metrics["switch_fit_diagnostics"]
         self.assertEqual(diagnostics["diagnostic_scope"], "local_teacher_trace_fit")
         self.assertTrue(diagnostics["not_paper_reproduction"])

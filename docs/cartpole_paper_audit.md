@@ -65,7 +65,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   fixed local synthesis constants, probabilistic-student parameters, trace count, and train/test
   metrics to JSON. Its default evaluation rollout count is the paper's `1000`, and metrics record
   whether a run actually used that count. It also persists teacher candidate-source counts, loop-free segment action and
-  duration schedules, sampled-trace log-probability provenance, and switch-fit diagnostics comparing
+  duration schedules, latent responsibility confidence/entropy summaries, sampled-trace log-probability provenance, and switch-fit diagnostics comparing
   the selected switch objective tuple to a fixed local reference switch; this is failure-analysis
   provenance, not a controller selection rule. PSM metrics also include `paper_protocol_status`, a
   compact machine-readable block that records matched CartPole horizons and keeps the full
@@ -742,6 +742,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_probabilistic_student_samples_policy_parameters`
   verifies that a probabilistic Cartpole student can sample a deterministic policy with sampled
   action and switch parameters.
+- `tests/test_cartpole_psm_cli.py::test_summarize_student_reports_responsibility_confidence`
+  verifies that PSM metrics expose hard latent-mode counts, ambiguous segment count, max
+  responsibility, and responsibility entropy for the fitted probabilistic student.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_writes_results_and_manifest`
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
