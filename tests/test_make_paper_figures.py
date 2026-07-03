@@ -213,9 +213,10 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(traces_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "config": {"teacher_student_iters": 1},
                         "num_traces": 1,
                         "traces": [{"reward": 1}],
-                        "trace_history": [{"num_traces": 1, "traces": [{"reward": 1}]}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
                     },
                     handle,
                 )
@@ -246,9 +247,45 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(traces_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "config": {"teacher_student_iters": 1},
                         "num_traces": 2,
                         "traces": [{"reward": 1}],
-                        "trace_history": [{"num_traces": 1, "traces": [{"reward": 1}]}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Synthesized PSM diagnostic",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_synthesized_psm_boolean_trace_count(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": 1},
+                        "num_traces": True,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
                     },
                     handle,
                 )
@@ -280,9 +317,118 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(traces_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "config": {"teacher_student_iters": 1},
                         "num_traces": 1,
                         "traces": [{"reward": 1}],
-                        "trace_history": [{"num_traces": 2, "traces": [{"reward": 1}]}],
+                        "trace_history": [{"iteration": 1, "num_traces": 2, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Synthesized PSM diagnostic",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_synthesized_psm_boolean_iteration_count(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": True},
+                        "num_traces": 1,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Synthesized PSM diagnostic",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_synthesized_psm_missing_history_iteration(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": 2},
+                        "num_traces": 1,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "Synthesized PSM diagnostic",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_synthesized_psm_history_sequence_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "traces_output": traces_path,
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": 2},
+                        "num_traces": 1,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [
+                            {"iteration": 1, "num_traces": 1, "traces": [{"reward": 0}]},
+                            {"iteration": 3, "num_traces": 1, "traces": [{"reward": 1}]},
+                        ],
                     },
                     handle,
                 )
@@ -336,7 +482,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     handle,
                 )
             with open(traces_path, "w", encoding="utf-8") as handle:
-                json.dump({"traces": [{"reward": 1}]}, handle)
+                json.dump({"config": {"teacher_student_iters": 1}, "num_traces": 1, "traces": [{"reward": 1}]}, handle)
 
             with self.assertRaises(ValueError):
                 make_paper_figures.require_result_artifacts(

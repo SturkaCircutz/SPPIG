@@ -91,17 +91,33 @@ def psm_trace_payload_is_complete(trace_payload: object) -> bool:
         return False
     traces = trace_payload.get("traces")
     trace_history = trace_payload.get("trace_history")
+    config = trace_payload.get("config")
+    num_traces = trace_payload.get("num_traces")
+    teacher_student_iters = config.get("teacher_student_iters") if isinstance(config, dict) else None
     if (
         not isinstance(traces, list)
-        or trace_payload.get("num_traces") != len(traces)
+        or type(num_traces) is not int
+        or num_traces != len(traces)
         or not isinstance(trace_history, list)
         or not trace_history
+        or type(teacher_student_iters) is not int
+        or len(trace_history) != teacher_student_iters
     ):
         return False
+    expected_iterations = list(range(1, teacher_student_iters + 1))
+    actual_iterations = []
     for entry in trace_history:
         history_traces = entry.get("traces") if isinstance(entry, dict) else None
-        if not isinstance(history_traces, list) or entry.get("num_traces") != len(history_traces):
+        actual_iterations.append(entry.get("iteration") if isinstance(entry, dict) else None)
+        history_num_traces = entry.get("num_traces") if isinstance(entry, dict) else None
+        if (
+            not isinstance(history_traces, list)
+            or type(history_num_traces) is not int
+            or history_num_traces != len(history_traces)
+        ):
             return False
+    if actual_iterations != expected_iterations:
+        return False
     return trace_history[-1].get("traces") == traces
 
 
