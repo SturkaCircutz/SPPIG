@@ -65,7 +65,10 @@ from cartpole_synthesis import (
     _rollout_student_sampled_trace,
     _rollout_with_teacher_gains,
     _sample_switch,
+    _scalar_switch_timing_pairs,
+    _scalar_timing_pair_probabilities,
     _single_threshold_transition_probability,
+    _switch_responsibility_pair_log_potentials,
     _switch_cost,
     _segments_from_traces,
     _switch_structure_rescore_candidates,
@@ -78,6 +81,7 @@ from cartpole_synthesis import (
     _teacher_candidate_traces,
     _top_teacher_elites,
     _switch_timing_loss,
+    _switch_timing_pairs,
     _teacher_objective,
     _teacher_refinement_objective,
     _trace_log_probability,
@@ -293,6 +297,27 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(responsibilities[1][0], action_only_second[0])
         for left_weight, right_weight in responsibilities:
             self.assertAlmostEqual(left_weight + right_weight, 1.0)
+
+    def test_cartpole_switch_timing_responsibilities_are_directed_by_next_mode(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.4, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+            ],
+            action_parameter=10.0,
+            duration=3,
+            hard_mode=1,
+        )
+
+        pair = _switch_responsibility_pair_log_potentials(
+            Depth2Switch(1.0, 0.0, 0.0),
+            [GaussianScalar(0.0, 0.05)],
+            segment,
+        )
+
+        self.assertGreater(pair[1][0], pair[0][1])
+        self.assertGreater(pair[1][1], pair[0][0])
 
     def test_cartpole_student_switch_responsibility_passes_are_configurable(self):
         trace = CartpoleTrace(
@@ -569,6 +594,55 @@ class CartpolePaperTest(unittest.TestCase):
             _eq12_switch_log_likelihood(late_switch, segment, (1.0, 0.0), (1.0, 0.0)),
             _eq12_switch_log_likelihood(early_switch, segment, (1.0, 0.0), (1.0, 0.0)),
         )
+
+    def test_cartpole_eq12_likelihood_is_directed_for_selector_off_transition(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.4, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+            ],
+            action_parameter=10.0,
+            duration=3,
+            hard_mode=1,
+        )
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+
+        self.assertGreater(
+            _eq12_switch_log_likelihood(switch, segment, (0.0, 1.0), (1.0, 0.0)),
+            _eq12_switch_log_likelihood(switch, segment, (1.0, 0.0), (0.0, 1.0)),
+        )
+
+    def test_cartpole_scalar_timing_pair_uses_separate_enable_disable_extrema(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.6, 0.0],
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+            ],
+            action_parameter=10.0,
+            duration=3,
+            hard_mode=1,
+        )
+        next_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.2, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        timing_pair = _switch_timing_pairs([[segment, next_segment]], [(0.0, 1.0), (1.0, 0.0)])
+        scalar_pair = _scalar_switch_timing_pairs(Depth2Switch(1.0, 0.0, 0.0), timing_pair)[0]
+
+        self.assertAlmostEqual(scalar_pair.previous_enable_extreme, 0.6)
+        self.assertAlmostEqual(scalar_pair.previous_disable_extreme, -0.4)
+        _, on_to_off, _, stay_on = _scalar_timing_pair_probabilities(
+            GaussianScalar(0.0, 0.05),
+            scalar_pair,
+        )
+
+        self.assertLess(on_to_off, 0.01)
+        self.assertLess(stay_on, 0.01)
+        self.assertGreater(scalar_pair.previous_enable_extreme, scalar_pair.previous_disable_extreme)
 
     def test_cartpole_switch_distribution_refinement_improves_timing_likelihood(self):
         segment = CartpoleSegment(

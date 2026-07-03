@@ -372,17 +372,22 @@ class _SwitchTimingPair:
     duration: int
     timing_duration: float
     timing_step_scale: float
-    transition_weight: float
-    stay_weight: float
+    off_to_on_weight: float
+    on_to_off_weight: float
+    stay_off_weight: float
+    stay_on_weight: float
 
 
 @dataclass(frozen=True)
 class _ScalarSwitchTimingPair:
     relation: str
     current_value: float | None
-    previous_extreme: float | None
-    transition_weight: float
-    stay_weight: float
+    previous_enable_extreme: float | None
+    previous_disable_extreme: float | None
+    off_to_on_weight: float
+    on_to_off_weight: float
+    stay_off_weight: float
+    stay_on_weight: float
 
 
 @dataclass
@@ -2196,28 +2201,25 @@ def _switch_responsibility_pair_log_potentials(
     distributions: List[GaussianScalar],
     segment: CartpoleSegment,
 ) -> List[List[float]]:
-    duration = segment.switch_timing_duration
-    transition_probability = _switch_transition_probability_at_duration(
+    off_to_on, on_to_off, stay_off, stay_on = _switch_selector_transition_probabilities(
         switch,
         distributions,
         segment.observations,
-        duration,
+        segment.switch_timing_duration,
         segment.timing_step_scale,
     )
-    stay_probability = _switch_no_transition_probability_before_duration(
-        switch,
-        distributions,
-        segment.observations,
-        duration,
-        segment.timing_step_scale,
-    )
-    # Different adjacent modes consume transition likelihood; equal modes
-    # consume survival likelihood before the observed boundary.
-    transition_log = math.log(max(transition_probability, LOG_PROBABILITY_FLOOR))
-    stay_log = math.log(max(stay_probability, LOG_PROBABILITY_FLOOR))
+    # The local two-mode CartPole student uses one selector switch: off means
+    # mode 0 and on means mode 1. Eq. (12) is directed by the next mode, so
+    # 0->1 consumes switch-on mass while 1->0 consumes switch-off mass.
     return [
-        [stay_log, transition_log],
-        [transition_log, stay_log],
+        [
+            math.log(max(stay_off, LOG_PROBABILITY_FLOOR)),
+            math.log(max(off_to_on, LOG_PROBABILITY_FLOOR)),
+        ],
+        [
+            math.log(max(on_to_off, LOG_PROBABILITY_FLOOR)),
+            math.log(max(stay_on, LOG_PROBABILITY_FLOOR)),
+        ],
     ]
 
 
@@ -2692,14 +2694,16 @@ def _switch_distribution_timing_loss(
     pairs = timing_pairs if timing_pairs is not None else _switch_timing_pairs(segments_by_trace, responsibilities)
     loss = 0.0
     for pair in pairs:
-        transition_probability, stay_probability = _switch_transition_and_stay_probabilities_for_pair(
+        off_to_on, on_to_off, stay_off, stay_on = _switch_selector_transition_probabilities_for_pair(
             switch,
             distributions,
             pair,
         )
         loss -= (
-            pair.transition_weight * math.log(max(transition_probability, LOG_PROBABILITY_FLOOR))
-            + pair.stay_weight * math.log(max(stay_probability, LOG_PROBABILITY_FLOOR))
+            pair.off_to_on_weight * math.log(max(off_to_on, LOG_PROBABILITY_FLOOR))
+            + pair.on_to_off_weight * math.log(max(on_to_off, LOG_PROBABILITY_FLOOR))
+            + pair.stay_off_weight * math.log(max(stay_off, LOG_PROBABILITY_FLOOR))
+            + pair.stay_on_weight * math.log(max(stay_on, LOG_PROBABILITY_FLOOR))
         )
     return loss
 
@@ -2727,8 +2731,10 @@ def _switch_timing_pairs(
                     duration=current_segment.duration,
                     timing_duration=current_segment.switch_timing_duration,
                     timing_step_scale=current_segment.timing_step_scale,
-                    transition_weight=current_resp[0] * next_resp[1] + current_resp[1] * next_resp[0],
-                    stay_weight=current_resp[0] * next_resp[0] + current_resp[1] * next_resp[1],
+                    off_to_on_weight=current_resp[0] * next_resp[1],
+                    on_to_off_weight=current_resp[1] * next_resp[0],
+                    stay_off_weight=current_resp[0] * next_resp[0],
+                    stay_on_weight=current_resp[1] * next_resp[1],
                 )
             )
     return pairs
@@ -2759,17 +2765,22 @@ def _scalar_switch_timing_pairs(
             len(values),
         )
         previous = values[:current_index]
-        previous_extreme = None
+        previous_enable_extreme = None
+        previous_disable_extreme = None
         if previous:
-            previous_extreme = max(previous) if relation == ">=" else min(previous)
+            previous_enable_extreme = max(previous) if relation == ">=" else min(previous)
+            previous_disable_extreme = min(previous) if relation == ">=" else max(previous)
         current_value = values[current_index] if current_index < len(values) else None
         scalar_pairs.append(
             _ScalarSwitchTimingPair(
                 relation=relation,
                 current_value=current_value,
-                previous_extreme=previous_extreme,
-                transition_weight=pair.transition_weight,
-                stay_weight=pair.stay_weight,
+                previous_enable_extreme=previous_enable_extreme,
+                previous_disable_extreme=previous_disable_extreme,
+                off_to_on_weight=pair.off_to_on_weight,
+                on_to_off_weight=pair.on_to_off_weight,
+                stay_off_weight=pair.stay_off_weight,
+                stay_on_weight=pair.stay_on_weight,
             )
         )
     return scalar_pairs
@@ -2801,10 +2812,12 @@ def _scalar_switch_distribution_timing_loss(
 ) -> float:
     loss = 0.0
     for pair in scalar_pairs:
-        transition_probability, stay_probability = _scalar_timing_pair_probabilities(distribution, pair)
+        off_to_on, on_to_off, stay_off, stay_on = _scalar_timing_pair_probabilities(distribution, pair)
         loss -= (
-            pair.transition_weight * math.log(max(transition_probability, LOG_PROBABILITY_FLOOR))
-            + pair.stay_weight * math.log(max(stay_probability, LOG_PROBABILITY_FLOOR))
+            pair.off_to_on_weight * math.log(max(off_to_on, LOG_PROBABILITY_FLOOR))
+            + pair.on_to_off_weight * math.log(max(on_to_off, LOG_PROBABILITY_FLOOR))
+            + pair.stay_off_weight * math.log(max(stay_off, LOG_PROBABILITY_FLOOR))
+            + pair.stay_on_weight * math.log(max(stay_on, LOG_PROBABILITY_FLOOR))
         )
     return loss
 
@@ -2812,22 +2825,34 @@ def _scalar_switch_distribution_timing_loss(
 def _scalar_timing_pair_probabilities(
     distribution: GaussianScalar,
     pair: _ScalarSwitchTimingPair,
-) -> Tuple[float, float]:
-    if pair.previous_extreme is None:
-        previous_probability = 0.0 if pair.relation == ">=" else 1.0
+) -> Tuple[float, float, float, float]:
+    if pair.previous_enable_extreme is None:
+        previous_enable_probability = 0.0 if pair.relation == ">=" else 1.0
     else:
-        previous_probability = _gaussian_cdf(pair.previous_extreme, distribution)
+        previous_enable_probability = _gaussian_cdf(pair.previous_enable_extreme, distribution)
+    if pair.previous_disable_extreme is None:
+        previous_disable_probability = 1.0 if pair.relation == ">=" else 0.0
+    else:
+        previous_disable_probability = _gaussian_cdf(pair.previous_disable_extreme, distribution)
     if pair.current_value is None:
-        return 0.0, _single_threshold_stay_probability(previous_probability, pair.relation)
+        stay_off = _single_threshold_stay_probability(previous_enable_probability, pair.relation)
+        stay_on = _single_threshold_disable_stay_probability(previous_disable_probability, pair.relation)
+        return 0.0, 0.0, stay_off, stay_on
 
     current_probability = _gaussian_cdf(pair.current_value, distribution)
     if pair.relation == ">=":
-        transition_probability = max(current_probability - previous_probability, 0.0)
+        off_to_on = max(current_probability - previous_enable_probability, 0.0)
+        on_to_off = max(previous_disable_probability - current_probability, 0.0)
+        stay_off = max(1.0 - previous_enable_probability, 0.0)
+        stay_on = max(previous_disable_probability, 0.0)
     elif pair.relation == "<=":
-        transition_probability = max(previous_probability - current_probability, 0.0)
+        off_to_on = max(previous_enable_probability - current_probability, 0.0)
+        on_to_off = max(current_probability - previous_disable_probability, 0.0)
+        stay_off = max(previous_enable_probability, 0.0)
+        stay_on = max(1.0 - previous_disable_probability, 0.0)
     else:
         raise ValueError(f"unknown relation: {pair.relation}")
-    return transition_probability, _single_threshold_stay_probability(previous_probability, pair.relation)
+    return off_to_on, on_to_off, stay_off, stay_on
 
 
 def _switch_distribution_std_candidates(
@@ -3511,16 +3536,24 @@ def _eq12_switch_log_likelihood(
     current_resp: Tuple[float, float],
     next_resp: Tuple[float, float],
 ) -> float:
-    transition_weight = current_resp[0] * next_resp[1] + current_resp[1] * next_resp[0]
-    stay_weight = current_resp[0] * next_resp[0] + current_resp[1] * next_resp[1]
-    # Soft responsibilities split evidence between "switch now" and "stay in
-    # the same latent mode" without committing to a hard segment label.
-    first_enabled = _first_enabled_step(switch, segment.observations)
-    first_enabled_time = _enabled_step_elapsed_time(first_enabled, segment.timing_step_scale)
+    off_to_on_weight = current_resp[0] * next_resp[1]
+    on_to_off_weight = current_resp[1] * next_resp[0]
+    stay_off_weight = current_resp[0] * next_resp[0]
+    stay_on_weight = current_resp[1] * next_resp[1]
+    first_enabled_time = _enabled_step_elapsed_time(
+        _first_enabled_step(switch, segment.observations),
+        segment.timing_step_scale,
+    )
+    first_disabled_time = _enabled_step_elapsed_time(
+        _first_disabled_step(switch, segment.observations),
+        segment.timing_step_scale,
+    )
     duration = segment.switch_timing_duration
     return (
-        transition_weight * _log_transition_at_duration(first_enabled_time, duration)
-        + stay_weight * _log_no_transition_before_duration(first_enabled_time, duration)
+        off_to_on_weight * _log_transition_at_duration(first_enabled_time, duration)
+        + on_to_off_weight * _log_transition_at_duration(first_disabled_time, duration)
+        + stay_off_weight * _log_no_transition_before_duration(first_enabled_time, duration)
+        + stay_on_weight * _log_no_transition_before_duration(first_disabled_time, duration)
     )
 
 
@@ -3550,6 +3583,149 @@ def _switch_transition_and_stay_probabilities(
         return _cumulative_transition_and_stay_probability(enabled_by_step, duration, timing_step_scale)
     enabled_by_step = _switch_enabled_cumulative_probabilities(switch, distributions, observations)
     return _cumulative_transition_and_stay_probability(enabled_by_step, duration, timing_step_scale)
+
+
+def _switch_selector_transition_probabilities(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    observations: List[Observation],
+    duration: float,
+    timing_step_scale: float = 1.0,
+) -> Tuple[float, float, float, float]:
+    scalar = _single_threshold_view(switch, distributions, observations)
+    if scalar is not None:
+        values, distribution, relation = scalar
+        return _single_threshold_selector_transition_probabilities(
+            tuple(values),
+            distribution,
+            relation,
+            duration,
+            timing_step_scale,
+        )
+    on_by_step = _switch_enabled_cumulative_probabilities(
+        switch,
+        distributions,
+        observations,
+    )
+    off_by_step = _switch_disabled_cumulative_probabilities(
+        switch,
+        distributions,
+        observations,
+    )
+    off_to_on, stay_off = _cumulative_transition_and_stay_probability(
+        on_by_step,
+        duration,
+        timing_step_scale,
+    )
+    on_to_off, stay_on = _cumulative_transition_and_stay_probability(
+        off_by_step,
+        duration,
+        timing_step_scale,
+    )
+    return off_to_on, on_to_off, stay_off, stay_on
+
+
+def _switch_selector_transition_probabilities_for_pair(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    pair: _SwitchTimingPair,
+) -> Tuple[float, float, float, float]:
+    scalar = _single_threshold_pair_view(switch, distributions, pair)
+    if scalar is not None:
+        values, distribution, relation = scalar
+        return _single_threshold_selector_transition_probabilities(
+            values,
+            distribution,
+            relation,
+            pair.timing_duration,
+            pair.timing_step_scale,
+        )
+    if isinstance(switch, BooleanTreeSwitch) and switch.second is not None and len(distributions) >= 2:
+        on_by_step = _boolean_tree_pair_enabled_cumulative_probabilities(switch, distributions, pair)
+        off_by_step = _boolean_tree_pair_disabled_cumulative_probabilities(switch, distributions, pair)
+    else:
+        on_by_step = _switch_enabled_cumulative_probabilities(switch, distributions, pair.observations)
+        off_by_step = _switch_disabled_cumulative_probabilities(switch, distributions, pair.observations)
+    off_to_on, stay_off = _cumulative_transition_and_stay_probability(
+        on_by_step,
+        pair.timing_duration,
+        pair.timing_step_scale,
+    )
+    on_to_off, stay_on = _cumulative_transition_and_stay_probability(
+        off_by_step,
+        pair.timing_duration,
+        pair.timing_step_scale,
+    )
+    return off_to_on, on_to_off, stay_off, stay_on
+
+
+def _single_threshold_selector_transition_probabilities(
+    values: Tuple[float, ...],
+    distribution: GaussianScalar,
+    relation: str,
+    duration: float,
+    timing_step_scale: float = 1.0,
+) -> Tuple[float, float, float, float]:
+    off_to_on, stay_off = _single_threshold_transition_and_stay_probability(
+        values,
+        distribution,
+        relation,
+        duration,
+        timing_step_scale,
+    )
+    on_to_off, stay_on = _single_threshold_disable_transition_and_stay_probability(
+        values,
+        distribution,
+        relation,
+        duration,
+        timing_step_scale,
+    )
+    return off_to_on, on_to_off, stay_off, stay_on
+
+
+def _single_threshold_disable_transition_and_stay_probability(
+    values: Tuple[float, ...],
+    distribution: GaussianScalar,
+    relation: str,
+    duration: float,
+    timing_step_scale: float = 1.0,
+) -> Tuple[float, float]:
+    if duration <= 0:
+        return 0.0, 1.0
+    current_index = _timing_duration_step_index(duration, timing_step_scale, len(values))
+    previous = values[:current_index]
+    if relation == ">=":
+        stay_probability = _gaussian_cdf(min(previous), distribution) if previous else 1.0
+        if current_index >= len(values):
+            return 0.0, stay_probability
+        current_cdf = _gaussian_cdf(values[current_index], distribution)
+        transition_probability = max(stay_probability - current_cdf, 0.0)
+        return transition_probability, stay_probability
+    if relation == "<=":
+        previous_cdf = _gaussian_cdf(max(previous), distribution) if previous else 0.0
+        stay_probability = max(1.0 - previous_cdf, 0.0)
+        if current_index >= len(values):
+            return 0.0, stay_probability
+        current_cdf = _gaussian_cdf(values[current_index], distribution)
+        transition_probability = max(current_cdf - previous_cdf, 0.0)
+        return transition_probability, stay_probability
+    raise ValueError(f"unknown relation: {relation}")
+
+
+def _switch_disabled_cumulative_probabilities(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    observations: List[Observation],
+) -> List[float]:
+    if isinstance(switch, BooleanTreeSwitch) and switch.second is not None and len(distributions) >= 2:
+        return _boolean_tree_disabled_cumulative_probabilities(switch, distributions, observations)
+    no_disable_probability = 1.0
+    disabled_by_step: List[float] = []
+    for observation in observations:
+        disable_probability = 1.0 - _switch_enabled_probability(switch, distributions, observation)
+        no_disable_probability *= 1.0 - min(max(disable_probability, 0.0), 1.0)
+        disabled_by_step.append(1.0 - no_disable_probability)
+    return disabled_by_step
 
 
 def _switch_transition_and_stay_probabilities_for_pair(
@@ -3684,6 +3860,28 @@ def _boolean_tree_enabled_cumulative_probabilities(
     )
 
 
+def _boolean_tree_disabled_cumulative_probabilities(
+    switch: BooleanTreeSwitch,
+    distributions: List[GaussianScalar],
+    observations: List[Observation],
+) -> List[float]:
+    if switch.second is None or len(distributions) < 2:
+        return _switch_disabled_cumulative_probabilities(switch, distributions, observations)
+    first = switch.first
+    second = switch.second
+    first_values = tuple(observation[first.feature_index] for observation in observations)
+    second_values = tuple(observation[second.feature_index] for observation in observations)
+    return _predicate_pair_disabled_cumulative_probabilities(
+        first,
+        second,
+        distributions[0],
+        distributions[1],
+        first_values,
+        second_values,
+        switch.operator,
+    )
+
+
 def _boolean_tree_pair_enabled_cumulative_probabilities(
     switch: BooleanTreeSwitch,
     distributions: List[GaussianScalar],
@@ -3696,6 +3894,28 @@ def _boolean_tree_pair_enabled_cumulative_probabilities(
     first_values = pair.columns[first.feature_index]
     second_values = pair.columns[second.feature_index]
     return _predicate_pair_enabled_cumulative_probabilities(
+        first,
+        second,
+        distributions[0],
+        distributions[1],
+        first_values,
+        second_values,
+        switch.operator,
+    )
+
+
+def _boolean_tree_pair_disabled_cumulative_probabilities(
+    switch: BooleanTreeSwitch,
+    distributions: List[GaussianScalar],
+    pair: _SwitchTimingPair,
+) -> List[float]:
+    if switch.second is None:
+        return _switch_disabled_cumulative_probabilities(switch, distributions, pair.observations)
+    first = switch.first
+    second = switch.second
+    first_values = pair.columns[first.feature_index]
+    second_values = pair.columns[second.feature_index]
+    return _predicate_pair_disabled_cumulative_probabilities(
         first,
         second,
         distributions[0],
@@ -3727,6 +3947,27 @@ def _predicate_pair_enabled_cumulative_probabilities(
     return enabled_by_step
 
 
+def _predicate_pair_disabled_cumulative_probabilities(
+    first: ObservationPredicate,
+    second: ObservationPredicate,
+    first_distribution: GaussianScalar,
+    second_distribution: GaussianScalar,
+    first_values: Tuple[float, ...],
+    second_values: Tuple[float, ...],
+    operator: str = "and",
+) -> List[float]:
+    rectangles: List[Tuple[float, float]] = []
+    disabled_by_step: List[float] = []
+    for first_value, second_value in zip(first_values, second_values):
+        first_probability = _predicate_enabled_probability_from_value(first, first_distribution, first_value)
+        second_probability = _predicate_enabled_probability_from_value(second, second_distribution, second_value)
+        rectangles.extend(
+            _predicate_pair_disabled_rectangles(first_probability, second_probability, operator)
+        )
+        disabled_by_step.append(_anchored_rectangle_union_probability(rectangles))
+    return disabled_by_step
+
+
 def _predicate_pair_enabled_rectangles(
     first_probability: float,
     second_probability: float,
@@ -3736,6 +3977,20 @@ def _predicate_pair_enabled_rectangles(
         return [(first_probability, second_probability)]
     if operator == "or":
         return [(first_probability, 1.0), (1.0, second_probability)]
+    raise ValueError(f"unknown BooleanTreeSwitch operator: {operator}")
+
+
+def _predicate_pair_disabled_rectangles(
+    first_probability: float,
+    second_probability: float,
+    operator: str,
+) -> List[Tuple[float, float]]:
+    first_disabled = max(1.0 - first_probability, 0.0)
+    second_disabled = max(1.0 - second_probability, 0.0)
+    if operator == "and":
+        return [(first_disabled, 1.0), (1.0, second_disabled)]
+    if operator == "or":
+        return [(first_disabled, second_disabled)]
     raise ValueError(f"unknown BooleanTreeSwitch operator: {operator}")
 
 
@@ -3803,6 +4058,14 @@ def _single_threshold_stay_probability(previous_probability: float, relation: st
         return max(1.0 - previous_probability, 0.0)
     if relation == "<=":
         return max(previous_probability, 0.0)
+    raise ValueError(f"unknown relation: {relation}")
+
+
+def _single_threshold_disable_stay_probability(previous_probability: float, relation: str) -> float:
+    if relation == ">=":
+        return max(previous_probability, 0.0)
+    if relation == "<=":
+        return max(1.0 - previous_probability, 0.0)
     raise ValueError(f"unknown relation: {relation}")
 
 
@@ -3897,6 +4160,13 @@ def _log_no_transition_before_duration(first_enabled: int, duration: float) -> f
 def _first_enabled_step(switch: SwitchProgram, observations: List[Observation]) -> int:
     for index, observation in enumerate(observations, start=1):
         if switch.decide(observation) == 1:
+            return index
+    return len(observations) + 1
+
+
+def _first_disabled_step(switch: SwitchProgram, observations: List[Observation]) -> int:
+    for index, observation in enumerate(observations, start=1):
+        if switch.decide(observation) == 0:
             return index
     return len(observations) + 1
 

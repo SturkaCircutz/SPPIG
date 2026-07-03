@@ -207,15 +207,19 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
   and the student's discrete Eq. (12)-style switch timing likelihood, marginalizing over the latent
-  mode sequence with a two-state forward pass. For scalar-threshold switches, that timing likelihood
+  mode sequence with a two-state forward pass. The bounded two-mode timing model now distinguishes
+  selector-off to selector-on transitions from selector-on to selector-off transitions instead of using
+  one symmetric "mode changed" probability. For scalar-threshold switches, that timing likelihood
   uses the learned Gaussian switch-parameter distribution with one sampled threshold shared across a
   segment, matching the paper's probabilistic-state-machine sampling model. Loop-free segment
   durations are interpreted as elapsed time normalized to the CartPole simulator step, so the
   teacher's per-segment time increments affect the bounded switch-timing likelihood.
 - The Cartpole student now refines action-only latent segment responsibilities with a bounded
   forward-backward pass over adjacent segment switch-timing probabilities before refitting the action
-  distributions and switch. This moves Eq. (10) closer to the paper by using both `H` and `G` evidence,
-  but it remains a local bounded approximation rather than the paper's full EM/M-step optimizer.
+  distributions and switch. The E-step pair potentials and bounded switch timing loss use directed
+  0-to-1 and 1-to-0 selector events, closer to the directed transition terms in Eq. (12). This moves
+  Eq. (10) closer to the paper by using both `H` and `G` evidence, but it remains a local bounded
+  approximation rather than the paper's full EM/M-step optimizer.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
   corresponding constant-action sequence, duration-only refinement preserves that action sequence
@@ -379,6 +383,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_responsibility_refinement_uses_switch_timing` verifies
   that switch-timing likelihood can shift ambiguous latent segment responsibilities away from the
   action-only posterior while preserving normalization.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_timing_responsibilities_are_directed_by_next_mode`
+  verifies that the bounded two-mode responsibility likelihood distinguishes selector-off to
+  selector-on transitions from selector-on to selector-off transitions.
 - `tests/test_cartpole_paper.py::test_cartpole_student_switch_responsibility_passes_are_configurable`
   verifies that the configured number of switch-timing responsibility passes changes the fitted
   student responsibilities and action distributions.
@@ -399,6 +406,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   normalized to the CartPole simulator step, rather than only raw simulator-step counts.
 - `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_penalizes_early_transition_when_staying`
   verifies the no-transition-before-duration term in the discrete Eq. (12)-style switch likelihood.
+- `tests/test_cartpole_paper.py::test_cartpole_eq12_likelihood_is_directed_for_selector_off_transition`
+  verifies that the deterministic Eq. (12)-style timing approximation scores selector-on to
+  selector-off transitions separately from selector-off to selector-on transitions.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_distribution_refinement_improves_timing_likelihood`
   verifies that bounded switch-threshold refinement can improve the current timing likelihood
   without increasing hard segment-label mistakes.

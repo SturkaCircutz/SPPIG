@@ -151,9 +151,11 @@ and using the refreshed top-rho set for the refinement objective. This is only
 a bounded CEM-style refresh, not the paper's full CEM plus gradient optimizer.
 The student starts with action-likelihood responsibilities, then performs the
 configured number of bounded forward-backward refinements using the learned
-switch-timing likelihood. That timing likelihood now treats loop-free segment
-durations as elapsed time normalized to the CartPole simulator step, so
-per-segment time increments influence the bounded Eq. (12)-style timing terms.
+switch-timing likelihood. That timing likelihood now treats selector-off to
+selector-on and selector-on to selector-off transitions as separate directed
+events, and it treats loop-free segment durations as elapsed time normalized to
+the CartPole simulator step, so per-segment time increments influence the
+bounded Eq. (12)-style timing terms.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
 plus bounded coordinate steps and finite-difference gradient polishing with backtracking. Switch structures are
