@@ -58,7 +58,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   provenance, not a controller selection rule. PSM metrics also include `paper_protocol_status`, a
   compact machine-readable block that records matched CartPole horizons and keeps the full
   probabilistic adaptive-teaching, full continuous switch-M-step, full CEM teacher optimizer, and
-  paper-scale result flags false for the current bounded implementation.
+  paper-scale result flags false for the current bounded implementation. The metrics now include a
+  compact `adaptive_teacher_summary` for each teacher/student iteration, recording the teacher
+  sampling model, selected trace-source counts, reward summary, student log-probability coverage, and
+  the recorded reward-plus-student-likelihood objective components when available.
 - `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
   partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
   switch candidates.
@@ -181,8 +184,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - Programmatic-state-machine synthesis can now write metrics JSON containing the synthesis config,
   policy description, fitted Gaussian action/switch distributions, latent responsibility summary,
   compact teacher-trace examples with segment-duration and time-increment schedules, per-teacher/student-iteration
-  `synthesis_history`, number of teacher traces, evaluation settings, switch-fit diagnostics, and
-  train/test metrics.
+  `synthesis_history`, compact adaptive-teacher objective summaries, number of teacher traces,
+  evaluation settings, switch-fit diagnostics, and train/test metrics.
 - The Cartpole switch learner now performs bounded local grid, coordinate refinement, and
   finite-difference gradient polishing of selected switch-threshold Gaussian means and standard
   deviations against a discrete Eq. (12)-style

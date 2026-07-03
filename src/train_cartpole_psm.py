@@ -112,12 +112,87 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
     }
 
 
+def _mean_or_none(values: list[float]):
+    return sum(values) / len(values) if values else None
+
+
+def summarize_adaptive_teacher_iteration(
+    entry: CartpoleSynthesisIteration,
+    cfg: CartpoleSynthesisConfig,
+):
+    traces = entry.traces
+    rewards = [trace.reward for trace in traces]
+    log_probabilities = [
+        trace.student_log_probability
+        for trace in traces
+        if trace.student_log_probability is not None
+    ]
+    recorded_objectives = [
+        cfg.teacher_reward_lambda * trace.reward
+        + cfg.teacher_student_regularizer * trace.student_log_probability
+        for trace in traces
+        if trace.student_log_probability is not None
+    ]
+    source_counts: dict[str, int] = {}
+    for trace in traces:
+        source_counts[trace.teacher_source] = source_counts.get(trace.teacher_source, 0) + 1
+
+    return {
+        "iteration": entry.iteration,
+        "teacher_sampling_model": (
+            "bootstrap_probabilistic_prior"
+            if entry.iteration == 1
+            else "previous_iteration_student"
+        ),
+        "teacher_objective_formula": (
+            "teacher_reward_lambda * reward + "
+            "teacher_student_regularizer * recorded_student_log_probability"
+        ),
+        "teacher_reward_lambda": cfg.teacher_reward_lambda,
+        "teacher_student_regularizer": cfg.teacher_student_regularizer,
+        "trace_count": len(traces),
+        "teacher_source_counts": source_counts,
+        "reward_mean": _mean_or_none(rewards),
+        "reward_min": min(rewards) if rewards else None,
+        "reward_max": max(rewards) if rewards else None,
+        "recorded_student_log_probability_count": len(log_probabilities),
+        "recorded_student_log_probability_fraction": (
+            len(log_probabilities) / len(traces) if traces else 0.0
+        ),
+        "recorded_student_log_probability_mean": _mean_or_none(log_probabilities),
+        "recorded_student_log_probability_min": (
+            min(log_probabilities) if log_probabilities else None
+        ),
+        "recorded_student_log_probability_max": (
+            max(log_probabilities) if log_probabilities else None
+        ),
+        "recorded_teacher_objective_mean": _mean_or_none(recorded_objectives),
+        "recorded_teacher_objective_min": (
+            min(recorded_objectives) if recorded_objectives else None
+        ),
+        "recorded_teacher_objective_max": (
+            max(recorded_objectives) if recorded_objectives else None
+        ),
+        "recorded_teacher_objective_covers_all_traces": (
+            len(recorded_objectives) == len(traces)
+        ),
+    }
+
+
+def summarize_adaptive_teacher_history(
+    history: list[CartpoleSynthesisIteration],
+    cfg: CartpoleSynthesisConfig,
+):
+    return [summarize_adaptive_teacher_iteration(entry, cfg) for entry in history]
+
+
 def summarize_synthesis_history(
     history: list[CartpoleSynthesisIteration],
     eval_rollouts: int | None = None,
     test_max_steps: int | None = None,
     train_seed: int = 100,
     test_seed: int = 200,
+    cfg: CartpoleSynthesisConfig | None = None,
 ):
     rows = []
     for entry in history:
@@ -127,6 +202,8 @@ def summarize_synthesis_history(
             "probabilistic_student": summarize_student(entry.student),
             "switch_fit_diagnostics": cartpole_switch_fit_diagnostics(entry.traces, entry.student),
         }
+        if cfg is not None:
+            row["adaptive_teacher_summary"] = summarize_adaptive_teacher_iteration(entry, cfg)
         if eval_rollouts is not None and test_max_steps is not None:
             row["evaluation"] = summarize_policy_evaluation(
                 entry.student.to_deterministic_policy(),
@@ -211,10 +288,15 @@ def main() -> None:
         "test_max_steps": args.test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
+        "adaptive_teacher_summary": summarize_adaptive_teacher_history(
+            synthesis_history,
+            cfg,
+        ),
         "synthesis_history": summarize_synthesis_history(
             synthesis_history,
             args.eval_rollouts,
             args.test_max_steps,
+            cfg=cfg,
         ),
         "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),

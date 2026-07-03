@@ -251,6 +251,35 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["eval_rollouts"], 1)
         self.assertEqual(metrics["test_max_steps"], 20)
         self.assertEqual(metrics["paper_test_horizon_steps"], 15000)
+        self.assertEqual(len(metrics["adaptive_teacher_summary"]), 2)
+        first_teacher_summary = metrics["adaptive_teacher_summary"][0]
+        second_teacher_summary = metrics["adaptive_teacher_summary"][1]
+        self.assertEqual(first_teacher_summary["iteration"], 1)
+        self.assertEqual(
+            first_teacher_summary["teacher_sampling_model"],
+            "bootstrap_probabilistic_prior",
+        )
+        self.assertEqual(
+            second_teacher_summary["teacher_sampling_model"],
+            "previous_iteration_student",
+        )
+        self.assertEqual(first_teacher_summary["trace_count"], 2)
+        self.assertIn("teacher_source_counts", first_teacher_summary)
+        self.assertEqual(
+            first_teacher_summary["teacher_reward_lambda"],
+            metrics["config"]["teacher_reward_lambda"],
+        )
+        self.assertEqual(
+            first_teacher_summary["teacher_student_regularizer"],
+            metrics["config"]["teacher_student_regularizer"],
+        )
+        self.assertIn("teacher_reward_lambda * reward", first_teacher_summary["teacher_objective_formula"])
+        self.assertGreaterEqual(first_teacher_summary["recorded_student_log_probability_count"], 0)
+        self.assertLessEqual(first_teacher_summary["recorded_student_log_probability_fraction"], 1.0)
+        self.assertIn("recorded_teacher_objective_mean", first_teacher_summary)
+        self.assertEqual(second_teacher_summary["trace_count"], 2)
+        self.assertGreaterEqual(second_teacher_summary["recorded_student_log_probability_count"], 1)
+        self.assertGreater(second_teacher_summary["recorded_student_log_probability_fraction"], 0.0)
         status = metrics["paper_protocol_status"]
         self.assertTrue(status["cartpole_environment"])
         self.assertEqual(status["train_horizon_seconds"], 5.0)
@@ -276,6 +305,10 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(len(metrics["synthesis_history"]), 2)
         for index, entry in enumerate(metrics["synthesis_history"], start=1):
             self.assertEqual(entry["iteration"], index)
+            self.assertEqual(
+                entry["adaptive_teacher_summary"],
+                metrics["adaptive_teacher_summary"][index - 1],
+            )
             self.assertIn("evaluation", entry)
             self.assertIn("success_rate", entry["evaluation"]["train"])
             self.assertIn("reward_mean", entry["evaluation"]["train"])

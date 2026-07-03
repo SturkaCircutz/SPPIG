@@ -29,6 +29,7 @@ from cartpole_synthesis import (  # noqa: E402
     synthesize_cartpole_student_with_history,
 )
 from train_cartpole_psm import (  # noqa: E402
+    summarize_adaptive_teacher_history,
     summarize_policy_evaluation,
     summarize_student,
     summarize_synthesis_history,
@@ -132,12 +133,17 @@ def run_psm(
         "test_max_steps": test_max_steps,
         "paper_test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
         "num_traces": len(traces),
+        "adaptive_teacher_summary": summarize_adaptive_teacher_history(
+            synthesis_history,
+            cfg,
+        ),
         "synthesis_history": summarize_synthesis_history(
             synthesis_history,
             eval_rollouts,
             test_max_steps,
             train_seed=100 + seed,
             test_seed=200 + seed,
+            cfg=cfg,
         ),
         "trace_summary": summarize_traces(traces),
         "policy_description": policy.describe(),

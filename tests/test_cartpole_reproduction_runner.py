@@ -158,8 +158,31 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(psm_status["teacher_elite_distribution_resamples"], 3)
             self.assertEqual(psm_status["teacher_elite_distribution_rounds"], 2)
             self.assertIn("probabilistic_student", psm_metrics)
+            self.assertEqual(len(psm_metrics["adaptive_teacher_summary"]), 1)
+            adaptive_summary = psm_metrics["adaptive_teacher_summary"][0]
+            self.assertEqual(adaptive_summary["iteration"], 1)
+            self.assertEqual(adaptive_summary["trace_count"], psm_metrics["num_traces"])
+            self.assertEqual(
+                adaptive_summary["teacher_sampling_model"],
+                "bootstrap_probabilistic_prior",
+            )
+            self.assertIn("teacher_source_counts", adaptive_summary)
+            self.assertEqual(
+                adaptive_summary["teacher_reward_lambda"],
+                psm_metrics["config"]["teacher_reward_lambda"],
+            )
+            self.assertEqual(
+                adaptive_summary["teacher_student_regularizer"],
+                psm_metrics["config"]["teacher_student_regularizer"],
+            )
+            self.assertLessEqual(adaptive_summary["recorded_student_log_probability_fraction"], 1.0)
+            self.assertIn("recorded_teacher_objective_mean", adaptive_summary)
             self.assertEqual(len(psm_metrics["synthesis_history"]), 1)
             self.assertEqual(psm_metrics["synthesis_history"][0]["iteration"], 1)
+            self.assertEqual(
+                psm_metrics["synthesis_history"][0]["adaptive_teacher_summary"],
+                adaptive_summary,
+            )
             self.assertIn("evaluation", psm_metrics["synthesis_history"][0])
             self.assertEqual(psm_metrics["synthesis_history"][0]["evaluation"]["train"], psm_metrics["train"])
             self.assertEqual(psm_metrics["synthesis_history"][0]["evaluation"]["test"], psm_metrics["test"])
