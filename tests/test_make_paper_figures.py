@@ -185,7 +185,14 @@ class MakePaperFiguresTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
             with open(metrics_path, "w", encoding="utf-8") as handle:
-                json.dump({"paper_protocol_status": {"paper_scale_result": False}, "selected_result": {}}, handle)
+                json.dump(
+                    {
+                        "command": "python train.py --metrics-output metrics.json",
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "selected_result": {},
+                    },
+                    handle,
+                )
 
             make_paper_figures.require_result_artifacts(
                 [
@@ -205,6 +212,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -239,6 +247,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -274,6 +283,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -309,6 +319,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -344,6 +355,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -379,6 +391,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -414,6 +427,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -451,6 +465,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": os.path.join(tmpdir, "missing_traces.json"),
                     },
@@ -476,6 +491,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --traces-output traces.json",
                         "paper_protocol_status": {"paper_scale_result": False},
                         "traces_output": traces_path,
                     },
@@ -500,7 +516,43 @@ class MakePaperFiguresTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
             with open(metrics_path, "w", encoding="utf-8") as handle:
-                json.dump({"selected_result": {}}, handle)
+                json.dump({"command": "python train.py", "selected_result": {}}, handle)
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_missing_command_provenance(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump({"paper_protocol_status": {"paper_scale_result": False}}, handle)
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_empty_command_provenance(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump({"command": "  ", "paper_protocol_status": {"paper_scale_result": False}}, handle)
 
             with self.assertRaises(ValueError):
                 make_paper_figures.require_result_artifacts(
@@ -518,7 +570,7 @@ class MakePaperFiguresTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
             with open(metrics_path, "w", encoding="utf-8") as handle:
-                json.dump({"selected_result": {}}, handle)
+                json.dump({"command": "python train.py", "selected_result": {}}, handle)
 
             with self.assertRaises(ValueError):
                 make_paper_figures.require_result_artifacts(
@@ -529,7 +581,7 @@ class MakePaperFiguresTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
             with open(metrics_path, "w", encoding="utf-8") as handle:
-                json.dump({"selected_result": {}}, handle)
+                json.dump({"command": "python train.py", "paper_protocol_status": {"paper_scale_result": False}}, handle)
 
             with self.assertRaises(ValueError):
                 make_paper_figures.require_result_artifacts(
@@ -548,7 +600,7 @@ class MakePaperFiguresTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
             with open(metrics_path, "w", encoding="utf-8") as handle:
-                json.dump({"selected_result": {}}, handle)
+                json.dump({"command": "python train.py", "selected_result": {}}, handle)
 
             with self.assertRaises(ValueError):
                 make_paper_figures.require_result_artifacts(
@@ -559,7 +611,7 @@ class MakePaperFiguresTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
             with open(metrics_path, "w", encoding="utf-8") as handle:
-                json.dump({"selected_result": {}}, handle)
+                json.dump({"command": "python train.py", "selected_result": {}}, handle)
 
             with self.assertRaises(ValueError):
                 make_paper_figures.require_result_artifacts(

@@ -150,19 +150,28 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
             + ", ".join(missing_rollout_provenance)
         )
     missing_protocol_status: list[str] = []
+    missing_command_provenance: list[str] = []
     for row in rows:
         metrics_path = row_metrics_path(row)
         if not metrics_path:
             missing_protocol_status.append(row["policy"])
+            missing_command_provenance.append(row["policy"])
             continue
         with open(artifact_path(metrics_path), encoding="utf-8") as handle:
             metrics = json.load(handle)
         if "paper_protocol_status" not in metrics:
             missing_protocol_status.append(row["policy"])
+        if not isinstance(metrics.get("command"), str) or not metrics["command"].strip():
+            missing_command_provenance.append(row["policy"])
     if missing_protocol_status:
         raise ValueError(
             "result metrics lack paper-protocol status: "
             + ", ".join(missing_protocol_status)
+        )
+    if missing_command_provenance:
+        raise ValueError(
+            "result metrics lack command provenance: "
+            + ", ".join(missing_command_provenance)
         )
     missing_psm_trace_artifacts: list[str] = []
     incomplete_psm_trace_artifacts: list[str] = []

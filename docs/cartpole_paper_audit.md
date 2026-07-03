@@ -355,10 +355,11 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   boundary. It also writes `essay/cartpole_figure19_reference_fragment.tex` only from a metrics
   artifact whose protocol status marks `policy_source = paper_figure19_manual_transcription`, keeping
   the paper reference policy separate from synthesized local diagnostics. Generated result fragments now carry an explicit local-diagnostic limitation note and
-  refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon. Synthesized
-  PSM rows are also rejected unless their full-trace sidecar contains per-iteration trace history
-  whose iteration sequence matches the configured teacher/student loop count and whose recorded trace
-  counts match the serialized trace lists.
+  refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon, and require
+  each metrics artifact to carry the command that produced it. Synthesized PSM rows are also rejected
+  unless their full-trace sidecar contains per-iteration trace history whose iteration sequence
+  matches the configured teacher/student loop count and whose recorded trace counts match the
+  serialized trace lists.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges, reproducible
   `paper-random` hyperparameter sample IDs, the concrete sampled hyperparameter configs, and the
@@ -784,8 +785,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   switch-boundary parsing/plotting from synthetic metrics, fallback/skip behavior for non-linear
   switches, Figure 19 reference-fragment generation only from manual-reference metrics provenance,
   PPO metrics-file discovery, training-curve PNG generation, local-diagnostic limitation notes,
-  checked-in summary/manifest provenance, rejection of explicit non-paper test horizons, and rejection
-  of paper-scale result rows that do not use the paper's 1000 evaluation rollouts.
+  checked-in summary/manifest provenance, rejection of metrics without command provenance, rejection
+  of explicit non-paper test horizons, and rejection of paper-scale result rows that do not use the
+  paper's 1000 evaluation rollouts.
 
 ## Completion Criteria Still Required For Full Paper Claim
 
