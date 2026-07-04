@@ -221,6 +221,8 @@ def summarize_student_fit_step(step: CartpoleStudentFitStep):
         "em_iteration": step.em_iteration,
         "responsibility_pass": step.responsibility_pass,
         "phase": step.phase,
+        "trace_log_likelihood": step.trace_log_likelihood,
+        "mean_trace_log_likelihood": step.mean_trace_log_likelihood,
         "action_distributions": {
             str(mode): {
                 "mean": distribution.mean,

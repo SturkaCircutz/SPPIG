@@ -1129,6 +1129,7 @@
             }
           },
           "em_iteration": 1,
+          "mean_trace_log_likelihood": -93.75928722454447,
           "phase": "action_likelihood_initialization",
           "responsibility_pass": 0,
           "responsibility_summary": {
@@ -1158,6 +1159,7 @@
               "std": 1.0
             }
           ],
+          "trace_log_likelihood": -375.03714889817786,
           "transition_switch_parameter_distributions": {},
           "transition_switches": {}
         },
@@ -1173,6 +1175,7 @@
             }
           },
           "em_iteration": 1,
+          "mean_trace_log_likelihood": -78.42805486074063,
           "phase": "switch_timing_responsibility_refit",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -1202,6 +1205,7 @@
               "std": 1.0
             }
           ],
+          "trace_log_likelihood": -313.7122194429625,
           "transition_switch_parameter_distributions": {},
           "transition_switches": {}
         },
@@ -1217,6 +1221,7 @@
             }
           },
           "em_iteration": 1,
+          "mean_trace_log_likelihood": -84.08428984670611,
           "phase": "switch_condition_m_step",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -1246,6 +1251,7 @@
               "std": 18.24552041014666
             }
           ],
+          "trace_log_likelihood": -336.33715938682445,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -1285,6 +1291,7 @@
             }
           },
           "em_iteration": 2,
+          "mean_trace_log_likelihood": -76.94527250177079,
           "phase": "switch_timing_responsibility_refit",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -1314,6 +1321,7 @@
               "std": 18.24552041014666
             }
           ],
+          "trace_log_likelihood": -307.78109000708315,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -1353,6 +1361,7 @@
             }
           },
           "em_iteration": 2,
+          "mean_trace_log_likelihood": -72.87508983283472,
           "phase": "switch_condition_m_step",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -1382,6 +1391,7 @@
               "std": 4.076660334564617
             }
           ],
+          "trace_log_likelihood": -291.50035933133887,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -1413,6 +1423,7 @@
             }
           },
           "em_iteration": 3,
+          "mean_trace_log_likelihood": -72.17774132839665,
           "phase": "switch_timing_responsibility_refit",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -1442,6 +1453,7 @@
               "std": 4.076660334564617
             }
           ],
+          "trace_log_likelihood": -288.7109653135866,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -1473,6 +1485,7 @@
             }
           },
           "em_iteration": 3,
+          "mean_trace_log_likelihood": -70.75054099283714,
           "phase": "switch_condition_m_step",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -1502,6 +1515,7 @@
               "std": 8.114749718155032
             }
           ],
+          "trace_log_likelihood": -283.0021639713486,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -1537,6 +1551,7 @@
             }
           },
           "em_iteration": 4,
+          "mean_trace_log_likelihood": -70.71540912991257,
           "phase": "switch_timing_responsibility_refit",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -1566,6 +1581,7 @@
               "std": 8.114749718155032
             }
           ],
+          "trace_log_likelihood": -282.8616365196503,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -1601,6 +1617,7 @@
             }
           },
           "em_iteration": 4,
+          "mean_trace_log_likelihood": -70.71780409305316,
           "phase": "switch_condition_m_step",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -1630,6 +1647,7 @@
               "std": 14.514923344563954
             }
           ],
+          "trace_log_likelihood": -282.87121637221264,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -2290,6 +2308,7 @@
             }
           },
           "em_iteration": 1,
+          "mean_trace_log_likelihood": -83.02435732263882,
           "phase": "action_likelihood_initialization",
           "responsibility_pass": 0,
           "responsibility_summary": {
@@ -2319,6 +2338,7 @@
               "std": 1.0
             }
           ],
+          "trace_log_likelihood": -332.0974292905553,
           "transition_switch_parameter_distributions": {},
           "transition_switches": {}
         },
@@ -2334,6 +2354,7 @@
             }
           },
           "em_iteration": 1,
+          "mean_trace_log_likelihood": -81.7132249400098,
           "phase": "switch_timing_responsibility_refit",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -2363,6 +2384,7 @@
               "std": 1.0
             }
           ],
+          "trace_log_likelihood": -326.8528997600392,
           "transition_switch_parameter_distributions": {},
           "transition_switches": {}
         },
@@ -2378,6 +2400,7 @@
             }
           },
           "em_iteration": 1,
+          "mean_trace_log_likelihood": -81.97340548230457,
           "phase": "switch_condition_m_step",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -2411,6 +2434,7 @@
               "std": 0.17674580059159478
             }
           ],
+          "trace_log_likelihood": -327.8936219292183,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -2442,6 +2466,7 @@
             }
           },
           "em_iteration": 2,
+          "mean_trace_log_likelihood": -80.84125002589063,
           "phase": "switch_timing_responsibility_refit",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -2475,6 +2500,7 @@
               "std": 0.17674580059159478
             }
           ],
+          "trace_log_likelihood": -323.3650001035625,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -2506,6 +2532,7 @@
             }
           },
           "em_iteration": 2,
+          "mean_trace_log_likelihood": -80.84634400882041,
           "phase": "switch_condition_m_step",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -2539,6 +2566,7 @@
               "std": 0.3080623672062554
             }
           ],
+          "trace_log_likelihood": -323.38537603528164,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -2570,6 +2598,7 @@
             }
           },
           "em_iteration": 3,
+          "mean_trace_log_likelihood": -79.84133839352282,
           "phase": "switch_timing_responsibility_refit",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -2603,6 +2632,7 @@
               "std": 0.3080623672062554
             }
           ],
+          "trace_log_likelihood": -319.3653535740913,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -2634,6 +2664,7 @@
             }
           },
           "em_iteration": 3,
+          "mean_trace_log_likelihood": -80.03998662593385,
           "phase": "switch_condition_m_step",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -2667,6 +2698,7 @@
               "std": 0.20076513756634873
             }
           ],
+          "trace_log_likelihood": -320.1599465037354,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -2702,6 +2734,7 @@
             }
           },
           "em_iteration": 4,
+          "mean_trace_log_likelihood": -78.92273718228122,
           "phase": "switch_timing_responsibility_refit",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -2735,6 +2768,7 @@
               "std": 0.20076513756634873
             }
           ],
+          "trace_log_likelihood": -315.6909487291249,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {
@@ -2770,6 +2804,7 @@
             }
           },
           "em_iteration": 4,
+          "mean_trace_log_likelihood": -94.27546568346239,
           "phase": "switch_condition_m_step",
           "responsibility_pass": 1,
           "responsibility_summary": {
@@ -2803,6 +2838,7 @@
               "std": 0.39234343488860896
             }
           ],
+          "trace_log_likelihood": -377.10186273384954,
           "transition_switch_parameter_distributions": {
             "0->1": [
               {

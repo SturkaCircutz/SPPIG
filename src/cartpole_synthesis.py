@@ -943,6 +943,8 @@ class CartpoleStudentFitStep:
     em_iteration: int
     responsibility_pass: int
     phase: str
+    trace_log_likelihood: float
+    mean_trace_log_likelihood: float
     responsibilities: List[Tuple[float, float]]
     switch_pair_responsibilities: List[Tuple[float, float, float, float]]
     action_distributions: Dict[int, GaussianScalar]
@@ -1094,6 +1096,7 @@ def fit_probabilistic_cartpole_student_with_history(
             phase = "action_likelihood_initialization" if iteration == 0 else "action_likelihood_refit"
             fit_history.append(
                 _student_fit_step(
+                    traces,
                     iteration + 1,
                     0,
                     phase,
@@ -1110,6 +1113,7 @@ def fit_probabilistic_cartpole_student_with_history(
         if cfg.student_switch_responsibility_passes <= 0:
             fit_history.append(
                 _student_fit_step(
+                    traces,
                     iteration + 1,
                     0,
                     "switch_condition_m_step",
@@ -1142,6 +1146,7 @@ def fit_probabilistic_cartpole_student_with_history(
             )
             fit_history.append(
                 _student_fit_step(
+                    traces,
                     iteration + 1,
                     pass_index + 1,
                     "switch_timing_responsibility_refit",
@@ -1171,6 +1176,7 @@ def fit_probabilistic_cartpole_student_with_history(
         )
         fit_history.append(
             _student_fit_step(
+                traces,
                 iteration + 1,
                 cfg.student_switch_responsibility_passes,
                 "switch_condition_m_step",
@@ -1221,6 +1227,7 @@ def fit_probabilistic_cartpole_student_with_history(
 
 
 def _student_fit_step(
+    traces: List[CartpoleTrace],
     em_iteration: int,
     responsibility_pass: int,
     phase: str,
@@ -1232,10 +1239,25 @@ def _student_fit_step(
     transition_switches: Dict[Tuple[int, int], SwitchProgram] | None = None,
     transition_switch_parameter_distributions: Dict[Tuple[int, int], List[GaussianScalar]] | None = None,
 ) -> CartpoleStudentFitStep:
+    trace_log_likelihood = _student_fit_trace_log_likelihood(
+        traces,
+        responsibilities,
+        action_distributions,
+        switch,
+        switch_parameter_distributions,
+        transition_switches,
+        transition_switch_parameter_distributions,
+    )
     return CartpoleStudentFitStep(
         em_iteration=em_iteration,
         responsibility_pass=responsibility_pass,
         phase=phase,
+        trace_log_likelihood=trace_log_likelihood,
+        mean_trace_log_likelihood=(
+            trace_log_likelihood / len(traces)
+            if traces
+            else 0.0
+        ),
         responsibilities=list(responsibilities),
         switch_pair_responsibilities=list(switch_pair_responsibilities),
         action_distributions=dict(action_distributions),
@@ -1247,6 +1269,35 @@ def _student_fit_step(
             for transition, distributions in (transition_switch_parameter_distributions or {}).items()
         },
     )
+
+
+def _student_fit_trace_log_likelihood(
+    traces: List[CartpoleTrace],
+    responsibilities: List[Tuple[float, float]],
+    action_distributions: Dict[int, GaussianScalar],
+    switch: SwitchProgram,
+    switch_parameter_distributions: List[GaussianScalar],
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] | None = None,
+    transition_switch_parameter_distributions: Dict[Tuple[int, int], List[GaussianScalar]] | None = None,
+) -> float:
+    threshold_distribution = (
+        switch_parameter_distributions[0]
+        if switch_parameter_distributions
+        else GaussianScalar(_switch_default_threshold(switch), 1.0)
+    )
+    student = ProbabilisticCartpoleStudent(
+        dict(action_distributions),
+        switch,
+        threshold_distribution,
+        list(switch_parameter_distributions),
+        list(responsibilities),
+        dict(transition_switches or {}),
+        {
+            transition: list(distributions)
+            for transition, distributions in (transition_switch_parameter_distributions or {}).items()
+        },
+    )
+    return sum(_trace_log_probability(trace, student) for trace in traces)
 
 
 def _next_cartpole_mode(

@@ -757,7 +757,17 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(set(fit_history[3].transition_switches), {(0, 1), (1, 0)})
         self.assertEqual(set(fit_history[-1].transition_switches), {(0, 1), (1, 0)})
         self.assertEqual(fit_history[-1].transition_switches, student.transition_switches)
+        self.assertAlmostEqual(
+            fit_history[-1].trace_log_likelihood,
+            _trace_log_probability(trace, student),
+        )
+        self.assertAlmostEqual(
+            fit_history[-1].mean_trace_log_likelihood,
+            fit_history[-1].trace_log_likelihood,
+        )
         for step in fit_history:
+            self.assertTrue(math.isfinite(step.trace_log_likelihood))
+            self.assertTrue(math.isfinite(step.mean_trace_log_likelihood))
             self.assertEqual(len(step.responsibilities), 2)
             self.assertEqual(set(step.action_distributions), {0, 1})
             self.assertTrue(step.switch_parameter_distributions)
@@ -795,6 +805,13 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertFalse(fit_history[0].transition_switches)
         self.assertEqual(set(fit_history[-1].transition_switches), {(0, 1), (1, 0)})
         self.assertEqual(fit_history[-1].transition_switches, student.transition_switches)
+        self.assertAlmostEqual(
+            fit_history[-1].trace_log_likelihood,
+            _trace_log_probability(trace, student),
+        )
+        for step in fit_history:
+            self.assertTrue(math.isfinite(step.trace_log_likelihood))
+            self.assertTrue(math.isfinite(step.mean_trace_log_likelihood))
 
     def test_cartpole_probabilistic_student_projects_to_policy(self):
         cfg = CartpoleSynthesisConfig(

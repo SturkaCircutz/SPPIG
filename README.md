@@ -131,8 +131,9 @@ trace summaries, fitted student parameters, local switch-fit diagnostics,
 per-EM student-fit history, adaptive-teacher objective summaries, and train/test
 evaluation under the requested diagnostic rollout budget. Each
 `student_fit_history` row records the EM iteration, responsibility pass, fit
-phase, Gaussian action/switch summaries, latent responsibility confidence, and
-compact adjacent switch-pair posterior mass for the bounded switch M-step.
+phase, local trace log likelihood, Gaussian action/switch summaries, latent
+responsibility confidence, and compact adjacent switch-pair posterior mass for
+the bounded switch M-step.
 Rows after a directed switch M-step also record the fitted transition-specific
 `0->1` and `1->0` switch snapshots used by later timing-responsibility passes.
 The top-level

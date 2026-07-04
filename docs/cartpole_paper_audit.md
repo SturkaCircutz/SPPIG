@@ -88,8 +88,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   the local candidate pool covers that paper top-rho setting. Each
   `synthesis_history` row also records `student_fit_history`, a compact trace of the inner
   action-likelihood initialization and switch-timing responsibility/refit passes that produced that
-  iteration's probabilistic student, including compact adjacent switch-pair posterior mass used by
-  the bounded switch M-step.
+  iteration's probabilistic student, including local trace log-likelihood diagnostics and compact
+  adjacent switch-pair posterior mass used by the bounded switch M-step.
 - `src/cartpole_env.py::cartpole_space_spec`: records CartPole action/observation space provenance.
   The paper-derived claims are limited to Figure 8's `#A = 1` and `#O = 4` plus Appendix B.4's
   statement that RL baselines used the same action spaces, observation spaces, and set of initial
@@ -653,9 +653,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   that deterministic/sampled policy projections execute those ordered-transition switches.
 - `tests/test_cartpole_paper.py::test_cartpole_student_fit_history_records_inner_em_steps`
   verifies that the fitted Cartpole student can expose a compact per-EM/pass training history whose
-  final row matches the returned probabilistic student, including switch-pair posterior provenance
-  after switch-timing responsibility passes and directed transition-switch snapshots after the
-  bounded switch M-step.
+  final row matches the returned probabilistic student, including local trace log likelihood,
+  switch-pair posterior provenance after switch-timing responsibility passes, and directed
+  transition-switch snapshots after the bounded switch M-step.
 - `tests/test_cartpole_paper.py::test_cartpole_synthesis_can_return_probabilistic_student` verifies
   that synthesis can expose the fitted probabilistic student directly for metrics/provenance without
   re-fitting from traces.
