@@ -5618,6 +5618,26 @@ class CartpolePaperTest(unittest.TestCase):
             )
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_lstm_training_rejects_unimplemented_minibatch_split(self):
+        cfg = PPOConfig(
+            policy_type="lstm",
+            total_timesteps=PAPER_PPO_TIMESTEPS,
+            eval_test_max_steps=CartpoleEnv.test_env().cfg.max_steps,
+            eval_rollouts=PAPER_EVAL_ROLLOUTS,
+            minibatches=2,
+        )
+
+        with self.assertRaisesRegex(ValueError, "minibatches=1"):
+            train_ppo_cartpole(cfg)
+
+        status = ppo_paper_protocol_status(cfg)
+        self.assertTrue(status["paper_timestep_budget"])
+        self.assertTrue(status["paper_test_horizon"])
+        self.assertTrue(status["uses_paper_eval_rollouts"])
+        self.assertFalse(status["ppo_lstm_minibatches_fixed_to_one"])
+        self.assertFalse(status["single_run_matches_paper_budget"])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_smoke_train_mlp(self):
         _, result = train_ppo_cartpole(
             PPOConfig(

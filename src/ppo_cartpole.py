@@ -95,6 +95,14 @@ def validate_pretrain_teacher_config(cfg: PPOConfig) -> None:
         )
 
 
+def validate_lstm_minibatch_config(cfg: PPOConfig) -> None:
+    if cfg.policy_type == "lstm" and cfg.minibatches != 1:
+        raise ValueError(
+            "PPO-LSTM recurrent updates require minibatches=1 so rollout sequences "
+            "can be replayed with aligned hidden-state resets"
+        )
+
+
 def result_to_metrics(result: PPOResult) -> Dict[str, object]:
     return {
         "timesteps": result.timesteps,
@@ -328,6 +336,7 @@ class LSTMActorCritic(nn.Module):
 
 def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn.Module, PPOResult]:
     validate_pretrain_teacher_config(cfg)
+    validate_lstm_minibatch_config(cfg)
     torch.manual_seed(cfg.seed)
     random.seed(cfg.seed)
     envs = [CartpoleEnv.train_env(seed=cfg.seed + env_idx) for env_idx in range(cfg.num_envs)]

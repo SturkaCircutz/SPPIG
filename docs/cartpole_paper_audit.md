@@ -264,6 +264,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `total_timesteps` is not divisible by `rollout_steps * num_envs`.
 - LSTM PPO now preserves recurrent state across rollout chunks and replays the same initial state
   during the update.
+- PPO-LSTM training now rejects `minibatches != 1` at runtime because the implemented recurrent
+  update replays full time-major rollout sequences rather than splitting hidden-state trajectories.
 - PPO warm-start training now rejects pretraining teacher-policy or mode-update-order config values
   that do not match the implemented local `BangBangCartpolePSM` warm-start semantics, and checkpoint
   reevaluation labels recorded warm-start provenance as matching, missing, or mismatched relative to
@@ -445,6 +447,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_lstm_update_replays_rollout_initial_state` verifies that the
   PPO-LSTM update replays the rollout's stored initial recurrent state instead of silently starting
   updates from zeros.
+- `tests/test_cartpole_paper.py::test_ppo_lstm_training_rejects_unimplemented_minibatch_split`
+  verifies that direct PPO-LSTM training configs cannot request a recurrent minibatch split that the
+  implementation does not perform.
 - `tests/test_cartpole_paper.py::test_ppo_protocol_status_rejects_mismatched_warm_start_teacher_claim`
   and `tests/test_cartpole_paper.py::test_ppo_training_rejects_mismatched_warm_start_teacher_claim`
   verify that PPO warm-start provenance cannot claim a teacher policy or mode-update order different
