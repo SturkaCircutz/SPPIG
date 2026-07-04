@@ -645,10 +645,14 @@ class CartpolePaperTest(unittest.TestCase):
         with patch(
             "cartpole_synthesis._refine_responsibilities_and_switch_pairs_with_timing",
             wraps=_refine_responsibilities_and_switch_pairs_with_timing,
-        ) as refine_mock:
+        ) as refine_mock, patch(
+            "cartpole_synthesis._fit_student_switch",
+            wraps=_fit_student_switch,
+        ) as switch_fit_mock:
             student = fit_probabilistic_cartpole_student([trace], cfg)
 
         self.assertEqual(refine_mock.call_count, 6)
+        self.assertEqual(switch_fit_mock.call_count, 3)
         self.assertEqual(len(student.responsibilities), 2)
         for left_weight, right_weight in student.responsibilities:
             self.assertAlmostEqual(left_weight + right_weight, 1.0)
@@ -679,10 +683,12 @@ class CartpolePaperTest(unittest.TestCase):
             [(step.em_iteration, step.responsibility_pass, step.phase) for step in fit_history],
             [
                 (1, 0, "action_likelihood_initialization"),
-                (1, 1, "switch_timing_refinement"),
-                (1, 2, "switch_timing_refinement"),
-                (2, 1, "switch_timing_refinement"),
-                (2, 2, "switch_timing_refinement"),
+                (1, 1, "switch_timing_responsibility_refit"),
+                (1, 2, "switch_timing_responsibility_refit"),
+                (1, 2, "switch_condition_m_step"),
+                (2, 1, "switch_timing_responsibility_refit"),
+                (2, 2, "switch_timing_responsibility_refit"),
+                (2, 2, "switch_condition_m_step"),
             ],
         )
         self.assertEqual(fit_history[-1].responsibilities, student.responsibilities)

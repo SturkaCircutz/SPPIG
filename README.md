@@ -232,8 +232,9 @@ source objectives, and Gaussian schedule parameters used to produce them. This
 is still only a bounded CEM-style approximation, not the paper's full CEM plus
 gradient optimizer.
 The student starts with action-likelihood responsibilities, then each configured
-EM iteration alternates bounded forward-backward refinements using the learned
-switch-timing likelihood with action-distribution and switch-parameter refits.
+EM iteration repeats bounded fixed-switch forward-backward refinements with
+action-distribution refits before one bounded Eq. (12)-style switch-parameter
+M-step.
 The first segment of each trace is fixed to mode `0` in these responsibility
 updates, rather than using a uniform latent initial-mode prior.
 That timing likelihood now treats selector-off to selector-on and selector-on to
@@ -243,10 +244,10 @@ an executable PSM. It treats loop-free segment durations as elapsed time
 normalized to the CartPole simulator step, so per-segment time increments
 influence the bounded Eq. (12)-style timing terms. The final observed segment
 contributes no-transition-before-duration evidence, so a trace that stays in a
-mode is not scored only by its action likelihood. Switch refits consume adjacent
-pair posteriors from this forward-backward pass for transition/stay weights
-instead of reconstructing them only from independent neighboring segment
-marginals.
+mode is not scored only by its action likelihood. The per-iteration switch M-step
+consumes adjacent pair posteriors from the latest forward-backward pass for
+transition/stay weights instead of reconstructing them only from independent
+neighboring segment marginals.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
 plus bounded coordinate steps and finite-difference gradient polishing with backtracking. Depth-2 Boolean-tree

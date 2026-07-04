@@ -140,8 +140,12 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         "probabilistic_student": {
             "default_em_iters": PROBABILISTIC_STUDENT_EM_ITERS,
             "default_switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
-            "responsibility_evidence": "action_likelihood_initialization_then_alternating_switch_timing_forward_backward",
+            "responsibility_evidence": (
+                "action_likelihood_initialization_then_fixed_switch_forward_backward_action_refits"
+            ),
             "switch_responsibility_passes_are_per_em_iteration": True,
+            "switch_condition_m_step_schedule": "once_per_student_em_iteration_after_configured_eq10_eq11_passes",
+            "initial_switch_before_first_timing_e_step": "fixed_bootstrap_not_data_fit",
             "mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER,
             "rollout_parameter_resampling": "on_mode_entry",
             "transition_specific_switches": "separate_fitted_conditions_for_0_to_1_and_1_to_0",
@@ -1027,8 +1031,8 @@ def fit_probabilistic_cartpole_student_with_history(
     This implements the action-distribution part of the paper's EM-style
     student step for Cartpole's constant-action grammar. The latent segment
     responsibilities are initialized from action likelihoods, then each bounded
-    EM iteration alternates switch-timing forward-backward responsibilities with
-    refits of the action distributions and switch parameters.
+    EM iteration repeats switch-timing forward-backward responsibilities with
+    action-distribution refits before one switch-parameter M-step.
     Switch timing still uses local Gaussian mean/std refinement rather than the
     paper's full continuous M-step.
     """
@@ -1057,17 +1061,23 @@ def fit_probabilistic_cartpole_student_with_history(
                 left_default,
                 right_default,
             )
-            switch, switch_parameter_distributions = _fit_student_switch(
-                traces,
-                segments_by_trace,
-                responsibilities,
-                switch_pair_responsibilities or None,
-            )
+            if cfg.student_switch_responsibility_passes <= 0:
+                switch, switch_parameter_distributions = _fit_student_switch(
+                    traces,
+                    segments_by_trace,
+                    responsibilities,
+                    switch_pair_responsibilities or None,
+                )
+            elif switch is None:
+                bootstrap = _bootstrap_probabilistic_student(cfg)
+                switch = bootstrap.switch
+                switch_parameter_distributions = list(bootstrap.switch_parameter_distributions)
+            phase = "action_likelihood_initialization" if iteration == 0 else "action_likelihood_refit"
             fit_history.append(
                 _student_fit_step(
                     iteration + 1,
                     0,
-                    "action_likelihood_initialization" if iteration == 0 else "action_likelihood_refit",
+                    phase,
                     responsibilities,
                     switch_pair_responsibilities,
                     action_distributions,
@@ -1093,17 +1103,11 @@ def fit_probabilistic_cartpole_student_with_history(
                 left_default,
                 right_default,
             )
-            switch, switch_parameter_distributions = _fit_student_switch(
-                traces,
-                segments_by_trace,
-                responsibilities,
-                switch_pair_responsibilities or None,
-            )
             fit_history.append(
                 _student_fit_step(
                     iteration + 1,
                     pass_index + 1,
-                    "switch_timing_refinement",
+                    "switch_timing_responsibility_refit",
                     responsibilities,
                     switch_pair_responsibilities,
                     action_distributions,
@@ -1111,6 +1115,24 @@ def fit_probabilistic_cartpole_student_with_history(
                     switch_parameter_distributions,
                 )
             )
+        switch, switch_parameter_distributions = _fit_student_switch(
+            traces,
+            segments_by_trace,
+            responsibilities,
+            switch_pair_responsibilities or None,
+        )
+        fit_history.append(
+            _student_fit_step(
+                iteration + 1,
+                cfg.student_switch_responsibility_passes,
+                "switch_condition_m_step",
+                responsibilities,
+                switch_pair_responsibilities,
+                action_distributions,
+                switch,
+                switch_parameter_distributions,
+            )
+        )
 
     if switch is None:
         switch, switch_parameter_distributions = _fit_student_switch(
@@ -3394,8 +3416,8 @@ def _fit_student_switch(
     responsibilities: List[Tuple[float, float]],
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
-    # Refit both switch structure and Gaussian threshold parameters after each
-    # responsibility update so action and timing evidence stay in sync.
+    # Refit switch structure and Gaussian threshold parameters for the bounded
+    # Eq. (12)-style M-step.
     switch = _learn_depth2_switch(
         traces,
         segments_by_trace,

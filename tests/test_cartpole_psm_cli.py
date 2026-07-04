@@ -213,9 +213,17 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
         self.assertEqual(
             provenance["probabilistic_student"]["responsibility_evidence"],
-            "action_likelihood_initialization_then_alternating_switch_timing_forward_backward",
+            "action_likelihood_initialization_then_fixed_switch_forward_backward_action_refits",
         )
         self.assertTrue(provenance["probabilistic_student"]["switch_responsibility_passes_are_per_em_iteration"])
+        self.assertEqual(
+            provenance["probabilistic_student"]["switch_condition_m_step_schedule"],
+            "once_per_student_em_iteration_after_configured_eq10_eq11_passes",
+        )
+        self.assertEqual(
+            provenance["probabilistic_student"]["initial_switch_before_first_timing_e_step"],
+            "fixed_bootstrap_not_data_fit",
+        )
         self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
         self.assertEqual(provenance["probabilistic_student"]["initial_mode"], 0)
         self.assertEqual(provenance["probabilistic_student"]["initial_mode_prior"], "fixed_mode_0")
@@ -634,7 +642,7 @@ class CartpolePSMCliTest(unittest.TestCase):
                 entry["adaptive_teacher_summary"],
                 metrics["adaptive_teacher_summary"][index - 1],
             )
-            self.assertEqual(len(entry["student_fit_history"]), 5)
+            self.assertEqual(len(entry["student_fit_history"]), 7)
             self.assertEqual(entry["student_fit_history"][0]["em_iteration"], 1)
             self.assertEqual(entry["student_fit_history"][0]["responsibility_pass"], 0)
             self.assertEqual(
@@ -645,7 +653,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             self.assertEqual(entry["student_fit_history"][-1]["responsibility_pass"], 2)
             self.assertEqual(
                 entry["student_fit_history"][-1]["phase"],
-                "switch_timing_refinement",
+                "switch_condition_m_step",
             )
             self.assertIn("action_distributions", entry["student_fit_history"][-1])
             self.assertIn("switch_parameter_distributions", entry["student_fit_history"][-1])

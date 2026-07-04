@@ -162,9 +162,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - Partially complete against the paper: the Cartpole programmatic policy is synthesized from
   model-based teacher traces into a two-mode constant-action/depth-2-switch policy. The student now
   fits Gaussian distributions over constant action parameters and latent mode responsibilities. Those
-  responsibilities now start from action likelihoods and then alternate bounded forward-backward
-  switch-timing refinements with action-distribution and switch-parameter refits inside each
-  configured EM iteration. The switch refit now uses adjacent pair posteriors from the
+  responsibilities now start from action likelihoods and then repeat bounded fixed-switch
+  forward-backward switch-timing refinements with action-distribution refits before one bounded
+  Eq. (12)-style switch-condition M-step per configured EM iteration. The switch refit now uses
+  adjacent pair posteriors from the
   forward-backward pass for transition/stay timing weights, including during candidate switch-structure
   rescoring, instead of only products of independent segment marginals, but the learner still
   approximates switch timing and does not implement the full probabilistic adaptive-teaching objective
@@ -354,8 +355,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   observed segment now contributes no-transition-before-duration evidence, so single-segment traces
   and final teacher segments are not scored only by action likelihood.
 - The Cartpole student now initializes latent segment responsibilities from action likelihoods, then
-  alternates the configured bounded forward-backward switch-timing passes with action-distribution and
-  switch-parameter refits inside each EM iteration. The first segment of each trace is conditioned on
+  repeats the configured bounded fixed-switch forward-backward switch-timing passes with
+  action-distribution refits before solving one bounded Eq. (12)-style switch-condition M-step per EM
+  iteration. The first segment of each trace is conditioned on
   the executable PSM's fixed initial mode `0` instead of a uniform latent start prior. The E-step pair
   potentials and bounded switch timing loss use directed 0-to-1 and 1-to-0 selector events plus
   final-segment stay evidence, and the switch M-step now consumes adjacent pair posteriors from the
