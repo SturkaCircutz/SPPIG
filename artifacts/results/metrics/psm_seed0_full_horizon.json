@@ -374,8 +374,11 @@
       "gain_refinement_delta_fraction": 0.05,
       "gain_sample_min_std": 1e-06,
       "gain_sample_std_fraction": 0.1,
+      "local_parallel_trace_workers": "configurable_via_parallel_trace_workers",
       "omega_refinement_min_delta": 0.05,
+      "paper_parallel_threads": 10,
       "paper_top_rho": 10,
+      "parallel_unit": "independent_loop_free_teacher_optimization_per_initial_state",
       "phase_one_objective": "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_log_p_trace_under_student",
       "refinement_delta_decay": 0.5,
       "selected_trace_objective_metrics": [
@@ -405,6 +408,7 @@
       10.0
     ],
     "num_initial_states": 4,
+    "parallel_trace_workers": 1,
     "seed": 0,
     "segment_steps": 1,
     "segments_per_trace": 250,
@@ -427,6 +431,9 @@
     "boolean_tree_depth": 2,
     "cartpole_environment": true,
     "effective_teacher_candidate_rollouts": 8,
+    "effective_teacher_parallel_trace_initial_states": 4,
+    "effective_teacher_parallel_trace_slots": 1,
+    "effective_teacher_parallel_trace_workers": 1,
     "effective_teacher_top_rho": 2,
     "eval_rollouts": 20,
     "full_cem_teacher_optimizer": false,
@@ -439,6 +446,7 @@
     "loop_free_teacher_spans_training_horizon": true,
     "paper_eval_rollouts": 1000,
     "paper_scale_result": false,
+    "paper_teacher_parallel_threads": 10,
     "paper_teacher_top_rho": 10,
     "paper_test_horizon_steps": 15000,
     "quick_diagnostic": false,
@@ -450,6 +458,7 @@
       "source": "OpenAI Gym classic-control CartPole standard reward",
       "termination_reward": 0.0
     },
+    "selected_teacher_parallel_trace_workers": 1,
     "selected_teacher_top_rho": 2,
     "space_spec": {
       "action_dimension": 1,
@@ -522,7 +531,9 @@
     "uses_full_test_horizon": true,
     "uses_paper_eval_rollouts": false,
     "uses_paper_reward_scale": true,
-    "uses_paper_teacher_top_rho": false
+    "uses_paper_teacher_parallel_threads": false,
+    "uses_paper_teacher_top_rho": false,
+    "uses_parallel_teacher_trace_optimization": false
   },
   "paper_test_horizon_steps": 15000,
   "policy_description": "m0 action=-0.081; m1 action=0.179; mode=1 if o[2] >= -0.195 and o[0] >= -0.336, else mode=0; directed_transitions={'0->1': 'fire 0->1 if 1.000*theta + -0.250*omega >= 0.025', '1->0': 'fire 1->0 if o[0] <= -0.077 and o[0] >= -0.582'}",

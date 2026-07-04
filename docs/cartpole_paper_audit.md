@@ -339,8 +339,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
   PSM protocol status records whether the bounded teacher sampling phase uses the paper's
-  `rho = 10` top-elite setting and whether the configured candidate rollout pool is large enough to
-  populate that paper top-rho set.
+  `rho = 10` top-elite setting, whether the configured candidate rollout pool is large enough to
+  populate that paper top-rho set, and whether independent teacher trace optimization across
+  initial states actually had the paper-reported `10` active local trace slots.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
   and the student's discrete Eq. (12)-style switch timing likelihood, marginalizing over the latent
   mode sequence with a two-state forward pass. The bounded two-mode timing model now distinguishes
@@ -374,8 +375,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   action/duration optimization from Section 4.2.
 - The Cartpole teacher objective now uses the paper-reported reward scale `lambda = 100` by default
   when trading off reward against student likelihood.
-- The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings and
-  records their exact values in metrics JSON.
+- The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings,
+  including local parallel trace workers for independent loop-free teacher optimization across
+  initial states, and records their exact values in metrics JSON.
 - PSM metrics and reproduction-runner manifests now record fixed local synthesis constants such as
   default EM iterations, Gaussian floors, switch-timing scale, switch-search grids, and teacher-search
   refinement schedule. The actual configured student EM iterations and per-EM switch-responsibility

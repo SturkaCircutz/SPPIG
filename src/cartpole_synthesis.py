@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import bisect
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import math
 import random
@@ -31,6 +32,7 @@ TEACHER_STUDENT_REGULARIZER = 1.0
 TEACHER_REWARD_LAMBDA = 100.0
 TEACHER_TOP_RHO = 10
 PAPER_TEACHER_TOP_RHO = 10
+PAPER_TEACHER_PARALLEL_THREADS = 10
 TEACHER_REFINEMENT_STEPS = 2
 TEACHER_GAIN_SAMPLE_STD_FRACTION = 0.10
 TEACHER_GAIN_SAMPLE_MIN_STD = 1e-6
@@ -109,6 +111,7 @@ class CartpoleSynthesisConfig:
     teacher_refinement_steps: int = TEACHER_REFINEMENT_STEPS
     teacher_elite_distribution_resamples: int = TEACHER_ELITE_DISTRIBUTION_RESAMPLES
     teacher_elite_distribution_rounds: int = TEACHER_ELITE_DISTRIBUTION_ROUNDS
+    parallel_trace_workers: int = 1
 
 
 @dataclass
@@ -181,6 +184,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "selection_objective_order": list(SWITCH_SELECTION_OBJECTIVE_ORDER),
         },
         "teacher_search": {
+            "paper_parallel_threads": PAPER_TEACHER_PARALLEL_THREADS,
+            "local_parallel_trace_workers": "configurable_via_parallel_trace_workers",
+            "parallel_unit": "independent_loop_free_teacher_optimization_per_initial_state",
             "gain_sample_std_fraction": TEACHER_GAIN_SAMPLE_STD_FRACTION,
             "gain_sample_min_std": TEACHER_GAIN_SAMPLE_MIN_STD,
             "gain_refinement_delta_fraction": TEACHER_GAIN_REFINEMENT_DELTA_FRACTION,
@@ -285,6 +291,12 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
 def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[str, object]:
     effective_candidate_rollouts = max(1, int(cfg.candidate_rollouts))
     effective_top_rho = max(1, int(cfg.teacher_top_rho))
+    effective_parallel_trace_workers = max(1, int(cfg.parallel_trace_workers))
+    effective_parallel_trace_initial_states = max(0, int(cfg.num_initial_states))
+    effective_parallel_trace_slots = min(
+        effective_parallel_trace_workers,
+        effective_parallel_trace_initial_states,
+    )
     return {
         "teacher_candidate_rollouts": cfg.candidate_rollouts,
         "effective_teacher_candidate_rollouts": effective_candidate_rollouts,
@@ -292,6 +304,16 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
         "effective_teacher_top_rho": effective_top_rho,
         "paper_teacher_top_rho": PAPER_TEACHER_TOP_RHO,
         "uses_paper_teacher_top_rho": effective_top_rho == PAPER_TEACHER_TOP_RHO,
+        "selected_teacher_parallel_trace_workers": cfg.parallel_trace_workers,
+        "effective_teacher_parallel_trace_workers": effective_parallel_trace_workers,
+        "effective_teacher_parallel_trace_initial_states": effective_parallel_trace_initial_states,
+        "effective_teacher_parallel_trace_slots": effective_parallel_trace_slots,
+        "paper_teacher_parallel_threads": PAPER_TEACHER_PARALLEL_THREADS,
+        "uses_parallel_teacher_trace_optimization": effective_parallel_trace_slots > 1,
+        "uses_paper_teacher_parallel_threads": (
+            effective_parallel_trace_workers == PAPER_TEACHER_PARALLEL_THREADS
+            and effective_parallel_trace_slots == PAPER_TEACHER_PARALLEL_THREADS
+        ),
         "teacher_candidate_rollouts_cover_selected_top_rho": effective_candidate_rollouts >= effective_top_rho,
         "teacher_candidate_rollouts_cover_paper_top_rho": effective_candidate_rollouts >= PAPER_TEACHER_TOP_RHO,
         "teacher_cem_phase_matches_paper_rho": (
@@ -923,15 +945,48 @@ def synthesize_cartpole_student_with_history(
     # Alternate between a teacher that searches for high-reward traces and a
     # student fit that makes later teacher traces easier to explain with the PSM.
     for iteration in range(max(1, cfg.teacher_student_iters)):
-        traces = [
-            _optimize_loop_free_trace(initial_state, env.cfg, cfg, rng, student)
-            for initial_state in initial_states
-        ]
+        traces = _optimize_loop_free_traces_for_initial_states(
+            initial_states,
+            env.cfg,
+            cfg,
+            rng,
+            student,
+        )
         student, student_fit_history = fit_probabilistic_cartpole_student_with_history(traces, cfg)
         history.append(CartpoleSynthesisIteration(iteration + 1, traces, student, student_fit_history))
     if student is None:
         raise RuntimeError("Cartpole synthesis did not produce a student policy")
     return student, traces, history
+
+
+def _optimize_loop_free_traces_for_initial_states(
+    initial_states: List[Observation],
+    env_cfg: CartpoleConfig,
+    cfg: CartpoleSynthesisConfig,
+    rng: random.Random,
+    student: ProbabilisticCartpoleStudent | None,
+) -> List[CartpoleTrace]:
+    parallel_workers = max(1, int(cfg.parallel_trace_workers))
+    if parallel_workers == 1 or len(initial_states) <= 1:
+        return [
+            _optimize_loop_free_trace(initial_state, env_cfg, cfg, rng, student)
+            for initial_state in initial_states
+        ]
+
+    trace_seeds = [rng.randrange(2**63) for _ in initial_states]
+    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+        futures = [
+            executor.submit(
+                _optimize_loop_free_trace,
+                initial_state,
+                env_cfg,
+                cfg,
+                random.Random(trace_seed),
+                student,
+            )
+            for initial_state, trace_seed in zip(initial_states, trace_seeds)
+        ]
+        return [future.result() for future in futures]
 
 
 def fit_probabilistic_cartpole_student(

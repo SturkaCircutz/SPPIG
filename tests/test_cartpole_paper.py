@@ -85,6 +85,7 @@ from cartpole_synthesis import (
     _mode_run_lengths,
     _mode_run_actions,
     _optimize_loop_free_trace,
+    _optimize_loop_free_traces_for_initial_states,
     _loop_free_trace_distance,
     _prefilter_switches_by_label_mistakes,
     _refine_responsibilities_and_switch_pairs_with_timing,
@@ -2377,7 +2378,11 @@ class CartpolePaperTest(unittest.TestCase):
 
     def test_cartpole_teacher_cem_status_requires_paper_top_rho_coverage(self):
         local_cfg = CartpoleSynthesisConfig(candidate_rollouts=4, teacher_top_rho=2)
-        paper_rho_cfg = CartpoleSynthesisConfig(candidate_rollouts=10, teacher_top_rho=10)
+        paper_rho_cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=10,
+            teacher_top_rho=10,
+            parallel_trace_workers=10,
+        )
 
         local_status = cartpole_teacher_cem_protocol_status(local_cfg)
         paper_rho_status = cartpole_synthesis_protocol_status(
@@ -2390,13 +2395,57 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(local_status["effective_teacher_candidate_rollouts"], 4)
         self.assertEqual(local_status["effective_teacher_top_rho"], 2)
         self.assertFalse(local_status["uses_paper_teacher_top_rho"])
+        self.assertEqual(local_status["paper_teacher_parallel_threads"], 10)
+        self.assertEqual(local_status["effective_teacher_parallel_trace_workers"], 1)
+        self.assertEqual(local_status["effective_teacher_parallel_trace_initial_states"], 32)
+        self.assertEqual(local_status["effective_teacher_parallel_trace_slots"], 1)
+        self.assertFalse(local_status["uses_parallel_teacher_trace_optimization"])
+        self.assertFalse(local_status["uses_paper_teacher_parallel_threads"])
         self.assertTrue(local_status["teacher_candidate_rollouts_cover_selected_top_rho"])
         self.assertFalse(local_status["teacher_candidate_rollouts_cover_paper_top_rho"])
         self.assertFalse(local_status["teacher_cem_phase_matches_paper_rho"])
         self.assertTrue(paper_rho_status["uses_paper_teacher_top_rho"])
+        self.assertEqual(paper_rho_status["effective_teacher_parallel_trace_initial_states"], 32)
+        self.assertEqual(paper_rho_status["effective_teacher_parallel_trace_slots"], 10)
+        self.assertTrue(paper_rho_status["uses_parallel_teacher_trace_optimization"])
+        self.assertTrue(paper_rho_status["uses_paper_teacher_parallel_threads"])
         self.assertTrue(paper_rho_status["teacher_candidate_rollouts_cover_paper_top_rho"])
         self.assertTrue(paper_rho_status["teacher_cem_phase_matches_paper_rho"])
         self.assertFalse(paper_rho_status["full_probabilistic_adaptive_teaching"])
+
+    def test_cartpole_teacher_parallel_status_requires_multiple_initial_states(self):
+        single_state_cfg = CartpoleSynthesisConfig(
+            num_initial_states=1,
+            parallel_trace_workers=10,
+        )
+        partial_thread_cfg = CartpoleSynthesisConfig(
+            num_initial_states=4,
+            parallel_trace_workers=10,
+        )
+        zero_state_cfg = CartpoleSynthesisConfig(
+            num_initial_states=0,
+            parallel_trace_workers=10,
+        )
+
+        single_state_status = cartpole_teacher_cem_protocol_status(single_state_cfg)
+        partial_thread_status = cartpole_teacher_cem_protocol_status(partial_thread_cfg)
+        zero_state_status = cartpole_teacher_cem_protocol_status(zero_state_cfg)
+
+        self.assertEqual(single_state_status["effective_teacher_parallel_trace_workers"], 10)
+        self.assertEqual(single_state_status["effective_teacher_parallel_trace_initial_states"], 1)
+        self.assertEqual(single_state_status["effective_teacher_parallel_trace_slots"], 1)
+        self.assertFalse(single_state_status["uses_parallel_teacher_trace_optimization"])
+        self.assertFalse(single_state_status["uses_paper_teacher_parallel_threads"])
+        self.assertEqual(partial_thread_status["effective_teacher_parallel_trace_workers"], 10)
+        self.assertEqual(partial_thread_status["effective_teacher_parallel_trace_initial_states"], 4)
+        self.assertEqual(partial_thread_status["effective_teacher_parallel_trace_slots"], 4)
+        self.assertTrue(partial_thread_status["uses_parallel_teacher_trace_optimization"])
+        self.assertFalse(partial_thread_status["uses_paper_teacher_parallel_threads"])
+        self.assertEqual(zero_state_status["effective_teacher_parallel_trace_workers"], 10)
+        self.assertEqual(zero_state_status["effective_teacher_parallel_trace_initial_states"], 0)
+        self.assertEqual(zero_state_status["effective_teacher_parallel_trace_slots"], 0)
+        self.assertFalse(zero_state_status["uses_parallel_teacher_trace_optimization"])
+        self.assertFalse(zero_state_status["uses_paper_teacher_parallel_threads"])
 
     def test_cartpole_teacher_objective_uses_student_regularizer(self):
         cfg = CartpoleSynthesisConfig(teacher_student_regularizer=10.0)
@@ -3643,6 +3692,57 @@ class CartpolePaperTest(unittest.TestCase):
             },
         )
         self.assertGreaterEqual(trace.reward, 1.0)
+
+    def test_cartpole_parallel_teacher_trace_workers_preserve_trace_order(self):
+        env = CartpoleEnv.train_env(seed=0)
+        initial_states = [
+            [0.0, 0.0, -0.01, 0.0],
+            [0.0, 0.0, 0.02, 0.0],
+            [0.0, 0.0, 0.03, 0.0],
+        ]
+
+        def fake_optimize(initial_state, env_cfg, cfg, rng, student):
+            sample = rng.random()
+            return CartpoleTrace(
+                observations=[list(initial_state)],
+                actions=[sample],
+                mode_labels=[0],
+                reward=sample,
+            )
+
+        with patch("cartpole_synthesis._optimize_loop_free_trace", side_effect=fake_optimize):
+            serial = _optimize_loop_free_traces_for_initial_states(
+                initial_states,
+                env.cfg,
+                CartpoleSynthesisConfig(parallel_trace_workers=1),
+                random.Random(7),
+                None,
+            )
+            parallel = _optimize_loop_free_traces_for_initial_states(
+                initial_states,
+                env.cfg,
+                CartpoleSynthesisConfig(parallel_trace_workers=2),
+                random.Random(7),
+                None,
+            )
+            repeat_parallel = _optimize_loop_free_traces_for_initial_states(
+                initial_states,
+                env.cfg,
+                CartpoleSynthesisConfig(parallel_trace_workers=2),
+                random.Random(7),
+                None,
+            )
+
+        self.assertEqual([trace.observations[0] for trace in parallel], initial_states)
+        self.assertEqual(len(parallel), len(serial))
+        self.assertNotEqual(
+            [trace.actions[0] for trace in parallel],
+            [trace.actions[0] for trace in serial],
+        )
+        self.assertEqual(
+            [trace.actions[0] for trace in parallel],
+            [trace.actions[0] for trace in repeat_parallel],
+        )
 
     def test_cartpole_teacher_optimization_can_select_elite_centroid(self):
         env = CartpoleEnv.train_env(seed=0)

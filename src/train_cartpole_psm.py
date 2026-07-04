@@ -515,6 +515,7 @@ def main() -> None:
         type=int,
         default=default_cfg.teacher_elite_distribution_rounds,
     )
+    parser.add_argument("--parallel-trace-workers", type=int, default=default_cfg.parallel_trace_workers)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15000)
@@ -538,6 +539,7 @@ def main() -> None:
         teacher_refinement_steps=args.teacher_refinement_steps,
         teacher_elite_distribution_resamples=args.teacher_elite_distribution_resamples,
         teacher_elite_distribution_rounds=args.teacher_elite_distribution_rounds,
+        parallel_trace_workers=args.parallel_trace_workers,
         seed=args.seed,
     )
     student, traces, synthesis_history = synthesize_cartpole_student_with_history(cfg)

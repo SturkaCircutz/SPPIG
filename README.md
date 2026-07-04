@@ -161,7 +161,11 @@ intended to explain current synthesis failures; it is not a paper-scale result
 claim.
 The CLI exposes the current teacher gain, teacher/student iteration, reward
 scale, regularization, top-rho, and local-refinement settings, and the metrics
-JSON records their exact values under `config`.
+JSON records their exact values under `config`. `--parallel-trace-workers 10`
+selects the paper-reported worker limit for independent loop-free teacher
+optimization across initial states; status fields separately report the active
+parallel trace slots, so runs with fewer than 10 initial states do not claim the
+paper's 10-thread execution. The default remains serial for local diagnostics.
 The current CartPole PSM defaults use one-step loop-free teacher segments over
 the full 250-step training horizon (`segment_steps=1`, `segments_per_trace=250`);
 this is a local teacher hyperparameter profile selected for CartPole
@@ -179,7 +183,8 @@ block deliberately keeps `full_probabilistic_adaptive_teaching`,
 `full_continuous_switch_m_step`, `full_cem_teacher_optimizer`, and
 `paper_scale_result` false for the current bounded diagnostic implementation,
 and separately records whether the teacher CEM-style sampling phase used the
-paper's `rho=10` top-elite setting.
+paper's `rho=10` top-elite setting and whether local teacher trace optimization
+actually had `10` active trace slots.
 The probabilistic student likelihood and EM responsibility refinement are
 conditioned on the executable CartPole PSM's fixed initial mode `0`, matching
 the paper's fixed initial memory-state assumption.

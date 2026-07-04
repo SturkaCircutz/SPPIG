@@ -83,6 +83,51 @@ class CartpolePSMCliTest(unittest.TestCase):
             250,
         )
 
+    def test_cli_records_parallel_trace_worker_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "psm_metrics.json")
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--num-initial-states",
+                    "2",
+                    "--candidate-rollouts",
+                    "1",
+                    "--segments-per-trace",
+                    "2",
+                    "--teacher-student-iters",
+                    "1",
+                    "--teacher-top-rho",
+                    "1",
+                    "--teacher-refinement-steps",
+                    "0",
+                    "--parallel-trace-workers",
+                    "2",
+                    "--eval-rollouts",
+                    "1",
+                    "--test-max-steps",
+                    "20",
+                    "--metrics-output",
+                    metrics_path,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            with open(metrics_path, encoding="utf-8") as handle:
+                metrics = json.load(handle)
+
+        status = metrics["paper_protocol_status"]
+        self.assertEqual(metrics["config"]["parallel_trace_workers"], 2)
+        self.assertEqual(status["selected_teacher_parallel_trace_workers"], 2)
+        self.assertEqual(status["effective_teacher_parallel_trace_workers"], 2)
+        self.assertEqual(status["effective_teacher_parallel_trace_initial_states"], 2)
+        self.assertEqual(status["effective_teacher_parallel_trace_slots"], 2)
+        self.assertEqual(status["paper_teacher_parallel_threads"], 10)
+        self.assertTrue(status["uses_parallel_teacher_trace_optimization"])
+        self.assertFalse(status["uses_paper_teacher_parallel_threads"])
+
     def test_cli_writes_metrics_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "psm_metrics.json")
@@ -151,6 +196,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["config"]["teacher_refinement_steps"], 1)
         self.assertEqual(metrics["config"]["teacher_elite_distribution_resamples"], 3)
         self.assertEqual(metrics["config"]["teacher_elite_distribution_rounds"], 2)
+        self.assertEqual(metrics["config"]["parallel_trace_workers"], 1)
         provenance = metrics["algorithm_provenance"]
         self.assertEqual(provenance["probabilistic_student"]["default_em_iters"], 4)
         self.assertEqual(provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
@@ -537,6 +583,13 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["effective_teacher_top_rho"], 1)
         self.assertEqual(status["paper_teacher_top_rho"], 10)
         self.assertFalse(status["uses_paper_teacher_top_rho"])
+        self.assertEqual(status["selected_teacher_parallel_trace_workers"], 1)
+        self.assertEqual(status["effective_teacher_parallel_trace_workers"], 1)
+        self.assertEqual(status["effective_teacher_parallel_trace_initial_states"], 2)
+        self.assertEqual(status["effective_teacher_parallel_trace_slots"], 1)
+        self.assertEqual(status["paper_teacher_parallel_threads"], 10)
+        self.assertFalse(status["uses_parallel_teacher_trace_optimization"])
+        self.assertFalse(status["uses_paper_teacher_parallel_threads"])
         self.assertTrue(status["teacher_candidate_rollouts_cover_selected_top_rho"])
         self.assertFalse(status["teacher_candidate_rollouts_cover_paper_top_rho"])
         self.assertFalse(status["teacher_cem_phase_matches_paper_rho"])
