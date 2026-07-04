@@ -665,6 +665,11 @@ class CartpolePSMCliTest(unittest.TestCase):
             )
             self.assertIn("action_distributions", entry["student_fit_history"][-1])
             self.assertIn("switch_parameter_distributions", entry["student_fit_history"][-1])
+            self.assertIn("transition_switches", entry["student_fit_history"][-1])
+            self.assertIn("transition_switch_parameter_distributions", entry["student_fit_history"][-1])
+            self.assertFalse(entry["student_fit_history"][0]["transition_switches"])
+            self.assertIn("0->1", entry["student_fit_history"][-1]["transition_switches"])
+            self.assertIn("1->0", entry["student_fit_history"][-1]["transition_switches"])
             self.assertIn("mean_entropy_nats", entry["student_fit_history"][-1]["responsibility_summary"])
             pair_summary = entry["student_fit_history"][-1]["switch_pair_responsibility_summary"]
             self.assertIn("transition_mass", pair_summary)

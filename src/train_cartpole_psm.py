@@ -216,6 +216,7 @@ def serialize_trace_history(history: list[CartpoleSynthesisIteration]):
 
 
 def summarize_student_fit_step(step: CartpoleStudentFitStep):
+    transition_distributions = step.transition_switch_parameter_distributions or {}
     return {
         "em_iteration": step.em_iteration,
         "responsibility_pass": step.responsibility_pass,
@@ -235,6 +236,20 @@ def summarize_student_fit_step(step: CartpoleStudentFitStep):
             }
             for distribution in step.switch_parameter_distributions
         ],
+        "transition_switches": {
+            f"{source}->{target}": _directed_transition_description(source, target, switch)
+            for (source, target), switch in sorted((step.transition_switches or {}).items())
+        },
+        "transition_switch_parameter_distributions": {
+            f"{source}->{target}": [
+                {
+                    "mean": distribution.mean,
+                    "std": distribution.std,
+                }
+                for distribution in transition_distributions.get((source, target), [])
+            ]
+            for source, target in sorted((step.transition_switches or {}).keys())
+        },
         "responsibility_summary": summarize_responsibilities(step.responsibilities),
         "switch_pair_responsibility_summary": summarize_switch_pair_responsibilities(
             step.switch_pair_responsibilities

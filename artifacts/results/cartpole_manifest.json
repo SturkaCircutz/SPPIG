@@ -2194,7 +2194,9 @@
                   "mean": 0.0,
                   "std": 1.0
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {},
+              "transition_switches": {}
             },
             {
               "action_distributions": {
@@ -2236,7 +2238,9 @@
                   "mean": 0.0,
                   "std": 1.0
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {},
+              "transition_switches": {}
             },
             {
               "action_distributions": {
@@ -2278,7 +2282,33 @@
                   "mean": -1.084184216677162,
                   "std": 18.24552041014666
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": -0.3081316248938209,
+                    "std": 0.15144482011309385
+                  },
+                  {
+                    "mean": -0.0028805883940721724,
+                    "std": 0.4401156853684586
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.019040475994778372,
+                    "std": 0.12064429191615973
+                  },
+                  {
+                    "mean": 0.03814456737945034,
+                    "std": 0.0018850670611899958
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if o[1] <= -0.308 and o[0] <= -0.003",
+                "1->0": "fire 1->0 if o[0] >= 0.019 and o[0] <= 0.038"
+              }
             },
             {
               "action_distributions": {
@@ -2320,7 +2350,33 @@
                   "mean": -1.084184216677162,
                   "std": 18.24552041014666
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": -0.3081316248938209,
+                    "std": 0.15144482011309385
+                  },
+                  {
+                    "mean": -0.0028805883940721724,
+                    "std": 0.4401156853684586
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.019040475994778372,
+                    "std": 0.12064429191615973
+                  },
+                  {
+                    "mean": 0.03814456737945034,
+                    "std": 0.0018850670611899958
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if o[1] <= -0.308 and o[0] <= -0.003",
+                "1->0": "fire 1->0 if o[0] >= 0.019 and o[0] <= 0.038"
+              }
             },
             {
               "action_distributions": {
@@ -2362,7 +2418,25 @@
                   "mean": -2.5583183348058784,
                   "std": 4.076660334564617
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.49673351039789354,
+                    "std": 1.1274318441418965
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.6379513885502583,
+                    "std": 9.260923357541609
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if -10.000*theta + 2.000*omega >= 0.497",
+                "1->0": "fire 1->0 if 10.000*theta + -2.000*omega >= 0.638"
+              }
             },
             {
               "action_distributions": {
@@ -2404,7 +2478,25 @@
                   "mean": -2.5583183348058784,
                   "std": 4.076660334564617
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.49673351039789354,
+                    "std": 1.1274318441418965
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.6379513885502583,
+                    "std": 9.260923357541609
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if -10.000*theta + 2.000*omega >= 0.497",
+                "1->0": "fire 1->0 if 10.000*theta + -2.000*omega >= 0.638"
+              }
             },
             {
               "action_distributions": {
@@ -2446,7 +2538,29 @@
                   "mean": -1.9528658985993868,
                   "std": 8.114749718155032
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.49673351039789354,
+                    "std": 5.2369960287254465
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.019040475994778372,
+                    "std": 0.009793222774125386
+                  },
+                  {
+                    "mean": -0.053294987784906586,
+                    "std": 0.6267662575440247
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if -10.000*theta + 2.000*omega >= 0.497",
+                "1->0": "fire 1->0 if o[0] >= 0.019 or o[0] <= -0.053"
+              }
             },
             {
               "action_distributions": {
@@ -2488,7 +2602,29 @@
                   "mean": -1.9528658985993868,
                   "std": 8.114749718155032
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.49673351039789354,
+                    "std": 5.2369960287254465
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.019040475994778372,
+                    "std": 0.009793222774125386
+                  },
+                  {
+                    "mean": -0.053294987784906586,
+                    "std": 0.6267662575440247
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if -10.000*theta + 2.000*omega >= 0.497",
+                "1->0": "fire 1->0 if o[0] >= 0.019 or o[0] <= -0.053"
+              }
             },
             {
               "action_distributions": {
@@ -2530,7 +2666,29 @@
                   "mean": -1.7923716857766274,
                   "std": 14.514923344563954
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.49673351039789354,
+                    "std": 5.179159305266193
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.019040475994778372,
+                    "std": 0.009111791024939251
+                  },
+                  {
+                    "mean": -0.053294987784906586,
+                    "std": 0.5831546255961121
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if -10.000*theta + 2.000*omega >= 0.497",
+                "1->0": "fire 1->0 if o[0] >= 0.019 or o[0] <= -0.053"
+              }
             }
           ],
           "switch_fit_diagnostics": {
@@ -3197,7 +3355,9 @@
                   "mean": 0.0,
                   "std": 1.0
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {},
+              "transition_switches": {}
             },
             {
               "action_distributions": {
@@ -3239,7 +3399,9 @@
                   "mean": 0.0,
                   "std": 1.0
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {},
+              "transition_switches": {}
             },
             {
               "action_distributions": {
@@ -3285,7 +3447,25 @@
                   "mean": 0.38495849714933106,
                   "std": 0.17674580059159478
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.0300633059230459,
+                    "std": 1.3471455022592265
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.3515272296176589,
+                    "std": 7.7919830961359855
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if 2.000*theta + -0.250*omega >= 0.030",
+                "1->0": "fire 1->0 if -10.000*theta + 2.000*omega >= 0.352"
+              }
             },
             {
               "action_distributions": {
@@ -3331,7 +3511,25 @@
                   "mean": 0.38495849714933106,
                   "std": 0.17674580059159478
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.0300633059230459,
+                    "std": 1.3471455022592265
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.3515272296176589,
+                    "std": 7.7919830961359855
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if 2.000*theta + -0.250*omega >= 0.030",
+                "1->0": "fire 1->0 if -10.000*theta + 2.000*omega >= 0.352"
+              }
             },
             {
               "action_distributions": {
@@ -3377,7 +3575,25 @@
                   "mean": 0.7119978668578556,
                   "std": 0.3080623672062554
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.0300633059230459,
+                    "std": 1.3651146682517463
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.3515272296176589,
+                    "std": 7.627366738930567
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if 2.000*theta + -0.250*omega >= 0.030",
+                "1->0": "fire 1->0 if -10.000*theta + 2.000*omega >= 0.352"
+              }
             },
             {
               "action_distributions": {
@@ -3423,7 +3639,25 @@
                   "mean": 0.7119978668578556,
                   "std": 0.3080623672062554
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.0300633059230459,
+                    "std": 1.3651146682517463
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.3515272296176589,
+                    "std": 7.627366738930567
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if 2.000*theta + -0.250*omega >= 0.030",
+                "1->0": "fire 1->0 if -10.000*theta + 2.000*omega >= 0.352"
+              }
             },
             {
               "action_distributions": {
@@ -3469,7 +3703,29 @@
                   "mean": 0.5101936900748376,
                   "std": 0.20076513756634873
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.09127811974024584,
+                    "std": 1.5041483635609625
+                  },
+                  {
+                    "mean": 0.2735400164910007,
+                    "std": 0.01175115909032002
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.3515272296176589,
+                    "std": 7.66927149527036
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if o[0] >= 0.091 and o[0] <= 0.274",
+                "1->0": "fire 1->0 if -10.000*theta + 2.000*omega >= 0.352"
+              }
             },
             {
               "action_distributions": {
@@ -3515,7 +3771,29 @@
                   "mean": 0.5101936900748376,
                   "std": 0.20076513756634873
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": 0.09127811974024584,
+                    "std": 1.5041483635609625
+                  },
+                  {
+                    "mean": 0.2735400164910007,
+                    "std": 0.01175115909032002
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.3515272296176589,
+                    "std": 7.66927149527036
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if o[0] >= 0.091 and o[0] <= 0.274",
+                "1->0": "fire 1->0 if -10.000*theta + 2.000*omega >= 0.352"
+              }
             },
             {
               "action_distributions": {
@@ -3561,7 +3839,29 @@
                   "mean": 0.7667637323271228,
                   "std": 0.39234343488860896
                 }
-              ]
+              ],
+              "transition_switch_parameter_distributions": {
+                "0->1": [
+                  {
+                    "mean": -0.14076021167222194,
+                    "std": 0.062120035511356135
+                  },
+                  {
+                    "mean": 0.2735400164910007,
+                    "std": 0.005954236357583965
+                  }
+                ],
+                "1->0": [
+                  {
+                    "mean": 0.3515272296176589,
+                    "std": 8.09870673220549
+                  }
+                ]
+              },
+              "transition_switches": {
+                "0->1": "fire 0->1 if o[2] <= -0.141 and o[0] <= 0.274",
+                "1->0": "fire 1->0 if -10.000*theta + 2.000*omega >= 0.352"
+              }
             }
           ],
           "switch_fit_diagnostics": {

@@ -948,6 +948,8 @@ class CartpoleStudentFitStep:
     action_distributions: Dict[int, GaussianScalar]
     switch: SwitchProgram
     switch_parameter_distributions: List[GaussianScalar]
+    transition_switches: Dict[Tuple[int, int], SwitchProgram]
+    transition_switch_parameter_distributions: Dict[Tuple[int, int], List[GaussianScalar]]
 
 
 def synthesize_cartpole_policy(cfg: CartpoleSynthesisConfig) -> tuple[SynthesizedCartpolePSM, List[CartpoleTrace]]:
@@ -1072,10 +1074,23 @@ def fit_probabilistic_cartpole_student_with_history(
                     responsibilities,
                     switch_pair_responsibilities or None,
                 )
+                transition_switches, transition_switch_parameter_distributions = _fit_transition_switches(
+                    traces,
+                    segments_by_trace,
+                    responsibilities,
+                    switch_pair_responsibilities or None,
+                    switch,
+                    switch_parameter_distributions,
+                    cfg,
+                )
+                step_transition_switches: Dict[Tuple[int, int], SwitchProgram] = {}
+                step_transition_switch_parameter_distributions: Dict[Tuple[int, int], List[GaussianScalar]] = {}
             elif switch is None:
                 bootstrap = _bootstrap_probabilistic_student(cfg)
                 switch = bootstrap.switch
                 switch_parameter_distributions = list(bootstrap.switch_parameter_distributions)
+                step_transition_switches = transition_switches
+                step_transition_switch_parameter_distributions = transition_switch_parameter_distributions
             phase = "action_likelihood_initialization" if iteration == 0 else "action_likelihood_refit"
             fit_history.append(
                 _student_fit_step(
@@ -1087,10 +1102,26 @@ def fit_probabilistic_cartpole_student_with_history(
                     action_distributions,
                     switch,
                     switch_parameter_distributions,
+                    step_transition_switches,
+                    step_transition_switch_parameter_distributions,
                 )
             )
 
         if cfg.student_switch_responsibility_passes <= 0:
+            fit_history.append(
+                _student_fit_step(
+                    iteration + 1,
+                    0,
+                    "switch_condition_m_step",
+                    responsibilities,
+                    switch_pair_responsibilities,
+                    action_distributions,
+                    switch,
+                    switch_parameter_distributions,
+                    transition_switches,
+                    transition_switch_parameter_distributions,
+                )
+            )
             continue
         if switch is None:
             raise RuntimeError("Cartpole student EM requires an initialized switch")
@@ -1119,6 +1150,8 @@ def fit_probabilistic_cartpole_student_with_history(
                     action_distributions,
                     switch,
                     switch_parameter_distributions,
+                    transition_switches,
+                    transition_switch_parameter_distributions,
                 )
             )
         switch, switch_parameter_distributions = _fit_student_switch(
@@ -1146,6 +1179,8 @@ def fit_probabilistic_cartpole_student_with_history(
                 action_distributions,
                 switch,
                 switch_parameter_distributions,
+                transition_switches,
+                transition_switch_parameter_distributions,
             )
         )
 
@@ -1194,6 +1229,8 @@ def _student_fit_step(
     action_distributions: Dict[int, GaussianScalar],
     switch: SwitchProgram,
     switch_parameter_distributions: List[GaussianScalar],
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] | None = None,
+    transition_switch_parameter_distributions: Dict[Tuple[int, int], List[GaussianScalar]] | None = None,
 ) -> CartpoleStudentFitStep:
     return CartpoleStudentFitStep(
         em_iteration=em_iteration,
@@ -1204,6 +1241,11 @@ def _student_fit_step(
         action_distributions=dict(action_distributions),
         switch=switch,
         switch_parameter_distributions=list(switch_parameter_distributions),
+        transition_switches=dict(transition_switches or {}),
+        transition_switch_parameter_distributions={
+            transition: list(distributions)
+            for transition, distributions in (transition_switch_parameter_distributions or {}).items()
+        },
     )
 
 

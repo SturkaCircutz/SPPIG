@@ -654,7 +654,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_student_fit_history_records_inner_em_steps`
   verifies that the fitted Cartpole student can expose a compact per-EM/pass training history whose
   final row matches the returned probabilistic student, including switch-pair posterior provenance
-  after switch-timing responsibility passes.
+  after switch-timing responsibility passes and directed transition-switch snapshots after the
+  bounded switch M-step.
 - `tests/test_cartpole_paper.py::test_cartpole_synthesis_can_return_probabilistic_student` verifies
   that synthesis can expose the fitted probabilistic student directly for metrics/provenance without
   re-fitting from traces.

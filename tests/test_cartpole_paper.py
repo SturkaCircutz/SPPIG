@@ -752,12 +752,49 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(fit_history[-1].switch.describe(), student.switch.describe())
         self.assertFalse(fit_history[0].switch_pair_responsibilities)
         self.assertEqual(len(fit_history[-1].switch_pair_responsibilities), 1)
+        self.assertFalse(fit_history[0].transition_switches)
+        self.assertFalse(fit_history[1].transition_switches)
+        self.assertEqual(set(fit_history[3].transition_switches), {(0, 1), (1, 0)})
+        self.assertEqual(set(fit_history[-1].transition_switches), {(0, 1), (1, 0)})
+        self.assertEqual(fit_history[-1].transition_switches, student.transition_switches)
         for step in fit_history:
             self.assertEqual(len(step.responsibilities), 2)
             self.assertEqual(set(step.action_distributions), {0, 1})
             self.assertTrue(step.switch_parameter_distributions)
             for left_weight, right_weight in step.responsibilities:
                 self.assertAlmostEqual(left_weight + right_weight, 1.0)
+
+    def test_cartpole_zero_pass_fit_history_records_final_transition_switches(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, 0.1, 0.0],
+            ],
+            actions=[-1.0, -1.0, 1.0, 1.0],
+            mode_labels=[0, 0, 1, 1],
+            reward=4.0,
+            segment_actions=(-1.0, 1.0),
+            segment_durations=(2, 2),
+        )
+        cfg = CartpoleSynthesisConfig(
+            student_em_iters=1,
+            student_switch_responsibility_passes=0,
+        )
+
+        student, fit_history = fit_probabilistic_cartpole_student_with_history([trace], cfg)
+
+        self.assertEqual(
+            [(step.em_iteration, step.responsibility_pass, step.phase) for step in fit_history],
+            [
+                (1, 0, "action_likelihood_initialization"),
+                (1, 0, "switch_condition_m_step"),
+            ],
+        )
+        self.assertFalse(fit_history[0].transition_switches)
+        self.assertEqual(set(fit_history[-1].transition_switches), {(0, 1), (1, 0)})
+        self.assertEqual(fit_history[-1].transition_switches, student.transition_switches)
 
     def test_cartpole_probabilistic_student_projects_to_policy(self):
         cfg = CartpoleSynthesisConfig(
