@@ -316,7 +316,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   selected trace sources plus sampled-trace log probabilities in metrics JSON,
   and selected traces now carry a compact summary of the refreshed top-rho elite
   set used by the bounded refinement objective, including source counts,
-  objective ranges, nearest-elite distances, and kernel terms when a
+  objective ranges, nearest-elite distances, normalized elite probability
+  weights, distance-weighted kernel component weights, and kernel terms when a
   probabilistic student is available. When a sampled
   closed-loop rollout is projected back into the loop-free teacher budget, its student likelihood is
   recomputed on the projected trace before teacher-objective ranking. Teacher scoring also
@@ -713,6 +714,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_elite_kernel_recomputes_elite_probability_for_current_student`
   verifies that top-rho elite normalization also scores executable elite traces against the current
   probabilistic student instead of reusing stale cached likelihoods.
+- `tests/test_cartpole_paper.py::test_cartpole_elite_kernel_uses_probability_weighted_multi_elite_mixture`
+  verifies that the bounded top-rho kernel uses the Section 4.2-style normalized mixture of elite
+  student probabilities times `exp(-distance)`, and that selected-trace diagnostics serialize both
+  the normalized elite probabilities and distance-weighted kernel component weights.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distance_includes_teacher_gains`
   verifies that the elite-distance kernel includes loop-free teacher gains as well as segment
   action, duration, and time-increment schedules.
@@ -749,7 +754,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that local refinement of a distribution-generated candidate preserves the fit diagnostics.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_records_refreshed_elite_summary_for_selected_trace`
   verifies that selected teacher traces can serialize the refreshed top-rho elite count, source
-  counts, objective ranges, and nearest-elite distance used by the bounded refinement objective.
+  counts, objective ranges, nearest-elite distance, and kernel weights used by the bounded refinement
+  objective.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_schedule_weights_are_uniform_without_student`
   verifies that the first teacher round keeps the old uniform fit when no student exists yet.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_resample_count_is_configurable`

@@ -300,7 +300,17 @@
           "teacher_objective": 2222.8702765800845,
           "teacher_refinement_elite_summary": {
             "elite_count": 2,
+            "elite_probability_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
+            "elite_student_log_probabilities": [
+              -77.12972341991554,
+              -77.12972341991554
+            ],
             "kernel_log_normalizer": -76.43657623935559,
+            "nearest_elite_kernel_component_weight": 0.49999999999999906,
+            "nearest_elite_probability_weight": 0.49999999999999906,
             "nearest_elite_reward": 23.0,
             "nearest_elite_source": "bootstrap_student_sample",
             "nearest_elite_teacher_objective": 2222.8702765800845,
@@ -312,6 +322,10 @@
             "selected_distance_to_elite_min": 0.0,
             "selected_distance_to_nearest_elite": 0.0,
             "selected_elite_kernel_log_probability": 0.0,
+            "selected_kernel_component_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
             "source_counts": {
               "bootstrap_elite_distribution_mean": 1,
               "bootstrap_student_sample": 1
@@ -1903,7 +1917,17 @@
           "teacher_objective": 5702.053962273661,
           "teacher_refinement_elite_summary": {
             "elite_count": 2,
+            "elite_probability_weights": [
+              0.8972881296340797,
+              0.10271187036591095
+            ],
+            "elite_student_log_probabilities": [
+              -197.9460377263389,
+              -200.1134870583974
+            ],
             "kernel_log_normalizer": -197.83765947259084,
+            "nearest_elite_kernel_component_weight": 0.9554149838391015,
+            "nearest_elite_probability_weight": 0.8972881296340797,
             "nearest_elite_reward": 59.0,
             "nearest_elite_source": "bootstrap_elite_distribution_mean",
             "nearest_elite_teacher_objective": 5702.053962273661,
@@ -1915,6 +1939,10 @@
             "selected_distance_to_elite_min": 0.0,
             "selected_distance_to_nearest_elite": 0.0,
             "selected_elite_kernel_log_probability": -0.06276875891373379,
+            "selected_kernel_component_weights": [
+              0.9554149838391015,
+              0.04458501616089687
+            ],
             "source_counts": {
               "bootstrap_elite_distribution_mean": 1,
               "bootstrap_student_sample": 1
@@ -2986,7 +3014,17 @@
           "teacher_objective": 3771.834177972197,
           "teacher_refinement_elite_summary": {
             "elite_count": 2,
+            "elite_probability_weights": [
+              0.996887203956269,
+              0.00311279604374052
+            ],
+            "elite_student_log_probabilities": [
+              -128.165822027803,
+              -133.93493828419193
+            ],
             "kernel_log_normalizer": -128.1627043769323,
+            "nearest_elite_kernel_component_weight": 0.9991032143439744,
+            "nearest_elite_probability_weight": 0.996887203956269,
             "nearest_elite_reward": 39.0,
             "nearest_elite_source": "bootstrap_elite_distribution_mean",
             "nearest_elite_teacher_objective": 3771.834177972197,
@@ -2998,6 +3036,10 @@
             "selected_distance_to_elite_min": 0.0,
             "selected_distance_to_nearest_elite": 0.0,
             "selected_elite_kernel_log_probability": -0.0022204628618283095,
+            "selected_kernel_component_weights": [
+              0.9991032143439744,
+              0.0008967856560259616
+            ],
             "source_counts": {
               "bootstrap_elite_distribution_mean": 1,
               "bootstrap_student_sample": 1
@@ -3352,7 +3394,17 @@
           "teacher_objective": 2807.3470043813404,
           "teacher_refinement_elite_summary": {
             "elite_count": 2,
+            "elite_probability_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
+            "elite_student_log_probabilities": [
+              -92.65299561865976,
+              -92.65299561865976
+            ],
             "kernel_log_normalizer": -91.95984843809981,
+            "nearest_elite_kernel_component_weight": 0.49999999999999906,
+            "nearest_elite_probability_weight": 0.49999999999999906,
             "nearest_elite_reward": 29.0,
             "nearest_elite_source": "bootstrap_student_sample",
             "nearest_elite_teacher_objective": 2807.3470043813404,
@@ -3364,6 +3416,10 @@
             "selected_distance_to_elite_min": 0.0,
             "selected_distance_to_nearest_elite": 0.0,
             "selected_elite_kernel_log_probability": 0.0,
+            "selected_kernel_component_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
             "source_counts": {
               "bootstrap_elite_distribution_mean": 1,
               "bootstrap_student_sample": 1
@@ -3724,7 +3780,17 @@
           "teacher_objective": 2845.845758745421,
           "teacher_refinement_elite_summary": {
             "elite_count": 2,
+            "elite_probability_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
+            "elite_student_log_probabilities": [
+              -54.15424125457897,
+              -54.15424125457897
+            ],
             "kernel_log_normalizer": -53.46109407401902,
+            "nearest_elite_kernel_component_weight": 0.49999999999999906,
+            "nearest_elite_probability_weight": 0.49999999999999906,
             "nearest_elite_reward": 29.0,
             "nearest_elite_source": "student_sample",
             "nearest_elite_teacher_objective": 2845.845758745421,
@@ -3736,6 +3802,10 @@
             "selected_distance_to_elite_min": 0.0,
             "selected_distance_to_nearest_elite": 0.0,
             "selected_elite_kernel_log_probability": 0.0,
+            "selected_kernel_component_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
             "source_counts": {
               "student_elite_distribution_mean": 1,
               "student_sample": 1
@@ -4079,7 +4149,17 @@
           "teacher_objective": 2734.621533468218,
           "teacher_refinement_elite_summary": {
             "elite_count": 2,
+            "elite_probability_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
+            "elite_student_log_probabilities": [
+              -65.37846653178197,
+              -65.37846653178197
+            ],
             "kernel_log_normalizer": -64.68531935122202,
+            "nearest_elite_kernel_component_weight": 0.49999999999999906,
+            "nearest_elite_probability_weight": 0.49999999999999906,
             "nearest_elite_reward": 28.0,
             "nearest_elite_source": "student_sample",
             "nearest_elite_teacher_objective": 2734.621533468218,
@@ -4091,6 +4171,10 @@
             "selected_distance_to_elite_min": 0.0,
             "selected_distance_to_nearest_elite": 0.0,
             "selected_elite_kernel_log_probability": 0.0,
+            "selected_kernel_component_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
             "source_counts": {
               "student_elite_distribution_mean": 1,
               "student_sample": 1
@@ -4390,7 +4474,17 @@
           "teacher_objective": 2354.01515263327,
           "teacher_refinement_elite_summary": {
             "elite_count": 2,
+            "elite_probability_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
+            "elite_student_log_probabilities": [
+              -45.98484736673004,
+              -45.98484736673004
+            ],
             "kernel_log_normalizer": -45.29170018617009,
+            "nearest_elite_kernel_component_weight": 0.49999999999999906,
+            "nearest_elite_probability_weight": 0.49999999999999906,
             "nearest_elite_reward": 24.0,
             "nearest_elite_source": "student_sample",
             "nearest_elite_teacher_objective": 2354.01515263327,
@@ -4402,6 +4496,10 @@
             "selected_distance_to_elite_min": 0.0,
             "selected_distance_to_nearest_elite": 0.0,
             "selected_elite_kernel_log_probability": 0.0,
+            "selected_kernel_component_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
             "source_counts": {
               "student_elite_distribution_mean": 1,
               "student_sample": 1
@@ -4690,7 +4788,17 @@
           "teacher_objective": 2257.564670592404,
           "teacher_refinement_elite_summary": {
             "elite_count": 2,
+            "elite_probability_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
+            "elite_student_log_probabilities": [
+              -42.43532940759578,
+              -42.43532940759578
+            ],
             "kernel_log_normalizer": -41.74218222703583,
+            "nearest_elite_kernel_component_weight": 0.49999999999999906,
+            "nearest_elite_probability_weight": 0.49999999999999906,
             "nearest_elite_reward": 23.0,
             "nearest_elite_source": "student_sample",
             "nearest_elite_teacher_objective": 2257.564670592404,
@@ -4702,6 +4810,10 @@
             "selected_distance_to_elite_min": 0.0,
             "selected_distance_to_nearest_elite": 0.0,
             "selected_elite_kernel_log_probability": 0.0,
+            "selected_kernel_component_weights": [
+              0.49999999999999906,
+              0.49999999999999906
+            ],
             "source_counts": {
               "student_elite_distribution_mean": 1,
               "student_sample": 1
@@ -5060,7 +5172,17 @@
       "teacher_objective": 2845.845758745421,
       "teacher_refinement_elite_summary": {
         "elite_count": 2,
+        "elite_probability_weights": [
+          0.49999999999999906,
+          0.49999999999999906
+        ],
+        "elite_student_log_probabilities": [
+          -54.15424125457897,
+          -54.15424125457897
+        ],
         "kernel_log_normalizer": -53.46109407401902,
+        "nearest_elite_kernel_component_weight": 0.49999999999999906,
+        "nearest_elite_probability_weight": 0.49999999999999906,
         "nearest_elite_reward": 29.0,
         "nearest_elite_source": "student_sample",
         "nearest_elite_teacher_objective": 2845.845758745421,
@@ -5072,6 +5194,10 @@
         "selected_distance_to_elite_min": 0.0,
         "selected_distance_to_nearest_elite": 0.0,
         "selected_elite_kernel_log_probability": 0.0,
+        "selected_kernel_component_weights": [
+          0.49999999999999906,
+          0.49999999999999906
+        ],
         "source_counts": {
           "student_elite_distribution_mean": 1,
           "student_sample": 1
@@ -5415,7 +5541,17 @@
       "teacher_objective": 2734.621533468218,
       "teacher_refinement_elite_summary": {
         "elite_count": 2,
+        "elite_probability_weights": [
+          0.49999999999999906,
+          0.49999999999999906
+        ],
+        "elite_student_log_probabilities": [
+          -65.37846653178197,
+          -65.37846653178197
+        ],
         "kernel_log_normalizer": -64.68531935122202,
+        "nearest_elite_kernel_component_weight": 0.49999999999999906,
+        "nearest_elite_probability_weight": 0.49999999999999906,
         "nearest_elite_reward": 28.0,
         "nearest_elite_source": "student_sample",
         "nearest_elite_teacher_objective": 2734.621533468218,
@@ -5427,6 +5563,10 @@
         "selected_distance_to_elite_min": 0.0,
         "selected_distance_to_nearest_elite": 0.0,
         "selected_elite_kernel_log_probability": 0.0,
+        "selected_kernel_component_weights": [
+          0.49999999999999906,
+          0.49999999999999906
+        ],
         "source_counts": {
           "student_elite_distribution_mean": 1,
           "student_sample": 1
@@ -5726,7 +5866,17 @@
       "teacher_objective": 2354.01515263327,
       "teacher_refinement_elite_summary": {
         "elite_count": 2,
+        "elite_probability_weights": [
+          0.49999999999999906,
+          0.49999999999999906
+        ],
+        "elite_student_log_probabilities": [
+          -45.98484736673004,
+          -45.98484736673004
+        ],
         "kernel_log_normalizer": -45.29170018617009,
+        "nearest_elite_kernel_component_weight": 0.49999999999999906,
+        "nearest_elite_probability_weight": 0.49999999999999906,
         "nearest_elite_reward": 24.0,
         "nearest_elite_source": "student_sample",
         "nearest_elite_teacher_objective": 2354.01515263327,
@@ -5738,6 +5888,10 @@
         "selected_distance_to_elite_min": 0.0,
         "selected_distance_to_nearest_elite": 0.0,
         "selected_elite_kernel_log_probability": 0.0,
+        "selected_kernel_component_weights": [
+          0.49999999999999906,
+          0.49999999999999906
+        ],
         "source_counts": {
           "student_elite_distribution_mean": 1,
           "student_sample": 1
@@ -6026,7 +6180,17 @@
       "teacher_objective": 2257.564670592404,
       "teacher_refinement_elite_summary": {
         "elite_count": 2,
+        "elite_probability_weights": [
+          0.49999999999999906,
+          0.49999999999999906
+        ],
+        "elite_student_log_probabilities": [
+          -42.43532940759578,
+          -42.43532940759578
+        ],
         "kernel_log_normalizer": -41.74218222703583,
+        "nearest_elite_kernel_component_weight": 0.49999999999999906,
+        "nearest_elite_probability_weight": 0.49999999999999906,
         "nearest_elite_reward": 23.0,
         "nearest_elite_source": "student_sample",
         "nearest_elite_teacher_objective": 2257.564670592404,
@@ -6038,6 +6202,10 @@
         "selected_distance_to_elite_min": 0.0,
         "selected_distance_to_nearest_elite": 0.0,
         "selected_elite_kernel_log_probability": 0.0,
+        "selected_kernel_component_weights": [
+          0.49999999999999906,
+          0.49999999999999906
+        ],
         "source_counts": {
           "student_elite_distribution_mean": 1,
           "student_sample": 1

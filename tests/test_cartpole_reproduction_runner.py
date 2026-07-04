@@ -562,6 +562,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms",
             )
             self.assertEqual(
+                provenance["teacher_search"]["elite_refinement_kernel_weighting"],
+                "normalized_student_probability_weights_times_exp_negative_loop_free_distance",
+            )
+            self.assertEqual(
                 provenance["teacher_search"]["elite_refinement_elite_set"],
                 "refreshed_top_rho_after_distribution_rounds",
             )
@@ -721,6 +725,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_refinement_selected_trace_diagnostics"],
                 "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms",
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["elite_refinement_kernel_weighting"],
+                "normalized_student_probability_weights_times_exp_negative_loop_free_distance",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_refinement_elite_set"],

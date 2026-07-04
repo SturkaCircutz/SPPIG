@@ -141,7 +141,8 @@ when available, including reward-term, student-regularizer-term, direct-objectiv
 and refinement-objective summaries. It also summarizes, for selected teacher
 traces, the refreshed top-rho elite set used by the bounded refinement objective:
 elite counts, source counts, nearest-elite distances, and kernel log-probability
-terms when a probabilistic student is available.
+terms, including normalized elite probability weights and distance-weighted
+kernel component weights when a probabilistic student is available.
 Pass `--traces-output path/to/traces.json` to write the full selected teacher
 traces and per-iteration teacher-trace history as a sidecar artifact;
 orchestrated reproduction runs write this sidecar for each PSM row automatically.

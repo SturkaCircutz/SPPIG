@@ -245,6 +245,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "elite_refinement_selected_trace_diagnostics": (
                 "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms"
             ),
+            "elite_refinement_kernel_weighting": (
+                "normalized_student_probability_weights_times_exp_negative_loop_free_distance"
+            ),
             "selected_trace_objective_metrics": [
                 "teacher_objective",
                 "teacher_refinement_objective",
@@ -1069,14 +1072,29 @@ def _teacher_refinement_elite_summary(
         "nearest_elite_teacher_objective": elite_objectives[nearest_index],
     }
     if student is not None:
-        elite_log_normalizer = _elite_kernel_log_normalizer(student, refinement_elites)
+        elite_log_probabilities = [
+            _current_student_log_probability(elite, student)
+            for elite in refinement_elites
+        ]
+        elite_log_normalizer = _logsumexp(elite_log_probabilities)
+        kernel_terms = [
+            log_probability - distance
+            for log_probability, distance in zip(elite_log_probabilities, distances)
+        ]
+        kernel_log_normalizer = _logsumexp(kernel_terms)
         summary["kernel_log_normalizer"] = elite_log_normalizer
-        summary["selected_elite_kernel_log_probability"] = _elite_kernel_log_probability(
-            trace,
-            student,
-            refinement_elites,
-            elite_log_normalizer,
-        )
+        summary["elite_student_log_probabilities"] = elite_log_probabilities
+        summary["elite_probability_weights"] = [
+            math.exp(log_probability - elite_log_normalizer)
+            for log_probability in elite_log_probabilities
+        ]
+        summary["selected_kernel_component_weights"] = [
+            math.exp(term - kernel_log_normalizer)
+            for term in kernel_terms
+        ]
+        summary["nearest_elite_probability_weight"] = summary["elite_probability_weights"][nearest_index]
+        summary["nearest_elite_kernel_component_weight"] = summary["selected_kernel_component_weights"][nearest_index]
+        summary["selected_elite_kernel_log_probability"] = kernel_log_normalizer - elite_log_normalizer
     return summary
 
 

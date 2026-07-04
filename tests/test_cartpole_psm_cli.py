@@ -314,6 +314,10 @@ class CartpolePSMCliTest(unittest.TestCase):
             "serialized_on_selected_teacher_traces_with_refreshed_elite_count_sources_objectives_distances_and_kernel_terms",
         )
         self.assertEqual(
+            provenance["teacher_search"]["elite_refinement_kernel_weighting"],
+            "normalized_student_probability_weights_times_exp_negative_loop_free_distance",
+        )
+        self.assertEqual(
             provenance["teacher_search"]["elite_refinement_elite_set"],
             "refreshed_top_rho_after_distribution_rounds",
         )
@@ -382,6 +386,10 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertGreaterEqual(first_elite_summary["elite_count"], 1)
         self.assertIn("source_counts", first_elite_summary)
         self.assertIn("selected_distance_to_nearest_elite", first_elite_summary)
+        self.assertIn("elite_probability_weights", first_elite_summary)
+        self.assertAlmostEqual(sum(first_elite_summary["elite_probability_weights"]), 1.0)
+        self.assertIn("selected_kernel_component_weights", first_elite_summary)
+        self.assertAlmostEqual(sum(first_elite_summary["selected_kernel_component_weights"]), 1.0)
         serialized_distribution_fits = [
             trace.get("elite_distribution_fit")
             for history_entry in trace_artifact["trace_history"]

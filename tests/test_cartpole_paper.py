@@ -77,6 +77,7 @@ from cartpole_synthesis import (
     _elite_kernel_log_probability,
     _teacher_refinement_elite_summary,
     _limit_loop_free_trace_segment_budget,
+    _logsumexp,
     _mode_responsibilities,
     _mode_run_lengths,
     _mode_run_actions,
@@ -2556,6 +2557,72 @@ class CartpolePaperTest(unittest.TestCase):
             _elite_kernel_log_probability(close, student, [elite]),
             _elite_kernel_log_probability(far, student, [elite]),
         )
+
+    def test_cartpole_elite_kernel_uses_probability_weighted_multi_elite_mixture(self):
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.5),
+                1: GaussianScalar(10.0, 0.5),
+            },
+            switch=Depth2Switch(1.0, 0.0, 10.0),
+            switch_threshold_distribution=GaussianScalar(10.0, 0.1),
+            switch_parameter_distributions=[GaussianScalar(10.0, 0.1)],
+            responsibilities=[(0.5, 0.5)],
+        )
+        likely_elite = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ],
+            actions=[-10.0, -10.0],
+            mode_labels=[0, 0],
+            reward=1.0,
+            segment_actions=(-10.0,),
+            segment_durations=(2,),
+        )
+        unlikely_elite = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ],
+            actions=[0.0, 0.0],
+            mode_labels=[0, 0],
+            reward=1.0,
+            segment_actions=(0.0,),
+            segment_durations=(2,),
+        )
+        candidate = CartpoleTrace(
+            observations=[],
+            actions=[],
+            mode_labels=[],
+            reward=1.0,
+            segment_actions=(0.0,),
+            segment_durations=(2,),
+        )
+        elites = [likely_elite, unlikely_elite]
+        log_probabilities = [_trace_log_probability(elite, student) for elite in elites]
+        distances = [_loop_free_trace_distance(candidate, elite) for elite in elites]
+        expected = _logsumexp([
+            log_probability - distance
+            for log_probability, distance in zip(log_probabilities, distances)
+        ]) - _logsumexp(log_probabilities)
+
+        summary = _teacher_refinement_elite_summary(
+            candidate,
+            student,
+            CartpoleSynthesisConfig(),
+            elites,
+        )
+
+        self.assertAlmostEqual(_elite_kernel_log_probability(candidate, student, elites), expected)
+        self.assertIsNotNone(summary)
+        assert summary is not None
+        self.assertEqual(len(summary["elite_probability_weights"]), 2)
+        self.assertAlmostEqual(sum(summary["elite_probability_weights"]), 1.0)
+        self.assertGreater(summary["elite_probability_weights"][0], summary["elite_probability_weights"][1])
+        self.assertEqual(len(summary["selected_kernel_component_weights"]), 2)
+        self.assertAlmostEqual(sum(summary["selected_kernel_component_weights"]), 1.0)
+        self.assertAlmostEqual(summary["selected_elite_kernel_log_probability"], expected)
 
     def test_cartpole_teacher_elite_centroid_recombines_loop_free_schedules(self):
         env = CartpoleEnv.train_env(seed=0)
