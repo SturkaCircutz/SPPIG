@@ -138,6 +138,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "switch_responsibility_passes_are_per_em_iteration": True,
             "mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER,
             "rollout_parameter_resampling": "on_mode_entry",
+            "transition_specific_switches": "separate_fitted_conditions_for_0_to_1_and_1_to_0",
             "initial_mode": INITIAL_CARTPOLE_PSM_MODE,
             "initial_mode_prior": "fixed_mode_0",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
@@ -160,6 +161,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "finite_difference_gradient_epsilon_fraction": SWITCH_PARAMETER_GRADIENT_EPS_FRACTION,
             "finite_difference_gradient_backtracking_factors": list(SWITCH_PARAMETER_GRADIENT_BACKTRACK_FACTORS),
             "structure_rescore_uses_pair_posteriors": True,
+            "transition_specific_m_step": "bounded_separate_0_to_1_and_1_to_0_switch_fits",
         },
         "switch_search": {
             "boolean_tree_depth": 2,
@@ -306,6 +308,7 @@ def cartpole_synthesis_protocol_status(
         "boolean_tree_depth": 2,
         "gaussian_action_parameter_distributions": True,
         "gaussian_switch_parameter_distributions": True,
+        "transition_specific_switch_conditions": True,
         "resamples_parameters_on_mode_entry": True,
         "student_em_iters": cfg.student_em_iters,
         "student_switch_responsibility_passes": cfg.student_switch_responsibility_passes,
@@ -433,6 +436,13 @@ class _SwitchExampleCache:
 
 
 @dataclass(frozen=True)
+class _WeightedSwitchExample:
+    observation: Observation
+    label: int
+    weight: float
+
+
+@dataclass(frozen=True)
 class _SwitchTimingPair:
     observations: Tuple[Observation, ...]
     columns: Tuple[Tuple[float, ...], ...]
@@ -464,12 +474,16 @@ class ProbabilisticCartpoleStudent:
     switch_threshold_distribution: GaussianScalar
     switch_parameter_distributions: List[GaussianScalar]
     responsibilities: List[Tuple[float, float]]
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] | None = None
+    transition_switch_parameter_distributions: Dict[Tuple[int, int], List[GaussianScalar]] | None = None
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None
 
     def to_deterministic_policy(self) -> "SynthesizedCartpolePSM":
         return SynthesizedCartpolePSM(
             self.action_distributions[0].mean,
             self.action_distributions[1].mean,
             _switch_with_distribution_means(self.switch, self.switch_parameter_distributions),
+            transition_switches=_deterministic_transition_switches(self),
         )
 
     def sample_policy(self, rng: random.Random) -> "SynthesizedCartpolePSM":
@@ -477,6 +491,7 @@ class ProbabilisticCartpoleStudent:
             rng.gauss(self.action_distributions[0].mean, self.action_distributions[0].std),
             rng.gauss(self.action_distributions[1].mean, self.action_distributions[1].std),
             _sample_switch(self.switch, self.switch_parameter_distributions, rng),
+            transition_switches=_sample_transition_switches(self, rng),
         )
 
     def sample_segment_resampling_policy(self, rng: random.Random) -> "SampledCartpolePSM":
@@ -494,7 +509,8 @@ class ProbabilisticCartpoleStudent:
             f"H0=N({left.mean:.3f}, {left.std:.3f}); "
             f"H1=N({right.mean:.3f}, {right.std:.3f}); "
             f"threshold=N({threshold.mean:.3f}, {threshold.std:.3f}); "
-            f"G=[{switch_params}]"
+            f"G=[{switch_params}]; "
+            f"directed_transitions={_transition_switch_descriptions(self.transition_switches)}"
         )
 
 
@@ -524,6 +540,12 @@ def cartpole_switch_fit_diagnostics(
     )
     fixed_reference_switch = Depth2Switch(10.0, 1.0, 0.0)
     num_boundaries = _trace_boundary_count(segments_by_trace)
+    transition_switches = student.transition_switches or {}
+    transition_distributions = student.transition_switch_parameter_distributions or {}
+    switch_pair_responsibilities = _student_switch_pair_responsibilities_for_segments(
+        student,
+        segments_by_trace,
+    )
     return {
         "diagnostic_scope": "local_teacher_trace_fit",
         "not_paper_reproduction": True,
@@ -540,6 +562,19 @@ def cartpole_switch_fit_diagnostics(
         "num_segments": len(flat_segments),
         "num_boundaries": num_boundaries,
         "responsibility_segment_count_match": responsibility_segment_count_match,
+        "transition_specific_switch_conditions": bool(transition_switches),
+        "transition_specific_switches": {
+            f"{source}->{target}": _transition_switch_fit_summary(
+                switch,
+                transition_distributions.get((source, target), []),
+                examples,
+                segments_by_trace,
+                responsibilities,
+                switch_pair_responsibilities,
+                (source, target),
+            )
+            for (source, target), switch in sorted(transition_switches.items())
+        },
         "candidates": {
             "selected_student_switch": _switch_fit_summary(
                 selected_switch,
@@ -555,6 +590,82 @@ def cartpole_switch_fit_diagnostics(
             ),
         },
     }
+
+
+def _transition_switch_fit_summary(
+    switch: SwitchProgram,
+    distributions: List[GaussianScalar],
+    examples: List[Tuple[Observation, int]],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None,
+    transition: Tuple[int, int],
+) -> Dict[str, object]:
+    directed_pairs = _directed_switch_pair_responsibilities(
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+        transition,
+    )
+    directed_responsibilities = _directed_switch_responsibilities(
+        segments_by_trace,
+        responsibilities,
+        transition,
+    )
+    weighted_examples = _directed_transition_examples(
+        segments_by_trace,
+        directed_responsibilities,
+        directed_pairs,
+        transition,
+    )
+    refined_switch = _switch_with_distribution_means(switch, distributions)
+    label_loss = _weighted_switch_label_loss(refined_switch, weighted_examples)
+    timing_loss = _switch_distribution_timing_loss(
+        refined_switch,
+        distributions,
+        segments_by_trace,
+        directed_responsibilities,
+        switch_pair_responsibilities=directed_pairs,
+    )
+    transition_mass = sum(pair[1] for pair in directed_pairs)
+    stay_mass = sum(pair[0] for pair in directed_pairs)
+    complexity = refined_switch.node_count if isinstance(refined_switch, BooleanTreeSwitch) else 1
+    description = _directed_transition_description(transition[0], transition[1], refined_switch)
+    return {
+        "description": description,
+        "switch_condition": _switch_condition_description(refined_switch),
+        "transition": f"{transition[0]}->{transition[1]}",
+        "source_mode": transition[0],
+        "target_mode": transition[1],
+        "parameter_distributions": [
+            {
+                "mean": distribution.mean,
+                "std": distribution.std,
+            }
+            for distribution in distributions
+        ],
+        "transition_mass": transition_mass,
+        "stay_mass": stay_mass,
+        "directed_weighted_label_loss": label_loss,
+        "responsibility_weighted_label_loss": label_loss,
+        "bounded_eq12_style_distribution_loss": timing_loss,
+        "program_complexity": complexity,
+        "objective_tuple": [label_loss, timing_loss, complexity, description],
+        "boundary_alignment": _switch_boundary_alignment(refined_switch, segments_by_trace),
+    }
+
+
+def _student_switch_pair_responsibilities_for_segments(
+    student: ProbabilisticCartpoleStudent,
+    segments_by_trace: List[List[CartpoleSegment]],
+) -> List[Tuple[float, float, float, float]] | None:
+    pair_responsibilities = student.switch_pair_responsibilities
+    if pair_responsibilities is None:
+        return None
+    pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
+    if len(pair_responsibilities) != pair_count:
+        return None
+    return pair_responsibilities
 
 
 def _switch_fit_summary(
@@ -670,10 +781,17 @@ def _switch_boundary_alignment(
 class SynthesizedCartpolePSM:
     """Two-mode constant-action Cartpole policy synthesized from traces."""
 
-    def __init__(self, left_force: float, right_force: float, switch: SwitchProgram) -> None:
+    def __init__(
+        self,
+        left_force: float,
+        right_force: float,
+        switch: SwitchProgram,
+        transition_switches: Dict[Tuple[int, int], SwitchProgram] | None = None,
+    ) -> None:
         self.left_force = left_force
         self.right_force = right_force
         self.switch = switch
+        self.transition_switches = dict(transition_switches or {})
         self.mode = 0
 
     def reset(self) -> None:
@@ -682,13 +800,14 @@ class SynthesizedCartpolePSM:
     def act(self, observation: Observation) -> float:
         current_mode = self.mode
         action = self.right_force if current_mode == 1 else self.left_force
-        self.mode = self.switch.decide(observation)
+        self.mode = _next_cartpole_mode(current_mode, observation, self.switch, self.transition_switches)
         return action
 
     def describe(self) -> str:
+        transitions = _transition_switch_descriptions(self.transition_switches)
         return (
             f"m0 action={self.left_force:.3f}; m1 action={self.right_force:.3f}; "
-            f"{self.switch.describe()}"
+            f"{self.switch.describe()}; directed_transitions={transitions}"
         )
 
 
@@ -702,6 +821,7 @@ class SampledCartpolePSM:
         self.left_force = 0.0
         self.right_force = 0.0
         self.switch: SwitchProgram = student.switch
+        self.transition_switches: Dict[Tuple[int, int], SwitchProgram] = {}
 
     def reset(self) -> None:
         self.mode = 0
@@ -710,7 +830,7 @@ class SampledCartpolePSM:
     def act(self, observation: Observation) -> float:
         current_mode = self.mode
         action = self.right_force if current_mode == 1 else self.left_force
-        next_mode = self.switch.decide(observation)
+        next_mode = _next_cartpole_mode(current_mode, observation, self.switch, self.transition_switches)
         if next_mode != self.mode:
             self.mode = next_mode
             self._resample_segment_parameters(self.mode)
@@ -726,6 +846,7 @@ class SampledCartpolePSM:
             self.student.switch_parameter_distributions,
             self.rng,
         )
+        self.transition_switches = _sample_transition_switches(self.student, self.rng)
 
     def _sample_action(self, mode: int) -> float:
         distribution = self.student.action_distributions[mode]
@@ -894,6 +1015,14 @@ def fit_probabilistic_cartpole_student_with_history(
             responsibilities,
             switch_pair_responsibilities or None,
         )
+    transition_switches, transition_switch_parameter_distributions = _fit_transition_switches(
+        traces,
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities or None,
+        switch,
+        switch_parameter_distributions,
+    )
 
     threshold_distribution = (
         switch_parameter_distributions[0]
@@ -906,6 +1035,9 @@ def fit_probabilistic_cartpole_student_with_history(
         threshold_distribution,
         switch_parameter_distributions,
         responsibilities,
+        transition_switches,
+        transition_switch_parameter_distributions,
+        list(switch_pair_responsibilities),
     )
     return student, fit_history
 
@@ -930,6 +1062,81 @@ def _student_fit_step(
         switch=switch,
         switch_parameter_distributions=list(switch_parameter_distributions),
     )
+
+
+def _next_cartpole_mode(
+    current_mode: int,
+    observation: Observation,
+    selector_switch: SwitchProgram,
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] | None = None,
+) -> int:
+    if transition_switches:
+        transition = (current_mode, 1 - current_mode)
+        switch = transition_switches.get(transition)
+        if switch is not None and switch.decide(observation) == 1:
+            return 1 - current_mode
+        return current_mode
+    return selector_switch.decide(observation)
+
+
+def _deterministic_transition_switches(
+    student: ProbabilisticCartpoleStudent,
+) -> Dict[Tuple[int, int], SwitchProgram]:
+    if not student.transition_switches:
+        return {}
+    distributions_by_transition = student.transition_switch_parameter_distributions or {}
+    return {
+        transition: _switch_with_distribution_means(
+            switch,
+            distributions_by_transition.get(transition, []),
+        )
+        for transition, switch in student.transition_switches.items()
+    }
+
+
+def _sample_transition_switches(
+    student: ProbabilisticCartpoleStudent,
+    rng: random.Random,
+) -> Dict[Tuple[int, int], SwitchProgram]:
+    if not student.transition_switches:
+        return {}
+    distributions_by_transition = student.transition_switch_parameter_distributions or {}
+    return {
+        transition: _sample_switch(
+            switch,
+            distributions_by_transition.get(transition, []),
+            rng,
+        )
+        for transition, switch in student.transition_switches.items()
+    }
+
+
+def _transition_switch_descriptions(
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] | None,
+) -> Dict[str, str]:
+    if not transition_switches:
+        return {}
+    return {
+        f"{source}->{target}": _directed_transition_description(source, target, switch)
+        for (source, target), switch in sorted(transition_switches.items())
+    }
+
+
+def _directed_transition_description(source: int, target: int, switch: SwitchProgram) -> str:
+    return f"fire {source}->{target} if {_switch_condition_description(switch)}"
+
+
+def _switch_condition_description(switch: SwitchProgram) -> str:
+    if isinstance(switch, Depth2Switch):
+        return (
+            f"{switch.theta_weight:.3f}*theta + {switch.omega_weight:.3f}*omega "
+            f">= {switch.threshold:.3f}"
+        )
+    if isinstance(switch, BooleanTreeSwitch):
+        if switch.second is None:
+            return switch.first.describe()
+        return f"{switch.first.describe()} {switch.operator} {switch.second.describe()}"
+    return switch.describe()
 
 
 def _action_likelihood_responsibilities(
@@ -3096,6 +3303,301 @@ def _fit_student_switch(
         switch_pair_responsibilities,
     )
     return _switch_with_distribution_means(switch, distributions), distributions
+
+
+def _fit_transition_switches(
+    traces: List[CartpoleTrace],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None,
+    fallback_switch: SwitchProgram,
+    fallback_distributions: List[GaussianScalar],
+) -> Tuple[Dict[Tuple[int, int], SwitchProgram], Dict[Tuple[int, int], List[GaussianScalar]]]:
+    pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
+    if pair_count == 0:
+        return {}, {}
+
+    transitions: Dict[Tuple[int, int], SwitchProgram] = {}
+    distributions: Dict[Tuple[int, int], List[GaussianScalar]] = {}
+    for transition in ((0, 1), (1, 0)):
+        directed_pairs = _directed_switch_pair_responsibilities(
+            segments_by_trace,
+            responsibilities,
+            switch_pair_responsibilities,
+            transition,
+        )
+        switch, switch_distributions = _fit_directed_transition_switch(
+            segments_by_trace,
+            responsibilities,
+            directed_pairs,
+            transition,
+            fallback_switch,
+        )
+        transitions[transition] = switch
+        distributions[transition] = switch_distributions
+    return transitions, distributions
+
+
+def _fit_directed_transition_switch(
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    directed_pair_responsibilities: List[Tuple[float, float, float, float]],
+    transition: Tuple[int, int],
+    fallback_switch: SwitchProgram,
+) -> Tuple[SwitchProgram, List[GaussianScalar]]:
+    directed_responsibilities = _directed_switch_responsibilities(
+        segments_by_trace,
+        responsibilities,
+        transition,
+    )
+    weighted_examples = _directed_transition_examples(
+        segments_by_trace,
+        directed_responsibilities,
+        directed_pair_responsibilities,
+        transition,
+    )
+    examples = [
+        (example.observation, example.label)
+        for example in weighted_examples
+        if example.weight > 0.0
+    ]
+    labels = {example.label for example in weighted_examples if example.weight > 0.0}
+    if not weighted_examples or labels == {0}:
+        return _constant_directed_switch(weighted_examples, fire=False)
+    if labels == {1}:
+        return _constant_directed_switch(weighted_examples, fire=True)
+    switch = _learn_switch_from_examples(
+        weighted_examples,
+    )
+    distributions = _fit_switch_parameter_distributions(
+        switch,
+        segments_by_trace,
+        directed_responsibilities,
+        directed_pair_responsibilities,
+    )
+    refined_switch = _switch_with_distribution_means(switch, distributions)
+    if _weighted_switch_label_loss(refined_switch, weighted_examples) > _weighted_switch_label_loss(switch, weighted_examples):
+        distributions = _distributions_with_switch_means(switch, distributions)
+        refined_switch = _switch_with_distribution_means(switch, distributions)
+    return refined_switch, distributions
+
+
+def _constant_directed_switch(
+    examples: List[_WeightedSwitchExample],
+    fire: bool,
+) -> Tuple[SwitchProgram, List[GaussianScalar]]:
+    scores = [example.observation[2] for example in examples if example.weight > 0.0]
+    if fire:
+        threshold = (min(scores) - 1.0) if scores else -1e9
+    else:
+        threshold = (max(scores) + 1.0) if scores else 1e9
+    switch = Depth2Switch(1.0, 0.0, threshold)
+    return switch, [GaussianScalar(threshold, MIN_GAUSSIAN_STD)]
+
+
+def _directed_switch_responsibilities(
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    transition: Tuple[int, int],
+) -> List[Tuple[float, float]]:
+    source_mode = transition[0]
+    directed: List[Tuple[float, float]] = []
+    flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
+    if len(flat_segments) != len(responsibilities):
+        raise ValueError("responsibility count must match directed switch segments")
+    for responsibility in responsibilities:
+        directed.append((responsibility[source_mode], 0.0))
+    return directed
+
+
+def _directed_transition_examples(
+    segments_by_trace: List[List[CartpoleSegment]],
+    directed_responsibilities: List[Tuple[float, float]],
+    directed_pair_responsibilities: List[Tuple[float, float, float, float]],
+    transition: Tuple[int, int],
+) -> List[_WeightedSwitchExample]:
+    examples: List[_WeightedSwitchExample] = []
+    pair_index = 0
+    segment_index = 0
+    for trace_segments in segments_by_trace:
+        for index, segment in enumerate(trace_segments):
+            source_weight = (
+                directed_responsibilities[segment_index][0]
+                if segment_index < len(directed_responsibilities)
+                else 0.0
+            )
+            segment_index += 1
+            interior = segment.observations[:-1] if index + 1 < len(trace_segments) else segment.observations
+            if source_weight > 0.0 and interior:
+                examples.extend(
+                    _WeightedSwitchExample(observation, 0, source_weight)
+                    for observation in interior
+                )
+            if index + 1 >= len(trace_segments):
+                continue
+            transition_weight = directed_pair_responsibilities[pair_index][1]
+            no_transition_weight = max(source_weight - transition_weight, 0.0)
+            pair_index += 1
+            if transition_weight > 0.0:
+                examples.append(_WeightedSwitchExample(segment.end_observation, 1, transition_weight))
+            if no_transition_weight > 0.0:
+                examples.append(_WeightedSwitchExample(segment.end_observation, 0, no_transition_weight))
+    return examples
+
+
+def _learn_switch_from_examples(
+    weighted_examples: List[_WeightedSwitchExample],
+) -> SwitchProgram:
+    examples = [
+        (example.observation, example.label)
+        for example in weighted_examples
+        if example.weight > 0.0
+    ]
+    if not examples:
+        return Depth2Switch(1.0, 0.0, 0.0)
+
+    example_cache = _switch_example_cache(examples)
+    boolean_switches = _directed_boolean_tree_candidates(weighted_examples, example_cache)
+    candidates_with_mistakes: List[Tuple[SwitchProgram, int]] = [
+        *_depth2_switch_candidates_with_mistakes(example_cache),
+        *[
+            (switch, _switch_label_mistakes(switch, examples, example_cache))
+            for switch in boolean_switches
+        ],
+    ]
+    candidate_switches = _prefilter_switches_by_weighted_label_loss(
+        [switch for switch, _ in candidates_with_mistakes],
+        weighted_examples,
+    )
+
+    return min(
+        candidate_switches,
+        key=lambda switch: _directed_switch_structure_cost(switch, weighted_examples, examples, example_cache),
+    )
+
+
+def _prefilter_switches_by_weighted_label_loss(
+    switches: List[SwitchProgram],
+    weighted_examples: List[_WeightedSwitchExample],
+) -> List[SwitchProgram]:
+    ranked = sorted(
+        switches,
+        key=lambda switch: (
+            _weighted_switch_label_loss(switch, weighted_examples),
+            switch.node_count if isinstance(switch, BooleanTreeSwitch) else 1,
+            switch.describe(),
+        ),
+    )
+    return ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]
+
+
+def _directed_boolean_tree_candidates(
+    weighted_examples: List[_WeightedSwitchExample],
+    example_cache: _SwitchExampleCache,
+) -> List[BooleanTreeSwitch]:
+    examples = [
+        (example.observation, example.label)
+        for example in weighted_examples
+        if example.weight > 0.0
+    ]
+    stumps = [BooleanTreeSwitch(predicate) for predicate in _predicate_candidates(examples)]
+    if not stumps:
+        return []
+    best = min(stumps, key=lambda switch: _weighted_switch_label_loss(switch, weighted_examples))
+    best_loss = _weighted_switch_label_loss(best, weighted_examples)
+    seed_stumps = [
+        stump
+        for stump in stumps
+        if _weighted_switch_label_loss(stump, weighted_examples) == best_loss
+    ]
+    expansions: List[BooleanTreeSwitch] = []
+    for stump in seed_stumps:
+        conjunction_examples = [
+            (observation, label)
+            for observation, label in examples
+            if stump.decide(observation) == 1
+        ]
+        disjunction_examples = [
+            (observation, label)
+            for observation, label in examples
+            if stump.decide(observation) == 0
+        ]
+        expansions.extend(
+            BooleanTreeSwitch(stump.first, predicate)
+            for predicate in _predicate_candidates(conjunction_examples)
+        )
+        expansions.extend(
+            BooleanTreeSwitch(stump.first, predicate, "or")
+            for predicate in _predicate_candidates(disjunction_examples)
+        )
+    if not expansions:
+        return [best]
+    return [
+        best,
+        *_prefilter_switches_by_weighted_label_loss(expansions, weighted_examples),
+    ]
+
+
+def _directed_switch_structure_cost(
+    switch: SwitchProgram,
+    weighted_examples: List[_WeightedSwitchExample],
+    examples: List[Tuple[Observation, int]],
+    example_cache: _SwitchExampleCache,
+) -> Tuple[float, float, int, str]:
+    label_loss = _weighted_switch_label_loss(switch, weighted_examples)
+    complexity = switch.node_count if isinstance(switch, BooleanTreeSwitch) else 1
+    return label_loss, float(_switch_label_mistakes(switch, examples, example_cache)), complexity, switch.describe()
+
+
+def _weighted_switch_label_loss(
+    switch: SwitchProgram,
+    examples: List[_WeightedSwitchExample],
+) -> float:
+    return sum(
+        example.weight
+        for example in examples
+        if example.weight > 0.0 and switch.decide(example.observation) != example.label
+    )
+
+
+def _directed_switch_pair_responsibilities(
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None,
+    transition: Tuple[int, int],
+) -> List[Tuple[float, float, float, float]]:
+    flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
+    if len(flat_segments) != len(responsibilities):
+        raise ValueError("responsibility count must match directed switch timing segments")
+    pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
+    if switch_pair_responsibilities is not None and len(switch_pair_responsibilities) != pair_count:
+        raise ValueError("switch pair responsibility count must match adjacent segment pairs")
+    responsibility_by_id = {
+        id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
+    }
+    directed: List[Tuple[float, float, float, float]] = []
+    pair_index = 0
+    for trace_segments in segments_by_trace:
+        for current_segment, next_segment in zip(trace_segments, trace_segments[1:]):
+            if switch_pair_responsibilities is not None:
+                stay_off_weight, off_to_on_weight, on_to_off_weight, stay_on_weight = switch_pair_responsibilities[
+                    pair_index
+                ]
+            else:
+                current_resp = responsibility_by_id.get(id(current_segment), (0.5, 0.5))
+                next_resp = responsibility_by_id.get(id(next_segment), (0.5, 0.5))
+                stay_off_weight = current_resp[0] * next_resp[0]
+                off_to_on_weight = current_resp[0] * next_resp[1]
+                on_to_off_weight = current_resp[1] * next_resp[0]
+                stay_on_weight = current_resp[1] * next_resp[1]
+            pair_index += 1
+            if transition == (0, 1):
+                directed.append((stay_off_weight, off_to_on_weight, 0.0, 0.0))
+            elif transition == (1, 0):
+                directed.append((stay_on_weight, on_to_off_weight, 0.0, 0.0))
+            else:
+                raise ValueError(f"unsupported CartPole transition: {transition}")
+    return directed
 
 
 def _refine_responsibilities_with_switch_timing(

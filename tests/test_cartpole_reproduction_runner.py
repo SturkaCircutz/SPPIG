@@ -318,6 +318,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(psm_status["reward_spec"]["reward_equals_survived_steps"])
             self.assertEqual(psm_status["space_spec"]["action_dimension"], 1)
             self.assertEqual(psm_status["space_spec"]["initial_state_distribution"]["high"], 0.05)
+            self.assertTrue(psm_status["transition_specific_switch_conditions"])
             self.assertTrue(psm_status["synthesized_by_current_algorithm"])
             self.assertFalse(psm_status["full_probabilistic_adaptive_teaching"])
             self.assertFalse(psm_status["full_continuous_switch_m_step"])
@@ -446,6 +447,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertTrue(provenance["probabilistic_student"]["switch_responsibility_passes_are_per_em_iteration"])
             self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
+            self.assertEqual(
+                provenance["probabilistic_student"]["transition_specific_switches"],
+                "separate_fitted_conditions_for_0_to_1_and_1_to_0",
+            )
             self.assertEqual(provenance["probabilistic_student"]["initial_mode"], 0)
             self.assertEqual(provenance["probabilistic_student"]["initial_mode_prior"], "fixed_mode_0")
             self.assertEqual(provenance["switch_timing"]["std_steps"], 2.0)
@@ -463,6 +468,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 math.log(2.0),
             )
             self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_refinement_steps"], 2)
+            self.assertEqual(
+                provenance["switch_timing"]["transition_specific_m_step"],
+                "bounded_separate_0_to_1_and_1_to_0_switch_fits",
+            )
             self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_mean_step_fraction"], 0.5)
             self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_log_std_step"], 0.25)
             self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_epsilon_fraction"], 0.25)
@@ -619,6 +628,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 row_provenance["probabilistic_student"]["rollout_parameter_resampling"],
                 "on_mode_entry",
             )
+            self.assertEqual(
+                row_provenance["probabilistic_student"]["transition_specific_switches"],
+                "separate_fitted_conditions_for_0_to_1_and_1_to_0",
+            )
             self.assertEqual(row_provenance["probabilistic_student"]["initial_mode"], 0)
             self.assertEqual(row_provenance["probabilistic_student"]["initial_mode_prior"], "fixed_mode_0")
             self.assertEqual(row_provenance["probabilistic_student"]["min_gaussian_std"], 1e-3)
@@ -631,6 +644,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "shared_threshold_rectangle_union",
             )
             self.assertEqual(row_provenance["switch_timing"]["coordinate_refinement_steps"], 3)
+            self.assertEqual(
+                row_provenance["switch_timing"]["transition_specific_m_step"],
+                "bounded_separate_0_to_1_and_1_to_0_switch_fits",
+            )
             self.assertEqual(row_provenance["switch_timing"]["coordinate_step_decay"], 0.5)
             self.assertEqual(row_provenance["switch_timing"]["finite_difference_gradient_refinement_steps"], 2)
             self.assertEqual(row_provenance["switch_timing"]["finite_difference_gradient_mean_step_fraction"], 0.5)

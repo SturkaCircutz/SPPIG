@@ -191,6 +191,14 @@ class CartpolePSMCliTest(unittest.TestCase):
             [1.0, 0.5, 0.25, 0.125],
         )
         self.assertTrue(provenance["switch_timing"]["structure_rescore_uses_pair_posteriors"])
+        self.assertEqual(
+            provenance["probabilistic_student"]["transition_specific_switches"],
+            "separate_fitted_conditions_for_0_to_1_and_1_to_0",
+        )
+        self.assertEqual(
+            provenance["switch_timing"]["transition_specific_m_step"],
+            "bounded_separate_0_to_1_and_1_to_0_switch_fits",
+        )
         self.assertEqual(provenance["switch_search"]["boolean_tree_depth"], 2)
         self.assertTrue(provenance["switch_search"]["greedy_second_predicate_expands_switch_and_no_switch_leaves"])
         self.assertEqual(provenance["switch_search"]["greedy_second_predicate_prefilter_top_k"], 32)
@@ -500,6 +508,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertTrue(status["uses_paper_reward_scale"])
         self.assertTrue(status["gaussian_action_parameter_distributions"])
         self.assertTrue(status["gaussian_switch_parameter_distributions"])
+        self.assertTrue(status["transition_specific_switch_conditions"])
         self.assertTrue(status["resamples_parameters_on_mode_entry"])
         self.assertEqual(status["student_em_iters"], 2)
         self.assertEqual(status["student_switch_responsibility_passes"], 2)
@@ -590,6 +599,18 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("probabilistic_student", metrics)
         self.assertIn("action_distributions", metrics["probabilistic_student"])
         self.assertIn("switch_parameter_distributions", metrics["probabilistic_student"])
+        self.assertIn("transition_switches", metrics["probabilistic_student"])
+        self.assertIn("0->1", metrics["probabilistic_student"]["transition_switches"])
+        self.assertIn("1->0", metrics["probabilistic_student"]["transition_switches"])
+        self.assertIn("transition_switch_parameter_distributions", metrics["probabilistic_student"])
+        self.assertIn("switch_pair_responsibility_summary", metrics["probabilistic_student"])
+        final_pair_summary = metrics["synthesis_history"][-1]["student_fit_history"][-1][
+            "switch_pair_responsibility_summary"
+        ]
+        self.assertEqual(
+            metrics["probabilistic_student"]["switch_pair_responsibility_summary"],
+            final_pair_summary,
+        )
         self.assertGreaterEqual(metrics["probabilistic_student"]["responsibility_summary"]["segments"], 1)
         responsibility_summary = metrics["probabilistic_student"]["responsibility_summary"]
         self.assertIn("hard_mode_0_count", responsibility_summary)
@@ -611,6 +632,21 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(diagnostics["distribution_rescore_top_k"], 32)
         self.assertEqual(diagnostics["prefilter_objective_order"][1], "eq12_style_timing_loss")
         self.assertTrue(diagnostics["responsibility_segment_count_match"])
+        self.assertTrue(diagnostics["transition_specific_switch_conditions"])
+        self.assertIn("0->1", diagnostics["transition_specific_switches"])
+        self.assertIn("1->0", diagnostics["transition_specific_switches"])
+        self.assertIn(
+            "bounded_eq12_style_distribution_loss",
+            diagnostics["transition_specific_switches"]["0->1"],
+        )
+        self.assertIn(
+            "directed_weighted_label_loss",
+            diagnostics["transition_specific_switches"]["0->1"],
+        )
+        self.assertEqual(
+            diagnostics["transition_specific_switches"]["0->1"]["objective_tuple"][0],
+            diagnostics["transition_specific_switches"]["0->1"]["directed_weighted_label_loss"],
+        )
         self.assertEqual(diagnostics["num_trace_steps"], diagnostics["example_count"])
         self.assertEqual(diagnostics["num_segments"], diagnostics["segment_count"])
         self.assertEqual(diagnostics["segment_count"], metrics["probabilistic_student"]["responsibility_summary"]["segments"])

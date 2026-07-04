@@ -149,9 +149,13 @@ orchestrated reproduction runs write this sidecar for each PSM row automatically
 It also records `switch_fit_diagnostics`, which compares the selected switch's
 responsibility-weighted label loss and bounded Eq. (12)-style distribution
 timing loss against a fixed local reference switch, while also retaining hard
-trace-label mistakes and the older deterministic timing comparator. That block
-is intended to explain current synthesis failures; it is not a paper-scale
-result claim.
+trace-label mistakes and the older deterministic timing comparator. The fitted
+probabilistic student also records separate bounded `0->1` and `1->0`
+transition switch conditions and their Gaussian parameter distributions; these
+are executed by the deterministic and sampled PSM projections, while the legacy
+selector switch is retained as a fallback/provenance comparator. That block is
+intended to explain current synthesis failures; it is not a paper-scale result
+claim.
 The CLI exposes the current teacher gain, teacher/student iteration, reward
 scale, regularization, top-rho, and local-refinement settings, and the metrics
 JSON records their exact values under `config`.
@@ -217,15 +221,17 @@ EM iteration alternates bounded forward-backward refinements using the learned
 switch-timing likelihood with action-distribution and switch-parameter refits.
 The first segment of each trace is fixed to mode `0` in these responsibility
 updates, rather than using a uniform latent initial-mode prior.
-That timing likelihood now treats selector-off to
-selector-on and selector-on to selector-off transitions as separate directed
-events, and it treats loop-free segment durations as elapsed time normalized to
-the CartPole simulator step, so per-segment time increments influence the
-bounded Eq. (12)-style timing terms. The final observed segment contributes
-no-transition-before-duration evidence, so a trace that stays in a mode is not
-scored only by its action likelihood. Switch refits consume adjacent pair
-posteriors from this forward-backward pass for transition/stay weights instead
-of reconstructing them only from independent neighboring segment marginals.
+That timing likelihood now treats selector-off to selector-on and selector-on to
+selector-off transitions as separate directed events, then fits separate bounded
+transition conditions for `0->1` and `1->0` before projecting the student back to
+an executable PSM. It treats loop-free segment durations as elapsed time
+normalized to the CartPole simulator step, so per-segment time increments
+influence the bounded Eq. (12)-style timing terms. The final observed segment
+contributes no-transition-before-duration evidence, so a trace that stays in a
+mode is not scored only by its action likelihood. Switch refits consume adjacent
+pair posteriors from this forward-backward pass for transition/stay weights
+instead of reconstructing them only from independent neighboring segment
+marginals.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer
 plus bounded coordinate steps and finite-difference gradient polishing with backtracking. Depth-2 Boolean-tree

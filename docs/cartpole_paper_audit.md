@@ -344,9 +344,12 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   potentials and bounded switch timing loss use directed 0-to-1 and 1-to-0 selector events plus
   final-segment stay evidence, and the switch M-step now consumes adjacent pair posteriors from the
   same forward-backward pass rather than reconstructing transition weights only from independent
-  segment marginals. This moves Eq. (10) and Eq. (12) closer to the paper by using both `H` and `G`
-  evidence throughout the bounded EM loop, but it remains a local bounded approximation rather than
-  the paper's full EM/M-step optimizer.
+  segment marginals. The final fitted student also carries separate bounded transition conditions for
+  `0->1` and `1->0`, and deterministic/sampled PSM projections execute those ordered-transition
+  switches instead of using one selector complement when they are available. This moves Eq. (10) and
+  Eq. (12) closer to the paper by using both `H` and ordered-transition `G` evidence throughout the
+  bounded EM loop, but it remains a local bounded approximation rather than the paper's full
+  continuous EM/M-step optimizer.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
   corresponding constant-action sequence, duration-only refinement preserves that action sequence
@@ -607,6 +610,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verify that the bounded E-step exposes adjacent switch-pair posteriors and that switch timing
   losses use those joint transition/stay weights instead of reducing them to independent products of
   neighboring segment marginals.
+- `tests/test_cartpole_paper.py::test_cartpole_fits_transition_specific_switches`,
+  `tests/test_cartpole_paper.py::test_cartpole_deterministic_psm_uses_transition_specific_switches`,
+  and `tests/test_cartpole_paper.py::test_cartpole_probabilistic_rollout_samples_transition_specific_switches`
+  verify that the bounded student fit can produce separate `0->1` and `1->0` transition conditions and
+  that deterministic/sampled policy projections execute those ordered-transition switches.
 - `tests/test_cartpole_paper.py::test_cartpole_student_fit_history_records_inner_em_steps`
   verifies that the fitted Cartpole student can expose a compact per-EM/pass training history whose
   final row matches the returned probabilistic student, including switch-pair posterior provenance

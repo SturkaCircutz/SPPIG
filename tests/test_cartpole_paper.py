@@ -71,6 +71,7 @@ from cartpole_synthesis import (
     _elite_schedule_weights,
     _fit_elite_schedule_distribution,
     _fit_student_switch,
+    _fit_transition_switches,
     _elite_loop_free_schedules,
     _refresh_teacher_elites_with_distribution,
     _duration_gradient_refinement_candidate,
@@ -116,6 +117,8 @@ from cartpole_synthesis import (
     _top_teacher_elites,
     _switch_timing_loss,
     _switch_timing_pairs,
+    _next_cartpole_mode,
+    _transition_switch_descriptions,
     _teacher_objective,
     _teacher_refinement_objective,
     _trace_log_probability,
@@ -1532,6 +1535,167 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(learn.call_args.args[3], pair_posteriors)
 
+    def test_cartpole_fits_transition_specific_switches(self):
+        off_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        on_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, 0.1, 0.0],
+                [0.0, 0.0, -0.25, 0.0],
+            ],
+            action_parameter=10.0,
+            duration=3,
+            hard_mode=1,
+        )
+        final_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.25, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        segments_by_trace = [[off_segment, on_segment, final_segment]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0), (1.0, 0.0)]
+        pair_posteriors = [
+            (0.0, 1.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0, 0.0),
+        ]
+        trace = CartpoleTrace(
+            observations=off_segment.observations + on_segment.observations + final_segment.observations,
+            actions=[-10.0, -10.0, -10.0, 10.0, 10.0, 10.0, -10.0],
+            mode_labels=[0, 0, 0, 1, 1, 1, 0],
+            reward=7.0,
+        )
+
+        transition_switches, transition_distributions = _fit_transition_switches(
+            [trace],
+            segments_by_trace,
+            responsibilities,
+            pair_posteriors,
+            Depth2Switch(1.0, 0.0, 0.0),
+            [GaussianScalar(0.0, 1.0)],
+        )
+
+        self.assertEqual(set(transition_switches), {(0, 1), (1, 0)})
+        self.assertNotEqual(
+            transition_switches[(0, 1)].describe(),
+            transition_switches[(1, 0)].describe(),
+        )
+        self.assertTrue(transition_distributions[(0, 1)])
+        self.assertTrue(transition_distributions[(1, 0)])
+        self.assertEqual(
+            _next_cartpole_mode(
+                0,
+                [0.0, 0.0, 0.35, 0.0],
+                Depth2Switch(1.0, 0.0, 99.0),
+                transition_switches,
+            ),
+            1,
+        )
+        self.assertEqual(
+            _next_cartpole_mode(
+                1,
+                [0.0, 0.0, -0.25, 0.0],
+                Depth2Switch(1.0, 0.0, 99.0),
+                transition_switches,
+            ),
+            0,
+        )
+
+    def test_cartpole_transition_specific_switches_respect_soft_pair_weights(self):
+        off_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=3,
+            hard_mode=0,
+        )
+        on_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, 0.1, 0.0],
+                [0.0, 0.0, -0.25, 0.0],
+            ],
+            action_parameter=10.0,
+            duration=3,
+            hard_mode=1,
+        )
+        final_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.25, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        segments_by_trace = [[off_segment, on_segment, final_segment]]
+        responsibilities = [(0.99, 0.01), (0.01, 0.99), (0.99, 0.01)]
+        pair_posteriors = [
+            (0.0, 0.99, 0.01, 0.0),
+            (0.0, 0.01, 0.99, 0.0),
+        ]
+        trace = CartpoleTrace(
+            observations=off_segment.observations + on_segment.observations + final_segment.observations,
+            actions=[-10.0, -10.0, -10.0, 10.0, 10.0, 10.0, -10.0],
+            mode_labels=[0, 0, 0, 1, 1, 1, 0],
+            reward=7.0,
+        )
+
+        transition_switches, _ = _fit_transition_switches(
+            [trace],
+            segments_by_trace,
+            responsibilities,
+            pair_posteriors,
+            Depth2Switch(1.0, 0.0, 0.0),
+            [GaussianScalar(0.0, 1.0)],
+        )
+
+        self.assertEqual(
+            _next_cartpole_mode(
+                0,
+                [0.0, 0.0, 0.35, 0.0],
+                Depth2Switch(1.0, 0.0, 99.0),
+                transition_switches,
+            ),
+            1,
+        )
+        self.assertEqual(
+            _next_cartpole_mode(
+                1,
+                [0.0, 0.0, -0.25, 0.0],
+                Depth2Switch(1.0, 0.0, 99.0),
+                transition_switches,
+            ),
+            0,
+        )
+        self.assertEqual(
+            _next_cartpole_mode(
+                0,
+                [0.0, 0.0, -0.35, 0.0],
+                Depth2Switch(1.0, 0.0, 99.0),
+                transition_switches,
+            ),
+            0,
+        )
+        self.assertEqual(
+            _next_cartpole_mode(
+                1,
+                [0.0, 0.0, 0.35, 0.0],
+                Depth2Switch(1.0, 0.0, 99.0),
+                transition_switches,
+            ),
+            1,
+        )
+
     def test_cartpole_switch_structure_cost_uses_soft_responsibility_label_loss(self):
         segment = CartpoleSegment(
             observations=[
@@ -1892,6 +2056,51 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(second_action, 9.0)
         self.assertEqual(policy.mode, 0)
 
+    def test_cartpole_deterministic_psm_uses_transition_specific_switches(self):
+        policy = SynthesizedCartpolePSM(
+            -9.0,
+            9.0,
+            Depth2Switch(1.0, 0.0, 99.0),
+            transition_switches={
+                (0, 1): Depth2Switch(1.0, 0.0, 0.0),
+                (1, 0): Depth2Switch(-1.0, 0.0, 0.0),
+            },
+        )
+
+        policy.reset()
+        first_action = policy.act([0.0, 0.0, 0.1, 0.0])
+        second_action = policy.act([0.0, 0.0, 0.1, 0.0])
+        third_action = policy.act([0.0, 0.0, -0.1, 0.0])
+
+        self.assertEqual(first_action, -9.0)
+        self.assertEqual(second_action, 9.0)
+        self.assertEqual(third_action, 9.0)
+        self.assertEqual(policy.mode, 0)
+
+    def test_cartpole_next_mode_falls_back_to_selector_without_directed_switches(self):
+        self.assertEqual(
+            _next_cartpole_mode(0, [0.0, 0.0, 0.1, 0.0], Depth2Switch(1.0, 0.0, 0.0), {}),
+            1,
+        )
+
+    def test_cartpole_transition_switch_descriptions_name_directed_fire_event(self):
+        descriptions = _transition_switch_descriptions(
+            {
+                (0, 1): Depth2Switch(1.0, 0.0, 0.0),
+                (1, 0): Depth2Switch(-1.0, 0.0, 0.0),
+            }
+        )
+
+        self.assertEqual(
+            descriptions["0->1"],
+            "fire 0->1 if 1.000*theta + 0.000*omega >= 0.000",
+        )
+        self.assertEqual(
+            descriptions["1->0"],
+            "fire 1->0 if -1.000*theta + 0.000*omega >= 0.000",
+        )
+        self.assertNotIn("mode=1", descriptions["1->0"])
+
     def test_cartpole_probabilistic_rollout_resamples_parameters_on_mode_change(self):
         student = ProbabilisticCartpoleStudent(
             action_distributions={
@@ -1921,6 +2130,35 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(initial_right, 0.0)
         self.assertNotEqual(first_left, third_left)
         self.assertNotEqual(second_right, initial_right)
+
+    def test_cartpole_probabilistic_rollout_samples_transition_specific_switches(self):
+        student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-1.0, 0.0),
+                1: GaussianScalar(1.0, 0.0),
+            },
+            switch=Depth2Switch(1.0, 0.0, 99.0),
+            switch_threshold_distribution=GaussianScalar(99.0, 0.0),
+            switch_parameter_distributions=[GaussianScalar(99.0, 0.0)],
+            responsibilities=[(0.5, 0.5)],
+            transition_switches={
+                (0, 1): Depth2Switch(1.0, 0.0, 0.0),
+                (1, 0): Depth2Switch(-1.0, 0.0, 0.0),
+            },
+            transition_switch_parameter_distributions={
+                (0, 1): [GaussianScalar(0.0, 0.0)],
+                (1, 0): [GaussianScalar(0.0, 0.0)],
+            },
+        )
+        policy = student.sample_segment_resampling_policy(random.Random(0))
+
+        policy.reset()
+        first_action = policy.act([0.0, 0.0, 0.1, 0.0])
+        second_action = policy.act([0.0, 0.0, -0.1, 0.0])
+
+        self.assertEqual(first_action, -1.0)
+        self.assertEqual(second_action, 1.0)
+        self.assertEqual(policy.mode, 0)
 
     def test_cartpole_probabilistic_rollout_acts_before_detected_mode_transition(self):
         student = ProbabilisticCartpoleStudent(

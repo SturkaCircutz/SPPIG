@@ -24,6 +24,7 @@ from cartpole_synthesis import (
     cartpole_synthesis_protocol_status,
     cartpole_switch_fit_diagnostics,
     synthesize_cartpole_student_with_history,
+    _directed_transition_description,
 )
 
 
@@ -49,6 +50,7 @@ def summarize_policy_evaluation(
 
 
 def summarize_student(student: ProbabilisticCartpoleStudent):
+    transition_distributions = student.transition_switch_parameter_distributions or {}
     return {
         "description": student.describe(),
         "action_distributions": {
@@ -70,7 +72,24 @@ def summarize_student(student: ProbabilisticCartpoleStudent):
             }
             for distribution in student.switch_parameter_distributions
         ],
+        "transition_switches": {
+            f"{source}->{target}": _directed_transition_description(source, target, switch)
+            for (source, target), switch in sorted((student.transition_switches or {}).items())
+        },
+        "transition_switch_parameter_distributions": {
+            f"{source}->{target}": [
+                {
+                    "mean": distribution.mean,
+                    "std": distribution.std,
+                }
+                for distribution in transition_distributions.get((source, target), [])
+            ]
+            for source, target in sorted((student.transition_switches or {}).keys())
+        },
         "responsibility_summary": summarize_responsibilities(student.responsibilities),
+        "switch_pair_responsibility_summary": summarize_switch_pair_responsibilities(
+            student.switch_pair_responsibilities or []
+        ),
     }
 
 
