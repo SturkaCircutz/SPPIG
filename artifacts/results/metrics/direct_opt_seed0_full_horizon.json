@@ -110,6 +110,7 @@
     "paper_time_limit_seconds": 7200,
     "policy_class": "two_mode_constant_action_linear_depth2_boolean_or_continuous_one_hot_switch",
     "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
+    "search_stopping": "stop_after_training_solution_or_parallel_chunk_or_time_limit",
     "selection_objective": "mean_combined_reward_over_selected_initial_states_then_success",
     "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_leaf_depth2_mixtures",
     "test_horizon_steps": 15000,
@@ -209,6 +210,7 @@
     "selected_test_max_steps": 15000,
     "selected_time_limit_seconds": null,
     "selected_train_initial_states": 10,
+    "stops_when_training_solution_found": true,
     "uses_full_test_horizon": true,
     "uses_paper_batch_size": true,
     "uses_paper_eval_rollouts": false,
@@ -216,7 +218,7 @@
     "uses_paper_time_limit": false
   },
   "paper_test_horizon_steps": 15000,
-  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
+  "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0; directed_transitions={}",
   "reward_spec": {
     "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
     "reward_equals_survived_steps": true,
@@ -227,131 +229,46 @@
   "search_diagnostics": {
     "accepted_batch_improvements": 0,
     "accepted_restarts": 0,
-    "batch_candidate_evaluation_calls": 11,
+    "batch_candidate_evaluation_calls": 0,
     "batch_count": 1,
-    "batch_local_evaluations": 9,
-    "batch_local_rollout_evaluations": 90,
-    "batch_refinement_candidates": 1,
-    "batch_refinement_trace": [
-      {
-        "accepted_full_train_improvement": false,
-        "batch_index": 0,
-        "batch_seed_result": {
-          "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
-          "rank_key": [
-            250.0,
-            1.0,
-            -0.0
-          ],
-          "source": "batch_seed",
-          "switch_kind": "linear",
-          "train_reward_mean": 250.0,
-          "train_success_rate": 1.0
-        },
-        "full_train_reevaluation": {
-          "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
-          "rank_key": [
-            250.0,
-            1.0,
-            -0.0
-          ],
-          "source": "batch_refinement",
-          "switch_kind": "linear",
-          "train_reward_mean": 250.0,
-          "train_success_rate": 1.0
-        },
-        "local_steps": [
-          {
-            "accepted_local_improvement": false,
-            "accepted_restart": false,
-            "best_local_candidate": {
-              "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.250*theta + 0.250*omega >= 0.000, else mode=0",
-              "rank_key": [
-                250.0,
-                1.0,
-                -0.0
-              ],
-              "source": "batch_local_refinement",
-              "switch_kind": "linear",
-              "train_reward_mean": 250.0,
-              "train_success_rate": 1.0
-            },
-            "best_restart_candidate": {
-              "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if -5.000*theta + 5.000*omega >= -0.184, else mode=0",
-              "rank_key": [
-                84.0,
-                0.0,
-                -0.1839356950813011
-              ],
-              "source": "batch_random_restart",
-              "switch_kind": "linear",
-              "train_reward_mean": 84.0,
-              "train_success_rate": 0.0
-            },
-            "local_evaluations": 9,
-            "restart_evaluations": 1,
-            "step_index": 0,
-            "stopped_after_no_improvement": true
-          }
-        ],
-        "round_index": 0,
-        "seed_from_full_train_best": {
-          "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0",
-          "rank_key": [
-            250.0,
-            1.0,
-            -0.0
-          ],
-          "source": "grid",
-          "switch_kind": "linear",
-          "train_reward_mean": 250.0,
-          "train_success_rate": 1.0
-        },
-        "selected_initial_state_indices": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9
-        ]
-      }
-    ],
-    "batch_rollout_evaluations": 110,
+    "batch_local_evaluations": 0,
+    "batch_local_rollout_evaluations": 0,
+    "batch_refinement_candidates": 0,
+    "batch_refinement_trace": [],
+    "batch_rollout_evaluations": 0,
     "batch_rounds": 1,
-    "batch_seed_evaluations": 1,
-    "batch_seed_rollout_evaluations": 10,
+    "batch_seed_evaluations": 0,
+    "batch_seed_rollout_evaluations": 0,
+    "batch_solution_found": false,
     "batch_time_limit_reached": false,
-    "boolean_candidates_with_appendix_b3_vertex_metadata": 216,
-    "boolean_candidates_with_one_hot_metadata": 216,
-    "boolean_depth2_candidates": 192,
-    "boolean_stump_candidates": 24,
-    "boolean_top_stumps_for_depth2": 4,
-    "candidate_evaluation_calls": 856,
-    "continuous_one_hot_candidates": 216,
-    "continuous_one_hot_candidates_with_appendix_b3_metadata": 216,
-    "continuous_one_hot_depth2_candidates": 192,
-    "continuous_one_hot_leaf_candidates": 24,
-    "continuous_one_hot_top_leaves_for_depth2": 4,
-    "evaluated_candidates": 856,
+    "boolean_candidates_with_appendix_b3_vertex_metadata": 0,
+    "boolean_candidates_with_one_hot_metadata": 0,
+    "boolean_depth2_candidates": 0,
+    "boolean_stump_candidates": 0,
+    "boolean_top_stumps_for_depth2": 0,
+    "candidate_evaluation_calls": 86,
+    "continuous_one_hot_candidates": 0,
+    "continuous_one_hot_candidates_with_appendix_b3_metadata": 0,
+    "continuous_one_hot_depth2_candidates": 0,
+    "continuous_one_hot_leaf_candidates": 0,
+    "continuous_one_hot_top_leaves_for_depth2": 0,
+    "evaluated_candidates": 86,
     "evaluated_candidates_units": "candidate_evaluation_calls",
-    "full_train_candidate_evaluation_calls": 845,
-    "full_train_rollout_evaluations": 8450,
-    "grid_candidates": 156,
+    "full_train_candidate_evaluation_calls": 86,
+    "full_train_rollout_evaluations": 860,
+    "grid_candidates": 86,
     "parallel_threads": 1,
-    "random_candidates": 256,
-    "restart_evaluations": 1,
-    "restart_rollout_evaluations": 10,
+    "random_candidates": 0,
+    "restart_evaluations": 0,
+    "restart_rollout_evaluations": 0,
+    "solution_found": true,
+    "solution_found_phase": "grid",
     "time_limit_reached": false,
     "time_limit_seconds": null,
-    "train_rollout_evaluations": 8560,
+    "train_rollout_evaluations": 860,
     "uses_parallel_candidate_evaluation": false
   },
-  "searched_candidates": 856,
+  "searched_candidates": 86,
   "selected_train_initial_states": [
     [
       0.034442185152504814,

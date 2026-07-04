@@ -872,6 +872,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(direct_metrics["algorithm_provenance"]["not_paper_scale"])
             self.assertEqual(direct_metrics["algorithm_provenance"]["batch_refinement"], "seed_each_batch_from_best_so_far_and_restart_on_stall")
             self.assertEqual(
+                direct_metrics["algorithm_provenance"]["search_stopping"],
+                "stop_after_training_solution_or_parallel_chunk_or_time_limit",
+            )
+            self.assertEqual(
                 direct_metrics["algorithm_provenance"]["switch_search_space"],
                 "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_leaf_depth2_mixtures",
             )
@@ -891,6 +895,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertFalse(direct_status["uses_paper_time_limit"])
             self.assertFalse(direct_status["full_continuous_one_hot_switch_grammar"])
             self.assertTrue(direct_status["bounded_continuous_one_hot_switch_relaxation"])
+            self.assertTrue(direct_status["stops_when_training_solution_found"])
             self.assertTrue(direct_status["optimizes_combined_reward_over_selected_initial_states"])
             self.assertTrue(direct_status["optimizes_combined_reward_over_all_selected_initial_states"])
             self.assertFalse(direct_status["optimizes_full_initial_state_distribution"])
@@ -908,12 +913,15 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertFalse(direct_metrics["search_diagnostics"]["uses_parallel_candidate_evaluation"])
             self.assertIsNone(direct_metrics["search_diagnostics"]["time_limit_seconds"])
             self.assertFalse(direct_metrics["search_diagnostics"]["time_limit_reached"])
-            self.assertEqual(direct_metrics["search_diagnostics"]["batch_refinement_candidates"], 1)
-            self.assertEqual(direct_metrics["search_diagnostics"]["boolean_stump_candidates"], 24)
-            self.assertGreater(direct_metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
-            self.assertEqual(direct_metrics["search_diagnostics"]["continuous_one_hot_leaf_candidates"], 24)
-            self.assertEqual(direct_metrics["search_diagnostics"]["continuous_one_hot_depth2_candidates"], 192)
-            self.assertEqual(direct_metrics["search_diagnostics"]["continuous_one_hot_candidates"], 216)
+            self.assertTrue(direct_metrics["search_diagnostics"]["solution_found"])
+            self.assertEqual(direct_metrics["search_diagnostics"]["solution_found_phase"], "grid")
+            self.assertEqual(direct_metrics["search_diagnostics"]["grid_candidates"], 86)
+            self.assertEqual(direct_metrics["search_diagnostics"]["batch_refinement_candidates"], 0)
+            self.assertEqual(direct_metrics["search_diagnostics"]["boolean_stump_candidates"], 0)
+            self.assertEqual(direct_metrics["search_diagnostics"]["boolean_depth2_candidates"], 0)
+            self.assertEqual(direct_metrics["search_diagnostics"]["continuous_one_hot_leaf_candidates"], 0)
+            self.assertEqual(direct_metrics["search_diagnostics"]["continuous_one_hot_depth2_candidates"], 0)
+            self.assertEqual(direct_metrics["search_diagnostics"]["continuous_one_hot_candidates"], 0)
             self.assertEqual(
                 direct_metrics["search_diagnostics"]["boolean_candidates_with_one_hot_metadata"],
                 direct_metrics["search_diagnostics"]["boolean_stump_candidates"]
@@ -931,7 +939,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 direct_metrics["search_diagnostics"]["train_rollout_evaluations"],
                 direct_metrics["search_diagnostics"]["candidate_evaluation_calls"],
             )
-            self.assertGreater(direct_metrics["search_diagnostics"]["batch_local_evaluations"], 0)
+            self.assertEqual(direct_metrics["search_diagnostics"]["batch_local_evaluations"], 0)
             self.assertIn("steps_mean", direct_metrics["train"])
             self.assertIn("survival_seconds_mean", direct_metrics["train"])
             self.assertIn("steps_mean", direct_metrics["test"])

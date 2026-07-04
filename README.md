@@ -282,12 +282,14 @@ bounded depth-1/depth-2 Boolean-tree switch predicates with explicit one-hot
 feature, relation, and tree-operator metadata, and a bounded Appendix B.3-style
 continuous one-hot leaf/depth-2 feature-mixture candidate family. It then applies a bounded
 batch/restart local refinement over forces, thresholds, and continuous one-hot `alpha_s`/feature weights
-seeded from the best candidate so far, optimizing
+seeded from the best candidate so far when no earlier candidate has solved all selected training
+states, optimizing
 mean reward over all selected finite initial states, not the full initial-state
 distribution, before reevaluating the selected program on the full paper test
 horizon.
 Its metrics JSON records the exact selected training initial states, grid,
-Boolean/continuous one-hot leaf/depth-2 counts, candidate-evaluation-call counts,
+Boolean/continuous one-hot leaf/depth-2 counts reached before a training solution,
+candidate-evaluation-call counts, the solution-found phase,
 train-rollout-evaluation counts, batch/restart diagnostics with compact
 per-batch seed/local/restart/full-train reevaluation trace, bounded continuous
 `alpha_s`/feature-weight refinement,
