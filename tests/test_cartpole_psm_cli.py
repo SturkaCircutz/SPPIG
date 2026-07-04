@@ -329,6 +329,10 @@ class CartpolePSMCliTest(unittest.TestCase):
             "forward_marginalized_action_and_switch_timing_likelihood",
         )
         self.assertEqual(
+            provenance["teacher_search"]["student_sample_switch_timing"],
+            "uses_transition_specific_switches_when_available",
+        )
+        self.assertEqual(
             provenance["teacher_search"]["student_sample_local_refinement"],
             "mode_preserving_duration_time_increment_continuous_action_gain_and_finite_difference_schedule_search",
         )

@@ -347,7 +347,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   and the student's discrete Eq. (12)-style switch timing likelihood, marginalizing over the latent
   mode sequence with a two-state forward pass. The bounded two-mode timing model now distinguishes
   selector-off to selector-on transitions from selector-on to selector-off transitions instead of using
-  one symmetric "mode changed" probability. For scalar-threshold switches, that timing likelihood
+  one symmetric "mode changed" probability, and teacher scoring uses the fitted directed `0->1` and
+  `1->0` transition switches when they are available. For scalar-threshold switches, that timing likelihood
   uses the learned Gaussian switch-parameter distribution with one sampled threshold shared across a
   segment, matching the paper's probabilistic-state-machine sampling model. Loop-free segment
   durations are interpreted as elapsed time normalized to the CartPole simulator step, so the
@@ -735,6 +736,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_trace_log_probability_uses_fixed_initial_mode`
   verifies that the teacher regularizer marginalizes over latent segment modes after conditioning the
   first segment on the fixed initial mode instead of treating posterior responsibilities as extra priors.
+- `tests/test_cartpole_paper.py::test_cartpole_trace_log_probability_uses_transition_specific_switches`
+  verifies that teacher trace scoring uses fitted directed transition switches when the student has
+  them, and
+  `tests/test_cartpole_paper.py::test_cartpole_trace_log_probability_falls_back_without_complete_directed_switches`
+  verifies the legacy selector fallback for older or incomplete student fits.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_regularizer_uses_switch_timing_likelihood`
   verifies that the teacher regularizer also prefers traces with switch timing that the current
   student explains better. These regularizer tests cover a partial implementation of the probability

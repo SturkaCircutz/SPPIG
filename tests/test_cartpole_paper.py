@@ -2630,6 +2630,92 @@ class CartpolePaperTest(unittest.TestCase):
             GaussianScalar(-1.0, 1.0).log_pdf(1.0),
         )
 
+    def test_cartpole_trace_log_probability_uses_transition_specific_switches(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, 0.4, 0.0],
+            ],
+            actions=[-10.0, -10.0, -10.0, 10.0],
+            mode_labels=[0, 0, 0, 1],
+            reward=4.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(3, 1),
+        )
+        legacy_selector_penalty = Depth2Switch(1.0, 0.0, 1.0)
+        directed_switches = {
+            (0, 1): Depth2Switch(1.0, 0.0, 0.0),
+            (1, 0): Depth2Switch(-1.0, 0.0, 1.0),
+        }
+        directed_distributions = {
+            (0, 1): [GaussianScalar(0.0, 0.001)],
+            (1, 0): [GaussianScalar(1.0, 0.001)],
+        }
+        action_distributions = {
+            0: GaussianScalar(-10.0, 0.1),
+            1: GaussianScalar(10.0, 0.1),
+        }
+        legacy_student = ProbabilisticCartpoleStudent(
+            action_distributions=action_distributions,
+            switch=legacy_selector_penalty,
+            switch_threshold_distribution=GaussianScalar(1.0, 0.001),
+            switch_parameter_distributions=[GaussianScalar(1.0, 0.001)],
+            responsibilities=[(1.0, 0.0), (0.0, 1.0)],
+        )
+        directed_student = ProbabilisticCartpoleStudent(
+            action_distributions=action_distributions,
+            switch=legacy_selector_penalty,
+            switch_threshold_distribution=GaussianScalar(1.0, 0.001),
+            switch_parameter_distributions=[GaussianScalar(1.0, 0.001)],
+            responsibilities=[(1.0, 0.0), (0.0, 1.0)],
+            transition_switches=directed_switches,
+            transition_switch_parameter_distributions=directed_distributions,
+        )
+
+        self.assertGreater(
+            _trace_log_probability(trace, directed_student),
+            _trace_log_probability(trace, legacy_student),
+        )
+
+    def test_cartpole_trace_log_probability_falls_back_without_complete_directed_switches(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            actions=[-10.0, 10.0],
+            mode_labels=[0, 1],
+            reward=2.0,
+            segment_actions=(-10.0, 10.0),
+            segment_durations=(1, 1),
+        )
+        base_student = ProbabilisticCartpoleStudent(
+            action_distributions={
+                0: GaussianScalar(-10.0, 0.1),
+                1: GaussianScalar(10.0, 0.1),
+            },
+            switch=Depth2Switch(1.0, 0.0, 0.0),
+            switch_threshold_distribution=GaussianScalar(0.0, 0.001),
+            switch_parameter_distributions=[GaussianScalar(0.0, 0.001)],
+            responsibilities=[(1.0, 0.0), (0.0, 1.0)],
+        )
+        incomplete_directed = ProbabilisticCartpoleStudent(
+            action_distributions=base_student.action_distributions,
+            switch=base_student.switch,
+            switch_threshold_distribution=base_student.switch_threshold_distribution,
+            switch_parameter_distributions=base_student.switch_parameter_distributions,
+            responsibilities=base_student.responsibilities,
+            transition_switches={(0, 1): Depth2Switch(-1.0, 0.0, 99.0)},
+            transition_switch_parameter_distributions={(0, 1): [GaussianScalar(99.0, 0.001)]},
+        )
+
+        self.assertAlmostEqual(
+            _trace_log_probability(trace, incomplete_directed),
+            _trace_log_probability(trace, base_student),
+        )
+
     def test_cartpole_trace_log_probability_penalizes_final_segment_early_transition(self):
         trace = CartpoleTrace(
             observations=[

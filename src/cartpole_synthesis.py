@@ -226,6 +226,7 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             },
             "student_sample_fraction_after_first_iteration": TEACHER_STUDENT_SAMPLE_FRACTION,
             "student_sample_probability": "forward_marginalized_action_and_switch_timing_likelihood",
+            "student_sample_switch_timing": "uses_transition_specific_switches_when_available",
             "student_sample_segment_budget": (
                 "preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood"
             ),
@@ -3277,11 +3278,7 @@ def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleS
     forward: List[List[float]] = [[emissions[0][0], -math.inf]]
     for index in range(1, len(trace_segments)):
         previous = forward[-1]
-        pair = _switch_responsibility_pair_log_potentials(
-            student.switch,
-            student.switch_parameter_distributions,
-            trace_segments[index - 1],
-        )
+        pair = _student_trace_pair_log_potentials(student, trace_segments[index - 1])
         forward.append(
             [
                 emissions[index][mode]
@@ -3294,9 +3291,8 @@ def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleS
                 for mode in (0, 1)
             ]
         )
-    terminal_stay = _switch_terminal_stay_log_potentials(
-        student.switch,
-        student.switch_parameter_distributions,
+    terminal_stay = _student_trace_terminal_stay_log_potentials(
+        student,
         trace_segments[-1],
     )
     return _logsumexp([
@@ -3304,6 +3300,75 @@ def _trace_log_probability(trace: CartpoleTrace, student: ProbabilisticCartpoleS
         for mode in (0, 1)
     ])
 
+
+def _student_trace_pair_log_potentials(
+    student: ProbabilisticCartpoleStudent,
+    segment: CartpoleSegment,
+) -> List[List[float]]:
+    transition_switches = student.transition_switches or {}
+    if (0, 1) not in transition_switches or (1, 0) not in transition_switches:
+        return _switch_responsibility_pair_log_potentials(
+            student.switch,
+            student.switch_parameter_distributions,
+            segment,
+        )
+    distributions = student.transition_switch_parameter_distributions or {}
+    off_to_on, stay_off = _switch_transition_and_stay_probabilities(
+        transition_switches[(0, 1)],
+        distributions.get((0, 1), []),
+        segment.observations,
+        segment.switch_timing_duration,
+        segment.timing_step_scale,
+    )
+    on_to_off, stay_on = _switch_transition_and_stay_probabilities(
+        transition_switches[(1, 0)],
+        distributions.get((1, 0), []),
+        segment.observations,
+        segment.switch_timing_duration,
+        segment.timing_step_scale,
+    )
+    return [
+        [
+            math.log(max(stay_off, LOG_PROBABILITY_FLOOR)),
+            math.log(max(off_to_on, LOG_PROBABILITY_FLOOR)),
+        ],
+        [
+            math.log(max(on_to_off, LOG_PROBABILITY_FLOOR)),
+            math.log(max(stay_on, LOG_PROBABILITY_FLOOR)),
+        ],
+    ]
+
+
+def _student_trace_terminal_stay_log_potentials(
+    student: ProbabilisticCartpoleStudent,
+    segment: CartpoleSegment,
+) -> List[float]:
+    transition_switches = student.transition_switches or {}
+    if (0, 1) not in transition_switches or (1, 0) not in transition_switches:
+        return _switch_terminal_stay_log_potentials(
+            student.switch,
+            student.switch_parameter_distributions,
+            segment,
+        )
+    distributions = student.transition_switch_parameter_distributions or {}
+    _, stay_off = _switch_transition_and_stay_probabilities(
+        transition_switches[(0, 1)],
+        distributions.get((0, 1), []),
+        segment.observations,
+        segment.switch_timing_duration,
+        segment.timing_step_scale,
+    )
+    _, stay_on = _switch_transition_and_stay_probabilities(
+        transition_switches[(1, 0)],
+        distributions.get((1, 0), []),
+        segment.observations,
+        segment.switch_timing_duration,
+        segment.timing_step_scale,
+    )
+    return [
+        math.log(max(stay_off, LOG_PROBABILITY_FLOOR)),
+        math.log(max(stay_on, LOG_PROBABILITY_FLOOR)),
+    ]
 
 def _logsumexp(values: List[float]) -> float:
     max_value = max(values)

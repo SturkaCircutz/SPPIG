@@ -257,7 +257,9 @@ responsibility-weighted expected label loss over non-boundary segment
 observations and then by this bounded distribution-timing objective.
 The teacher regularizer scores both action
 likelihood and switch timing under the current student's Gaussian switch
-distributions. The teacher objective uses the
+distributions, using the fitted directed `0->1` and `1->0` transition switches
+when they are available and falling back to the legacy selector otherwise. The
+teacher objective uses the
 paper-reported reward scale `lambda = 100` by default. This is provenance for
 the current partial student implementation, not evidence that the full
 probabilistic adaptive-teaching algorithm has been completed.

@@ -575,6 +575,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 "forward_marginalized_action_and_switch_timing_likelihood",
             )
             self.assertEqual(
+                provenance["teacher_search"]["student_sample_switch_timing"],
+                "uses_transition_specific_switches_when_available",
+            )
+            self.assertEqual(
                 provenance["teacher_search"]["elite_recombination"],
                 "top_rho_segment_mode_action_duration_time_increment_centroid",
             )
@@ -754,6 +758,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 row_provenance["teacher_search"]["student_sample_probability"],
                 "forward_marginalized_action_and_switch_timing_likelihood",
+            )
+            self.assertEqual(
+                row_provenance["teacher_search"]["student_sample_switch_timing"],
+                "uses_transition_specific_switches_when_available",
             )
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_recombination"],
