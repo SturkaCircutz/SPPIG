@@ -110,9 +110,9 @@ Programmatic state machine:
 ```bash
 .venv/bin/python src/train_cartpole_psm.py \
   --num-initial-states 4 \
-  --candidate-rollouts 8 \
+  --candidate-rollouts 10 \
   --teacher-reward-lambda 100 \
-  --teacher-top-rho 2 \
+  --teacher-top-rho 10 \
   --teacher-refinement-steps 1 \
   --eval-rollouts 20 \
   --test-max-steps 15000 \

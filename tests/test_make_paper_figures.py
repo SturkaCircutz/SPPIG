@@ -161,6 +161,8 @@ class MakePaperFiguresTest(unittest.TestCase):
             synthesized_psm_row["paper_protocol_status"],
             synthesized_psm_metrics["paper_protocol_status"],
         )
+        self.assertEqual(synthesized_psm_row["train"], synthesized_psm_metrics["train"])
+        self.assertEqual(synthesized_psm_row["test"], synthesized_psm_metrics["test"])
         self.assertTrue(
             synthesized_psm_row["paper_protocol_status"]["synthesized_by_current_algorithm"]
         )
