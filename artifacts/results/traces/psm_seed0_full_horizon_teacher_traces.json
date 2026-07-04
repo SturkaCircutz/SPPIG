@@ -302,6 +302,7 @@
           "teacher_objective": 2222.979019091633,
           "teacher_refinement_elite_summary": {
             "elite_count": 10,
+            "elite_log_normalizer": -43.823549247444994,
             "elite_probability_weights": [
               3.4301439301493975e-15,
               3.4301439301493975e-15,
@@ -326,7 +327,7 @@
               -43.82766218789025,
               -49.32036371635514
             ],
-            "kernel_log_normalizer": -43.823549247444994,
+            "kernel_log_normalizer": -49.68358406529927,
             "nearest_elite_kernel_component_weight": 3.612112670707453e-13,
             "nearest_elite_probability_weight": 3.4301439301493975e-15,
             "nearest_elite_reward": 23.0,
@@ -1037,6 +1038,7 @@
           "teacher_objective": 5700.415770356304,
           "teacher_refinement_elite_summary": {
             "elite_count": 10,
+            "elite_log_normalizer": -31.912631772997,
             "elite_probability_weights": [
               7.809225843785356e-73,
               8.939159741833485e-74,
@@ -1061,7 +1063,7 @@
               -31.92286349898003,
               -37.78120282801503
             ],
-            "kernel_log_normalizer": -31.912631772997,
+            "kernel_log_normalizer": -44.56256093571015,
             "nearest_elite_kernel_component_weight": 1.9103990110060313e-68,
             "nearest_elite_probability_weight": 8.939159741833485e-74,
             "nearest_elite_reward": 59.0,
@@ -1475,6 +1477,7 @@
           "teacher_objective": 3093.6392997790986,
           "teacher_refinement_elite_summary": {
             "elite_count": 10,
+            "elite_log_normalizer": -39.06146080816316,
             "elite_probability_weights": [
               6.020282124650573e-30,
               6.020282124650573e-30,
@@ -1499,7 +1502,7 @@
               -50.330494740309824,
               -39.066654966664686
             ],
-            "kernel_log_normalizer": -39.06146080816316,
+            "kernel_log_normalizer": -46.10782171426444,
             "nearest_elite_kernel_component_weight": 4.178414627855188e-27,
             "nearest_elite_probability_weight": 6.020282124650573e-30,
             "nearest_elite_reward": 32.0,
@@ -2873,6 +2876,7 @@
           "teacher_objective": 4738.043747264541,
           "teacher_refinement_elite_summary": {
             "elite_count": 10,
+            "elite_log_normalizer": -29.996797962919064,
             "elite_probability_weights": [
               4.90610634006584e-58,
               3.10383786955406e-58,
@@ -2897,7 +2901,7 @@
               -31.853742627062033,
               -30.168243069244813
             ],
-            "kernel_log_normalizer": -29.996797962919064,
+            "kernel_log_normalizer": -39.48951042744398,
             "nearest_elite_kernel_component_weight": 6.50683207699436e-54,
             "nearest_elite_probability_weight": 4.90610634006584e-58,
             "nearest_elite_reward": 49.0,
@@ -3548,6 +3552,7 @@
           "teacher_objective": 5185.769763501095,
           "teacher_refinement_elite_summary": {
             "elite_count": 10,
+            "elite_log_normalizer": -30.133765399695818,
             "elite_probability_weights": [
               3.9587209989353425e-37,
               3.001695637725782e-37,
@@ -3572,7 +3577,7 @@
               -41.44434825842515,
               -31.011246762023116
             ],
-            "kernel_log_normalizer": -30.133765399695818,
+            "kernel_log_normalizer": -37.47675009648643,
             "nearest_elite_kernel_component_weight": 4.638572923675716e-34,
             "nearest_elite_probability_weight": 3.001695637725782e-37,
             "nearest_elite_reward": 53.0,
@@ -4140,6 +4145,7 @@
           "teacher_objective": 4551.981344584166,
           "teacher_refinement_elite_summary": {
             "elite_count": 10,
+            "elite_log_normalizer": -27.123487433300383,
             "elite_probability_weights": [
               2.9388357553085687e-08,
               2.9388357553085687e-08,
@@ -4164,7 +4170,7 @@
               -45.70605225713594,
               -45.42121510657224
             ],
-            "kernel_log_normalizer": -27.123487433300383,
+            "kernel_log_normalizer": -34.26736218706646,
             "nearest_elite_kernel_component_weight": 1.402150590692751e-05,
             "nearest_elite_probability_weight": 2.9388357553085687e-08,
             "nearest_elite_reward": 46.0,
@@ -4556,6 +4562,7 @@
           "teacher_objective": 2968.514244089239,
           "teacher_refinement_elite_summary": {
             "elite_count": 10,
+            "elite_log_normalizer": -22.43990938590539,
             "elite_probability_weights": [
               0.0026057110423880637,
               0.0025754399268372074,
@@ -4580,7 +4587,7 @@
               -45.684043068695274,
               -39.44956129832884
             ],
-            "kernel_log_normalizer": -22.43990938590539,
+            "kernel_log_normalizer": -26.435538209454776,
             "nearest_elite_kernel_component_weight": 0.05269537055538044,
             "nearest_elite_probability_weight": 0.0026057110423880637,
             "nearest_elite_reward": 30.0,
@@ -5016,6 +5023,7 @@
           "teacher_objective": 3358.9737947612166,
           "teacher_refinement_elite_summary": {
             "elite_count": 10,
+            "elite_log_normalizer": -29.866909190486375,
             "elite_probability_weights": [
               0.0006950886377430949,
               0.0006950886377430949,
@@ -5040,7 +5048,7 @@
               -44.888728620224256,
               -51.083932061953064
             ],
-            "kernel_log_normalizer": -29.866909190486375,
+            "kernel_log_normalizer": -34.4010967069911,
             "nearest_elite_kernel_component_weight": 0.021569888102814617,
             "nearest_elite_probability_weight": 0.0006950886377430949,
             "nearest_elite_reward": 34.0,
@@ -5689,6 +5697,7 @@
       "teacher_objective": 5185.769763501095,
       "teacher_refinement_elite_summary": {
         "elite_count": 10,
+        "elite_log_normalizer": -30.133765399695818,
         "elite_probability_weights": [
           3.9587209989353425e-37,
           3.001695637725782e-37,
@@ -5713,7 +5722,7 @@
           -41.44434825842515,
           -31.011246762023116
         ],
-        "kernel_log_normalizer": -30.133765399695818,
+        "kernel_log_normalizer": -37.47675009648643,
         "nearest_elite_kernel_component_weight": 4.638572923675716e-34,
         "nearest_elite_probability_weight": 3.001695637725782e-37,
         "nearest_elite_reward": 53.0,
@@ -6281,6 +6290,7 @@
       "teacher_objective": 4551.981344584166,
       "teacher_refinement_elite_summary": {
         "elite_count": 10,
+        "elite_log_normalizer": -27.123487433300383,
         "elite_probability_weights": [
           2.9388357553085687e-08,
           2.9388357553085687e-08,
@@ -6305,7 +6315,7 @@
           -45.70605225713594,
           -45.42121510657224
         ],
-        "kernel_log_normalizer": -27.123487433300383,
+        "kernel_log_normalizer": -34.26736218706646,
         "nearest_elite_kernel_component_weight": 1.402150590692751e-05,
         "nearest_elite_probability_weight": 2.9388357553085687e-08,
         "nearest_elite_reward": 46.0,
@@ -6697,6 +6707,7 @@
       "teacher_objective": 2968.514244089239,
       "teacher_refinement_elite_summary": {
         "elite_count": 10,
+        "elite_log_normalizer": -22.43990938590539,
         "elite_probability_weights": [
           0.0026057110423880637,
           0.0025754399268372074,
@@ -6721,7 +6732,7 @@
           -45.684043068695274,
           -39.44956129832884
         ],
-        "kernel_log_normalizer": -22.43990938590539,
+        "kernel_log_normalizer": -26.435538209454776,
         "nearest_elite_kernel_component_weight": 0.05269537055538044,
         "nearest_elite_probability_weight": 0.0026057110423880637,
         "nearest_elite_reward": 30.0,
@@ -7157,6 +7168,7 @@
       "teacher_objective": 3358.9737947612166,
       "teacher_refinement_elite_summary": {
         "elite_count": 10,
+        "elite_log_normalizer": -29.866909190486375,
         "elite_probability_weights": [
           0.0006950886377430949,
           0.0006950886377430949,
@@ -7181,7 +7193,7 @@
           -44.888728620224256,
           -51.083932061953064
         ],
-        "kernel_log_normalizer": -29.866909190486375,
+        "kernel_log_normalizer": -34.4010967069911,
         "nearest_elite_kernel_component_weight": 0.021569888102814617,
         "nearest_elite_probability_weight": 0.0006950886377430949,
         "nearest_elite_reward": 34.0,

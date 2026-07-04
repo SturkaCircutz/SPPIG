@@ -465,6 +465,13 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertAlmostEqual(sum(first_elite_summary["elite_probability_weights"]), 1.0)
         self.assertIn("selected_kernel_component_weights", first_elite_summary)
         self.assertAlmostEqual(sum(first_elite_summary["selected_kernel_component_weights"]), 1.0)
+        self.assertIn("elite_log_normalizer", first_elite_summary)
+        self.assertIn("kernel_log_normalizer", first_elite_summary)
+        self.assertAlmostEqual(
+            first_elite_summary["kernel_log_normalizer"]
+            - first_elite_summary["elite_log_normalizer"],
+            first_elite_summary["selected_elite_kernel_log_probability"],
+        )
         serialized_distribution_fits = [
             trace.get("elite_distribution_fit")
             for history_entry in trace_artifact["trace_history"]

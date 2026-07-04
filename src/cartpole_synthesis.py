@@ -1394,7 +1394,8 @@ def _teacher_refinement_elite_summary(
             for log_probability, distance in zip(elite_log_probabilities, distances)
         ]
         kernel_log_normalizer = _logsumexp(kernel_terms)
-        summary["kernel_log_normalizer"] = elite_log_normalizer
+        summary["elite_log_normalizer"] = elite_log_normalizer
+        summary["kernel_log_normalizer"] = kernel_log_normalizer
         summary["elite_student_log_probabilities"] = elite_log_probabilities
         summary["elite_probability_weights"] = [
             math.exp(log_probability - elite_log_normalizer)

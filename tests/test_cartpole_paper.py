@@ -2991,10 +2991,12 @@ class CartpolePaperTest(unittest.TestCase):
         elites = [likely_elite, unlikely_elite]
         log_probabilities = [_trace_log_probability(elite, student) for elite in elites]
         distances = [_loop_free_trace_distance(candidate, elite) for elite in elites]
-        expected = _logsumexp([
+        expected_elite_log_normalizer = _logsumexp(log_probabilities)
+        expected_kernel_log_normalizer = _logsumexp([
             log_probability - distance
             for log_probability, distance in zip(log_probabilities, distances)
-        ]) - _logsumexp(log_probabilities)
+        ])
+        expected = expected_kernel_log_normalizer - expected_elite_log_normalizer
 
         summary = _teacher_refinement_elite_summary(
             candidate,
@@ -3011,6 +3013,8 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(summary["elite_probability_weights"][0], summary["elite_probability_weights"][1])
         self.assertEqual(len(summary["selected_kernel_component_weights"]), 2)
         self.assertAlmostEqual(sum(summary["selected_kernel_component_weights"]), 1.0)
+        self.assertAlmostEqual(summary["elite_log_normalizer"], expected_elite_log_normalizer)
+        self.assertAlmostEqual(summary["kernel_log_normalizer"], expected_kernel_log_normalizer)
         self.assertAlmostEqual(summary["selected_elite_kernel_log_probability"], expected)
 
     def test_cartpole_teacher_elite_centroid_recombines_loop_free_schedules(self):
