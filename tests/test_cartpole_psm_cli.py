@@ -104,6 +104,8 @@ class CartpolePSMCliTest(unittest.TestCase):
                     "0",
                     "--parallel-trace-workers",
                     "2",
+                    "--parallel-switch-workers",
+                    "2",
                     "--eval-rollouts",
                     "1",
                     "--test-max-steps",
@@ -120,6 +122,7 @@ class CartpolePSMCliTest(unittest.TestCase):
 
         status = metrics["paper_protocol_status"]
         self.assertEqual(metrics["config"]["parallel_trace_workers"], 2)
+        self.assertEqual(metrics["config"]["parallel_switch_workers"], 2)
         self.assertEqual(status["selected_teacher_parallel_trace_workers"], 2)
         self.assertEqual(status["effective_teacher_parallel_trace_workers"], 2)
         self.assertEqual(status["effective_teacher_parallel_trace_initial_states"], 2)
@@ -127,6 +130,13 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["paper_teacher_parallel_threads"], 10)
         self.assertTrue(status["uses_parallel_teacher_trace_optimization"])
         self.assertFalse(status["uses_paper_teacher_parallel_threads"])
+        self.assertEqual(status["selected_student_parallel_switch_workers"], 2)
+        self.assertEqual(status["effective_student_parallel_switch_workers"], 2)
+        self.assertEqual(status["student_transition_switch_fit_count"], 2)
+        self.assertEqual(status["effective_student_parallel_switch_slots"], 2)
+        self.assertEqual(status["paper_student_parallel_threads"], 10)
+        self.assertTrue(status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(status["uses_paper_student_parallel_threads"])
 
     def test_cli_writes_metrics_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -197,6 +207,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(metrics["config"]["teacher_elite_distribution_resamples"], 3)
         self.assertEqual(metrics["config"]["teacher_elite_distribution_rounds"], 2)
         self.assertEqual(metrics["config"]["parallel_trace_workers"], 1)
+        self.assertEqual(metrics["config"]["parallel_switch_workers"], 1)
         provenance = metrics["algorithm_provenance"]
         self.assertEqual(provenance["probabilistic_student"]["default_em_iters"], 4)
         self.assertEqual(provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
@@ -590,6 +601,13 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["paper_teacher_parallel_threads"], 10)
         self.assertFalse(status["uses_parallel_teacher_trace_optimization"])
         self.assertFalse(status["uses_paper_teacher_parallel_threads"])
+        self.assertEqual(status["selected_student_parallel_switch_workers"], 1)
+        self.assertEqual(status["effective_student_parallel_switch_workers"], 1)
+        self.assertEqual(status["student_transition_switch_fit_count"], 2)
+        self.assertEqual(status["effective_student_parallel_switch_slots"], 1)
+        self.assertEqual(status["paper_student_parallel_threads"], 10)
+        self.assertFalse(status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(status["uses_paper_student_parallel_threads"])
         self.assertTrue(status["teacher_candidate_rollouts_cover_selected_top_rho"])
         self.assertFalse(status["teacher_candidate_rollouts_cover_paper_top_rho"])
         self.assertFalse(status["teacher_cem_phase_matches_paper_rho"])

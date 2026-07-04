@@ -165,7 +165,11 @@ JSON records their exact values under `config`. `--parallel-trace-workers 10`
 selects the paper-reported worker limit for independent loop-free teacher
 optimization across initial states; status fields separately report the active
 parallel trace slots, so runs with fewer than 10 initial states do not claim the
-paper's 10-thread execution. The default remains serial for local diagnostics.
+paper's 10-thread execution. `--parallel-switch-workers 2` can evaluate the two
+directed CartPole student transition-switch fits concurrently; the paper's
+10-thread student-side claim still remains false because this bounded two-mode
+grammar has only two directed transition fits. The default remains serial for
+local diagnostics.
 The current CartPole PSM defaults use one-step loop-free teacher segments over
 the full 250-step training horizon (`segment_steps=1`, `segments_per_trace=250`);
 this is a local teacher hyperparameter profile selected for CartPole
@@ -184,7 +188,8 @@ block deliberately keeps `full_probabilistic_adaptive_teaching`,
 `paper_scale_result` false for the current bounded diagnostic implementation,
 and separately records whether the teacher CEM-style sampling phase used the
 paper's `rho=10` top-elite setting and whether local teacher trace optimization
-actually had `10` active trace slots.
+actually had `10` active trace slots. It also records active student
+transition-switch fit slots for the local bounded switch M-step.
 The probabilistic student likelihood and EM responsibility refinement are
 conditioned on the executable CartPole PSM's fixed initial mode `0`, matching
 the paper's fixed initial memory-state assumption.

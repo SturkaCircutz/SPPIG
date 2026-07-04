@@ -73,6 +73,7 @@ from cartpole_synthesis import (
     _elite_schedule_weights,
     _fit_elite_schedule_distribution,
     _fit_student_switch,
+    _fit_directed_transition_switches,
     _fit_transition_switches,
     _elite_loop_free_schedules,
     _refresh_teacher_elites_with_distribution,
@@ -1613,6 +1614,59 @@ class CartpolePaperTest(unittest.TestCase):
             0,
         )
 
+    def test_cartpole_parallel_transition_switch_fit_preserves_order(self):
+        off_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, 0.3, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=2,
+            hard_mode=0,
+        )
+        on_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.3, 0.0],
+                [0.0, 0.0, -0.25, 0.0],
+            ],
+            action_parameter=10.0,
+            duration=2,
+            hard_mode=1,
+        )
+        final_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.25, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        segments_by_trace = [[off_segment, on_segment, final_segment]]
+        responsibilities = [(1.0, 0.0), (0.0, 1.0), (1.0, 0.0)]
+        pair_posteriors = [
+            (0.0, 1.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0, 0.0),
+        ]
+
+        serial = _fit_directed_transition_switches(
+            segments_by_trace,
+            responsibilities,
+            pair_posteriors,
+            Depth2Switch(1.0, 0.0, 0.0),
+            CartpoleSynthesisConfig(parallel_switch_workers=1),
+        )
+        parallel = _fit_directed_transition_switches(
+            segments_by_trace,
+            responsibilities,
+            pair_posteriors,
+            Depth2Switch(1.0, 0.0, 0.0),
+            CartpoleSynthesisConfig(parallel_switch_workers=2),
+        )
+
+        self.assertEqual([entry[0] for entry in parallel], [(0, 1), (1, 0)])
+        self.assertEqual(
+            [(transition, switch.describe()) for transition, switch, _ in parallel],
+            [(transition, switch.describe()) for transition, switch, _ in serial],
+        )
+
     def test_cartpole_transition_specific_switches_respect_soft_pair_weights(self):
         off_segment = CartpoleSegment(
             observations=[
@@ -2446,6 +2500,29 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(zero_state_status["effective_teacher_parallel_trace_slots"], 0)
         self.assertFalse(zero_state_status["uses_parallel_teacher_trace_optimization"])
         self.assertFalse(zero_state_status["uses_paper_teacher_parallel_threads"])
+
+    def test_cartpole_student_parallel_switch_status_tracks_active_transition_slots(self):
+        serial_cfg = CartpoleSynthesisConfig(parallel_switch_workers=1)
+        local_parallel_cfg = CartpoleSynthesisConfig(parallel_switch_workers=2)
+        paper_limit_cfg = CartpoleSynthesisConfig(parallel_switch_workers=10)
+
+        serial_status = cartpole_teacher_cem_protocol_status(serial_cfg)
+        local_parallel_status = cartpole_teacher_cem_protocol_status(local_parallel_cfg)
+        paper_limit_status = cartpole_teacher_cem_protocol_status(paper_limit_cfg)
+
+        self.assertEqual(serial_status["paper_student_parallel_threads"], 10)
+        self.assertEqual(serial_status["student_transition_switch_fit_count"], 2)
+        self.assertEqual(serial_status["effective_student_parallel_switch_slots"], 1)
+        self.assertFalse(serial_status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(serial_status["uses_paper_student_parallel_threads"])
+        self.assertEqual(local_parallel_status["effective_student_parallel_switch_workers"], 2)
+        self.assertEqual(local_parallel_status["effective_student_parallel_switch_slots"], 2)
+        self.assertTrue(local_parallel_status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(local_parallel_status["uses_paper_student_parallel_threads"])
+        self.assertEqual(paper_limit_status["effective_student_parallel_switch_workers"], 10)
+        self.assertEqual(paper_limit_status["effective_student_parallel_switch_slots"], 2)
+        self.assertTrue(paper_limit_status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(paper_limit_status["uses_paper_student_parallel_threads"])
 
     def test_cartpole_teacher_objective_uses_student_regularizer(self):
         cfg = CartpoleSynthesisConfig(teacher_student_regularizer=10.0)

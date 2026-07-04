@@ -33,6 +33,7 @@ TEACHER_REWARD_LAMBDA = 100.0
 TEACHER_TOP_RHO = 10
 PAPER_TEACHER_TOP_RHO = 10
 PAPER_TEACHER_PARALLEL_THREADS = 10
+PAPER_STUDENT_PARALLEL_THREADS = 10
 TEACHER_REFINEMENT_STEPS = 2
 TEACHER_GAIN_SAMPLE_STD_FRACTION = 0.10
 TEACHER_GAIN_SAMPLE_MIN_STD = 1e-6
@@ -112,6 +113,7 @@ class CartpoleSynthesisConfig:
     teacher_elite_distribution_resamples: int = TEACHER_ELITE_DISTRIBUTION_RESAMPLES
     teacher_elite_distribution_rounds: int = TEACHER_ELITE_DISTRIBUTION_ROUNDS
     parallel_trace_workers: int = 1
+    parallel_switch_workers: int = 1
 
 
 @dataclass
@@ -143,6 +145,9 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER,
             "rollout_parameter_resampling": "on_mode_entry",
             "transition_specific_switches": "separate_fitted_conditions_for_0_to_1_and_1_to_0",
+            "paper_parallel_switch_threads": PAPER_STUDENT_PARALLEL_THREADS,
+            "local_parallel_switch_workers": "configurable_via_parallel_switch_workers",
+            "parallel_switch_unit": "independent_directed_transition_switch_fit",
             "initial_mode": INITIAL_CARTPOLE_PSM_MODE,
             "initial_mode_prior": "fixed_mode_0",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
@@ -297,6 +302,12 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
         effective_parallel_trace_workers,
         effective_parallel_trace_initial_states,
     )
+    effective_parallel_switch_workers = max(1, int(cfg.parallel_switch_workers))
+    transition_switch_fit_count = 2
+    effective_parallel_switch_slots = min(
+        effective_parallel_switch_workers,
+        transition_switch_fit_count,
+    )
     return {
         "teacher_candidate_rollouts": cfg.candidate_rollouts,
         "effective_teacher_candidate_rollouts": effective_candidate_rollouts,
@@ -313,6 +324,16 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
         "uses_paper_teacher_parallel_threads": (
             effective_parallel_trace_workers == PAPER_TEACHER_PARALLEL_THREADS
             and effective_parallel_trace_slots == PAPER_TEACHER_PARALLEL_THREADS
+        ),
+        "selected_student_parallel_switch_workers": cfg.parallel_switch_workers,
+        "effective_student_parallel_switch_workers": effective_parallel_switch_workers,
+        "student_transition_switch_fit_count": transition_switch_fit_count,
+        "effective_student_parallel_switch_slots": effective_parallel_switch_slots,
+        "paper_student_parallel_threads": PAPER_STUDENT_PARALLEL_THREADS,
+        "uses_parallel_student_switch_optimization": effective_parallel_switch_slots > 1,
+        "uses_paper_student_parallel_threads": (
+            effective_parallel_switch_workers == PAPER_STUDENT_PARALLEL_THREADS
+            and effective_parallel_switch_slots == PAPER_STUDENT_PARALLEL_THREADS
         ),
         "teacher_candidate_rollouts_cover_selected_top_rho": effective_candidate_rollouts >= effective_top_rho,
         "teacher_candidate_rollouts_cover_paper_top_rho": effective_candidate_rollouts >= PAPER_TEACHER_TOP_RHO,
@@ -1105,6 +1126,7 @@ def fit_probabilistic_cartpole_student_with_history(
         switch_pair_responsibilities or None,
         switch,
         switch_parameter_distributions,
+        cfg,
     )
 
     threshold_distribution = (
@@ -3395,6 +3417,7 @@ def _fit_transition_switches(
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None,
     fallback_switch: SwitchProgram,
     fallback_distributions: List[GaussianScalar],
+    cfg: CartpoleSynthesisConfig | None = None,
 ) -> Tuple[Dict[Tuple[int, int], SwitchProgram], Dict[Tuple[int, int], List[GaussianScalar]]]:
     pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
     if pair_count == 0:
@@ -3402,7 +3425,28 @@ def _fit_transition_switches(
 
     transitions: Dict[Tuple[int, int], SwitchProgram] = {}
     distributions: Dict[Tuple[int, int], List[GaussianScalar]] = {}
-    for transition in ((0, 1), (1, 0)):
+    for transition, switch, switch_distributions in _fit_directed_transition_switches(
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+        fallback_switch,
+        cfg,
+    ):
+        transitions[transition] = switch
+        distributions[transition] = switch_distributions
+    return transitions, distributions
+
+
+def _fit_directed_transition_switches(
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None,
+    fallback_switch: SwitchProgram,
+    cfg: CartpoleSynthesisConfig | None = None,
+) -> List[Tuple[Tuple[int, int], SwitchProgram, List[GaussianScalar]]]:
+    transitions = [(0, 1), (1, 0)]
+
+    def fit_one(transition: Tuple[int, int]) -> Tuple[Tuple[int, int], SwitchProgram, List[GaussianScalar]]:
         directed_pairs = _directed_switch_pair_responsibilities(
             segments_by_trace,
             responsibilities,
@@ -3416,9 +3460,14 @@ def _fit_transition_switches(
             transition,
             fallback_switch,
         )
-        transitions[transition] = switch
-        distributions[transition] = switch_distributions
-    return transitions, distributions
+        return transition, switch, switch_distributions
+
+    parallel_workers = max(1, int(cfg.parallel_switch_workers)) if cfg is not None else 1
+    if parallel_workers == 1 or len(transitions) <= 1:
+        return [fit_one(transition) for transition in transitions]
+    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+        futures = [executor.submit(fit_one, transition) for transition in transitions]
+        return [future.result() for future in futures]
 
 
 def _fit_directed_transition_switch(

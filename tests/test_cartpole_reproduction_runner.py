@@ -266,6 +266,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(psm_traces["command"], psm_metrics["command"])
             self.assertEqual(psm_metrics["config"]["teacher_theta_gain"], 12.5)
             self.assertEqual(psm_metrics["config"]["parallel_trace_workers"], 1)
+            self.assertEqual(psm_metrics["config"]["parallel_switch_workers"], 1)
             self.assertEqual(psm_metrics["algorithm_provenance"]["switch_timing"]["std_steps"], 2.0)
             self.assertEqual(
                 psm_metrics["algorithm_provenance"]["switch_timing"]["duration_units"],
@@ -340,6 +341,13 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(psm_status["paper_teacher_parallel_threads"], 10)
             self.assertFalse(psm_status["uses_parallel_teacher_trace_optimization"])
             self.assertFalse(psm_status["uses_paper_teacher_parallel_threads"])
+            self.assertEqual(psm_status["selected_student_parallel_switch_workers"], 1)
+            self.assertEqual(psm_status["effective_student_parallel_switch_workers"], 1)
+            self.assertEqual(psm_status["student_transition_switch_fit_count"], 2)
+            self.assertEqual(psm_status["effective_student_parallel_switch_slots"], 1)
+            self.assertEqual(psm_status["paper_student_parallel_threads"], 10)
+            self.assertFalse(psm_status["uses_parallel_student_switch_optimization"])
+            self.assertFalse(psm_status["uses_paper_student_parallel_threads"])
             self.assertTrue(psm_status["teacher_candidate_rollouts_cover_selected_top_rho"])
             self.assertFalse(psm_status["teacher_candidate_rollouts_cover_paper_top_rho"])
             self.assertFalse(psm_status["teacher_cem_phase_matches_paper_rho"])
@@ -435,6 +443,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_elite_distribution_resamples"], 3)
             self.assertEqual(manifest["psm_teacher_overrides"]["teacher_elite_distribution_rounds"], 2)
             self.assertEqual(manifest["psm_teacher_overrides"]["parallel_trace_workers"], 1)
+            self.assertEqual(manifest["psm_teacher_overrides"]["parallel_switch_workers"], 1)
             manifest_psm_status = manifest["psm_paper_protocol_status"]
             self.assertEqual(manifest_psm_status, psm_status)
             manifest_status = manifest["paper_protocol_status"]
@@ -850,6 +859,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "teacher_top_rho": 1,
                     "teacher_refinement_steps": 0,
                     "parallel_trace_workers": 2,
+                    "parallel_switch_workers": 2,
                 },
             )
 
@@ -858,10 +868,14 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertEqual(config["segments_per_trace"], 250)
         self.assertEqual(config["segment_steps"] * config["segments_per_trace"], 250)
         self.assertEqual(config["parallel_trace_workers"], 2)
+        self.assertEqual(config["parallel_switch_workers"], 2)
         self.assertEqual(row["paper_protocol_status"]["selected_teacher_parallel_trace_workers"], 2)
         self.assertEqual(row["paper_protocol_status"]["effective_teacher_parallel_trace_initial_states"], 1)
         self.assertEqual(row["paper_protocol_status"]["effective_teacher_parallel_trace_slots"], 1)
         self.assertFalse(row["paper_protocol_status"]["uses_parallel_teacher_trace_optimization"])
+        self.assertEqual(row["paper_protocol_status"]["selected_student_parallel_switch_workers"], 2)
+        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_slots"], 2)
+        self.assertTrue(row["paper_protocol_status"]["uses_parallel_student_switch_optimization"])
 
     def test_quick_runner_can_include_direct_opt_diagnostic(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -563,6 +563,7 @@ def parse_args() -> argparse.Namespace:
         default=default_psm.teacher_elite_distribution_rounds,
     )
     parser.add_argument("--psm-parallel-trace-workers", type=int, default=default_psm.parallel_trace_workers)
+    parser.add_argument("--psm-parallel-switch-workers", type=int, default=default_psm.parallel_switch_workers)
     parser.add_argument(
         "--ppo-eval-interval",
         type=int,
@@ -595,6 +596,7 @@ def psm_teacher_overrides_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         "teacher_elite_distribution_resamples": args.psm_teacher_elite_distribution_resamples,
         "teacher_elite_distribution_rounds": args.psm_teacher_elite_distribution_rounds,
         "parallel_trace_workers": args.psm_parallel_trace_workers,
+        "parallel_switch_workers": args.psm_parallel_switch_workers,
     }
 
 

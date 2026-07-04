@@ -7,6 +7,7 @@
       10.0
     ],
     "num_initial_states": 4,
+    "parallel_switch_workers": 1,
     "parallel_trace_workers": 1,
     "seed": 0,
     "segment_steps": 1,

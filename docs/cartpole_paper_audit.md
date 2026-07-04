@@ -365,7 +365,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   switches instead of using one selector complement when they are available. This moves Eq. (10) and
   Eq. (12) closer to the paper by using both `H` and ordered-transition `G` evidence throughout the
   bounded EM loop, but it remains a local bounded approximation rather than the paper's full
-  continuous EM/M-step optimizer.
+  continuous EM/M-step optimizer. The local student can fit the two directed CartPole transition
+  switches concurrently with configurable switch workers and records the active switch-fit slots, but
+  this bounded two-mode grammar still cannot claim the paper's `10` active student-side threads.
 - The loop-free Cartpole teacher now records its segment-duration schedule and locally refines one
   integer segment duration at a time during bounded coordinate search. It also records the
   corresponding constant-action sequence, duration-only refinement preserves that action sequence
@@ -377,7 +379,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   when trading off reward against student likelihood.
 - The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings,
   including local parallel trace workers for independent loop-free teacher optimization across
-  initial states, and records their exact values in metrics JSON.
+  initial states and local parallel switch workers for directed student transition-switch fitting,
+  and records their exact values in metrics JSON.
 - PSM metrics and reproduction-runner manifests now record fixed local synthesis constants such as
   default EM iterations, Gaussian floors, switch-timing scale, switch-search grids, and teacher-search
   refinement schedule. The actual configured student EM iterations and per-EM switch-responsibility
