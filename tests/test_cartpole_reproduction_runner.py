@@ -475,7 +475,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["probabilistic_student"]["responsibility_evidence"],
-                "action_likelihood_initialization_then_fixed_switch_forward_backward_action_refits",
+                "action_likelihood_initialization_then_directed_switch_forward_backward_action_refits",
             )
             self.assertTrue(provenance["probabilistic_student"]["switch_responsibility_passes_are_per_em_iteration"])
             self.assertEqual(
@@ -485,6 +485,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 provenance["probabilistic_student"]["initial_switch_before_first_timing_e_step"],
                 "fixed_bootstrap_not_data_fit",
+            )
+            self.assertEqual(
+                provenance["probabilistic_student"]["directed_switch_e_step_schedule"],
+                "uses_latest_transition_specific_switches_after_first_bounded_m_step",
             )
             self.assertEqual(provenance["probabilistic_student"]["rollout_parameter_resampling"], "on_mode_entry")
             self.assertEqual(
@@ -663,7 +667,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(row_provenance["probabilistic_student"]["default_switch_responsibility_passes"], 1)
             self.assertEqual(
                 row_provenance["probabilistic_student"]["responsibility_evidence"],
-                "action_likelihood_initialization_then_fixed_switch_forward_backward_action_refits",
+                "action_likelihood_initialization_then_directed_switch_forward_backward_action_refits",
             )
             self.assertTrue(
                 row_provenance["probabilistic_student"]["switch_responsibility_passes_are_per_em_iteration"]
@@ -675,6 +679,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(
                 row_provenance["probabilistic_student"]["initial_switch_before_first_timing_e_step"],
                 "fixed_bootstrap_not_data_fit",
+            )
+            self.assertEqual(
+                row_provenance["probabilistic_student"]["directed_switch_e_step_schedule"],
+                "uses_latest_transition_specific_switches_after_first_bounded_m_step",
             )
             self.assertEqual(
                 row_provenance["probabilistic_student"]["rollout_parameter_resampling"],

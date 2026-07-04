@@ -141,11 +141,12 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "default_em_iters": PROBABILISTIC_STUDENT_EM_ITERS,
             "default_switch_responsibility_passes": PROBABILISTIC_STUDENT_SWITCH_RESPONSIBILITY_PASSES,
             "responsibility_evidence": (
-                "action_likelihood_initialization_then_fixed_switch_forward_backward_action_refits"
+                "action_likelihood_initialization_then_directed_switch_forward_backward_action_refits"
             ),
             "switch_responsibility_passes_are_per_em_iteration": True,
             "switch_condition_m_step_schedule": "once_per_student_em_iteration_after_configured_eq10_eq11_passes",
             "initial_switch_before_first_timing_e_step": "fixed_bootstrap_not_data_fit",
+            "directed_switch_e_step_schedule": "uses_latest_transition_specific_switches_after_first_bounded_m_step",
             "mode_update_order": CARTPOLE_PSM_MODE_UPDATE_ORDER,
             "rollout_parameter_resampling": "on_mode_entry",
             "transition_specific_switches": "separate_fitted_conditions_for_0_to_1_and_1_to_0",
@@ -1050,6 +1051,8 @@ def fit_probabilistic_cartpole_student_with_history(
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] = []
     switch: SwitchProgram | None = None
     switch_parameter_distributions: List[GaussianScalar] = []
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] = {}
+    transition_switch_parameter_distributions: Dict[Tuple[int, int], List[GaussianScalar]] = {}
     fit_history: List[CartpoleStudentFitStep] = []
 
     for iteration in range(max(1, cfg.student_em_iters)):
@@ -1097,6 +1100,8 @@ def fit_probabilistic_cartpole_student_with_history(
                 action_distributions,
                 switch,
                 switch_parameter_distributions,
+                transition_switches,
+                transition_switch_parameter_distributions,
             )
             action_distributions = _fit_action_distributions(
                 segments,
@@ -1122,6 +1127,15 @@ def fit_probabilistic_cartpole_student_with_history(
             responsibilities,
             switch_pair_responsibilities or None,
         )
+        transition_switches, transition_switch_parameter_distributions = _fit_transition_switches(
+            traces,
+            segments_by_trace,
+            responsibilities,
+            switch_pair_responsibilities or None,
+            switch,
+            switch_parameter_distributions,
+            cfg,
+        )
         fit_history.append(
             _student_fit_step(
                 iteration + 1,
@@ -1142,15 +1156,16 @@ def fit_probabilistic_cartpole_student_with_history(
             responsibilities,
             switch_pair_responsibilities or None,
         )
-    transition_switches, transition_switch_parameter_distributions = _fit_transition_switches(
-        traces,
-        segments_by_trace,
-        responsibilities,
-        switch_pair_responsibilities or None,
-        switch,
-        switch_parameter_distributions,
-        cfg,
-    )
+    if not transition_switches:
+        transition_switches, transition_switch_parameter_distributions = _fit_transition_switches(
+            traces,
+            segments_by_trace,
+            responsibilities,
+            switch_pair_responsibilities or None,
+            switch,
+            switch_parameter_distributions,
+            cfg,
+        )
 
     threshold_distribution = (
         switch_parameter_distributions[0]
@@ -3305,24 +3320,53 @@ def _student_trace_pair_log_potentials(
     student: ProbabilisticCartpoleStudent,
     segment: CartpoleSegment,
 ) -> List[List[float]]:
-    transition_switches = student.transition_switches or {}
+    return _transition_switch_pair_log_potentials(
+        student.transition_switches,
+        student.transition_switch_parameter_distributions,
+        student.switch,
+        student.switch_parameter_distributions,
+        segment,
+    )
+
+
+def _student_trace_terminal_stay_log_potentials(
+    student: ProbabilisticCartpoleStudent,
+    segment: CartpoleSegment,
+) -> List[float]:
+    return _transition_switch_terminal_stay_log_potentials(
+        student.transition_switches,
+        student.transition_switch_parameter_distributions,
+        student.switch,
+        student.switch_parameter_distributions,
+        segment,
+    )
+
+
+def _transition_switch_pair_log_potentials(
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] | None,
+    transition_distributions: Dict[Tuple[int, int], List[GaussianScalar]] | None,
+    fallback_switch: SwitchProgram,
+    fallback_distributions: List[GaussianScalar],
+    segment: CartpoleSegment,
+) -> List[List[float]]:
+    transition_switches = transition_switches or {}
     if (0, 1) not in transition_switches or (1, 0) not in transition_switches:
         return _switch_responsibility_pair_log_potentials(
-            student.switch,
-            student.switch_parameter_distributions,
+            fallback_switch,
+            fallback_distributions,
             segment,
         )
-    distributions = student.transition_switch_parameter_distributions or {}
+    transition_distributions = transition_distributions or {}
     off_to_on, stay_off = _switch_transition_and_stay_probabilities(
         transition_switches[(0, 1)],
-        distributions.get((0, 1), []),
+        transition_distributions.get((0, 1), []),
         segment.observations,
         segment.switch_timing_duration,
         segment.timing_step_scale,
     )
     on_to_off, stay_on = _switch_transition_and_stay_probabilities(
         transition_switches[(1, 0)],
-        distributions.get((1, 0), []),
+        transition_distributions.get((1, 0), []),
         segment.observations,
         segment.switch_timing_duration,
         segment.timing_step_scale,
@@ -3339,28 +3383,31 @@ def _student_trace_pair_log_potentials(
     ]
 
 
-def _student_trace_terminal_stay_log_potentials(
-    student: ProbabilisticCartpoleStudent,
+def _transition_switch_terminal_stay_log_potentials(
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] | None,
+    transition_distributions: Dict[Tuple[int, int], List[GaussianScalar]] | None,
+    fallback_switch: SwitchProgram,
+    fallback_distributions: List[GaussianScalar],
     segment: CartpoleSegment,
 ) -> List[float]:
-    transition_switches = student.transition_switches or {}
+    transition_switches = transition_switches or {}
     if (0, 1) not in transition_switches or (1, 0) not in transition_switches:
         return _switch_terminal_stay_log_potentials(
-            student.switch,
-            student.switch_parameter_distributions,
+            fallback_switch,
+            fallback_distributions,
             segment,
         )
-    distributions = student.transition_switch_parameter_distributions or {}
+    transition_distributions = transition_distributions or {}
     _, stay_off = _switch_transition_and_stay_probabilities(
         transition_switches[(0, 1)],
-        distributions.get((0, 1), []),
+        transition_distributions.get((0, 1), []),
         segment.observations,
         segment.switch_timing_duration,
         segment.timing_step_scale,
     )
     _, stay_on = _switch_transition_and_stay_probabilities(
         transition_switches[(1, 0)],
-        distributions.get((1, 0), []),
+        transition_distributions.get((1, 0), []),
         segment.observations,
         segment.switch_timing_duration,
         segment.timing_step_scale,
@@ -3840,6 +3887,8 @@ def _refine_responsibilities_and_switch_pairs_with_timing(
     action_distributions: Dict[int, GaussianScalar],
     switch: SwitchProgram,
     switch_parameter_distributions: List[GaussianScalar],
+    transition_switches: Dict[Tuple[int, int], SwitchProgram] | None = None,
+    transition_switch_parameter_distributions: Dict[Tuple[int, int], List[GaussianScalar]] | None = None,
 ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float, float, float]]]:
     responsibilities: List[Tuple[float, float]] = []
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] = []
@@ -3857,7 +3906,9 @@ def _refine_responsibilities_and_switch_pairs_with_timing(
         # Pair potentials encode whether the learned switch prefers a mode
         # transition or a same-mode continuation at each observed boundary.
         pair_potentials = [
-            _switch_responsibility_pair_log_potentials(
+            _transition_switch_pair_log_potentials(
+                transition_switches,
+                transition_switch_parameter_distributions,
                 switch,
                 switch_parameter_distributions,
                 segment,
@@ -3884,7 +3935,9 @@ def _refine_responsibilities_and_switch_pairs_with_timing(
                 ]
             )
 
-        terminal_stay = _switch_terminal_stay_log_potentials(
+        terminal_stay = _transition_switch_terminal_stay_log_potentials(
+            transition_switches,
+            transition_switch_parameter_distributions,
             switch,
             switch_parameter_distributions,
             trace_segments[-1],

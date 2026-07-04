@@ -205,8 +205,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `38.4`, test reward mean `54.15`; the same artifact records train/test
-  survived-step means `38.4` and `54.15`, or `0.768s` and `1.083s`. The tracked artifact was
+  train reward mean `28.45`, test reward mean `41.6`; the same artifact records train/test
+  survived-step means `28.45` and `41.6`, or `0.569s` and `0.832s`. The tracked artifact was
   regenerated with the full selected-teacher-trace sidecar, inner student fit history, fixed initial-mode likelihood, and
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`) and the paper's `rho = 10` top-elite teacher setting
@@ -300,7 +300,10 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   deviations against a discrete Eq. (12)-style
   likelihood, while using responsibility-weighted expected label loss over non-boundary segment
   observations as the primary structure/refinement label objective when soft EM responsibilities are
-  available. This moves the switch M-step closer to the paper's latent-responsibility objective, but
+  available. After the first bounded switch M-step, later EM timing-responsibility passes use the
+  latest fitted transition-specific `0->1` and `1->0` switches for the Eq. (10)-style forward-backward
+  timing likelihood. This moves the switch M-step and E-step timing model closer to the paper's
+  latent-responsibility objective, but
   remains a diagnostic approximation: second-predicate Boolean-tree expansions and final switch
   structures are prefiltered by a cheaper hard-label/timing objective before bounded top-32
   distribution rescoring, depth-2 Boolean-tree probabilities use a
@@ -627,12 +630,16 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_timing_responsibilities_are_directed_by_next_mode`
   verifies that the bounded two-mode responsibility likelihood distinguishes selector-off to
   selector-on transitions from selector-on to selector-off transitions.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_timing_e_step_uses_transition_specific_switches`
+  verifies that EM timing-responsibility pair posteriors can use fitted transition-specific switch
+  likelihoods instead of the legacy shared selector fallback.
 - `tests/test_cartpole_paper.py::test_cartpole_student_switch_responsibility_passes_are_configurable`
   verifies that the configured number of switch-timing responsibility passes changes the fitted
   student responsibilities and action distributions.
 - `tests/test_cartpole_paper.py::test_cartpole_student_alternates_switch_responsibility_passes_per_em_iteration`
   verifies that switch-timing responsibility refinements are applied inside each configured EM
-  iteration rather than only after action-only EM has completed.
+  iteration and that later passes receive the directed transition switches fitted by the previous
+  bounded switch M-step.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_timing_e_step_returns_adjacent_pair_posteriors`,
   `tests/test_cartpole_paper.py::test_cartpole_switch_pair_posteriors_are_not_marginal_products`, and
   `tests/test_cartpole_paper.py::test_cartpole_switch_timing_pairs_use_forward_backward_pair_posteriors`

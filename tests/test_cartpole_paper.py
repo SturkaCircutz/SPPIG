@@ -558,6 +558,58 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertGreater(off_to_on, 0.99)
         self.assertLess(on_to_off, 0.01)
 
+    def test_cartpole_switch_timing_e_step_uses_transition_specific_switches(self):
+        trace_segments = [
+            CartpoleSegment(
+                observations=[
+                    [0.0, 0.0, -0.2, 0.0],
+                    [0.0, 0.0, -0.1, 0.0],
+                    [0.0, 0.0, 0.3, 0.0],
+                ],
+                action_parameter=0.0,
+                duration=3,
+                hard_mode=0,
+            ),
+            CartpoleSegment(
+                observations=[[0.0, 0.0, 0.4, 0.0]],
+                action_parameter=0.0,
+                duration=1,
+                hard_mode=1,
+            ),
+        ]
+        action_distributions = {
+            0: GaussianScalar(0.0, 10.0),
+            1: GaussianScalar(0.0, 10.0),
+        }
+        legacy_switch = Depth2Switch(1.0, 0.0, 1.0)
+        legacy_distributions = [GaussianScalar(1.0, 0.001)]
+        directed_switches = {
+            (0, 1): Depth2Switch(1.0, 0.0, 0.0),
+            (1, 0): Depth2Switch(-1.0, 0.0, 1.0),
+        }
+        directed_distributions = {
+            (0, 1): [GaussianScalar(0.0, 0.001)],
+            (1, 0): [GaussianScalar(1.0, 0.001)],
+        }
+
+        _, legacy_pairs = _refine_responsibilities_and_switch_pairs_with_timing(
+            [trace_segments],
+            action_distributions,
+            legacy_switch,
+            legacy_distributions,
+        )
+        _, directed_pairs = _refine_responsibilities_and_switch_pairs_with_timing(
+            [trace_segments],
+            action_distributions,
+            legacy_switch,
+            legacy_distributions,
+            directed_switches,
+            directed_distributions,
+        )
+
+        self.assertLess(legacy_pairs[0][1], 0.01)
+        self.assertGreater(directed_pairs[0][1], 0.49)
+
     def test_cartpole_switch_pair_posteriors_are_not_marginal_products(self):
         trace_segments = [
             CartpoleSegment(
@@ -653,6 +705,11 @@ class CartpolePaperTest(unittest.TestCase):
 
         self.assertEqual(refine_mock.call_count, 6)
         self.assertEqual(switch_fit_mock.call_count, 3)
+        directed_switch_args = [call.args[4] for call in refine_mock.call_args_list]
+        self.assertFalse(directed_switch_args[0])
+        self.assertFalse(directed_switch_args[1])
+        for transition_switches in directed_switch_args[2:]:
+            self.assertEqual(set(transition_switches), {(0, 1), (1, 0)})
         self.assertEqual(len(student.responsibilities), 2)
         for left_weight, right_weight in student.responsibilities:
             self.assertAlmostEqual(left_weight + right_weight, 1.0)

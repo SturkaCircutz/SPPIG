@@ -192,7 +192,10 @@ actually had `10` active trace slots. It also records active student
 transition-switch fit slots for the local bounded switch M-step.
 The probabilistic student likelihood and EM responsibility refinement are
 conditioned on the executable CartPole PSM's fixed initial mode `0`, matching
-the paper's fixed initial memory-state assumption.
+the paper's fixed initial memory-state assumption. After the first bounded
+switch M-step, later EM timing-responsibility passes use the latest fitted
+transition-specific `0->1` and `1->0` switching conditions rather than the
+bootstrap selector fallback.
 The first teacher iteration uses an explicit probabilistic student prior, then
 later teacher candidate pools are sampled from the current probabilistic
 student before top-rho local refinement, matching the paper's sampled-teacher
