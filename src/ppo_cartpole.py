@@ -187,6 +187,29 @@ def rollout_to_update_metrics(rollout: "Rollout", update: int, timesteps: int) -
     }
 
 
+def _mean_metric(values: List[float]) -> float:
+    return sum(values) / len(values) if values else 0.0
+
+
+def _ppo_optimizer_metrics(
+    policy_losses: List[float],
+    value_losses: List[float],
+    entropies: List[float],
+    losses: List[float],
+    approx_kls: List[float],
+    clip_fractions: List[float],
+) -> Dict[str, object]:
+    return {
+        "optimizer_minibatch_updates": len(policy_losses),
+        "policy_loss_mean": _mean_metric(policy_losses),
+        "value_loss_mean": _mean_metric(value_losses),
+        "entropy_mean": _mean_metric(entropies),
+        "loss_mean": _mean_metric(losses),
+        "approx_kl_mean": _mean_metric(approx_kls),
+        "clip_fraction_mean": _mean_metric(clip_fractions),
+    }
+
+
 class MLPActorCritic(nn.Module):
     def __init__(self, hidden_size: int, initial_log_std: float = 0.0, action_scale: float = 10.0) -> None:
         super().__init__()
@@ -401,11 +424,13 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
         else:
             lstm_state = rollout.next_lstm_state
         timesteps += rollout.rewards.numel()
-        update_history.append(rollout_to_update_metrics(rollout, len(update_history) + 1, timesteps))
+        update_metrics = rollout_to_update_metrics(rollout, len(update_history) + 1, timesteps)
         if cfg.policy_type == "mlp":
-            _update_mlp(model, optimizer, rollout, cfg)
+            optimizer_metrics = _update_mlp(model, optimizer, rollout, cfg)
         else:
-            _update_lstm(model, optimizer, rollout, cfg)
+            optimizer_metrics = _update_lstm(model, optimizer, rollout, cfg)
+        update_metrics.update(optimizer_metrics)
+        update_history.append(update_metrics)
         if cfg.eval_interval > 0 and (timesteps >= cfg.total_timesteps or timesteps % cfg.eval_interval < rollout.rewards.numel()):
             current = evaluate_ppo_model(
                 model,
@@ -637,7 +662,12 @@ def _gae(
     return advantages, returns
 
 
-def _update_mlp(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Rollout, cfg: PPOConfig) -> None:
+def _update_mlp(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    rollout: Rollout,
+    cfg: PPOConfig,
+) -> Dict[str, object]:
     observations = rollout.observations.reshape(-1, 4)
     actions = rollout.actions.reshape(-1)
     old_log_probs = rollout.log_probs.reshape(-1)
@@ -646,6 +676,12 @@ def _update_mlp(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Rol
     batch_size = len(advantages)
     minibatch_size = max(1, batch_size // cfg.minibatches)
     advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
+    policy_losses: List[float] = []
+    value_losses: List[float] = []
+    entropies: List[float] = []
+    losses: List[float] = []
+    approx_kls: List[float] = []
+    clip_fractions: List[float] = []
     for _ in range(cfg.update_epochs):
         # MLP policies can shuffle individual transitions because there is no
         # recurrent context to preserve.
@@ -663,9 +699,25 @@ def _update_mlp(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Rol
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
             optimizer.step()
+            with torch.no_grad():
+                log_ratio = new_log_prob - old_log_probs[idx]
+                approx_kl = ((ratio - 1.0) - log_ratio).mean()
+                clip_fraction = ((ratio - 1.0).abs() > cfg.clip_range).float().mean()
+                policy_losses.append(float(policy_loss.item()))
+                value_losses.append(float(value_loss.item()))
+                entropies.append(float(entropy.mean().item()))
+                losses.append(float(loss.item()))
+                approx_kls.append(float(approx_kl.item()))
+                clip_fractions.append(float(clip_fraction.item()))
+    return _ppo_optimizer_metrics(policy_losses, value_losses, entropies, losses, approx_kls, clip_fractions)
 
 
-def _update_lstm(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Rollout, cfg: PPOConfig) -> None:
+def _update_lstm(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    rollout: Rollout,
+    cfg: PPOConfig,
+) -> Dict[str, object]:
     advantages = (rollout.advantages - rollout.advantages.mean()) / (
         rollout.advantages.std(unbiased=False) + 1e-8
     )
@@ -674,6 +726,12 @@ def _update_lstm(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Ro
     old_log_probs = rollout.log_probs
     returns = rollout.returns
     dones = rollout.dones
+    policy_losses: List[float] = []
+    value_losses: List[float] = []
+    entropies: List[float] = []
+    losses: List[float] = []
+    approx_kls: List[float] = []
+    clip_fractions: List[float] = []
     for _ in range(cfg.update_epochs):
         # The recurrent policy is updated on the full time-major rollout so
         # hidden-state resets stay aligned with environment terminations.
@@ -693,6 +751,17 @@ def _update_lstm(model: nn.Module, optimizer: torch.optim.Optimizer, rollout: Ro
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
         optimizer.step()
+        with torch.no_grad():
+            log_ratio = new_log_prob - old_log_probs
+            approx_kl = ((ratio - 1.0) - log_ratio).mean()
+            clip_fraction = ((ratio - 1.0).abs() > cfg.clip_range).float().mean()
+            policy_losses.append(float(policy_loss.item()))
+            value_losses.append(float(value_loss.item()))
+            entropies.append(float(entropy.mean().item()))
+            losses.append(float(loss.item()))
+            approx_kls.append(float(approx_kl.item()))
+            clip_fractions.append(float(clip_fraction.item()))
+    return _ppo_optimizer_metrics(policy_losses, value_losses, entropies, losses, approx_kls, clip_fractions)
 
 
 def _pretrain_mlp_actor(model: MLPActorCritic, optimizer: torch.optim.Optimizer, cfg: PPOConfig) -> None:

@@ -123,6 +123,16 @@ class CartpolePPOCliTest(unittest.TestCase):
         self.assertGreaterEqual(len(metrics["eval_history"]), 1)
         self.assertEqual(len(metrics["update_history"]), 2)
         self.assertEqual(metrics["update_history"][0]["rollout_steps"], 32)
+        self.assertEqual(metrics["update_history"][0]["optimizer_minibatch_updates"], 1)
+        for field in (
+            "policy_loss_mean",
+            "value_loss_mean",
+            "entropy_mean",
+            "loss_mean",
+            "approx_kl_mean",
+            "clip_fraction_mean",
+        ):
+            self.assertIsInstance(metrics["update_history"][0][field], float)
         self.assertIn("selected_result", metrics)
         self.assertIn("train_steps_mean", metrics["selected_result"])
         self.assertIn("test_steps_mean", metrics["selected_result"])

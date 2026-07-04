@@ -107,8 +107,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   When PPO is included, it also writes per-row PPO checkpoints and metrics
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
   contain intermediate train/test `eval_history` entries or only the selected final result.
-  PPO metrics also contain compact `update_history` rows with rollout reward means and
-  train-horizon termination counts. Runner-generated PSM, PPO, and Direct-Opt metrics JSON artifacts
+  PPO metrics also contain compact `update_history` rows with rollout reward means,
+  train-horizon termination counts, optimizer loss means, entropy, approximate KL,
+  clip fraction, and optimizer-minibatch counts. Runner-generated PSM, PPO, and Direct-Opt metrics JSON artifacts
   record the command that produced them. PPO manifest rows mirror the metrics JSON
   `paper_protocol_status` block, so local diagnostic runs and single fixed-config runs are not
   mistaken for the full five-seed paper baseline protocol. Result rows, summaries, and metrics JSON
@@ -371,8 +372,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   adaptive-teaching optimizer and paper-scale result reproduction. These values document the current
   partial implementation; they are not claimed as paper-specified constants.
 - PPO training runs can now write metrics JSON containing the full evaluation history, compact
-  per-update rollout diagnostics, selected result, config, checkpoint-selection rule, and explicit
-  survived-step/survival-second means for train/test evaluation.
+  per-update rollout and optimizer diagnostics, selected result, config, checkpoint-selection rule,
+  and explicit survived-step/survival-second means for train/test evaluation.
 - The orchestrated reproduction runner now persists PPO/PPO-LSTM checkpoints and metrics JSON for
   `--include-ppo` rows, tying those local diagnostic results to concrete artifacts. Runner rows and
   summaries also report survived steps and survival seconds explicitly.
@@ -459,8 +460,8 @@ paper-scale PPO2 runs.
   PPO/PPO-LSTM baseline procedure even if its timestep, horizon, rollout, and minibatch settings are
   paper-sized.
 - `tests/test_cartpole_paper.py::test_ppo_writes_eval_history_metrics_json` verifies that PPO
-  interval evaluations and per-update rollout diagnostics are persisted to JSON instead of existing
-  only in stdout.
+  interval evaluations plus per-update rollout and optimizer diagnostics are persisted to JSON
+  instead of existing only in stdout.
 - `tests/test_cartpole_paper.py::test_ppo_protocol_status_distinguishes_single_run_from_full_baseline`
   verifies that PPO metrics can mark a single configured run as matching the paper timestep/test
   horizon budget while still marking the full five-seed paper baseline protocol as incomplete.

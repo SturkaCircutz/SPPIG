@@ -5734,6 +5734,16 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIn("reward_mean", metrics["update_history"][0])
         self.assertIn("horizon_truncations", metrics["update_history"][0])
         self.assertIn("failure_terminations", metrics["update_history"][0])
+        self.assertEqual(metrics["update_history"][0]["optimizer_minibatch_updates"], 1)
+        for field in (
+            "policy_loss_mean",
+            "value_loss_mean",
+            "entropy_mean",
+            "loss_mean",
+            "approx_kl_mean",
+            "clip_fraction_mean",
+        ):
+            self.assertIsInstance(metrics["update_history"][0][field], float)
         self.assertEqual(metrics["selected_result"]["timesteps"], result.timesteps)
         self.assertEqual(metrics["paper_protocol_status"]["selected_test_max_steps"], 20)
         self.assertTrue(metrics["reward_spec"]["reward_equals_survived_steps"])
@@ -5846,11 +5856,14 @@ class CartpolePaperTest(unittest.TestCase):
 
         model.sequence_action_and_value = spy
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-        _update_lstm(model, optimizer, rollout, cfg)
+        update_metrics = _update_lstm(model, optimizer, rollout, cfg)
 
         self.assertIsNotNone(calls[0])
         self.assertTrue(torch.equal(calls[0][0], rollout.initial_lstm_state[0]))
         self.assertTrue(torch.equal(calls[0][1], rollout.initial_lstm_state[1]))
+        self.assertEqual(update_metrics["optimizer_minibatch_updates"], cfg.update_epochs)
+        self.assertIsInstance(update_metrics["policy_loss_mean"], float)
+        self.assertIsInstance(update_metrics["approx_kl_mean"], float)
 
 
 if __name__ == "__main__":

@@ -346,8 +346,10 @@ PPO-LSTM diagnostic:
 When `--eval-interval` is positive, the PPO trainer records each train/test
 evaluation in `eval_history`, plus the selected checkpoint result and config in
 the metrics JSON file. Each metrics file also records `update_history` rows for
-local rollout rewards and train-horizon termination counts. PPO training metrics
-also include a `paper_protocol_status` block that marks whether the run used the
+local rollout rewards, train-horizon termination counts, and optimizer-side PPO
+diagnostics such as loss means, entropy, approximate KL, clip fraction, and
+minibatch-update count. PPO training metrics also include a
+`paper_protocol_status` block that marks whether the run used the
 paper `10^7` timestep budget, 300s test horizon, and `1000` evaluation rollouts,
 while keeping the full five-seed baseline protocol claim false for standalone runs. This is
 training-curve provenance for local diagnostics; it is not a substitute for the
