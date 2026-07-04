@@ -83,7 +83,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   paper-scale result flags false for the current bounded implementation. The metrics now include a
   compact `adaptive_teacher_summary` for each teacher/student iteration, recording the teacher
   sampling model, selected trace-source counts, reward summary, student log-probability coverage, and
-  the recorded reward-plus-student-likelihood objective components when available. Each
+  the recorded reward-plus-student-likelihood objective components when available, plus the configured
+  teacher candidate rollout count, effective top-rho value, the paper `rho = 10` reference, and whether
+  the local candidate pool covers that paper top-rho setting. Each
   `synthesis_history` row also records `student_fit_history`, a compact trace of the inner
   action-likelihood initialization and switch-timing responsibility/refit passes that produced that
   iteration's probabilistic student, including compact adjacent switch-pair posterior mass used by
@@ -202,8 +204,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `27.15`, test reward mean `33.2`; the same artifact records train/test
-  survived-step means `27.15` and `33.2`, or `0.543s` and `0.664s`. The tracked artifact was
+  train reward mean `43.1`, test reward mean `60.55`; the same artifact records train/test
+  survived-step means `43.1` and `60.55`, or `0.862s` and `1.211s`. The tracked artifact was
   regenerated with the full selected-teacher-trace sidecar, inner student fit history, fixed initial-mode likelihood, and
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`)
@@ -215,7 +217,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `{"bootstrap_elite_distribution_mean": 2, "bootstrap_student_sample": 2}`,
   final-iteration source counts `{"student_sample": 4}`, compact adaptive-teacher
   objective-component summaries, and policy
-  `m0 action=-0.778; m1 action=1.059; mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0`; it also records
+  `m0 action=-0.081; m1 action=0.179; mode=1 if o[2] >= -0.195 and o[0] >= -0.336, else mode=0`; it also records
   `student_sample_segment_budget =
   preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
@@ -336,6 +338,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   This moves
   toward the sampled-teacher and local-optimization
   phases in Section 4.2, but it is not the paper's full CEM plus gradient-based trajectory optimizer.
+  PSM protocol status records whether the bounded teacher sampling phase uses the paper's
+  `rho = 10` top-elite setting and whether the configured candidate rollout pool is large enough to
+  populate that paper top-rho set.
 - The Cartpole teacher regularizer now scores candidate traces with both Gaussian action likelihood
   and the student's discrete Eq. (12)-style switch timing likelihood, marginalizing over the latent
   mode sequence with a two-state forward pass. The bounded two-mode timing model now distinguishes
@@ -801,6 +806,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_candidate_pool_uses_student_samples_after_first_iteration`
   verifies that the teacher candidate pool is sampled from the current probabilistic student after the
   first student fit.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_cem_status_requires_paper_top_rho_coverage`
+  verifies that a local teacher candidate pool and top-rho setting are not marked as matching the
+  paper's `rho = 10` CEM-style elite phase unless both the selected top-rho and candidate coverage
+  support that claim.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_optimization_bootstrap_returns_prior_sample`
   verifies that first-iteration optimized teacher traces retain bootstrap-sampling provenance.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_optimization_records_selected_refinement_objective`

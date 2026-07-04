@@ -22,6 +22,7 @@ from cartpole_synthesis import (
     ProbabilisticCartpoleStudent,
     cartpole_synthesis_algorithm_provenance,
     cartpole_synthesis_protocol_status,
+    cartpole_teacher_cem_protocol_status,
     cartpole_switch_fit_diagnostics,
     synthesize_cartpole_student_with_history,
     _directed_transition_description,
@@ -285,6 +286,7 @@ def summarize_adaptive_teacher_iteration(
     cfg: CartpoleSynthesisConfig,
 ):
     traces = entry.traces
+    cem_status = cartpole_teacher_cem_protocol_status(cfg)
     rewards = [trace.reward for trace in traces]
     reward_terms = [cfg.teacher_reward_lambda * trace.reward for trace in traces]
     log_probabilities = [
@@ -367,6 +369,19 @@ def summarize_adaptive_teacher_iteration(
         "teacher_reward_lambda": cfg.teacher_reward_lambda,
         "teacher_student_regularizer": cfg.teacher_student_regularizer,
         "trace_count": len(traces),
+        "candidate_rollouts": cfg.candidate_rollouts,
+        "effective_candidate_rollouts": cem_status["effective_teacher_candidate_rollouts"],
+        "selected_top_rho": cfg.teacher_top_rho,
+        "effective_top_rho": cem_status["effective_teacher_top_rho"],
+        "paper_top_rho": cem_status["paper_teacher_top_rho"],
+        "uses_paper_top_rho": cem_status["uses_paper_teacher_top_rho"],
+        "candidate_rollouts_cover_selected_top_rho": cem_status[
+            "teacher_candidate_rollouts_cover_selected_top_rho"
+        ],
+        "candidate_rollouts_cover_paper_top_rho": cem_status[
+            "teacher_candidate_rollouts_cover_paper_top_rho"
+        ],
+        "cem_phase_matches_paper_rho": cem_status["teacher_cem_phase_matches_paper_rho"],
         "teacher_source_counts": source_counts,
         "refinement_elite_summary": {
             "count": len(refinement_elite_summaries),

@@ -271,6 +271,16 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["student_sample_segment_budget"],
             "preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood",
         )
+        self.assertEqual(provenance["teacher_search"]["candidate_rollout_count"], "configurable_via_candidate_rollouts")
+        self.assertEqual(provenance["teacher_search"]["paper_top_rho"], 10)
+        self.assertEqual(
+            provenance["teacher_search"]["top_rho_selection"],
+            "sort_by_teacher_objective_and_keep_teacher_top_rho_elites",
+        )
+        self.assertEqual(
+            provenance["teacher_search"]["phase_one_objective"],
+            "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_log_p_trace_under_student",
+        )
         self.assertEqual(
             provenance["teacher_search"]["teacher_rollout_horizon"],
             "min_environment_max_steps_and_configured_loop_free_horizon",
@@ -435,6 +445,15 @@ class CartpolePSMCliTest(unittest.TestCase):
             "previous_iteration_student",
         )
         self.assertEqual(first_teacher_summary["trace_count"], 2)
+        self.assertEqual(first_teacher_summary["candidate_rollouts"], 2)
+        self.assertEqual(first_teacher_summary["effective_candidate_rollouts"], 2)
+        self.assertEqual(first_teacher_summary["selected_top_rho"], 1)
+        self.assertEqual(first_teacher_summary["effective_top_rho"], 1)
+        self.assertEqual(first_teacher_summary["paper_top_rho"], 10)
+        self.assertFalse(first_teacher_summary["uses_paper_top_rho"])
+        self.assertTrue(first_teacher_summary["candidate_rollouts_cover_selected_top_rho"])
+        self.assertFalse(first_teacher_summary["candidate_rollouts_cover_paper_top_rho"])
+        self.assertFalse(first_teacher_summary["cem_phase_matches_paper_rho"])
         self.assertIn("teacher_source_counts", first_teacher_summary)
         self.assertIn("refinement_elite_summary", first_teacher_summary)
         self.assertEqual(first_teacher_summary["refinement_elite_summary"]["count"], 2)
@@ -512,6 +531,15 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertTrue(status["resamples_parameters_on_mode_entry"])
         self.assertEqual(status["student_em_iters"], 2)
         self.assertEqual(status["student_switch_responsibility_passes"], 2)
+        self.assertEqual(status["teacher_candidate_rollouts"], 2)
+        self.assertEqual(status["effective_teacher_candidate_rollouts"], 2)
+        self.assertEqual(status["selected_teacher_top_rho"], 1)
+        self.assertEqual(status["effective_teacher_top_rho"], 1)
+        self.assertEqual(status["paper_teacher_top_rho"], 10)
+        self.assertFalse(status["uses_paper_teacher_top_rho"])
+        self.assertTrue(status["teacher_candidate_rollouts_cover_selected_top_rho"])
+        self.assertFalse(status["teacher_candidate_rollouts_cover_paper_top_rho"])
+        self.assertFalse(status["teacher_cem_phase_matches_paper_rho"])
         self.assertEqual(status["teacher_elite_distribution_resamples"], 3)
         self.assertEqual(status["teacher_elite_distribution_rounds"], 2)
         self.assertTrue(status["synthesized_by_current_algorithm"])

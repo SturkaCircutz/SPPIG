@@ -138,7 +138,10 @@ The top-level
 model, teacher-source counts, reward summary, recorded student log-probability
 coverage, and the recorded reward-plus-student-likelihood objective components
 when available, including reward-term, student-regularizer-term, direct-objective,
-and refinement-objective summaries. It also summarizes, for selected teacher
+and refinement-objective summaries. It also records the configured teacher
+candidate rollout count, effective top-rho value, the paper's `rho=10`
+reference, and whether the local candidate pool actually covers that paper
+top-rho setting. It also summarizes, for selected teacher
 traces, the refreshed top-rho elite set used by the bounded refinement objective:
 elite counts, source counts, nearest-elite distances, and kernel log-probability
 terms, including normalized elite probability weights and distance-weighted
@@ -174,7 +177,9 @@ The metrics JSON also includes `paper_protocol_status`, which records the
 matched CartPole train/test horizons and the remaining algorithmic gaps. That
 block deliberately keeps `full_probabilistic_adaptive_teaching`,
 `full_continuous_switch_m_step`, `full_cem_teacher_optimizer`, and
-`paper_scale_result` false for the current bounded diagnostic implementation.
+`paper_scale_result` false for the current bounded diagnostic implementation,
+and separately records whether the teacher CEM-style sampling phase used the
+paper's `rho=10` top-elite setting.
 The probabilistic student likelihood and EM responsibility refinement are
 conditioned on the executable CartPole PSM's fixed initial mode `0`, matching
 the paper's fixed initial memory-state assumption.

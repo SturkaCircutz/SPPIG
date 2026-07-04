@@ -30,6 +30,7 @@ TEACHER_STUDENT_ITERS = 2
 TEACHER_STUDENT_REGULARIZER = 1.0
 TEACHER_REWARD_LAMBDA = 100.0
 TEACHER_TOP_RHO = 10
+PAPER_TEACHER_TOP_RHO = 10
 TEACHER_REFINEMENT_STEPS = 2
 TEACHER_GAIN_SAMPLE_STD_FRACTION = 0.10
 TEACHER_GAIN_SAMPLE_MIN_STD = 1e-6
@@ -216,6 +217,12 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "student_sample_local_refinement": (
                 "mode_preserving_duration_time_increment_continuous_action_gain_and_finite_difference_schedule_search"
             ),
+            "candidate_rollout_count": "configurable_via_candidate_rollouts",
+            "paper_top_rho": PAPER_TEACHER_TOP_RHO,
+            "top_rho_selection": "sort_by_teacher_objective_and_keep_teacher_top_rho_elites",
+            "phase_one_objective": (
+                "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_log_p_trace_under_student"
+            ),
             "teacher_rollout_horizon": "min_environment_max_steps_and_configured_loop_free_horizon",
             "elite_recombination": "top_rho_segment_mode_action_duration_time_increment_centroid",
             "elite_recombination_candidate_count": "at_most_one_when_elites_have_loop_free_schedules",
@@ -275,6 +282,25 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
     }
 
 
+def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[str, object]:
+    effective_candidate_rollouts = max(1, int(cfg.candidate_rollouts))
+    effective_top_rho = max(1, int(cfg.teacher_top_rho))
+    return {
+        "teacher_candidate_rollouts": cfg.candidate_rollouts,
+        "effective_teacher_candidate_rollouts": effective_candidate_rollouts,
+        "selected_teacher_top_rho": cfg.teacher_top_rho,
+        "effective_teacher_top_rho": effective_top_rho,
+        "paper_teacher_top_rho": PAPER_TEACHER_TOP_RHO,
+        "uses_paper_teacher_top_rho": effective_top_rho == PAPER_TEACHER_TOP_RHO,
+        "teacher_candidate_rollouts_cover_selected_top_rho": effective_candidate_rollouts >= effective_top_rho,
+        "teacher_candidate_rollouts_cover_paper_top_rho": effective_candidate_rollouts >= PAPER_TEACHER_TOP_RHO,
+        "teacher_cem_phase_matches_paper_rho": (
+            effective_top_rho == PAPER_TEACHER_TOP_RHO
+            and effective_candidate_rollouts >= PAPER_TEACHER_TOP_RHO
+        ),
+    }
+
+
 def cartpole_synthesis_protocol_status(
     cfg: CartpoleSynthesisConfig,
     eval_rollouts: int | None = None,
@@ -286,7 +312,7 @@ def cartpole_synthesis_protocol_status(
     loop_free_training_horizon = cfg.segment_steps * cfg.segments_per_trace
     paper_test_horizon = test_max_steps == paper_test_env.cfg.max_steps if test_max_steps is not None else False
     paper_eval_rollouts = eval_rollouts == PAPER_EVAL_ROLLOUTS if eval_rollouts is not None else False
-    return {
+    status = {
         "cartpole_environment": True,
         "train_horizon_seconds": paper_train_env.cfg.horizon_seconds,
         "train_pole_length": paper_train_env.cfg.pole_length,
@@ -325,6 +351,8 @@ def cartpole_synthesis_protocol_status(
             "optimizer or paper-scale result reproduction."
         ),
     }
+    status.update(cartpole_teacher_cem_protocol_status(cfg))
+    return status
 
 
 @dataclass

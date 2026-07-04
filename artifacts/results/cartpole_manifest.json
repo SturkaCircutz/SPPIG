@@ -1019,6 +1019,12 @@
     {
       "adaptive_teacher_summary": [
         {
+          "candidate_rollouts": 8,
+          "candidate_rollouts_cover_paper_top_rho": false,
+          "candidate_rollouts_cover_selected_top_rho": true,
+          "cem_phase_matches_paper_rho": false,
+          "effective_candidate_rollouts": 8,
+          "effective_top_rho": 2,
           "iteration": 1,
           "objective_component_summary": {
             "direct_objective": {
@@ -1064,6 +1070,7 @@
               "min": -197.9460377263389
             }
           },
+          "paper_top_rho": 10,
           "recorded_student_log_probability_count": 4,
           "recorded_student_log_probability_fraction": 1.0,
           "recorded_student_log_probability_max": -77.12972341991554,
@@ -1107,6 +1114,7 @@
           "reward_max": 59.0,
           "reward_mean": 37.5,
           "reward_min": 23.0,
+          "selected_top_rho": 2,
           "teacher_objective_formula": "teacher_reward_lambda * reward + teacher_student_regularizer * recorded_student_log_probability",
           "teacher_reward_lambda": 100.0,
           "teacher_sampling_model": "bootstrap_probabilistic_prior",
@@ -1115,9 +1123,16 @@
             "bootstrap_student_sample": 2
           },
           "teacher_student_regularizer": 1.0,
-          "trace_count": 4
+          "trace_count": 4,
+          "uses_paper_top_rho": false
         },
         {
+          "candidate_rollouts": 8,
+          "candidate_rollouts_cover_paper_top_rho": false,
+          "candidate_rollouts_cover_selected_top_rho": true,
+          "cem_phase_matches_paper_rho": false,
+          "effective_candidate_rollouts": 8,
+          "effective_top_rho": 2,
           "iteration": 2,
           "objective_component_summary": {
             "direct_objective": {
@@ -1163,6 +1178,7 @@
               "min": -315.1887789457403
             }
           },
+          "paper_top_rho": 10,
           "recorded_student_log_probability_count": 4,
           "recorded_student_log_probability_fraction": 1.0,
           "recorded_student_log_probability_max": -33.09263684100554,
@@ -1206,6 +1222,7 @@
           "reward_max": 160.0,
           "reward_mean": 64.25,
           "reward_min": 18.0,
+          "selected_top_rho": 2,
           "teacher_objective_formula": "teacher_reward_lambda * reward + teacher_student_regularizer * recorded_student_log_probability",
           "teacher_reward_lambda": 100.0,
           "teacher_sampling_model": "previous_iteration_student",
@@ -1213,7 +1230,8 @@
             "student_sample": 4
           },
           "teacher_student_regularizer": 1.0,
-          "trace_count": 4
+          "trace_count": 4,
+          "uses_paper_top_rho": false
         }
       ],
       "algorithm_provenance": {
@@ -1323,6 +1341,7 @@
             "threshold": 0.0
           },
           "bootstrap_switch_std": 1.0,
+          "candidate_rollout_count": "configurable_via_candidate_rollouts",
           "default_elite_distribution_resamples": 1,
           "default_elite_distribution_rounds": 1,
           "duration_gradient_epsilon": 1,
@@ -1374,6 +1393,8 @@
           "gain_sample_min_std": 1e-06,
           "gain_sample_std_fraction": 0.1,
           "omega_refinement_min_delta": 0.05,
+          "paper_top_rho": 10,
+          "phase_one_objective": "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_log_p_trace_under_student",
           "refinement_delta_decay": 0.5,
           "selected_trace_objective_metrics": [
             "teacher_objective",
@@ -1390,7 +1411,8 @@
           "time_increment_gradient_step_fraction": 0.1,
           "time_increment_parameterization": "per_segment_delta_i_with_default_environment_dt",
           "time_increment_refinement_fraction": 0.25,
-          "time_increment_reward_accounting": "elapsed_time_normalized_to_environment_dt"
+          "time_increment_reward_accounting": "elapsed_time_normalized_to_environment_dt",
+          "top_rho_selection": "sort_by_teacher_objective_and_keep_teacher_top_rho_elites"
         }
       },
       "checkpoint": "",
@@ -1425,6 +1447,8 @@
       "paper_protocol_status": {
         "boolean_tree_depth": 2,
         "cartpole_environment": true,
+        "effective_teacher_candidate_rollouts": 8,
+        "effective_teacher_top_rho": 2,
         "eval_rollouts": 20,
         "full_cem_teacher_optimizer": false,
         "full_continuous_switch_m_step": false,
@@ -1436,6 +1460,7 @@
         "loop_free_teacher_spans_training_horizon": true,
         "paper_eval_rollouts": 1000,
         "paper_scale_result": false,
+        "paper_teacher_top_rho": 10,
         "paper_test_horizon_steps": 15000,
         "quick_diagnostic": false,
         "resamples_parameters_on_mode_entry": true,
@@ -1446,6 +1471,7 @@
           "source": "OpenAI Gym classic-control CartPole standard reward",
           "termination_reward": 0.0
         },
+        "selected_teacher_top_rho": 2,
         "space_spec": {
           "action_dimension": 1,
           "action_dimension_source": "paper_figure_8",
@@ -1501,6 +1527,10 @@
         "student_em_iters": 4,
         "student_switch_responsibility_passes": 1,
         "synthesized_by_current_algorithm": true,
+        "teacher_candidate_rollouts": 8,
+        "teacher_candidate_rollouts_cover_paper_top_rho": false,
+        "teacher_candidate_rollouts_cover_selected_top_rho": true,
+        "teacher_cem_phase_matches_paper_rho": false,
         "teacher_elite_distribution_resamples": 1,
         "teacher_elite_distribution_rounds": 1,
         "test_horizon_seconds": 300.0,
@@ -1512,11 +1542,12 @@
         "two_mode_constant_action_psm": true,
         "uses_full_test_horizon": true,
         "uses_paper_eval_rollouts": false,
-        "uses_paper_reward_scale": true
+        "uses_paper_reward_scale": true,
+        "uses_paper_teacher_top_rho": false
       },
       "paper_test_horizon_steps": 15000,
       "policy": "Synthesized PSM diagnostic",
-      "policy_description": "m0 action=-0.778; m1 action=1.059; mode=1 if -10.000*theta + 1.000*omega >= -0.345, else mode=0",
+      "policy_description": "m0 action=-0.081; m1 action=0.179; mode=1 if o[2] >= -0.195 and o[0] >= -0.336, else mode=0; directed_transitions={'0->1': 'fire 0->1 if 1.000*theta + -0.250*omega >= 0.025', '1->0': 'fire 1->0 if o[0] <= -0.077 and o[0] >= -0.582'}",
       "probabilistic_student": {
         "action_distributions": {
           "0": {
@@ -1893,6 +1924,12 @@
       "synthesis_history": [
         {
           "adaptive_teacher_summary": {
+            "candidate_rollouts": 8,
+            "candidate_rollouts_cover_paper_top_rho": false,
+            "candidate_rollouts_cover_selected_top_rho": true,
+            "cem_phase_matches_paper_rho": false,
+            "effective_candidate_rollouts": 8,
+            "effective_top_rho": 2,
             "iteration": 1,
             "objective_component_summary": {
               "direct_objective": {
@@ -1938,6 +1975,7 @@
                 "min": -197.9460377263389
               }
             },
+            "paper_top_rho": 10,
             "recorded_student_log_probability_count": 4,
             "recorded_student_log_probability_fraction": 1.0,
             "recorded_student_log_probability_max": -77.12972341991554,
@@ -1981,6 +2019,7 @@
             "reward_max": 59.0,
             "reward_mean": 37.5,
             "reward_min": 23.0,
+            "selected_top_rho": 2,
             "teacher_objective_formula": "teacher_reward_lambda * reward + teacher_student_regularizer * recorded_student_log_probability",
             "teacher_reward_lambda": 100.0,
             "teacher_sampling_model": "bootstrap_probabilistic_prior",
@@ -1989,7 +2028,8 @@
               "bootstrap_student_sample": 2
             },
             "teacher_student_regularizer": 1.0,
-            "trace_count": 4
+            "trace_count": 4,
+            "uses_paper_top_rho": false
           },
           "evaluation": {
             "test": {
@@ -2693,6 +2733,12 @@
         },
         {
           "adaptive_teacher_summary": {
+            "candidate_rollouts": 8,
+            "candidate_rollouts_cover_paper_top_rho": false,
+            "candidate_rollouts_cover_selected_top_rho": true,
+            "cem_phase_matches_paper_rho": false,
+            "effective_candidate_rollouts": 8,
+            "effective_top_rho": 2,
             "iteration": 2,
             "objective_component_summary": {
               "direct_objective": {
@@ -2738,6 +2784,7 @@
                 "min": -315.1887789457403
               }
             },
+            "paper_top_rho": 10,
             "recorded_student_log_probability_count": 4,
             "recorded_student_log_probability_fraction": 1.0,
             "recorded_student_log_probability_max": -33.09263684100554,
@@ -2781,6 +2828,7 @@
             "reward_max": 160.0,
             "reward_mean": 64.25,
             "reward_min": 18.0,
+            "selected_top_rho": 2,
             "teacher_objective_formula": "teacher_reward_lambda * reward + teacher_student_regularizer * recorded_student_log_probability",
             "teacher_reward_lambda": 100.0,
             "teacher_sampling_model": "previous_iteration_student",
@@ -2788,7 +2836,8 @@
               "student_sample": 4
             },
             "teacher_student_regularizer": 1.0,
-            "trace_count": 4
+            "trace_count": 4,
+            "uses_paper_top_rho": false
           },
           "evaluation": {
             "test": {
@@ -3918,17 +3967,17 @@
         }
       ],
       "test": {
-        "reward_mean": 33.2,
-        "steps_mean": 33.2,
+        "reward_mean": 60.55,
+        "steps_mean": 60.55,
         "success_rate": 0.0,
-        "survival_seconds_mean": 0.664
+        "survival_seconds_mean": 1.211
       },
       "test_horizon_steps": 15000,
       "test_max_steps": 15000,
-      "test_reward": 33.2,
-      "test_steps": 33.2,
+      "test_reward": 60.55,
+      "test_steps": 60.55,
       "test_success": 0.0,
-      "test_survival_seconds": 0.664,
+      "test_survival_seconds": 1.211,
       "timesteps": 0,
       "trace_summary": {
         "count": 4,
@@ -4785,15 +4834,15 @@
       },
       "traces_output": "artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "train": {
-        "reward_mean": 27.15,
-        "steps_mean": 27.15,
+        "reward_mean": 43.1,
+        "steps_mean": 43.1,
         "success_rate": 0.0,
-        "survival_seconds_mean": 0.543
+        "survival_seconds_mean": 0.8620000000000001
       },
-      "train_reward": 27.15,
-      "train_steps": 27.15,
+      "train_reward": 43.1,
+      "train_steps": 43.1,
       "train_success": 0.0,
-      "train_survival_seconds": 0.543,
+      "train_survival_seconds": 0.8620000000000001,
       "uses_paper_eval_rollouts": false
     }
   ],
@@ -5000,35 +5049,35 @@
       "best_command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 8 --teacher-top-rho 2 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "best_metrics_output": "artifacts/results/metrics/psm_seed0_full_horizon.json",
       "best_seed_by_train": 0,
-      "best_test_reward": 33.2,
-      "best_test_steps": 33.2,
+      "best_test_reward": 60.55,
+      "best_test_steps": 60.55,
       "best_test_success": 0.0,
-      "best_test_survival_seconds": 0.664,
+      "best_test_survival_seconds": 1.211,
       "best_timesteps": 0,
       "best_traces_output": "artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
-      "best_train_reward": 27.15,
-      "best_train_steps": 27.15,
+      "best_train_reward": 43.1,
+      "best_train_steps": 43.1,
       "best_train_success": 0.0,
-      "best_train_survival_seconds": 0.543,
+      "best_train_survival_seconds": 0.8620000000000001,
       "eval_rollouts": 20,
       "n": 1,
       "policy": "Synthesized PSM diagnostic",
       "test_horizon_steps": 15000,
-      "test_reward_mean": 33.2,
+      "test_reward_mean": 60.55,
       "test_reward_std": 0.0,
-      "test_steps_mean": 33.2,
+      "test_steps_mean": 60.55,
       "test_steps_std": 0.0,
       "test_success_mean": 0.0,
       "test_success_std": 0.0,
-      "test_survival_seconds_mean": 0.664,
+      "test_survival_seconds_mean": 1.211,
       "test_survival_seconds_std": 0.0,
-      "train_reward_mean": 27.15,
+      "train_reward_mean": 43.1,
       "train_reward_std": 0.0,
-      "train_steps_mean": 27.15,
+      "train_steps_mean": 43.1,
       "train_steps_std": 0.0,
       "train_success_mean": 0.0,
       "train_success_std": 0.0,
-      "train_survival_seconds_mean": 0.543,
+      "train_survival_seconds_mean": 0.8620000000000001,
       "train_survival_seconds_std": 0.0
     }
   ],

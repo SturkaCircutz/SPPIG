@@ -45,6 +45,8 @@ from cartpole_synthesis import (
     ProbabilisticCartpoleStudent,
     SynthesizedCartpolePSM,
     cartpole_switch_fit_diagnostics,
+    cartpole_synthesis_protocol_status,
+    cartpole_teacher_cem_protocol_status,
     fit_probabilistic_cartpole_student,
     fit_probabilistic_cartpole_student_with_history,
     synthesize_cartpole_policy,
@@ -2372,6 +2374,29 @@ class CartpolePaperTest(unittest.TestCase):
         )
 
         self.assertEqual(_teacher_objective(trace, None, cfg), 14.0)
+
+    def test_cartpole_teacher_cem_status_requires_paper_top_rho_coverage(self):
+        local_cfg = CartpoleSynthesisConfig(candidate_rollouts=4, teacher_top_rho=2)
+        paper_rho_cfg = CartpoleSynthesisConfig(candidate_rollouts=10, teacher_top_rho=10)
+
+        local_status = cartpole_teacher_cem_protocol_status(local_cfg)
+        paper_rho_status = cartpole_synthesis_protocol_status(
+            paper_rho_cfg,
+            eval_rollouts=PAPER_EVAL_ROLLOUTS,
+            test_max_steps=CartpoleEnv.test_env().cfg.max_steps,
+        )
+
+        self.assertEqual(local_status["paper_teacher_top_rho"], 10)
+        self.assertEqual(local_status["effective_teacher_candidate_rollouts"], 4)
+        self.assertEqual(local_status["effective_teacher_top_rho"], 2)
+        self.assertFalse(local_status["uses_paper_teacher_top_rho"])
+        self.assertTrue(local_status["teacher_candidate_rollouts_cover_selected_top_rho"])
+        self.assertFalse(local_status["teacher_candidate_rollouts_cover_paper_top_rho"])
+        self.assertFalse(local_status["teacher_cem_phase_matches_paper_rho"])
+        self.assertTrue(paper_rho_status["uses_paper_teacher_top_rho"])
+        self.assertTrue(paper_rho_status["teacher_candidate_rollouts_cover_paper_top_rho"])
+        self.assertTrue(paper_rho_status["teacher_cem_phase_matches_paper_rho"])
+        self.assertFalse(paper_rho_status["full_probabilistic_adaptive_teaching"])
 
     def test_cartpole_teacher_objective_uses_student_regularizer(self):
         cfg = CartpoleSynthesisConfig(teacher_student_regularizer=10.0)
