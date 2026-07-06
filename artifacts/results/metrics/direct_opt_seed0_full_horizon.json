@@ -189,9 +189,26 @@
     "bounded_one_hot_switch_metadata": true,
     "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
     "configured_paper_batch_size": true,
+    "direct_opt_protocol_requirements": {
+      "full_continuous_one_hot_switch_grammar": false,
+      "full_initial_state_distribution": false,
+      "full_test_horizon": true,
+      "paper_batch_size_and_batch_refinement": true,
+      "paper_eval_rollouts": false,
+      "paper_parallel_threads": false,
+      "paper_time_limit": false
+    },
+    "full_batch_optimization": true,
     "full_continuous_one_hot_switch_grammar": false,
     "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates a bounded continuous one-hot leaf/depth2 feature-mixture candidate family with local alpha_s and feature-weight neighbors, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
     "linear_switch_encoding": true,
+    "missing_direct_opt_protocol_requirements": [
+      "paper_parallel_threads",
+      "paper_time_limit",
+      "full_continuous_one_hot_switch_grammar",
+      "full_initial_state_distribution",
+      "paper_eval_rollouts"
+    ],
     "optimizes_combined_reward_over_all_selected_initial_states": true,
     "optimizes_combined_reward_over_selected_initial_states": true,
     "optimizes_full_initial_state_distribution": false,

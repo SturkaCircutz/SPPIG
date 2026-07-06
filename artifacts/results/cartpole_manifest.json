@@ -712,9 +712,26 @@
         "bounded_one_hot_switch_metadata": true,
         "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
         "configured_paper_batch_size": true,
+        "direct_opt_protocol_requirements": {
+          "full_continuous_one_hot_switch_grammar": false,
+          "full_initial_state_distribution": false,
+          "full_test_horizon": true,
+          "paper_batch_size_and_batch_refinement": true,
+          "paper_eval_rollouts": false,
+          "paper_parallel_threads": false,
+          "paper_time_limit": false
+        },
+        "full_batch_optimization": true,
         "full_continuous_one_hot_switch_grammar": false,
         "limitation": "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates a bounded continuous one-hot leaf/depth2 feature-mixture candidate family with local alpha_s and feature-weight neighbors, but does not run the paper's ten-thread, two-hour continuous optimization over the full one-hot switching grammar.",
         "linear_switch_encoding": true,
+        "missing_direct_opt_protocol_requirements": [
+          "paper_parallel_threads",
+          "paper_time_limit",
+          "full_continuous_one_hot_switch_grammar",
+          "full_initial_state_distribution",
+          "paper_eval_rollouts"
+        ],
         "optimizes_combined_reward_over_all_selected_initial_states": true,
         "optimizes_combined_reward_over_selected_initial_states": true,
         "optimizes_full_initial_state_distribution": false,
@@ -794,6 +811,68 @@
       },
       "searched_candidates": 86,
       "seed": "0",
+      "selected_train_initial_states": [
+        [
+          0.034442185152504814,
+          0.025795440294030247,
+          -0.007942841916915501,
+          -0.024108324970703667
+        ],
+        [
+          0.0011274721368608534,
+          -0.009506586254958573,
+          0.02837985890347726,
+          -0.019668727392107257
+        ],
+        [
+          -0.002340304584764419,
+          0.008338203945503123,
+          0.040811288519533515,
+          0.0004686855817390284
+        ],
+        [
+          -0.02181621556002962,
+          0.025580420415722394,
+          0.011836899667533166,
+          -0.024949365863755946
+        ],
+        [
+          0.04097462559682401,
+          0.04827854760376531,
+          0.031021723599658962,
+          0.040216595043958275
+        ],
+        [
+          -0.01898524306806674,
+          0.022983174826012864,
+          0.039883828796799345,
+          0.018398393191544127
+        ],
+        [
+          -0.0027857284547286656,
+          -0.039929879193163424,
+          -0.00658281645462163,
+          0.011088697344380158
+        ],
+        [
+          0.04130110532378982,
+          0.04666063677707588,
+          -0.0022990223447282992,
+          0.03653099277716401
+        ],
+        [
+          -0.02395076896080406,
+          0.03050278270130223,
+          0.004869930383558929,
+          -0.048595829983598106
+        ],
+        [
+          0.02197046864039541,
+          -0.010117645777573125,
+          0.0324844977148233,
+          0.016815320123185082
+        ]
+      ],
       "space_spec": {
         "action_dimension": 1,
         "action_dimension_source": "paper_figure_8",

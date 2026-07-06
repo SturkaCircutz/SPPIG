@@ -327,8 +327,9 @@ the paper's two-hour, ten-thread Direct-Opt protocol over the optimized
 continuous one-hot switching grammar. The metrics JSON also includes
 `paper_protocol_status`, which keeps the full Direct-Opt protocol flag false
 unless the paper batch size, ten-thread/two-hour optimization budget, full
-continuous one-hot grammar, full test horizon, and `1000`-rollout evaluation
-are actually satisfied.
+continuous one-hot grammar, full initial-state distribution, full test horizon,
+and `1000`-rollout evaluation are actually satisfied. It also lists the named Direct-Opt protocol
+requirements that remain unsatisfied for each diagnostic run.
 
 PPO MLP:
 

@@ -66,8 +66,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   diagnostic toward the paper's stated Direct-Opt stopping rule while still remaining
   a bounded local search. It is still not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
   `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, bounded versus full continuous
-  one-hot grammar, combined-reward optimization over all selected finite training states, full test horizon, and `1000`-rollout evaluation;
-  the full Direct-Opt protocol flag remains false for the bounded diagnostic.
+  one-hot grammar, combined-reward optimization over all selected finite training states versus the
+  full initial-state distribution, full test horizon, and `1000`-rollout evaluation;
+  the status now derives the full Direct-Opt protocol flag from a named requirement map and records
+  the unsatisfied requirements for each bounded diagnostic.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
@@ -600,6 +602,10 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_marks_quick_diagnostic_limits`
   verifies that quick Direct-Opt diagnostics do not claim the paper batch size, full test horizon,
   `1000`-rollout metric, restart/batch optimization, or paper-scale Direct-Opt protocol.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_lists_remaining_full_protocol_blockers`
+  verifies that a near-paper Direct-Opt configuration records the remaining blockers, including the
+  full continuous one-hot switch grammar and full initial-state distribution requirements, instead of
+  relying on a hard-coded false paper-scale flag.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_can_disable_batch_refinement_for_grid_random_diagnostic`
   verifies that the grid/random/Boolean-tree diagnostic can still be isolated when batch refinement is
   disabled.

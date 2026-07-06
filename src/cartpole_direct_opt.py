@@ -242,6 +242,30 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
     selected_time_limit_seconds = cfg.time_limit_seconds
     paper_test_horizon = cfg.test_max_steps == paper_test_env.cfg.max_steps
     paper_eval_rollouts = cfg.eval_rollouts == PAPER_EVAL_ROLLOUTS
+    full_continuous_one_hot_switch_grammar = False
+    full_batch_optimization = (
+        uses_paper_batch_size
+        and cfg.batch_refinement_rounds > 0
+        and cfg.restart_candidates_on_stall > 0
+    )
+    uses_paper_parallel_threads = selected_parallel_threads == PAPER_DIRECT_OPT_PARALLEL_THREADS
+    uses_paper_time_limit = selected_time_limit_seconds == PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS
+    optimizes_full_initial_state_distribution = False
+    direct_opt_requirements = {
+        "paper_batch_size_and_batch_refinement": full_batch_optimization,
+        "paper_parallel_threads": uses_paper_parallel_threads,
+        "paper_time_limit": uses_paper_time_limit,
+        "full_continuous_one_hot_switch_grammar": full_continuous_one_hot_switch_grammar,
+        "full_initial_state_distribution": optimizes_full_initial_state_distribution,
+        "full_test_horizon": paper_test_horizon,
+        "paper_eval_rollouts": paper_eval_rollouts,
+    }
+    missing_requirements = [
+        requirement
+        for requirement, satisfied in direct_opt_requirements.items()
+        if not satisfied
+    ]
+    paper_scale_direct_opt_protocol = not missing_requirements
     return {
         "paper_baseline": "Direct-Opt",
         "paper_batch_size": PAPER_DIRECT_OPT_BATCH_SIZE,
@@ -250,22 +274,23 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "uses_paper_batch_size": uses_paper_batch_size,
         "paper_parallel_threads": PAPER_DIRECT_OPT_PARALLEL_THREADS,
         "selected_parallel_threads": selected_parallel_threads,
-        "uses_paper_parallel_threads": selected_parallel_threads == PAPER_DIRECT_OPT_PARALLEL_THREADS,
+        "uses_paper_parallel_threads": uses_paper_parallel_threads,
         "paper_time_limit_seconds": PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
         "selected_time_limit_seconds": selected_time_limit_seconds,
-        "uses_paper_time_limit": selected_time_limit_seconds == PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
-        "full_continuous_one_hot_switch_grammar": False,
+        "uses_paper_time_limit": uses_paper_time_limit,
+        "full_continuous_one_hot_switch_grammar": full_continuous_one_hot_switch_grammar,
         "bounded_one_hot_switch_metadata": True,
         "bounded_continuous_one_hot_switch_relaxation": True,
         "appendix_b3_one_hot_vertex_metadata": True,
         "linear_switch_encoding": True,
         "batch_optimization_seeded_from_best_so_far": cfg.batch_refinement_rounds > 0,
         "random_restart_on_stall": cfg.restart_candidates_on_stall > 0,
+        "full_batch_optimization": full_batch_optimization,
         "stops_when_training_solution_found": True,
         "optimizes_combined_reward_over_selected_initial_states": True,
         "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
         "optimizes_combined_reward_over_all_selected_initial_states": True,
-        "optimizes_full_initial_state_distribution": False,
+        "optimizes_full_initial_state_distribution": optimizes_full_initial_state_distribution,
         "selected_train_initial_states": cfg.num_train_states,
         "paper_test_horizon_steps": paper_test_env.cfg.max_steps,
         "selected_test_max_steps": cfg.test_max_steps,
@@ -274,7 +299,9 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "selected_eval_rollouts": cfg.eval_rollouts,
         "uses_paper_eval_rollouts": paper_eval_rollouts,
         "quick_diagnostic": cfg.quick,
-        "paper_scale_direct_opt_protocol": False,
+        "direct_opt_protocol_requirements": direct_opt_requirements,
+        "missing_direct_opt_protocol_requirements": missing_requirements,
+        "paper_scale_direct_opt_protocol": paper_scale_direct_opt_protocol,
         "limitation": (
             "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates "
             "a bounded continuous one-hot leaf/depth2 feature-mixture candidate family with local "

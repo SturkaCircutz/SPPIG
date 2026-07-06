@@ -183,6 +183,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertTrue(status["bounded_continuous_one_hot_switch_relaxation"])
         self.assertTrue(status["stops_when_training_solution_found"])
         self.assertTrue(status["appendix_b3_one_hot_vertex_metadata"])
+        self.assertFalse(status["full_batch_optimization"])
         self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
         self.assertTrue(status["optimizes_combined_reward_over_all_selected_initial_states"])
         self.assertFalse(status["optimizes_full_initial_state_distribution"])
@@ -191,6 +192,14 @@ class CartpoleDirectOptTest(unittest.TestCase):
             "mean_train_horizon_reward_over_selected_initial_states",
         )
         self.assertFalse(status["paper_scale_direct_opt_protocol"])
+        self.assertFalse(status["direct_opt_protocol_requirements"]["paper_batch_size_and_batch_refinement"])
+        self.assertFalse(status["direct_opt_protocol_requirements"]["paper_parallel_threads"])
+        self.assertFalse(status["direct_opt_protocol_requirements"]["paper_time_limit"])
+        self.assertFalse(status["direct_opt_protocol_requirements"]["full_continuous_one_hot_switch_grammar"])
+        self.assertIn("paper_batch_size_and_batch_refinement", status["missing_direct_opt_protocol_requirements"])
+        self.assertIn("paper_parallel_threads", status["missing_direct_opt_protocol_requirements"])
+        self.assertIn("paper_time_limit", status["missing_direct_opt_protocol_requirements"])
+        self.assertIn("full_continuous_one_hot_switch_grammar", status["missing_direct_opt_protocol_requirements"])
 
         default_status = cartpole_direct_opt_protocol_status(DirectOptConfig())
         self.assertTrue(default_status["configured_paper_batch_size"])
@@ -255,12 +264,45 @@ class CartpoleDirectOptTest(unittest.TestCase):
         )
 
         self.assertFalse(status["uses_paper_batch_size"])
+        self.assertFalse(status["full_batch_optimization"])
         self.assertFalse(status["batch_optimization_seeded_from_best_so_far"])
         self.assertFalse(status["random_restart_on_stall"])
         self.assertFalse(status["uses_full_test_horizon"])
         self.assertFalse(status["uses_paper_eval_rollouts"])
+        self.assertFalse(status["direct_opt_protocol_requirements"]["paper_batch_size_and_batch_refinement"])
         self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
         self.assertTrue(status["quick_diagnostic"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
+
+    def test_direct_opt_protocol_status_lists_remaining_full_protocol_blockers(self):
+        status = cartpole_direct_opt_protocol_status(
+            DirectOptConfig(
+                num_train_states=10,
+                batch_size=10,
+                batch_refinement_rounds=1,
+                restart_candidates_on_stall=1,
+                parallel_threads=10,
+                time_limit_seconds=7200,
+                eval_rollouts=1000,
+                test_max_steps=15000,
+                quick=False,
+            )
+        )
+
+        self.assertTrue(status["direct_opt_protocol_requirements"]["paper_batch_size_and_batch_refinement"])
+        self.assertTrue(status["direct_opt_protocol_requirements"]["paper_parallel_threads"])
+        self.assertTrue(status["direct_opt_protocol_requirements"]["paper_time_limit"])
+        self.assertTrue(status["direct_opt_protocol_requirements"]["full_test_horizon"])
+        self.assertTrue(status["direct_opt_protocol_requirements"]["paper_eval_rollouts"])
+        self.assertFalse(status["direct_opt_protocol_requirements"]["full_continuous_one_hot_switch_grammar"])
+        self.assertFalse(status["direct_opt_protocol_requirements"]["full_initial_state_distribution"])
+        self.assertEqual(
+            status["missing_direct_opt_protocol_requirements"],
+            [
+                "full_continuous_one_hot_switch_grammar",
+                "full_initial_state_distribution",
+            ],
+        )
         self.assertFalse(status["paper_scale_direct_opt_protocol"])
 
     def test_direct_opt_parallel_candidate_evaluation_preserves_counts(self):

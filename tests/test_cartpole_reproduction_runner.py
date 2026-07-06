@@ -1267,6 +1267,15 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(direct_status["optimizes_combined_reward_over_selected_initial_states"])
             self.assertTrue(direct_status["optimizes_combined_reward_over_all_selected_initial_states"])
             self.assertFalse(direct_status["optimizes_full_initial_state_distribution"])
+            self.assertFalse(direct_status["direct_opt_protocol_requirements"]["paper_batch_size_and_batch_refinement"])
+            self.assertIn(
+                "paper_batch_size_and_batch_refinement",
+                direct_status["missing_direct_opt_protocol_requirements"],
+            )
+            self.assertIn(
+                "full_continuous_one_hot_switch_grammar",
+                direct_status["missing_direct_opt_protocol_requirements"],
+            )
             self.assertFalse(direct_status["uses_full_test_horizon"])
             self.assertFalse(direct_status["uses_paper_eval_rollouts"])
             self.assertFalse(direct_status["paper_scale_direct_opt_protocol"])
