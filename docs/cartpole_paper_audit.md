@@ -240,9 +240,11 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
   elite-distribution refresh, first-iteration source counts
   `{"bootstrap_elite_distribution_mean": 1, "bootstrap_student_sample_refined": 3}`,
-  final-iteration source counts `{"student_elite_centroid_refined": 1, "student_sample": 1, "student_sample_refined": 2}`, compact adaptive-teacher
+  final-iteration source counts `{"student_sample": 2, "student_sample_refined": 2}`, compact adaptive-teacher
   objective-component summaries, and policy
-  `m0 action=-0.456; m1 action=0.049; mode=1 if -1.000*theta + 10.000*omega >= -2.589, else mode=0`; it also records
+  `m0 action=-0.798; m1 action=0.338; mode=1 if o[1] >= -0.384 and o[1] <= 0.767, else mode=0;
+  directed_transitions={'0->1': 'fire 0->1 if o[2] <= -0.141 and o[0] <= 0.274',
+  '1->0': 'fire 1->0 if -10.000*theta + 2.000*omega >= 0.352'}`; it also records
   `student_sample_segment_budget =
   preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   Its `paper_protocol_status` lists the remaining adaptive-teaching blockers, including no five-seed
@@ -893,6 +895,12 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refit_distribution`
   verifies that each bounded distribution round samples from a distribution refit on the refreshed
   top-rho set, rather than repeatedly sampling around the original elites.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_parameter_gradient_includes_label_loss`
+  verifies that bounded switch-parameter finite-difference polishing follows the same combined
+  responsibility-weighted label loss plus Eq. (12)-style timing loss reported in provenance.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_parameter_gradient_accepts_combined_loss_improvement`
+  verifies that the switch-parameter gradient line search accepts weighted combined-loss
+  improvements instead of requiring both components to improve separately.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_uses_refreshed_distribution_elites`
   verifies that local refinement uses the refreshed top-rho elite set produced by the bounded
   distribution rounds.
@@ -1129,7 +1137,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   scores timing with a discrete approximation to Eq. (12), including transition-at-duration and
   no-transition-before-duration terms. It now performs candidate switch-structure rescoring using
   forward-backward adjacent pair posteriors, bounded local mean/std grid, coordinate refinement, and
-  finite-difference gradient polishing with backtracking line search, but does not yet solve the full
+  finite-difference gradient polishing of the combined responsibility-weighted label/timing loss with
+  backtracking line search, but does not yet solve the full
   continuous Eq. (12) optimization for switch-condition means and standard deviations.
   For depth-2 Boolean trees,
   switch-enable probability now uses an

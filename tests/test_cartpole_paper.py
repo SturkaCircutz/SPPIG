@@ -98,6 +98,9 @@ from cartpole_synthesis import (
     _switch_cache_key,
     _switch_distribution_std_candidates,
     _switch_distribution_timing_loss,
+    _switch_parameter_gradient_improves,
+    _switch_parameter_gradient_loss,
+    _switch_parameter_loss_gradient,
     _gradient_switch_parameter_candidate_distributions,
     _gain_gradient_refinement_candidate,
     _rollout_student_sampled_trace,
@@ -1492,6 +1495,71 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertAlmostEqual(half_step.mean, -0.5)
         self.assertLess(full_step.std, half_step.std)
         self.assertLess(half_step.std, distribution.std)
+
+    def test_cartpole_switch_parameter_gradient_loss_combines_label_and_timing(self):
+        self.assertAlmostEqual(
+            _switch_parameter_gradient_loss(2.5, 3.5),
+            6.0,
+        )
+
+    def test_cartpole_switch_parameter_gradient_accepts_combined_loss_improvement(self):
+        self.assertTrue(
+            _switch_parameter_gradient_improves(
+                candidate_label_loss=2.0,
+                candidate_timing_loss=1.0,
+                best_label_loss=1.0,
+                best_timing_loss=3.5,
+            )
+        )
+        self.assertFalse(
+            _switch_parameter_gradient_improves(
+                candidate_label_loss=2.0,
+                candidate_timing_loss=3.0,
+                best_label_loss=1.0,
+                best_timing_loss=3.5,
+            )
+        )
+
+    def test_cartpole_switch_parameter_gradient_includes_label_loss(self):
+        switch = Depth2Switch(1.0, 0.0, 0.0)
+        distributions = [GaussianScalar(0.0, 1.0)]
+        examples = [([0.0, 0.0, 0.0, 0.0], 0)]
+        segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.0, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        calls = []
+
+        def evaluate_candidate(*args, **kwargs):
+            candidate_distribution = args[1][0]
+            calls.append(candidate_distribution.mean)
+            if candidate_distribution.mean < 0.0:
+                return switch, 3.0, 7.0
+            return switch, 1.0, 7.0
+
+        with patch(
+            "cartpole_synthesis._evaluate_switch_parameter_candidate",
+            side_effect=evaluate_candidate,
+        ):
+            gradient = _switch_parameter_loss_gradient(
+                switch,
+                distributions,
+                0,
+                0.5,
+                0.0,
+                examples,
+                _switch_example_cache(examples),
+                {},
+                [],
+                None,
+                [[segment]],
+                [(1.0, 0.0)],
+            )
+
+        self.assertEqual(calls, [-0.5, 0.5])
+        self.assertLess(gradient, 0.0)
 
     def test_cartpole_switch_mistake_cache_key_preserves_submillithresholds(self):
         lower = Depth2Switch(1.0, 0.0, 0.0004)

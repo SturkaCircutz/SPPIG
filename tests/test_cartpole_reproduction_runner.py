@@ -1523,6 +1523,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(provenance["teacher_search"]["elite_distribution_default_batch_matches_paper_top_rho"])
             self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
             self.assertEqual(
+                provenance["switch_timing"]["finite_difference_gradient_objective"],
+                "weighted_sum_of_responsibility_label_loss_and_eq12_timing_loss",
+            )
+            self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_label_loss_weight"], 1.0)
+            self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_timing_loss_weight"], 1.0)
+            self.assertEqual(
                 provenance["teacher_search"]["elite_distribution_phase"],
                 "bounded_cem_style_distribution_refit_top_rho_refresh",
             )
@@ -1713,6 +1719,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(row_provenance["teacher_search"]["elite_distribution_default_batch_target"], "paper_top_rho")
             self.assertTrue(row_provenance["teacher_search"]["elite_distribution_default_batch_matches_paper_top_rho"])
             self.assertEqual(row_provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
+            self.assertEqual(
+                row_provenance["switch_timing"]["finite_difference_gradient_objective"],
+                "weighted_sum_of_responsibility_label_loss_and_eq12_timing_loss",
+            )
+            self.assertEqual(row_provenance["switch_timing"]["finite_difference_gradient_label_loss_weight"], 1.0)
+            self.assertEqual(row_provenance["switch_timing"]["finite_difference_gradient_timing_loss_weight"], 1.0)
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distribution_phase"],
                 "bounded_cem_style_distribution_refit_top_rho_refresh",

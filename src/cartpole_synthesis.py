@@ -78,6 +78,8 @@ SWITCH_PARAMETER_GRADIENT_MEAN_STEP_FRACTION = 0.50
 SWITCH_PARAMETER_GRADIENT_LOG_STD_STEP = 0.25
 SWITCH_PARAMETER_GRADIENT_EPS_FRACTION = 0.25
 SWITCH_PARAMETER_GRADIENT_BACKTRACK_FACTORS = (1.0, 0.5, 0.25, 0.125)
+SWITCH_PARAMETER_LABEL_LOSS_WEIGHT = 1.0
+SWITCH_PARAMETER_TIMING_LOSS_WEIGHT = 1.0
 SWITCH_SELECTION_OBJECTIVE_ORDER = (
     "responsibility_weighted_label_loss",
     "bounded_eq12_style_distribution_loss",
@@ -175,6 +177,11 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "finite_difference_gradient_log_std_step": SWITCH_PARAMETER_GRADIENT_LOG_STD_STEP,
             "finite_difference_gradient_epsilon_fraction": SWITCH_PARAMETER_GRADIENT_EPS_FRACTION,
             "finite_difference_gradient_backtracking_factors": list(SWITCH_PARAMETER_GRADIENT_BACKTRACK_FACTORS),
+            "finite_difference_gradient_objective": (
+                "weighted_sum_of_responsibility_label_loss_and_eq12_timing_loss"
+            ),
+            "finite_difference_gradient_label_loss_weight": SWITCH_PARAMETER_LABEL_LOSS_WEIGHT,
+            "finite_difference_gradient_timing_loss_weight": SWITCH_PARAMETER_TIMING_LOSS_WEIGHT,
             "structure_rescore_uses_pair_posteriors": True,
             "transition_specific_m_step": "bounded_separate_0_to_1_and_1_to_0_switch_fits",
         },
@@ -4735,7 +4742,7 @@ def _gradient_refine_switch_parameter_distributions(
                 segments_by_trace,
                 responsibilities,
             )
-            if _switch_refinement_improves(candidate_label_loss, candidate_loss, best_label_loss, best_loss):
+            if _switch_parameter_gradient_improves(candidate_label_loss, candidate_loss, best_label_loss, best_loss):
                 best_distributions = candidate_distributions
                 best_switch = candidate_switch
                 best_label_loss = candidate_label_loss
@@ -4745,6 +4752,21 @@ def _gradient_refine_switch_parameter_distributions(
         if not accepted:
             break
     return best_switch, best_distributions
+
+
+def _switch_parameter_gradient_improves(
+    candidate_label_loss: float,
+    candidate_timing_loss: float,
+    best_label_loss: float,
+    best_timing_loss: float,
+) -> bool:
+    return _switch_parameter_gradient_loss(
+        candidate_label_loss,
+        candidate_timing_loss,
+    ) < _switch_parameter_gradient_loss(
+        best_label_loss,
+        best_timing_loss,
+    )
 
 
 def _switch_refinement_improves(
@@ -4814,7 +4836,7 @@ def _switch_parameter_loss_gradient(
         current.mean + delta_mean,
         max(MIN_GAUSSIAN_STD, current.std * math.exp(delta_log_std)),
     )
-    _, _, minus_loss = _evaluate_switch_parameter_candidate(
+    _, minus_label_loss, minus_timing_loss = _evaluate_switch_parameter_candidate(
         switch,
         minus,
         examples,
@@ -4825,7 +4847,7 @@ def _switch_parameter_loss_gradient(
         segments_by_trace,
         responsibilities,
     )
-    _, _, plus_loss = _evaluate_switch_parameter_candidate(
+    _, plus_label_loss, plus_timing_loss = _evaluate_switch_parameter_candidate(
         switch,
         plus,
         examples,
@@ -4836,8 +4858,17 @@ def _switch_parameter_loss_gradient(
         segments_by_trace,
         responsibilities,
     )
+    minus_loss = _switch_parameter_gradient_loss(minus_label_loss, minus_timing_loss)
+    plus_loss = _switch_parameter_gradient_loss(plus_label_loss, plus_timing_loss)
     denominator = 2.0 * (delta_mean if delta_mean else delta_log_std)
     return (plus_loss - minus_loss) / denominator
+
+
+def _switch_parameter_gradient_loss(label_loss: float, timing_loss: float) -> float:
+    return (
+        SWITCH_PARAMETER_LABEL_LOSS_WEIGHT * label_loss
+        + SWITCH_PARAMETER_TIMING_LOSS_WEIGHT * timing_loss
+    )
 
 
 def _switch_distribution_timing_loss(
