@@ -32,6 +32,24 @@ def current_synthesized_psm_status() -> dict:
     return {
         "paper_scale_result": False,
         "synthesized_by_current_algorithm": True,
+        "adaptive_teaching_protocol_requirements": {
+            "five_seed_selection": False,
+            "full_continuous_switch_m_step": False,
+            "full_cem_teacher_optimizer": False,
+        },
+        "missing_adaptive_teaching_protocol_requirements": [
+            "five_seed_selection",
+            "full_continuous_switch_m_step",
+            "full_cem_teacher_optimizer",
+        ],
+        "probabilistic_adaptive_teaching_requirements": {
+            "full_continuous_switch_m_step": False,
+            "full_cem_teacher_optimizer": False,
+        },
+        "missing_probabilistic_adaptive_teaching_requirements": [
+            "full_continuous_switch_m_step",
+            "full_cem_teacher_optimizer",
+        ],
     }
 
 
@@ -453,6 +471,38 @@ class MakePaperFiguresTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "current-synthesis protocol status"):
                 make_paper_figures.require_result_artifacts([runner_psm_row(metrics_path)])
+
+    def test_require_result_artifacts_rejects_synthesized_psm_missing_protocol_requirements(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": PSM_TRACE_COMMAND,
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": {
+                            "paper_scale_result": False,
+                            "synthesized_by_current_algorithm": True,
+                        },
+                        "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"teacher_student_iters": 1},
+                        "num_traces": 1,
+                        "traces": [{"reward": 1}],
+                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                    },
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "current-synthesis protocol status"):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_accepts_fixed_psm_without_synthesis_traces(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -190,13 +190,16 @@ the actual configured EM schedule is recorded under `config` and
 `paper_protocol_status`.
 The metrics JSON also includes `paper_protocol_status`, which records the
 matched CartPole train/test horizons and the remaining algorithmic gaps. That
-block deliberately keeps `full_probabilistic_adaptive_teaching`,
-`full_continuous_switch_m_step`, `full_cem_teacher_optimizer`, and
-`paper_scale_result` false for the current bounded diagnostic implementation,
-and separately records whether the teacher CEM-style sampling phase used the
-paper's `rho=10` top-elite setting and whether local teacher trace optimization
-actually had `10` active trace slots. It also records active student
-transition-switch fit slots for the local bounded switch M-step.
+block derives `full_probabilistic_adaptive_teaching` and `paper_scale_result`
+from named requirement maps, so the current bounded diagnostic explicitly lists
+the unsatisfied paper requirements instead of relying on a hard-coded false
+flag. The current artifacts still leave `full_continuous_switch_m_step`,
+`full_cem_teacher_optimizer`, paper-scale worker coverage, five-seed selection,
+and/or `1000`-rollout evaluation unsatisfied, depending on the run. The same
+status block separately records whether the teacher CEM-style sampling phase
+used the paper's `rho=10` top-elite setting, whether local teacher trace
+optimization actually had `10` active trace slots, and how many student
+transition-switch fit slots were active for the local bounded switch M-step.
 The probabilistic student likelihood and EM responsibility refinement are
 conditioned on the executable CartPole PSM's fixed initial mode `0`, matching
 the paper's fixed initial memory-state assumption. After the first bounded

@@ -12,6 +12,7 @@ SCRIPT = os.path.join(ROOT, "src", "train_cartpole_psm.py")
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from cartpole_synthesis import Depth2Switch, GaussianScalar, ProbabilisticCartpoleStudent  # noqa: E402
+from cartpole_synthesis import CartpoleSynthesisConfig, cartpole_synthesis_protocol_status  # noqa: E402
 from train_cartpole_psm import summarize_student  # noqa: E402
 
 
@@ -129,6 +130,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["effective_teacher_parallel_trace_slots"], 2)
         self.assertEqual(status["paper_teacher_parallel_threads"], 10)
         self.assertTrue(status["uses_parallel_teacher_trace_optimization"])
+        self.assertFalse(status["uses_paper_teacher_parallel_worker_limit"])
         self.assertFalse(status["uses_paper_teacher_parallel_threads"])
         self.assertEqual(status["selected_student_parallel_switch_workers"], 2)
         self.assertEqual(status["effective_student_parallel_switch_workers"], 2)
@@ -136,7 +138,49 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["effective_student_parallel_switch_slots"], 2)
         self.assertEqual(status["paper_student_parallel_threads"], 10)
         self.assertTrue(status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(status["uses_paper_student_parallel_threads"])
+
+    def test_protocol_status_lists_remaining_adaptive_teaching_blockers(self):
+        status = cartpole_synthesis_protocol_status(
+            CartpoleSynthesisConfig(
+                num_initial_states=10,
+                candidate_rollouts=10,
+                teacher_top_rho=10,
+                parallel_trace_workers=10,
+                parallel_switch_workers=10,
+            ),
+            eval_rollouts=1000,
+            test_max_steps=15000,
+            five_seed_selection=True,
+        )
+
+        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["cartpole_environment"])
+        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["loop_free_teacher_spans_training_horizon"])
+        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_reward_scale"])
+        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["teacher_cem_phase_matches_paper_rho"])
+        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_teacher_parallel_threads"])
+        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_student_parallel_worker_limit"])
+        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["full_test_horizon"])
+        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["paper_eval_rollouts"])
+        self.assertFalse(status["adaptive_teaching_protocol_requirements"]["full_continuous_switch_m_step"])
+        self.assertFalse(status["adaptive_teaching_protocol_requirements"]["full_cem_teacher_optimizer"])
+        self.assertEqual(
+            status["missing_adaptive_teaching_protocol_requirements"],
+            [
+                "full_continuous_switch_m_step",
+                "full_cem_teacher_optimizer",
+            ],
+        )
+        self.assertEqual(
+            status["missing_probabilistic_adaptive_teaching_requirements"],
+            [
+                "full_continuous_switch_m_step",
+                "full_cem_teacher_optimizer",
+            ],
+        )
+        self.assertFalse(status["full_probabilistic_adaptive_teaching"])
+        self.assertFalse(status["paper_scale_result"])
 
     def test_cli_writes_metrics_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -623,6 +667,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["effective_teacher_parallel_trace_slots"], 1)
         self.assertEqual(status["paper_teacher_parallel_threads"], 10)
         self.assertFalse(status["uses_parallel_teacher_trace_optimization"])
+        self.assertFalse(status["uses_paper_teacher_parallel_worker_limit"])
         self.assertFalse(status["uses_paper_teacher_parallel_threads"])
         self.assertEqual(status["selected_student_parallel_switch_workers"], 1)
         self.assertEqual(status["effective_student_parallel_switch_workers"], 1)
@@ -630,6 +675,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["effective_student_parallel_switch_slots"], 1)
         self.assertEqual(status["paper_student_parallel_threads"], 10)
         self.assertFalse(status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(status["uses_paper_student_parallel_threads"])
         self.assertTrue(status["teacher_candidate_rollouts_cover_selected_top_rho"])
         self.assertFalse(status["teacher_candidate_rollouts_cover_paper_top_rho"])
@@ -637,6 +683,46 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["teacher_elite_distribution_resamples"], 3)
         self.assertEqual(status["teacher_elite_distribution_rounds"], 2)
         self.assertTrue(status["synthesized_by_current_algorithm"])
+        self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["teacher_cem_phase_matches_paper_rho"])
+        self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_teacher_parallel_threads"])
+        self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_student_parallel_worker_limit"])
+        self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["full_continuous_switch_m_step"])
+        self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["full_cem_teacher_optimizer"])
+        self.assertIn(
+            "teacher_cem_phase_matches_paper_rho",
+            status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
+        self.assertIn(
+            "uses_paper_teacher_parallel_threads",
+            status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
+        self.assertIn(
+            "uses_paper_student_parallel_worker_limit",
+            status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
+        self.assertIn(
+            "full_continuous_switch_m_step",
+            status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
+        self.assertIn(
+            "full_cem_teacher_optimizer",
+            status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
+        self.assertFalse(status["adaptive_teaching_protocol_requirements"]["full_test_horizon"])
+        self.assertFalse(status["adaptive_teaching_protocol_requirements"]["paper_eval_rollouts"])
+        self.assertFalse(status["adaptive_teaching_protocol_requirements"]["five_seed_selection"])
+        self.assertIn(
+            "full_test_horizon",
+            status["missing_adaptive_teaching_protocol_requirements"],
+        )
+        self.assertIn(
+            "paper_eval_rollouts",
+            status["missing_adaptive_teaching_protocol_requirements"],
+        )
+        self.assertIn(
+            "five_seed_selection",
+            status["missing_adaptive_teaching_protocol_requirements"],
+        )
         self.assertFalse(status["full_probabilistic_adaptive_teaching"])
         self.assertFalse(status["full_continuous_switch_m_step"])
         self.assertFalse(status["full_cem_teacher_optimizer"])

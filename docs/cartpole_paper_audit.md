@@ -80,9 +80,11 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   the selected switch objective tuple to a fixed local reference switch; this is failure-analysis
   provenance, not a controller selection rule. PSM metrics also include `paper_protocol_status`, a
   compact machine-readable block that records matched CartPole horizons, marks current synthesis
-  artifacts with `synthesized_by_current_algorithm = true`, and keeps the full
-  probabilistic adaptive-teaching, full continuous switch-M-step, full CEM teacher optimizer, and
-  paper-scale result flags false for the current bounded implementation. The metrics now include a
+  artifacts with `synthesized_by_current_algorithm = true`, and derives the full probabilistic
+  adaptive-teaching and paper-scale result flags from named requirement maps. Those maps record
+  CartPole environment coverage, full-horizon and `1000`-rollout evaluation, five-seed result
+  selection, teacher CEM top-rho coverage, teacher/student worker coverage, bounded switch/teacher
+  optimizer limitations, and the unsatisfied requirements for each diagnostic run. The metrics now include a
   compact `adaptive_teacher_summary` for each teacher/student iteration, recording the teacher
   sampling model, selected trace-source counts, reward summary, student log-probability coverage, and
   the recorded reward-plus-student-likelihood objective components when available, plus the configured
@@ -227,8 +229,11 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `m0 action=-0.456; m1 action=0.049; mode=1 if -1.000*theta + 10.000*omega >= -2.589, else mode=0`; it also records
   `student_sample_segment_budget =
   preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
-  This remains a local synthesis diagnostic and still demonstrates a full-horizon programmatic-policy
-  gap, not a paper-level reproduction result.
+  Its `paper_protocol_status` lists the remaining adaptive-teaching blockers, including no five-seed
+  paper result selection in this per-seed artifact, no paper 10-thread active teacher coverage, no
+  paper student worker limit, no full continuous switch M-step, no full CEM teacher optimizer, and no
+  `1000`-rollout evaluation. This remains a local synthesis diagnostic and still demonstrates a
+  full-horizon programmatic-policy gap, not a paper-level reproduction result.
 - Direct-Opt diagnostic command:
   `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
 - Direct-Opt diagnostic output:
@@ -957,6 +962,12 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_psm_cli.py::test_summarize_student_reports_responsibility_confidence`
   verifies that PSM metrics expose hard latent-mode counts, ambiguous segment count, max
   responsibility, and responsibility entropy for the fitted probabilistic student.
+- `tests/test_cartpole_psm_cli.py::test_protocol_status_lists_remaining_adaptive_teaching_blockers`
+  verifies that a near-paper PSM status configuration derives the remaining blockers from named
+  adaptive-teaching requirements instead of relying on a hard-coded false paper-scale flag.
+- `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_synthesized_psm_missing_protocol_requirements`
+  verifies that generated paper artifacts reject synthesized PSM metrics that claim current synthesis
+  status without the named adaptive-teaching requirement maps.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_writes_results_and_manifest`
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and

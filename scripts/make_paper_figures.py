@@ -136,7 +136,14 @@ def metrics_payload_is_synthesized_psm(metrics: object) -> bool:
     if not isinstance(metrics, dict):
         return False
     status = metrics.get("paper_protocol_status", {})
-    return isinstance(status, dict) and status.get("synthesized_by_current_algorithm") is True
+    if not isinstance(status, dict) or status.get("synthesized_by_current_algorithm") is not True:
+        return False
+    return (
+        isinstance(status.get("adaptive_teaching_protocol_requirements"), dict)
+        and isinstance(status.get("missing_adaptive_teaching_protocol_requirements"), list)
+        and isinstance(status.get("probabilistic_adaptive_teaching_requirements"), dict)
+        and isinstance(status.get("missing_probabilistic_adaptive_teaching_requirements"), list)
+    )
 
 
 EXPECTED_PSM_OBJECTIVE_COMPONENT_KEYS = (

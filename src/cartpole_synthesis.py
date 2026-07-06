@@ -327,6 +327,9 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
         "effective_teacher_parallel_trace_slots": effective_parallel_trace_slots,
         "paper_teacher_parallel_threads": PAPER_TEACHER_PARALLEL_THREADS,
         "uses_parallel_teacher_trace_optimization": effective_parallel_trace_slots > 1,
+        "uses_paper_teacher_parallel_worker_limit": (
+            effective_parallel_trace_workers == PAPER_TEACHER_PARALLEL_THREADS
+        ),
         "uses_paper_teacher_parallel_threads": (
             effective_parallel_trace_workers == PAPER_TEACHER_PARALLEL_THREADS
             and effective_parallel_trace_slots == PAPER_TEACHER_PARALLEL_THREADS
@@ -337,6 +340,9 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
         "effective_student_parallel_switch_slots": effective_parallel_switch_slots,
         "paper_student_parallel_threads": PAPER_STUDENT_PARALLEL_THREADS,
         "uses_parallel_student_switch_optimization": effective_parallel_switch_slots > 1,
+        "uses_paper_student_parallel_worker_limit": (
+            effective_parallel_switch_workers == PAPER_STUDENT_PARALLEL_THREADS
+        ),
         "uses_paper_student_parallel_threads": (
             effective_parallel_switch_workers == PAPER_STUDENT_PARALLEL_THREADS
             and effective_parallel_switch_slots == PAPER_STUDENT_PARALLEL_THREADS
@@ -355,12 +361,57 @@ def cartpole_synthesis_protocol_status(
     eval_rollouts: int | None = None,
     test_max_steps: int | None = None,
     quick: bool = False,
+    five_seed_selection: bool = False,
 ) -> Dict[str, object]:
     paper_train_env = CartpoleEnv.train_env()
     paper_test_env = CartpoleEnv.test_env()
     loop_free_training_horizon = cfg.segment_steps * cfg.segments_per_trace
     paper_test_horizon = test_max_steps == paper_test_env.cfg.max_steps if test_max_steps is not None else False
     paper_eval_rollouts = eval_rollouts == PAPER_EVAL_ROLLOUTS if eval_rollouts is not None else False
+    cem_status = cartpole_teacher_cem_protocol_status(cfg)
+    uses_paper_reward_scale = cfg.teacher_reward_lambda == TEACHER_REWARD_LAMBDA
+    two_mode_constant_action_psm = len(cfg.force_values) == 2
+    gaussian_action_parameter_distributions = True
+    gaussian_switch_parameter_distributions = True
+    transition_specific_switch_conditions = True
+    resamples_parameters_on_mode_entry = True
+    full_continuous_switch_m_step = False
+    full_cem_teacher_optimizer = False
+    probabilistic_adaptive_teaching_requirements = {
+        "cartpole_environment": True,
+        "loop_free_teacher_spans_training_horizon": loop_free_training_horizon >= paper_train_env.cfg.max_steps,
+        "uses_paper_reward_scale": uses_paper_reward_scale,
+        "two_mode_constant_action_psm": two_mode_constant_action_psm,
+        "gaussian_action_parameter_distributions": gaussian_action_parameter_distributions,
+        "gaussian_switch_parameter_distributions": gaussian_switch_parameter_distributions,
+        "transition_specific_switch_conditions": transition_specific_switch_conditions,
+        "resamples_parameters_on_mode_entry": resamples_parameters_on_mode_entry,
+        "teacher_cem_phase_matches_paper_rho": cem_status["teacher_cem_phase_matches_paper_rho"],
+        "uses_paper_teacher_parallel_threads": cem_status["uses_paper_teacher_parallel_threads"],
+        "uses_paper_student_parallel_worker_limit": cem_status["uses_paper_student_parallel_worker_limit"],
+        "full_continuous_switch_m_step": full_continuous_switch_m_step,
+        "full_cem_teacher_optimizer": full_cem_teacher_optimizer,
+    }
+    missing_probabilistic_adaptive_teaching_requirements = [
+        requirement
+        for requirement, satisfied in probabilistic_adaptive_teaching_requirements.items()
+        if not satisfied
+    ]
+    full_probabilistic_adaptive_teaching = (
+        not missing_probabilistic_adaptive_teaching_requirements
+    )
+    adaptive_teaching_protocol_requirements = {
+        **probabilistic_adaptive_teaching_requirements,
+        "five_seed_selection": five_seed_selection,
+        "full_test_horizon": paper_test_horizon,
+        "paper_eval_rollouts": paper_eval_rollouts,
+    }
+    missing_adaptive_teaching_protocol_requirements = [
+        requirement
+        for requirement, satisfied in adaptive_teaching_protocol_requirements.items()
+        if not satisfied
+    ]
+    paper_scale_result = not missing_adaptive_teaching_protocol_requirements
     status = {
         "cartpole_environment": True,
         "train_horizon_seconds": paper_train_env.cfg.horizon_seconds,
@@ -377,30 +428,35 @@ def cartpole_synthesis_protocol_status(
         "eval_rollouts": eval_rollouts,
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "uses_paper_eval_rollouts": paper_eval_rollouts,
+        "five_seed_selection": five_seed_selection,
         "quick_diagnostic": bool(quick),
-        "uses_paper_reward_scale": cfg.teacher_reward_lambda == TEACHER_REWARD_LAMBDA,
-        "two_mode_constant_action_psm": len(cfg.force_values) == 2,
+        "uses_paper_reward_scale": uses_paper_reward_scale,
+        "two_mode_constant_action_psm": two_mode_constant_action_psm,
         "boolean_tree_depth": 2,
-        "gaussian_action_parameter_distributions": True,
-        "gaussian_switch_parameter_distributions": True,
-        "transition_specific_switch_conditions": True,
-        "resamples_parameters_on_mode_entry": True,
+        "gaussian_action_parameter_distributions": gaussian_action_parameter_distributions,
+        "gaussian_switch_parameter_distributions": gaussian_switch_parameter_distributions,
+        "transition_specific_switch_conditions": transition_specific_switch_conditions,
+        "resamples_parameters_on_mode_entry": resamples_parameters_on_mode_entry,
         "student_em_iters": cfg.student_em_iters,
         "student_switch_responsibility_passes": cfg.student_switch_responsibility_passes,
         "teacher_elite_distribution_resamples": cfg.teacher_elite_distribution_resamples,
         "teacher_elite_distribution_rounds": cfg.teacher_elite_distribution_rounds,
         "synthesized_by_current_algorithm": True,
-        "full_probabilistic_adaptive_teaching": False,
-        "full_continuous_switch_m_step": False,
-        "full_cem_teacher_optimizer": False,
-        "paper_scale_result": False,
+        "probabilistic_adaptive_teaching_requirements": probabilistic_adaptive_teaching_requirements,
+        "missing_probabilistic_adaptive_teaching_requirements": missing_probabilistic_adaptive_teaching_requirements,
+        "full_probabilistic_adaptive_teaching": full_probabilistic_adaptive_teaching,
+        "full_continuous_switch_m_step": full_continuous_switch_m_step,
+        "full_cem_teacher_optimizer": full_cem_teacher_optimizer,
+        "adaptive_teaching_protocol_requirements": adaptive_teaching_protocol_requirements,
+        "missing_adaptive_teaching_protocol_requirements": missing_adaptive_teaching_protocol_requirements,
+        "paper_scale_result": paper_scale_result,
         "limitation": (
             "Local bounded Cartpole PSM diagnostic: implements Gaussian action/switch distributions "
             "and sampled teacher traces, but not the paper's full probabilistic adaptive-teaching "
             "optimizer or paper-scale result reproduction."
         ),
     }
-    status.update(cartpole_teacher_cem_protocol_status(cfg))
+    status.update(cem_status)
     return status
 
 
