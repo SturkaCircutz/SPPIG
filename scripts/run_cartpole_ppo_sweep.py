@@ -662,6 +662,128 @@ def read_existing_results(path: Path | str) -> Dict[int, Dict[str, str]]:
     return {int(row["job_id"]): row for row in rows if row.get("job_id", "").isdigit()}
 
 
+def _metric_float_matches(row: Dict[str, str], metrics: Dict[str, Any], row_field: str, metric_field: str) -> bool:
+    try:
+        row_value = float(row[row_field])
+        metric_value = float(metrics[metric_field])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return math.isclose(row_value, metric_value, rel_tol=1e-9, abs_tol=1e-9)
+
+
+def _metric_int_matches(row: Dict[str, str], metrics: Dict[str, Any], row_field: str, metric_field: str) -> bool:
+    try:
+        row_value = int(float(row[row_field]))
+        metric_value = int(metrics[metric_field])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return row_value == metric_value
+
+
+def _status_bool_matches(status: Dict[str, Any], field: str, expected: bool) -> bool:
+    return status.get(field) is expected
+
+
+def _status_int_matches(status: Dict[str, Any], field: str, expected: int) -> bool:
+    try:
+        return int(status[field]) == expected
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _protocol_status_matches_resumable_job(job: Dict[str, Any], status: Dict[str, Any]) -> bool:
+    policy = str(job["policy"])
+    total_timesteps = int(job["total_timesteps"])
+    test_max_steps = int(job["test_max_steps"])
+    eval_rollouts = int(job["eval_rollouts"])
+    minibatches = int(job["minibatches"])
+    paper_timestep_budget = total_timesteps == PAPER_TIMESTEPS
+    paper_test_horizon = test_max_steps == PAPER_TEST_MAX_STEPS
+    paper_eval_rollouts = eval_rollouts == PAPER_EVAL_ROLLOUTS
+    lstm_minibatches_ok = policy != "lstm" or minibatches == 1
+    single_run_matches_paper_budget = (
+        paper_timestep_budget
+        and paper_test_horizon
+        and paper_eval_rollouts
+        and lstm_minibatches_ok
+    )
+
+    return (
+        status.get("policy_type") == policy
+        and _status_int_matches(status, "selected_test_max_steps", test_max_steps)
+        and _status_int_matches(status, "paper_test_horizon_steps", PAPER_TEST_MAX_STEPS)
+        and _status_int_matches(status, "selected_eval_rollouts", eval_rollouts)
+        and _status_int_matches(status, "paper_eval_rollouts", PAPER_EVAL_ROLLOUTS)
+        and _status_bool_matches(status, "paper_timestep_budget", paper_timestep_budget)
+        and _status_bool_matches(status, "paper_test_horizon", paper_test_horizon)
+        and _status_bool_matches(status, "uses_paper_eval_rollouts", paper_eval_rollouts)
+        and _status_bool_matches(status, "ppo_lstm_minibatches_fixed_to_one", lstm_minibatches_ok)
+        and _status_bool_matches(status, "local_supervised_warm_start", False)
+        and _status_bool_matches(status, "no_local_supervised_warm_start", True)
+        and _status_bool_matches(status, "single_run_matches_paper_budget", single_run_matches_paper_budget)
+        and _status_bool_matches(status, "five_seed_hyperparameter_search", False)
+        and _status_bool_matches(status, "paper_scale_baseline_protocol", False)
+    )
+
+
+def _metrics_match_resumable_row(job: Dict[str, Any], row: Dict[str, str]) -> bool:
+    try:
+        metrics = json.loads(Path(str(row["metrics_output"])).read_text(encoding="utf-8"))
+    except (KeyError, OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(metrics, dict):
+        return False
+    command = metrics.get("command")
+    config = metrics.get("config")
+    selected_result = metrics.get("selected_result")
+    paper_status = metrics.get("paper_protocol_status")
+    if not isinstance(command, str) or not command.strip():
+        return False
+    if not isinstance(config, dict) or not isinstance(selected_result, dict) or not isinstance(paper_status, dict):
+        return False
+
+    config_checks = {
+        "policy_type": str(job["policy"]),
+        "total_timesteps": int(job["total_timesteps"]),
+        "rollout_steps": int(job["rollout_steps"]),
+        "num_envs": int(job["num_envs"]),
+        "hidden_size": int(job["hidden_size"]),
+        "update_epochs": int(job["update_epochs"]),
+        "minibatches": int(job["minibatches"]),
+        "eval_rollouts": int(job["eval_rollouts"]),
+        "eval_test_max_steps": int(job["test_max_steps"]),
+        "eval_interval": int(job["eval_interval"]),
+        "seed": int(job["seed"]),
+        "metrics_output": str(job["metrics_output"]),
+    }
+    for key, expected in config_checks.items():
+        if config.get(key) != expected:
+            return False
+    for key in ("learning_rate", "entropy_coef", "clip_range"):
+        try:
+            if not math.isclose(float(config[key]), float(job[key]), rel_tol=1e-12, abs_tol=1e-12):
+                return False
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    if not _protocol_status_matches_resumable_job(job, paper_status):
+        return False
+
+    if not _metric_int_matches(row, selected_result, "selected_timesteps", "timesteps"):
+        return False
+    metric_pairs = (
+        ("train_success", "train_success_rate"),
+        ("test_success", "test_success_rate"),
+        ("train_reward", "train_reward_mean"),
+        ("test_reward", "test_reward_mean"),
+        ("train_steps", "train_steps_mean"),
+        ("test_steps", "test_steps_mean"),
+        ("train_survival_seconds", "train_survival_seconds_mean"),
+        ("test_survival_seconds", "test_survival_seconds_mean"),
+    )
+    return all(_metric_float_matches(row, selected_result, row_field, metric_field) for row_field, metric_field in metric_pairs)
+
+
 def resumable_result_for_job(
     job: Dict[str, Any],
     existing_results: Dict[int, Dict[str, str]],
@@ -675,6 +797,8 @@ def resumable_result_for_job(
     for field in ("output", "metrics_output"):
         if not Path(str(row[field])).exists():
             return None
+    if not _metrics_match_resumable_row(job, row):
+        return None
     return row
 
 

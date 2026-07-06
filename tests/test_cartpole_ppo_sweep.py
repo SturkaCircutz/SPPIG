@@ -45,6 +45,96 @@ def survival_fields(train_steps=250.0, test_steps=50.0):
 
 
 class CartpolePPOSweepTest(unittest.TestCase):
+    def resumable_fixture(self, tmpdir):
+        original_argv = sys.argv
+        try:
+            sys.argv = [
+                SCRIPT,
+                "--quick",
+                "--max-configs",
+                "1",
+                "--outdir",
+                tmpdir,
+            ]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+        job = build_jobs(args)[0]
+        row = {
+            **{field: str(job[field]) for field in PLAN_FIELDS},
+            "train_success": "0.25",
+            "test_success": "0.5",
+            "train_reward": "10.0",
+            "test_reward": "12.0",
+            "train_steps": "10.0",
+            "test_steps": "12.0",
+            "train_survival_seconds": "0.2",
+            "test_survival_seconds": "0.24",
+            "selected_timesteps": str(job["total_timesteps"]),
+        }
+        metrics = {
+            "command": "python scripts/run_cartpole_ppo_sweep.py --quick --max-configs 1",
+            "config": {
+                "policy_type": job["policy"],
+                "total_timesteps": int(job["total_timesteps"]),
+                "rollout_steps": int(job["rollout_steps"]),
+                "num_envs": int(job["num_envs"]),
+                "hidden_size": int(job["hidden_size"]),
+                "update_epochs": int(job["update_epochs"]),
+                "minibatches": int(job["minibatches"]),
+                "learning_rate": float(job["learning_rate"]),
+                "entropy_coef": float(job["entropy_coef"]),
+                "clip_range": float(job["clip_range"]),
+                "eval_rollouts": int(job["eval_rollouts"]),
+                "eval_test_max_steps": int(job["test_max_steps"]),
+                "eval_interval": int(job["eval_interval"]),
+                "seed": int(job["seed"]),
+                "metrics_output": job["metrics_output"],
+            },
+            "paper_protocol_status": {
+                "policy_type": job["policy"],
+                "paper_test_horizon_steps": 15000,
+                "selected_test_max_steps": int(job["test_max_steps"]),
+                "paper_eval_rollouts": 1000,
+                "selected_eval_rollouts": int(job["eval_rollouts"]),
+                "uses_paper_eval_rollouts": int(job["eval_rollouts"]) == 1000,
+                "paper_timestep_budget": int(job["total_timesteps"]) == 10_000_000,
+                "paper_test_horizon": int(job["test_max_steps"]) == 15000,
+                "ppo_lstm_minibatches_fixed_to_one": job["policy"] != "lstm" or int(job["minibatches"]) == 1,
+                "local_supervised_warm_start": False,
+                "no_local_supervised_warm_start": True,
+                "single_run_matches_paper_budget": False,
+                "five_seed_hyperparameter_search": False,
+                "paper_scale_baseline_protocol": False,
+            },
+            "selected_result": {
+                "timesteps": int(row["selected_timesteps"]),
+                "train_success_rate": float(row["train_success"]),
+                "test_success_rate": float(row["test_success"]),
+                "train_reward_mean": float(row["train_reward"]),
+                "test_reward_mean": float(row["test_reward"]),
+                "train_steps_mean": float(row["train_steps"]),
+                "test_steps_mean": float(row["test_steps"]),
+                "train_survival_seconds_mean": float(row["train_survival_seconds"]),
+                "test_survival_seconds_mean": float(row["test_survival_seconds"]),
+            },
+        }
+        return job, row, metrics
+
+    def write_existing_result_fixture(self, tmpdir, row, metrics):
+        os.makedirs(os.path.dirname(row["output"]), exist_ok=True)
+        os.makedirs(os.path.dirname(row["metrics_output"]), exist_ok=True)
+        with open(row["output"], "wb") as handle:
+            handle.write(b"checkpoint placeholder")
+        with open(row["metrics_output"], "w", encoding="utf-8") as handle:
+            json.dump(metrics, handle)
+        results_path = os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv")
+        with open(results_path, "w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(row.keys()))
+            writer.writeheader()
+            writer.writerow(row)
+        return read_existing_results(results_path)
+
     def test_summarize_results_selects_best_train_per_policy(self):
         summary = summarize_results(
             [
@@ -917,6 +1007,45 @@ class CartpolePPOSweepTest(unittest.TestCase):
             existing = read_existing_results(os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv"))
 
         self.assertIsNone(resumable_result_for_job(job, existing))
+
+    def test_resume_accepts_rows_only_when_metrics_match_result_and_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job, row, metrics = self.resumable_fixture(tmpdir)
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertEqual(resumable_result_for_job(job, existing), row)
+
+    def test_resume_rejects_rows_with_stale_metrics_result(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job, row, metrics = self.resumable_fixture(tmpdir)
+            metrics["selected_result"]["test_reward_mean"] = 999.0
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertIsNone(resumable_result_for_job(job, existing))
+
+    def test_resume_rejects_rows_with_stale_metrics_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job, row, metrics = self.resumable_fixture(tmpdir)
+            metrics["config"]["seed"] = int(job["seed"]) + 1
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertIsNone(resumable_result_for_job(job, existing))
+
+    def test_resume_rejects_rows_without_metrics_command_or_protocol_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job, row, metrics = self.resumable_fixture(tmpdir)
+            metrics["command"] = " "
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertIsNone(resumable_result_for_job(job, existing))
+
+            metrics["command"] = "python scripts/run_cartpole_ppo_sweep.py --quick"
+            metrics.pop("paper_protocol_status")
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertIsNone(resumable_result_for_job(job, existing))
+
+    def test_resume_rejects_rows_with_stale_protocol_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job, row, metrics = self.resumable_fixture(tmpdir)
+            metrics["paper_protocol_status"]["paper_test_horizon"] = True
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertIsNone(resumable_result_for_job(job, existing))
 
     def test_continue_on_error_records_failed_jobs(self):
         with tempfile.TemporaryDirectory() as tmpdir:

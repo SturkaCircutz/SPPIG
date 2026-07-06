@@ -462,8 +462,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   `10^7` timesteps, and the full 15,000-step/300-second test horizon. Grid mode remains available as
   a local diagnostic extension. Paper-scale execution additionally requires the planned job count to
   match the uncapped selected search space. The runner writes a best-config summary for completed
-  jobs, can resume interrupted sweeps by reusing only matching completed rows with existing checkpoint
-  and metrics artifacts, writes a per-hyperparameter summary that marks the best completed sampled
+  jobs, can resume interrupted sweeps by reusing only matching completed rows whose checkpoint and
+  metrics artifacts exist and whose metrics JSON matches the row's config/result provenance, writes a
+  per-hyperparameter summary that marks the best completed sampled
   config per policy after preferring complete selected-seed coverage, records selected-seed coverage
   and missing seeds for each sampled hyperparameter config, records survived-step/survival-second
   columns for executed rows and summaries, and can optionally record failed jobs while continuing a long sweep.
@@ -549,6 +550,14 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_ppo_sweep.py::test_summarize_hyperparameter_configs_prefers_complete_seed_coverage`
   verifies that a partial-seed hyperparameter result is not selected over a complete selected-seed
   result only because its incomplete mean training score is higher.
+- `tests/test_cartpole_ppo_sweep.py::test_resume_accepts_rows_only_when_metrics_match_result_and_config`,
+  `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_with_stale_metrics_result`,
+  `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_with_stale_metrics_config`,
+  `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_without_metrics_command_or_protocol_status`,
+  and `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_with_stale_protocol_status`
+  verify that PPO sweep resume accepts an existing completed row only when its checkpoint exists and
+  its metrics JSON records command provenance, protocol status, the matching job config, and matching
+  selected-result numbers.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_identifies_full_dry_run_plan`
   verifies that the manifest status flags distinguish a full paper-scale dry-run plan from completed
   paper-scale execution.
