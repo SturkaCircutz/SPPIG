@@ -104,6 +104,16 @@ SUMMARY_FIELDS = [
     "best_command",
 ]
 
+DIRECT_OPT_PROTOCOL_REQUIREMENT_KEYS = {
+    "paper_batch_size_and_batch_refinement",
+    "paper_parallel_threads",
+    "paper_time_limit",
+    "full_continuous_one_hot_switch_grammar",
+    "full_initial_state_distribution",
+    "full_test_horizon",
+    "paper_eval_rollouts",
+}
+
 
 def run_psm(
     seed: int,
@@ -539,6 +549,102 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
     }
 
 
+def direct_opt_evidence_status(
+    rows: List[Dict[str, Any]],
+    *,
+    seeds: List[int],
+    include_direct_opt: bool,
+) -> Dict[str, Any]:
+    direct_rows = [row for row in rows if row.get("policy") == "Direct-Opt diagnostic"]
+    selected_distinct_seeds = sorted(set(seeds))
+    direct_row_seeds: List[int] = []
+    invalid_seed_rows = 0
+    for row in direct_rows:
+        try:
+            direct_row_seeds.append(int(row["seed"]))
+        except (KeyError, TypeError, ValueError):
+            invalid_seed_rows += 1
+
+    expected_rows = len(seeds) if include_direct_opt else 0
+    records_rows_for_selected_seeds = len(direct_rows) == expected_rows
+    distinct_direct_row_seeds = sorted(set(direct_row_seeds))
+    covers_selected_seed_set = distinct_direct_row_seeds == selected_distinct_seeds
+    protocol_statuses = [
+        row.get("paper_protocol_status")
+        for row in direct_rows
+        if isinstance(row.get("paper_protocol_status"), dict)
+    ]
+    all_rows_have_protocol_status = len(protocol_statuses) == len(direct_rows)
+    requirement_maps = [
+        status.get("direct_opt_protocol_requirements")
+        for status in protocol_statuses
+        if isinstance(status.get("direct_opt_protocol_requirements"), dict)
+    ]
+    missing_requirement_lists = [
+        status.get("missing_direct_opt_protocol_requirements")
+        for status in protocol_statuses
+        if isinstance(status.get("missing_direct_opt_protocol_requirements"), list)
+    ]
+    all_rows_have_requirement_maps = len(requirement_maps) == len(direct_rows)
+    all_rows_have_expected_requirement_keys = bool(requirement_maps) and all(
+        set(requirements.keys()) == DIRECT_OPT_PROTOCOL_REQUIREMENT_KEYS
+        for requirements in requirement_maps
+    )
+    all_row_requirements_satisfied = bool(requirement_maps) and all(
+        all(bool(satisfied) for satisfied in requirements.values())
+        for requirements in requirement_maps
+    )
+    all_rows_missing_requirement_lists_empty = (
+        len(missing_requirement_lists) == len(direct_rows)
+        and all(missing_requirements == [] for missing_requirements in missing_requirement_lists)
+    )
+    all_rows_paper_scale_direct_opt_protocol = bool(protocol_statuses) and all(
+        bool(status.get("paper_scale_direct_opt_protocol"))
+        for status in protocol_statuses
+    )
+
+    requirements = {
+        "direct_opt_requested": include_direct_opt,
+        "direct_opt_rows_for_selected_seeds": records_rows_for_selected_seeds,
+        "valid_direct_opt_row_seeds": invalid_seed_rows == 0,
+        "direct_opt_selected_seed_coverage": covers_selected_seed_set,
+        "direct_opt_protocol_status_per_row": all_rows_have_protocol_status,
+        "direct_opt_protocol_requirement_map_per_row": all_rows_have_requirement_maps,
+        "direct_opt_protocol_expected_requirement_keys_per_row": all_rows_have_expected_requirement_keys,
+        "direct_opt_protocol_requirements_satisfied_per_row": all_row_requirements_satisfied,
+        "direct_opt_missing_requirements_empty_per_row": all_rows_missing_requirement_lists_empty,
+        "paper_scale_direct_opt_protocol_per_row": all_rows_paper_scale_direct_opt_protocol,
+    }
+    missing_requirements = [
+        requirement
+        for requirement, satisfied in requirements.items()
+        if not satisfied
+    ]
+    paper_scale_direct_opt_protocol = not missing_requirements
+    return {
+        "requested": include_direct_opt,
+        "selected_seeds": seeds,
+        "distinct_selected_seeds": selected_distinct_seeds,
+        "expected_rows": expected_rows,
+        "rows_recorded": len(direct_rows),
+        "direct_opt_row_seeds": direct_row_seeds,
+        "distinct_direct_opt_row_seeds": distinct_direct_row_seeds,
+        "invalid_seed_rows": invalid_seed_rows,
+        "records_rows_for_selected_seeds": records_rows_for_selected_seeds,
+        "covers_selected_seed_set": covers_selected_seed_set,
+        "all_rows_have_protocol_status": all_rows_have_protocol_status,
+        "all_rows_have_requirement_maps": all_rows_have_requirement_maps,
+        "expected_requirement_keys": sorted(DIRECT_OPT_PROTOCOL_REQUIREMENT_KEYS),
+        "all_rows_have_expected_requirement_keys": all_rows_have_expected_requirement_keys,
+        "all_row_requirements_satisfied": all_row_requirements_satisfied,
+        "all_rows_missing_requirement_lists_empty": all_rows_missing_requirement_lists_empty,
+        "all_rows_paper_scale_direct_opt_protocol": all_rows_paper_scale_direct_opt_protocol,
+        "direct_opt_evidence_requirements": requirements,
+        "missing_direct_opt_evidence_requirements": missing_requirements,
+        "paper_scale_direct_opt_protocol": paper_scale_direct_opt_protocol,
+    }
+
+
 def _mean(values: List[float]) -> float:
     return sum(values) / len(values)
 
@@ -762,18 +868,26 @@ def reproduction_protocol_status(
     ppo_eval_interval: int,
     psm_status: Dict[str, Any],
     ppo_sweep_status: Dict[str, Any] | None = None,
+    direct_opt_status: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     paper_test_steps = CartpoleEnv.test_env().cfg.max_steps
     distinct_seeds = sorted(set(seeds))
-    five_distinct_seeds = len(distinct_seeds) == 5
+    five_distinct_seeds = len(seeds) == 5 and len(distinct_seeds) == 5
     uses_full_test_horizon = test_max_steps == paper_test_steps
     uses_paper_eval_rollouts = eval_rollouts == PAPER_EVAL_ROLLOUTS
     ppo_sweep_status = ppo_sweep_status or ppo_sweep_evidence_status(None)
+    direct_opt_status = direct_opt_status or direct_opt_evidence_status(
+        [],
+        seeds=seeds,
+        include_direct_opt=include_direct_opt,
+    )
     ppo_hyperparameter_search = bool(ppo_sweep_status.get("paper_scale_execution"))
     includes_ppo_baseline_evidence = include_ppo or ppo_hyperparameter_search
     ppo_fixed_config_only = include_ppo and not ppo_hyperparameter_search
     full_probabilistic_adaptive_teaching = bool(psm_status.get("full_probabilistic_adaptive_teaching"))
-    full_direct_opt_protocol = False
+    full_direct_opt_protocol = include_direct_opt and bool(
+        direct_opt_status.get("paper_scale_direct_opt_protocol")
+    )
     paper_scale_result = (
         not quick
         and five_distinct_seeds
@@ -806,12 +920,14 @@ def reproduction_protocol_status(
         "ppo_sweep_evidence": ppo_sweep_status,
         "full_probabilistic_adaptive_teaching": full_probabilistic_adaptive_teaching,
         "full_direct_opt_protocol": full_direct_opt_protocol,
+        "direct_opt_evidence": direct_opt_status,
         "paper_scale_result": paper_scale_result,
         "limitation": (
             "This orchestrated runner records local diagnostic rows and exact artifact paths. "
-            "It does not perform the paper's PPO/PPO-LSTM hyperparameter search, the full "
-            "probabilistic adaptive-teaching algorithm, or the full Direct-Opt protocol, so its "
-            "manifest-level paper-scale result flag remains false."
+            "The paper_scale_result flag is true only when five distinct seeds, 1000-rollout "
+            "full-horizon evaluation, completed PPO/PPO-LSTM hyperparameter-search evidence, "
+            "full probabilistic adaptive teaching, and full Direct-Opt protocol evidence are "
+            "all satisfied."
         ),
     }
 
@@ -868,6 +984,12 @@ def main() -> None:
         args.eval_rollouts,
         args.test_max_steps,
         args.quick,
+        five_seed_selection=len(seeds) == 5 and len(set(seeds)) == 5,
+    )
+    direct_opt_status = direct_opt_evidence_status(
+        rows,
+        seeds=seeds,
+        include_direct_opt=args.include_direct_opt,
     )
     manifest = {
         "command": " ".join(sys.argv),
@@ -878,6 +1000,7 @@ def main() -> None:
         "include_direct_opt": args.include_direct_opt,
         "direct_opt_parallel_threads": args.direct_opt_parallel_threads,
         "direct_opt_time_limit_seconds": args.direct_opt_time_limit_seconds,
+        "direct_opt_evidence": direct_opt_status,
         "seeds": seeds,
         "eval_rollouts": args.eval_rollouts,
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
@@ -898,6 +1021,7 @@ def main() -> None:
             ppo_eval_interval=args.ppo_eval_interval,
             psm_status=psm_status,
             ppo_sweep_status=ppo_sweep_status,
+            direct_opt_status=direct_opt_status,
         ),
         "ppo_eval_interval": args.ppo_eval_interval,
         "paper_scale_note": (

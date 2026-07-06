@@ -115,6 +115,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   rollout/horizon coverage, PPO/Direct-Opt inclusion, and the still-false paper-scale result flag,
   and each PSM row links to a per-seed metrics JSON with the fitted probabilistic student and
   teacher-trace provenance plus a full selected-teacher-trace and per-iteration trace-history sidecar.
+  Per-seed PSM metrics keep `five_seed_selection` false, while the manifest-level PSM protocol status
+  records five distinct seeds when the runner bundle actually contains that result-selection evidence.
   When PPO is included, it also writes per-row PPO checkpoints and metrics
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
   contain intermediate train/test `eval_history` entries or only the selected final result.
@@ -127,6 +129,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   `scripts/run_cartpole_ppo_sweep.py` manifest through `--ppo-sweep-manifest`; it records that
   sweep as PPO hyperparameter-search evidence only when the typed sweep manifest reports
   `paper_scale_execution = true`, with or without rerunning fixed PPO rows in the same bundle.
+  Direct-Opt manifest evidence is likewise derived from the Direct-Opt rows and their
+  per-row `paper_protocol_status` blocks, so bounded diagnostics remain false while a future
+  completed Direct-Opt protocol artifact can satisfy the runner requirement without changing the
+  runner's top-level logic.
   Result rows, summaries, and metrics JSON
   explicitly record mean survived steps and survival seconds so long-horizon plots do not rely on
   reward as an implicit survival-time proxy.
@@ -990,8 +996,19 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   provenance, treats dry-run plans and internally inconsistent execution claims as insufficient, and
   accepts PPO hyperparameter-search evidence only when the sweep reports completed paper-scale execution
   with matching top-level manifest fields.
+- `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_complete_row_protocol_evidence`,
+  `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_rejects_bare_overclaimed_protocol_flag`,
+  `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_rejects_partial_requirement_map`,
+  and `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_accepts_complete_direct_opt_row_evidence`
+  verify that the reproduction runner derives Direct-Opt bundle evidence from Direct-Opt rows and their
+  per-row `paper_protocol_status` blocks instead of relying on a hard-coded manifest blocker.
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_rejects_duplicate_seed_coverage`
-  verifies that repeated seed entries are not treated as the paper's five distinct seeds.
+  and `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_rejects_extra_duplicate_seed_coverage`
+  verify that repeated seed entries are not treated as the paper's five distinct seeds.
+- `tests/test_cartpole_reproduction_runner.py::test_runner_records_manifest_level_psm_five_seed_selection`
+  and `tests/test_cartpole_reproduction_runner.py::test_runner_rejects_manifest_level_psm_duplicate_plus_five_seed_selection`
+  verify that exactly five distinct runner seeds are recorded in the manifest-level PSM protocol status
+  without changing each per-seed PSM metrics artifact's single-run status or accepting duplicate seed bundles.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_can_include_direct_opt_diagnostic`
   verifies that `--include-direct-opt` adds the bounded Direct-Opt diagnostic row and links its
   metrics artifact from the manifest, including the command that produced it.

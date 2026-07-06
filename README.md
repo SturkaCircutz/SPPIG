@@ -82,6 +82,9 @@ raw per-seed rows to `cartpole_results.csv`, grouped mean/std plus the best trai
 The manifest includes a top-level `paper_protocol_status` block that records
 selected seeds, paper rollout/horizon coverage, PPO/Direct-Opt inclusion, and
 the remaining blockers to a paper-scale result claim.
+Direct-Opt evidence in that block is derived from the Direct-Opt rows and their
+per-row `paper_protocol_status`, so current bounded diagnostics stay separated
+from a future full Direct-Opt protocol artifact.
 Those rows and summaries report mean survived simulator steps and survival
 seconds explicitly, rather than using reward as an implicit survival-time proxy.
 Paper-scale result claims also require the paper's `1000` evaluation rollouts;
