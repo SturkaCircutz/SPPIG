@@ -115,6 +115,51 @@ DIRECT_OPT_PROTOCOL_REQUIREMENT_KEYS = {
 }
 
 
+def _load_json_object(path: Path) -> Dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _strict_int_value(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else None
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _int_values_match(left: Any, right: Any) -> bool:
+    left_int = _strict_int_value(left)
+    right_int = _strict_int_value(right)
+    if left_int is None or right_int is None:
+        return False
+    return left_int == right_int
+
+
+def _direct_opt_metrics_config_matches_row(metrics: Dict[str, Any], row: Dict[str, Any]) -> bool:
+    config = metrics.get("config")
+    if not isinstance(config, dict):
+        return False
+    required_matches = [
+        _int_values_match(config.get("seed"), row.get("seed")),
+        _int_values_match(metrics.get("eval_rollouts"), row.get("eval_rollouts")),
+        _int_values_match(config.get("eval_rollouts"), row.get("eval_rollouts")),
+        _int_values_match(metrics.get("test_max_steps"), row.get("test_horizon_steps")),
+        _int_values_match(config.get("test_max_steps"), row.get("test_horizon_steps")),
+    ]
+    return all(required_matches)
+
+
 def run_psm(
     seed: int,
     eval_rollouts: int,
@@ -674,12 +719,57 @@ def direct_opt_evidence_status(
         bool(status.get("paper_scale_direct_opt_protocol"))
         for status in protocol_statuses
     )
+    metrics_artifacts_checked = 0
+    metrics_artifacts_existing = 0
+    metrics_artifacts_with_command = 0
+    metrics_artifacts_with_config = 0
+    metrics_artifacts_matching_row_config = 0
+    metrics_artifacts_with_direct_opt_provenance = 0
+    metrics_artifacts_matching_protocol_status = 0
+    for row in direct_rows:
+        metrics_output = row.get("metrics_output")
+        if not isinstance(metrics_output, str) or not metrics_output:
+            continue
+        metrics_artifacts_checked += 1
+        metrics = _load_json_object(Path(metrics_output))
+        if metrics is None:
+            continue
+        metrics_artifacts_existing += 1
+        if isinstance(metrics.get("command"), str) and metrics["command"]:
+            metrics_artifacts_with_command += 1
+        if isinstance(metrics.get("config"), dict):
+            metrics_artifacts_with_config += 1
+        if _direct_opt_metrics_config_matches_row(metrics, row):
+            metrics_artifacts_matching_row_config += 1
+        provenance = metrics.get("algorithm_provenance")
+        if isinstance(provenance, dict) and provenance.get("paper_baseline") == "Direct-Opt":
+            metrics_artifacts_with_direct_opt_provenance += 1
+        if metrics.get("paper_protocol_status") == row.get("paper_protocol_status"):
+            metrics_artifacts_matching_protocol_status += 1
+    all_rows_have_metrics_output = len(direct_rows) > 0 and metrics_artifacts_checked == len(direct_rows)
+    all_metrics_artifacts_exist = len(direct_rows) > 0 and metrics_artifacts_existing == len(direct_rows)
+    all_metrics_have_command = len(direct_rows) > 0 and metrics_artifacts_with_command == len(direct_rows)
+    all_metrics_have_config = len(direct_rows) > 0 and metrics_artifacts_with_config == len(direct_rows)
+    all_metrics_match_row_config = len(direct_rows) > 0 and metrics_artifacts_matching_row_config == len(direct_rows)
+    all_metrics_have_direct_opt_provenance = (
+        len(direct_rows) > 0 and metrics_artifacts_with_direct_opt_provenance == len(direct_rows)
+    )
+    all_metrics_match_row_protocol_status = (
+        len(direct_rows) > 0 and metrics_artifacts_matching_protocol_status == len(direct_rows)
+    )
 
     requirements = {
         "direct_opt_requested": include_direct_opt,
         "direct_opt_rows_for_selected_seeds": records_rows_for_selected_seeds,
         "valid_direct_opt_row_seeds": invalid_seed_rows == 0,
         "direct_opt_selected_seed_coverage": covers_selected_seed_set,
+        "direct_opt_metrics_output_per_row": all_rows_have_metrics_output,
+        "direct_opt_metrics_artifact_exists_per_row": all_metrics_artifacts_exist,
+        "direct_opt_metrics_command_per_row": all_metrics_have_command,
+        "direct_opt_metrics_config_per_row": all_metrics_have_config,
+        "direct_opt_metrics_config_matches_row_per_row": all_metrics_match_row_config,
+        "direct_opt_metrics_provenance_per_row": all_metrics_have_direct_opt_provenance,
+        "direct_opt_metrics_protocol_matches_row_per_row": all_metrics_match_row_protocol_status,
         "direct_opt_protocol_status_per_row": all_rows_have_protocol_status,
         "direct_opt_protocol_requirement_map_per_row": all_rows_have_requirement_maps,
         "direct_opt_protocol_expected_requirement_keys_per_row": all_rows_have_expected_requirement_keys,
@@ -702,8 +792,22 @@ def direct_opt_evidence_status(
         "direct_opt_row_seeds": direct_row_seeds,
         "distinct_direct_opt_row_seeds": distinct_direct_row_seeds,
         "invalid_seed_rows": invalid_seed_rows,
+        "metrics_artifacts_checked": metrics_artifacts_checked,
+        "metrics_artifacts_existing": metrics_artifacts_existing,
+        "metrics_artifacts_with_command": metrics_artifacts_with_command,
+        "metrics_artifacts_with_config": metrics_artifacts_with_config,
+        "metrics_artifacts_matching_row_config": metrics_artifacts_matching_row_config,
+        "metrics_artifacts_with_direct_opt_provenance": metrics_artifacts_with_direct_opt_provenance,
+        "metrics_artifacts_matching_protocol_status": metrics_artifacts_matching_protocol_status,
         "records_rows_for_selected_seeds": records_rows_for_selected_seeds,
         "covers_selected_seed_set": covers_selected_seed_set,
+        "all_rows_have_metrics_output": all_rows_have_metrics_output,
+        "all_metrics_artifacts_exist": all_metrics_artifacts_exist,
+        "all_metrics_have_command": all_metrics_have_command,
+        "all_metrics_have_config": all_metrics_have_config,
+        "all_metrics_match_row_config": all_metrics_match_row_config,
+        "all_metrics_have_direct_opt_provenance": all_metrics_have_direct_opt_provenance,
+        "all_metrics_match_row_protocol_status": all_metrics_match_row_protocol_status,
         "all_rows_have_protocol_status": all_rows_have_protocol_status,
         "all_rows_have_requirement_maps": all_rows_have_requirement_maps,
         "expected_requirement_keys": sorted(DIRECT_OPT_PROTOCOL_REQUIREMENT_KEYS),

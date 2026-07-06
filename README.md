@@ -84,8 +84,9 @@ The manifest includes a top-level `paper_protocol_status` block that records
 selected seeds, paper rollout/horizon coverage, PPO/Direct-Opt inclusion, and
 the remaining blockers to a paper-scale result claim.
 Direct-Opt evidence in that block is derived from the Direct-Opt rows and their
-per-row `paper_protocol_status`, so current bounded diagnostics stay separated
-from a future full Direct-Opt protocol artifact.
+metrics JSON artifacts; the runner requires command/config provenance and a
+matching per-row `paper_protocol_status`, so current bounded diagnostics stay
+separated from a future full Direct-Opt protocol artifact.
 Those rows and summaries report mean survived simulator steps and survival
 seconds explicitly, rather than using reward as an implicit survival-time proxy.
 Paper-scale result claims also require the paper's `1000` evaluation rollouts;
@@ -342,7 +343,8 @@ continuous one-hot switching grammar. The metrics JSON also includes
 unless the paper batch size, ten-thread/two-hour optimization budget, full
 continuous one-hot grammar, full initial-state distribution, full test horizon,
 and `1000`-rollout evaluation are actually satisfied. The optional train-distribution rerank is
-sampled evidence only and does not satisfy the full initial-state distribution requirement. It also lists the named Direct-Opt protocol
+sampled evidence only and does not satisfy the full initial-state distribution requirement. Reproduction manifests require these Direct-Opt
+protocol rows to be backed by matching metrics JSON command/config/provenance artifacts. The status also lists the named Direct-Opt protocol
 requirements that remain unsatisfied for each diagnostic run.
 
 PPO MLP:

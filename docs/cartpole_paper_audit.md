@@ -135,9 +135,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   sweep as PPO hyperparameter-search evidence only when the typed sweep manifest reports
   `paper_scale_execution = true`, with or without rerunning fixed PPO rows in the same bundle.
   Direct-Opt manifest evidence is likewise derived from the Direct-Opt rows and their
-  per-row `paper_protocol_status` blocks, so bounded diagnostics remain false while a future
-  completed Direct-Opt protocol artifact can satisfy the runner requirement without changing the
-  runner's top-level logic.
+  metrics JSON artifacts, including command/config provenance and matching per-row
+  `paper_protocol_status` blocks, so bounded diagnostics remain false while a future completed
+  Direct-Opt protocol artifact can satisfy the runner requirement without changing the runner's
+  top-level logic.
   Result rows, summaries, and metrics JSON
   explicitly record mean survived steps and survival seconds so long-horizon plots do not rely on
   reward as an implicit survival-time proxy.
@@ -1033,11 +1034,16 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   with matching top-level manifest fields and embedded best-hyperparameter rows covering every selected
   seed for both PPO policies.
 - `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_complete_row_protocol_evidence`,
+  `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_metrics_artifact_protocol_match`,
+  `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_metrics_config_to_match_row`,
+  `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_rejects_fractional_metrics_config_values`,
+  `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_existing_metrics_artifact`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_rejects_bare_overclaimed_protocol_flag`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_rejects_partial_requirement_map`,
   and `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_accepts_complete_direct_opt_row_evidence`
-  verify that the reproduction runner derives Direct-Opt bundle evidence from Direct-Opt rows and their
-  per-row `paper_protocol_status` blocks instead of relying on a hard-coded manifest blocker.
+  verify that the reproduction runner derives Direct-Opt bundle evidence from Direct-Opt rows backed
+  by matching metrics JSON command/config/provenance artifacts and per-row `paper_protocol_status`
+  blocks instead of relying on a hard-coded manifest blocker.
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_rejects_duplicate_seed_coverage`
   and `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_rejects_extra_duplicate_seed_coverage`
   verify that repeated seed entries are not treated as the paper's five distinct seeds.

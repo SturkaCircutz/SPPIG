@@ -65,6 +65,42 @@ def complete_ppo_hyperparameter_summary():
     ]
 
 
+def complete_direct_opt_protocol_status():
+    return {
+        "direct_opt_protocol_requirements": {
+            "paper_batch_size_and_batch_refinement": True,
+            "paper_parallel_threads": True,
+            "paper_time_limit": True,
+            "full_continuous_one_hot_switch_grammar": True,
+            "full_initial_state_distribution": True,
+            "full_test_horizon": True,
+            "paper_eval_rollouts": True,
+        },
+        "missing_direct_opt_protocol_requirements": [],
+        "paper_scale_direct_opt_protocol": True,
+    }
+
+
+def write_direct_opt_metrics(path, status, *, seed=0, eval_rollouts=1000, test_max_steps=15000):
+    Path(path).write_text(
+        json.dumps(
+            {
+                "command": "python src/train_cartpole_direct_opt.py --metrics-output metrics.json",
+                "config": {
+                    "seed": seed,
+                    "eval_rollouts": eval_rollouts,
+                    "test_max_steps": test_max_steps,
+                },
+                "eval_rollouts": eval_rollouts,
+                "test_max_steps": test_max_steps,
+                "algorithm_provenance": {"paper_baseline": "Direct-Opt"},
+                "paper_protocol_status": status,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 class CartpoleReproductionRunnerTest(unittest.TestCase):
     def test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale(self):
         status = reproduction_protocol_status(
@@ -159,33 +195,47 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertFalse(completed_status["paper_scale_result"])
 
     def test_direct_opt_evidence_status_requires_complete_row_protocol_evidence(self):
-        rows = [
-            {
-                "policy": "Direct-Opt diagnostic",
-                "seed": 0,
-                "paper_protocol_status": {
-                    "direct_opt_protocol_requirements": {
-                        "paper_batch_size_and_batch_refinement": True,
-                        "full_continuous_one_hot_switch_grammar": False,
-                    },
-                    "missing_direct_opt_protocol_requirements": [
-                        "full_continuous_one_hot_switch_grammar",
-                    ],
-                    "paper_scale_direct_opt_protocol": False,
+        with tempfile.TemporaryDirectory() as tmpdir:
+            status_payload = {
+                "direct_opt_protocol_requirements": {
+                    "paper_batch_size_and_batch_refinement": True,
+                    "full_continuous_one_hot_switch_grammar": False,
                 },
-            },
-            {
-                "policy": "Programmatic state machine",
-                "seed": 0,
-            },
-        ]
+                "missing_direct_opt_protocol_requirements": [
+                    "full_continuous_one_hot_switch_grammar",
+                ],
+                "paper_scale_direct_opt_protocol": False,
+            }
+            metrics_path = Path(tmpdir) / "direct_opt_metrics.json"
+            write_direct_opt_metrics(metrics_path, status_payload)
+            rows = [
+                {
+                    "policy": "Direct-Opt diagnostic",
+                    "seed": 0,
+                    "eval_rollouts": 1000,
+                    "test_horizon_steps": 15000,
+                    "metrics_output": str(metrics_path),
+                    "paper_protocol_status": status_payload,
+                },
+                {
+                    "policy": "Programmatic state machine",
+                    "seed": 0,
+                },
+            ]
 
-        status = direct_opt_evidence_status(rows, seeds=[0], include_direct_opt=True)
+            status = direct_opt_evidence_status(rows, seeds=[0], include_direct_opt=True)
 
         self.assertTrue(status["requested"])
         self.assertEqual(status["rows_recorded"], 1)
         self.assertTrue(status["records_rows_for_selected_seeds"])
         self.assertTrue(status["covers_selected_seed_set"])
+        self.assertTrue(status["all_rows_have_metrics_output"])
+        self.assertTrue(status["all_metrics_artifacts_exist"])
+        self.assertTrue(status["all_metrics_have_command"])
+        self.assertTrue(status["all_metrics_have_config"])
+        self.assertTrue(status["all_metrics_match_row_config"])
+        self.assertTrue(status["all_metrics_have_direct_opt_provenance"])
+        self.assertTrue(status["all_metrics_match_row_protocol_status"])
         self.assertTrue(status["all_rows_have_protocol_status"])
         self.assertTrue(status["all_rows_have_requirement_maps"])
         self.assertFalse(status["all_row_requirements_satisfied"])
@@ -202,6 +252,116 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         )
         self.assertIn(
             "paper_scale_direct_opt_protocol_per_row",
+            status["missing_direct_opt_evidence_requirements"],
+        )
+
+    def test_direct_opt_evidence_status_requires_metrics_artifact_protocol_match(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            row_status = complete_direct_opt_protocol_status()
+            metrics_path = Path(tmpdir) / "direct_opt_metrics.json"
+            write_direct_opt_metrics(
+                metrics_path,
+                {**row_status, "paper_scale_direct_opt_protocol": False},
+            )
+            status = direct_opt_evidence_status(
+                [
+                    {
+                        "policy": "Direct-Opt diagnostic",
+                        "seed": 0,
+                        "eval_rollouts": 1000,
+                        "test_horizon_steps": 15000,
+                        "metrics_output": str(metrics_path),
+                        "paper_protocol_status": row_status,
+                    },
+                ],
+                seeds=[0],
+                include_direct_opt=True,
+            )
+
+        self.assertTrue(status["all_metrics_artifacts_exist"])
+        self.assertFalse(status["all_metrics_match_row_protocol_status"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
+        self.assertIn(
+            "direct_opt_metrics_protocol_matches_row_per_row",
+            status["missing_direct_opt_evidence_requirements"],
+        )
+
+    def test_direct_opt_evidence_status_requires_metrics_config_to_match_row(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            row_status = complete_direct_opt_protocol_status()
+            metrics_path = Path(tmpdir) / "direct_opt_metrics.json"
+            write_direct_opt_metrics(metrics_path, row_status, seed=99)
+            status = direct_opt_evidence_status(
+                [
+                    {
+                        "policy": "Direct-Opt diagnostic",
+                        "seed": 0,
+                        "eval_rollouts": 1000,
+                        "test_horizon_steps": 15000,
+                        "metrics_output": str(metrics_path),
+                        "paper_protocol_status": row_status,
+                    },
+                ],
+                seeds=[0],
+                include_direct_opt=True,
+            )
+
+        self.assertTrue(status["all_metrics_artifacts_exist"])
+        self.assertFalse(status["all_metrics_match_row_config"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
+        self.assertIn(
+            "direct_opt_metrics_config_matches_row_per_row",
+            status["missing_direct_opt_evidence_requirements"],
+        )
+
+    def test_direct_opt_evidence_status_rejects_fractional_metrics_config_values(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            row_status = complete_direct_opt_protocol_status()
+            metrics_path = Path(tmpdir) / "direct_opt_metrics.json"
+            write_direct_opt_metrics(metrics_path, row_status, eval_rollouts=1000.9)
+            status = direct_opt_evidence_status(
+                [
+                    {
+                        "policy": "Direct-Opt diagnostic",
+                        "seed": "0",
+                        "eval_rollouts": "1000",
+                        "test_horizon_steps": "15000",
+                        "metrics_output": str(metrics_path),
+                        "paper_protocol_status": row_status,
+                    },
+                ],
+                seeds=[0],
+                include_direct_opt=True,
+            )
+
+        self.assertFalse(status["all_metrics_match_row_config"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
+        self.assertIn(
+            "direct_opt_metrics_config_matches_row_per_row",
+            status["missing_direct_opt_evidence_requirements"],
+        )
+
+    def test_direct_opt_evidence_status_requires_existing_metrics_artifact(self):
+        status = direct_opt_evidence_status(
+            [
+                {
+                    "policy": "Direct-Opt diagnostic",
+                    "seed": 0,
+                    "eval_rollouts": 1000,
+                    "test_horizon_steps": 15000,
+                    "metrics_output": "/tmp/definitely_missing_direct_opt_metrics.json",
+                    "paper_protocol_status": complete_direct_opt_protocol_status(),
+                },
+            ],
+            seeds=[0],
+            include_direct_opt=True,
+        )
+
+        self.assertTrue(status["all_rows_have_metrics_output"])
+        self.assertFalse(status["all_metrics_artifacts_exist"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
+        self.assertIn(
+            "direct_opt_metrics_artifact_exists_per_row",
             status["missing_direct_opt_evidence_requirements"],
         )
 
@@ -224,6 +384,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertFalse(status["all_rows_have_requirement_maps"])
         self.assertFalse(status["all_row_requirements_satisfied"])
         self.assertFalse(status["all_rows_missing_requirement_lists_empty"])
+        self.assertFalse(status["all_rows_have_metrics_output"])
         self.assertFalse(status["paper_scale_direct_opt_protocol"])
         self.assertIn(
             "direct_opt_protocol_requirement_map_per_row",
@@ -278,43 +439,40 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             "jobs_failed": 0,
             "jobs_uncapped_for_selected_space": 100,
         }
-        direct_opt_status = direct_opt_evidence_status(
-            [
-                {
-                    "policy": "Direct-Opt diagnostic",
-                    "seed": seed,
-                    "paper_protocol_status": {
-                        "direct_opt_protocol_requirements": {
-                            "paper_batch_size_and_batch_refinement": True,
-                            "paper_parallel_threads": True,
-                            "paper_time_limit": True,
-                            "full_continuous_one_hot_switch_grammar": True,
-                            "full_initial_state_distribution": True,
-                            "full_test_horizon": True,
-                            "paper_eval_rollouts": True,
-                        },
-                        "missing_direct_opt_protocol_requirements": [],
-                        "paper_scale_direct_opt_protocol": True,
-                    },
-                }
-                for seed in [0, 1, 2, 3, 4]
-            ],
-            seeds=[0, 1, 2, 3, 4],
-            include_direct_opt=True,
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            direct_rows = []
+            for seed in [0, 1, 2, 3, 4]:
+                row_status = complete_direct_opt_protocol_status()
+                metrics_path = Path(tmpdir) / f"direct_opt_seed{seed}.json"
+                write_direct_opt_metrics(metrics_path, row_status, seed=seed)
+                direct_rows.append(
+                    {
+                        "policy": "Direct-Opt diagnostic",
+                        "seed": seed,
+                        "eval_rollouts": 1000,
+                        "test_horizon_steps": 15000,
+                        "metrics_output": str(metrics_path),
+                        "paper_protocol_status": row_status,
+                    }
+                )
+            direct_opt_status = direct_opt_evidence_status(
+                direct_rows,
+                seeds=[0, 1, 2, 3, 4],
+                include_direct_opt=True,
+            )
 
-        status = reproduction_protocol_status(
-            seeds=[0, 1, 2, 3, 4],
-            eval_rollouts=1000,
-            test_max_steps=15000,
-            include_ppo=False,
-            include_direct_opt=True,
-            quick=False,
-            ppo_eval_interval=0,
-            psm_status={"full_probabilistic_adaptive_teaching": True},
-            ppo_sweep_status=ppo_sweep_status,
-            direct_opt_status=direct_opt_status,
-        )
+            status = reproduction_protocol_status(
+                seeds=[0, 1, 2, 3, 4],
+                eval_rollouts=1000,
+                test_max_steps=15000,
+                include_ppo=False,
+                include_direct_opt=True,
+                quick=False,
+                ppo_eval_interval=0,
+                psm_status={"full_probabilistic_adaptive_teaching": True},
+                ppo_sweep_status=ppo_sweep_status,
+                direct_opt_status=direct_opt_status,
+            )
 
         self.assertTrue(status["full_direct_opt_protocol"])
         self.assertTrue(status["direct_opt_evidence"]["paper_scale_direct_opt_protocol"])
@@ -1803,6 +1961,15 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(direct_evidence["rows_recorded"], 1)
             self.assertTrue(direct_evidence["records_rows_for_selected_seeds"])
             self.assertTrue(direct_evidence["covers_selected_seed_set"])
+            self.assertEqual(direct_evidence["metrics_artifacts_checked"], 1)
+            self.assertEqual(direct_evidence["metrics_artifacts_existing"], 1)
+            self.assertTrue(direct_evidence["all_rows_have_metrics_output"])
+            self.assertTrue(direct_evidence["all_metrics_artifacts_exist"])
+            self.assertTrue(direct_evidence["all_metrics_have_command"])
+            self.assertTrue(direct_evidence["all_metrics_have_config"])
+            self.assertTrue(direct_evidence["all_metrics_match_row_config"])
+            self.assertTrue(direct_evidence["all_metrics_have_direct_opt_provenance"])
+            self.assertTrue(direct_evidence["all_metrics_match_row_protocol_status"])
             self.assertFalse(direct_evidence["paper_scale_direct_opt_protocol"])
             self.assertFalse(manifest["paper_protocol_status"]["full_direct_opt_protocol"])
             self.assertIn(
