@@ -119,7 +119,11 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   clip fraction, and optimizer-minibatch counts. Runner-generated PSM, PPO, and Direct-Opt metrics JSON artifacts
   record the command that produced them. PPO manifest rows mirror the metrics JSON
   `paper_protocol_status` block, so local diagnostic runs and single fixed-config runs are not
-  mistaken for the full five-seed paper baseline protocol. Result rows, summaries, and metrics JSON
+  mistaken for the full five-seed paper baseline protocol. The runner can also attach a
+  `scripts/run_cartpole_ppo_sweep.py` manifest through `--ppo-sweep-manifest`; it records that
+  sweep as PPO hyperparameter-search evidence only when the typed sweep manifest reports
+  `paper_scale_execution = true`, with or without rerunning fixed PPO rows in the same bundle.
+  Result rows, summaries, and metrics JSON
   explicitly record mean survived steps and survival seconds so long-horizon plots do not rely on
   reward as an implicit survival-time proxy.
 - `scripts/evaluate_cartpole_checkpoint.py`: reevaluates existing PPO/PPO-LSTM checkpoints and writes
@@ -450,6 +454,13 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   config per policy after preferring complete selected-seed coverage, records selected-seed coverage
   and missing seeds for each sampled hyperparameter config, records survived-step/survival-second
   columns for executed rows and summaries, and can optionally record failed jobs while continuing a long sweep.
+- `scripts/run_cartpole_reproduction.py` can now attach a PPO sweep manifest to the bundle-level
+  `paper_protocol_status` block. Dry-run or incomplete paper-scale sweep plans remain provenance only;
+  the runner's PPO hyperparameter-search flag requires a typed sweep manifest with completed sweep
+  execution plus top-level policy, seed, and sample-count fields that agree with the nested
+  paper-protocol status. A completed sweep manifest counts as PPO baseline evidence even if fixed PPO rows are not rerun in the same
+  reproduction invocation, and the overall paper-scale result flag remains false until the full
+  probabilistic adaptive-teaching and Direct-Opt protocol requirements are also satisfied.
 
 ## Verified PPO Invariants
 
@@ -954,6 +965,14 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that a five-seed, full-horizon, 1000-rollout fixed-config runner setup is still not tagged
   as paper-scale because it lacks PPO hyperparameter search, full probabilistic adaptive teaching, and
   the full Direct-Opt protocol.
+- `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_accepts_completed_ppo_sweep_evidence_only`,
+  `tests/test_cartpole_reproduction_runner.py::test_ppo_sweep_evidence_status_requires_manifest_protocol_status`,
+  `tests/test_cartpole_reproduction_runner.py::test_ppo_sweep_evidence_status_records_completed_manifest`,
+  and `tests/test_cartpole_reproduction_runner.py::test_quick_runner_records_ppo_sweep_manifest_evidence`
+  verify that the reproduction runner can ingest a typed PPO sweep manifest, rejects malformed sweep
+  provenance, treats dry-run plans and internally inconsistent execution claims as insufficient, and
+  accepts PPO hyperparameter-search evidence only when the sweep reports completed paper-scale execution
+  with matching top-level manifest fields.
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_rejects_duplicate_seed_coverage`
   verifies that repeated seed entries are not treated as the paper's five distinct seeds.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_can_include_direct_opt_diagnostic`

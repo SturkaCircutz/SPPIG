@@ -68,8 +68,12 @@ Regenerate the CartPole result table, summary, and manifest:
 Use `--quick` for a small diagnostic run, add `--include-ppo` to include
 PPO/PPO-LSTM, and add `--include-direct-opt` to include the bounded Direct-Opt
 diagnostic baseline. Without `--quick`, PPO uses the paper-scale `10^7`
-timestep budget per seed; the runner still does not perform the paper's
-hyperparameter search. The Direct-Opt path is a local bounded search over linear
+timestep budget per seed for fixed-config PPO rows. Pass
+`--ppo-sweep-manifest artifacts/ppo_sweep/cartpole_ppo_sweep_manifest.json` to
+attach PPO/PPO-LSTM hyperparameter-search evidence from the sweep runner; the
+runner requires the typed sweep manifest and only marks that evidence present when the sweep reports
+`paper_scale_execution = true` with matching top-level policy, seed, and sample-count
+fields. This can be used with or without rerunning fixed PPO rows in the same bundle. The Direct-Opt path is a local bounded search over linear
 switches, Boolean-tree CartPole switch candidates, and bounded Appendix B.3-style
 continuous one-hot leaf/depth-2 feature-mixture candidates, not the paper's full two-hour
 parallel direct optimization protocol. The runner writes
@@ -419,7 +423,11 @@ dry-run only, the selected and distinct seed/policy lists, and whether both PPO
 MLP and PPO-LSTM are included. The status block validates the actual generated
 hyperparameter configs against the paper's reported discrete ranges, learning-rate
 interval, and PPO-LSTM `nminibatches=1` rule before allowing a paper-scale plan
-claim. By default the
+claim. A completed sweep manifest can be passed to
+`scripts/run_cartpole_reproduction.py --ppo-sweep-manifest ...`; the
+reproduction bundle records that evidence but still keeps the full paper-scale
+result flag false until the full probabilistic adaptive-teaching and Direct-Opt
+protocols are also complete. By default the
 sweep now uses `--hyperparam-mode paper-random`, which
 plans 10 uniformly sampled PPO hyperparameter configs per policy from the
 reported ranges and evaluates each config for every selected seed, with

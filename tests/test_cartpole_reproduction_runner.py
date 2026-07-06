@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import run_cartpole_reproduction  # noqa: E402
 from run_cartpole_reproduction import (  # noqa: E402
     HAS_TORCH,
+    load_ppo_sweep_manifest,
+    ppo_sweep_evidence_status,
     reproduction_protocol_status,
     run_ppo,
     run_psm,
@@ -64,13 +66,304 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertTrue(status["uses_paper_eval_rollouts"])
         self.assertTrue(status["uses_full_test_horizon"])
         self.assertTrue(status["include_ppo"])
+        self.assertTrue(status["includes_ppo_baseline_evidence"])
         self.assertTrue(status["include_direct_opt"])
         self.assertTrue(status["ppo_fixed_config_only"])
         self.assertFalse(status["ppo_hyperparameter_search"])
+        self.assertFalse(status["ppo_sweep_evidence"]["manifest_loaded"])
         self.assertFalse(status["full_probabilistic_adaptive_teaching"])
         self.assertFalse(status["full_direct_opt_protocol"])
         self.assertFalse(status["paper_scale_result"])
         self.assertIn("does not perform the paper's PPO/PPO-LSTM hyperparameter search", status["limitation"])
+
+    def test_reproduction_protocol_status_accepts_completed_ppo_sweep_evidence_only(self):
+        dry_run_evidence = {
+            "manifest_loaded": True,
+            "paper_scale_plan": True,
+            "paper_scale_execution": False,
+            "paper_random_hyperparameter_search": True,
+            "paper_random_sample_count": True,
+            "sampled_hyperparameters_follow_paper_ranges": True,
+            "sampled_hyperparameters_follow_paper_minibatch_rules": True,
+            "all_planned_jobs_completed": False,
+            "planned_job_count_matches_selected_space": True,
+            "full_baseline_policy_set": True,
+            "paper_seed_count": True,
+            "paper_timestep_budget": True,
+            "uses_paper_eval_rollouts": True,
+            "paper_test_horizon": True,
+            "jobs_planned": 100,
+            "jobs_completed": 0,
+            "jobs_failed": 0,
+            "jobs_uncapped_for_selected_space": 100,
+        }
+        dry_run_status = reproduction_protocol_status(
+            seeds=[0, 1, 2, 3, 4],
+            eval_rollouts=1000,
+            test_max_steps=15000,
+            include_ppo=True,
+            include_direct_opt=True,
+            quick=False,
+            ppo_eval_interval=0,
+            psm_status={"full_probabilistic_adaptive_teaching": True},
+            ppo_sweep_status=dry_run_evidence,
+        )
+        self.assertFalse(dry_run_status["ppo_hyperparameter_search"])
+        self.assertTrue(dry_run_status["ppo_fixed_config_only"])
+        self.assertFalse(dry_run_status["paper_scale_result"])
+
+        completed_evidence = {
+            **dry_run_evidence,
+            "paper_scale_execution": True,
+            "all_planned_jobs_completed": True,
+            "jobs_completed": 100,
+        }
+        completed_status = reproduction_protocol_status(
+            seeds=[0, 1, 2, 3, 4],
+            eval_rollouts=1000,
+            test_max_steps=15000,
+            include_ppo=False,
+            include_direct_opt=True,
+            quick=False,
+            ppo_eval_interval=0,
+            psm_status={"full_probabilistic_adaptive_teaching": True},
+            ppo_sweep_status=completed_evidence,
+        )
+        self.assertTrue(completed_status["ppo_hyperparameter_search"])
+        self.assertTrue(completed_status["includes_ppo_baseline_evidence"])
+        self.assertFalse(completed_status["ppo_fixed_config_only"])
+        self.assertFalse(completed_status["paper_scale_result"])
+
+    def test_ppo_sweep_evidence_status_requires_manifest_protocol_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "cartpole_ppo_sweep_manifest.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "artifact_kind": "cartpole_ppo_sweep_manifest",
+                        "jobs_planned": 1,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "paper_protocol_status"):
+                load_ppo_sweep_manifest(path)
+
+    def test_ppo_sweep_evidence_status_requires_sweep_artifact_kind(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "cartpole_ppo_sweep_manifest.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "artifact_kind": "other_manifest",
+                        "paper_protocol_status": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "artifact_kind"):
+                load_ppo_sweep_manifest(path)
+
+    def test_ppo_sweep_evidence_status_records_completed_manifest(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "cartpole_ppo_sweep_manifest.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "artifact_kind": "cartpole_ppo_sweep_manifest",
+                        "command": "python scripts/run_cartpole_ppo_sweep.py",
+                        "policies": ["mlp", "lstm"],
+                        "seeds": [0, 1, 2, 3, 4],
+                        "jobs_planned": 100,
+                        "jobs_completed": 100,
+                        "jobs_failed": 0,
+                        "jobs_uncapped_for_selected_space": 100,
+                        "hyperparam_mode": "paper-random",
+                        "hyperparam_samples": 10,
+                        "paper_protocol_status": {
+                            "paper_scale_plan": True,
+                            "paper_scale_execution": True,
+                            "paper_random_hyperparameter_search": True,
+                            "paper_random_sample_count": True,
+                            "all_planned_jobs_completed": True,
+                            "planned_job_count_matches_selected_space": True,
+                            "full_baseline_policy_set": True,
+                            "paper_seed_count": True,
+                            "paper_timestep_budget": True,
+                            "uses_paper_eval_rollouts": True,
+                            "paper_test_horizon": True,
+                            "sampled_hyperparameters_follow_paper_ranges": True,
+                            "sampled_hyperparameters_follow_paper_minibatch_rules": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            manifest = load_ppo_sweep_manifest(path)
+            status = ppo_sweep_evidence_status(manifest)
+
+        self.assertEqual(status["manifest_path"], str(path))
+        self.assertTrue(status["manifest_loaded"])
+        self.assertTrue(status["paper_scale_execution"])
+        self.assertTrue(status["raw_paper_scale_execution"])
+        self.assertTrue(status["paper_random_hyperparameter_search"])
+        self.assertEqual(status["jobs_planned"], 100)
+        self.assertEqual(status["jobs_completed"], 100)
+
+    def test_ppo_sweep_evidence_status_rejects_inconsistent_execution_claim(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "cartpole_ppo_sweep_manifest.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "artifact_kind": "cartpole_ppo_sweep_manifest",
+                        "jobs_planned": 100,
+                        "jobs_completed": 99,
+                        "jobs_failed": 0,
+                        "jobs_uncapped_for_selected_space": 100,
+                        "paper_protocol_status": {
+                            "paper_scale_plan": True,
+                            "paper_scale_execution": True,
+                            "paper_random_hyperparameter_search": True,
+                            "paper_random_sample_count": True,
+                            "all_planned_jobs_completed": False,
+                            "planned_job_count_matches_selected_space": True,
+                            "full_baseline_policy_set": True,
+                            "paper_seed_count": True,
+                            "paper_timestep_budget": True,
+                            "uses_paper_eval_rollouts": True,
+                            "paper_test_horizon": True,
+                            "sampled_hyperparameters_follow_paper_ranges": True,
+                            "sampled_hyperparameters_follow_paper_minibatch_rules": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            manifest = load_ppo_sweep_manifest(path)
+            status = ppo_sweep_evidence_status(manifest)
+
+        self.assertTrue(status["raw_paper_scale_execution"])
+        self.assertFalse(status["all_planned_jobs_completed"])
+        self.assertFalse(status["completed_job_counts_match"])
+        self.assertFalse(status["paper_scale_execution"])
+
+    def test_ppo_sweep_evidence_status_cross_checks_top_level_manifest_fields(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "cartpole_ppo_sweep_manifest.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "artifact_kind": "cartpole_ppo_sweep_manifest",
+                        "policies": ["mlp"],
+                        "seeds": [0, 0, 0, 0, 0],
+                        "jobs_planned": 100,
+                        "jobs_completed": 100,
+                        "jobs_failed": 0,
+                        "jobs_uncapped_for_selected_space": 100,
+                        "hyperparam_mode": "grid",
+                        "hyperparam_samples": 10,
+                        "paper_protocol_status": {
+                            "paper_scale_plan": True,
+                            "paper_scale_execution": True,
+                            "paper_random_hyperparameter_search": True,
+                            "paper_random_sample_count": True,
+                            "all_planned_jobs_completed": True,
+                            "planned_job_count_matches_selected_space": True,
+                            "full_baseline_policy_set": True,
+                            "paper_seed_count": True,
+                            "paper_timestep_budget": True,
+                            "uses_paper_eval_rollouts": True,
+                            "paper_test_horizon": True,
+                            "sampled_hyperparameters_follow_paper_ranges": True,
+                            "sampled_hyperparameters_follow_paper_minibatch_rules": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            manifest = load_ppo_sweep_manifest(path)
+            status = ppo_sweep_evidence_status(manifest)
+
+        self.assertTrue(status["raw_paper_scale_execution"])
+        self.assertFalse(status["top_level_full_policy_set"])
+        self.assertFalse(status["top_level_paper_seed_count"])
+        self.assertFalse(status["top_level_paper_random_samples"])
+        self.assertFalse(status["paper_scale_execution"])
+
+    def test_quick_runner_records_ppo_sweep_manifest_evidence(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sweep_path = Path(tmpdir) / "cartpole_ppo_sweep_manifest.json"
+            sweep_path.write_text(
+                json.dumps(
+                    {
+                        "artifact_kind": "cartpole_ppo_sweep_manifest",
+                        "command": "python scripts/run_cartpole_ppo_sweep.py",
+                        "policies": ["mlp", "lstm"],
+                        "seeds": [0, 1, 2, 3, 4],
+                        "jobs_planned": 100,
+                        "jobs_completed": 100,
+                        "jobs_failed": 0,
+                        "jobs_uncapped_for_selected_space": 100,
+                        "hyperparam_mode": "paper-random",
+                        "hyperparam_samples": 10,
+                        "paper_protocol_status": {
+                            "paper_scale_plan": True,
+                            "paper_scale_execution": True,
+                            "paper_random_hyperparameter_search": True,
+                            "paper_random_sample_count": True,
+                            "all_planned_jobs_completed": True,
+                            "planned_job_count_matches_selected_space": True,
+                            "full_baseline_policy_set": True,
+                            "paper_seed_count": True,
+                            "paper_timestep_budget": True,
+                            "uses_paper_eval_rollouts": True,
+                            "paper_test_horizon": True,
+                            "sampled_hyperparameters_follow_paper_ranges": True,
+                            "sampled_hyperparameters_follow_paper_minibatch_rules": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--quick",
+                    "--ppo-sweep-manifest",
+                    str(sweep_path),
+                    "--seeds",
+                    "0",
+                    "--eval-rollouts",
+                    "1",
+                    "--test-max-steps",
+                    "20",
+                    "--outdir",
+                    tmpdir,
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+
+            with open(Path(tmpdir) / "cartpole_manifest.json", encoding="utf-8") as handle:
+                manifest = json.load(handle)
+
+        evidence = manifest["paper_protocol_status"]["ppo_sweep_evidence"]
+        self.assertEqual(manifest["ppo_sweep_manifest"], str(sweep_path))
+        self.assertEqual(manifest["ppo_sweep_evidence"], evidence)
+        self.assertTrue(evidence["manifest_loaded"])
+        self.assertTrue(evidence["paper_scale_execution"])
+        self.assertFalse(manifest["include_ppo"])
+        self.assertTrue(manifest["paper_protocol_status"]["ppo_hyperparameter_search"])
+        self.assertTrue(manifest["paper_protocol_status"]["includes_ppo_baseline_evidence"])
+        self.assertFalse(manifest["paper_protocol_status"]["ppo_fixed_config_only"])
+        self.assertFalse(manifest["paper_protocol_status"]["paper_scale_result"])
 
     def test_reproduction_protocol_status_rejects_duplicate_seed_coverage(self):
         status = reproduction_protocol_status(

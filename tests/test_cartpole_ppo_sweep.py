@@ -393,6 +393,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
         self.assertEqual(len(plan_rows), 2)
         self.assertEqual(plan_rows[0]["hyperparam_mode"], "paper-random")
+        self.assertEqual(manifest["artifact_kind"], "cartpole_ppo_sweep_manifest")
         self.assertTrue(manifest["dry_run"])
         self.assertTrue(manifest["quick"])
         self.assertEqual(manifest["jobs_planned"], 2)

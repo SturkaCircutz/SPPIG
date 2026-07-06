@@ -733,6 +733,7 @@ def write_manifest(
     failed: int,
 ) -> None:
     manifest = {
+        "artifact_kind": "cartpole_ppo_sweep_manifest",
         "command": " ".join(sys.argv),
         "dry_run": args.dry_run,
         "quick": args.quick,

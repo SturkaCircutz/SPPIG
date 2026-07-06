@@ -416,6 +416,129 @@ def run_direct_opt(
     }
 
 
+def load_ppo_sweep_manifest(path: Path | None) -> Dict[str, Any] | None:
+    if path is None:
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("PPO sweep manifest must be a JSON object")
+    if payload.get("artifact_kind") != "cartpole_ppo_sweep_manifest":
+        raise ValueError("PPO sweep manifest must have artifact_kind=cartpole_ppo_sweep_manifest")
+    status = payload.get("paper_protocol_status")
+    if not isinstance(status, dict):
+        raise ValueError("PPO sweep manifest must include paper_protocol_status")
+    payload["manifest_path"] = str(path)
+    return payload
+
+
+def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]:
+    if manifest is None:
+        return {
+            "manifest_path": None,
+            "manifest_loaded": False,
+            "paper_scale_plan": False,
+            "paper_scale_execution": False,
+            "paper_random_hyperparameter_search": False,
+            "all_planned_jobs_completed": False,
+            "jobs_planned": 0,
+            "jobs_completed": 0,
+            "jobs_failed": 0,
+            "limitation": "No PPO sweep manifest was supplied to the reproduction runner.",
+        }
+    status = manifest["paper_protocol_status"]
+    jobs_planned = int(manifest.get("jobs_planned", 0))
+    jobs_completed = int(manifest.get("jobs_completed", 0))
+    jobs_failed = int(manifest.get("jobs_failed", 0))
+    jobs_uncapped = int(manifest.get("jobs_uncapped_for_selected_space", 0))
+    policies = manifest.get("policies", [])
+    seeds = manifest.get("seeds", [])
+    hyperparam_mode = manifest.get("hyperparam_mode")
+    hyperparam_samples = manifest.get("hyperparam_samples")
+    top_level_full_policy_set = (
+        isinstance(policies, list)
+        and policies == ["mlp", "lstm"]
+    )
+    top_level_paper_seed_count = (
+        isinstance(seeds, list)
+        and len(seeds) == 5
+        and len(set(seeds)) == 5
+    )
+    top_level_paper_random_samples = hyperparam_mode == "paper-random" and hyperparam_samples == 10
+    paper_scale_plan = bool(status.get("paper_scale_plan"))
+    raw_paper_scale_execution = bool(status.get("paper_scale_execution"))
+    all_planned_jobs_completed = bool(status.get("all_planned_jobs_completed"))
+    planned_job_count_matches_selected_space = bool(status.get("planned_job_count_matches_selected_space"))
+    full_baseline_policy_set = bool(status.get("full_baseline_policy_set"))
+    paper_seed_count = bool(status.get("paper_seed_count"))
+    paper_timestep_budget = bool(status.get("paper_timestep_budget"))
+    uses_paper_eval_rollouts = bool(status.get("uses_paper_eval_rollouts"))
+    paper_test_horizon = bool(status.get("paper_test_horizon"))
+    paper_random_hyperparameter_search = bool(status.get("paper_random_hyperparameter_search"))
+    paper_random_sample_count = bool(status.get("paper_random_sample_count"))
+    sampled_ranges_ok = bool(status.get("sampled_hyperparameters_follow_paper_ranges"))
+    sampled_minibatches_ok = bool(status.get("sampled_hyperparameters_follow_paper_minibatch_rules"))
+    completed_job_counts_match = (
+        jobs_planned > 0
+        and jobs_uncapped == jobs_planned
+        and jobs_completed == jobs_planned
+        and jobs_failed == 0
+    )
+    acceptable_paper_scale_execution = (
+        raw_paper_scale_execution
+        and paper_scale_plan
+        and all_planned_jobs_completed
+        and planned_job_count_matches_selected_space
+        and completed_job_counts_match
+        and full_baseline_policy_set
+        and top_level_full_policy_set
+        and paper_seed_count
+        and top_level_paper_seed_count
+        and paper_timestep_budget
+        and uses_paper_eval_rollouts
+        and paper_test_horizon
+        and paper_random_hyperparameter_search
+        and paper_random_sample_count
+        and top_level_paper_random_samples
+        and sampled_ranges_ok
+        and sampled_minibatches_ok
+    )
+    return {
+        "manifest_path": manifest.get("manifest_path"),
+        "manifest_loaded": True,
+        "command": manifest.get("command", ""),
+        "policies": policies,
+        "seeds": seeds,
+        "jobs_planned": jobs_planned,
+        "jobs_completed": jobs_completed,
+        "jobs_failed": jobs_failed,
+        "jobs_uncapped_for_selected_space": jobs_uncapped,
+        "hyperparam_mode": hyperparam_mode,
+        "hyperparam_samples": hyperparam_samples,
+        "paper_scale_plan": paper_scale_plan,
+        "raw_paper_scale_execution": raw_paper_scale_execution,
+        "paper_scale_execution": acceptable_paper_scale_execution,
+        "all_planned_jobs_completed": all_planned_jobs_completed,
+        "planned_job_count_matches_selected_space": planned_job_count_matches_selected_space,
+        "completed_job_counts_match": completed_job_counts_match,
+        "paper_random_hyperparameter_search": paper_random_hyperparameter_search,
+        "paper_random_sample_count": paper_random_sample_count,
+        "top_level_paper_random_samples": top_level_paper_random_samples,
+        "sampled_hyperparameters_follow_paper_ranges": sampled_ranges_ok,
+        "sampled_hyperparameters_follow_paper_minibatch_rules": sampled_minibatches_ok,
+        "full_baseline_policy_set": full_baseline_policy_set,
+        "top_level_full_policy_set": top_level_full_policy_set,
+        "paper_seed_count": paper_seed_count,
+        "top_level_paper_seed_count": top_level_paper_seed_count,
+        "paper_timestep_budget": paper_timestep_budget,
+        "uses_paper_eval_rollouts": uses_paper_eval_rollouts,
+        "paper_test_horizon": paper_test_horizon,
+        "limitation": (
+            "PPO hyperparameter-search evidence is accepted only when the supplied sweep manifest "
+            "marks paper_scale_execution true and its paper-scale protocol fields are internally consistent."
+        ),
+    }
+
+
 def _mean(values: List[float]) -> float:
     return sum(values) / len(values)
 
@@ -531,6 +654,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--include-ppo", action="store_true")
+    parser.add_argument(
+        "--ppo-sweep-manifest",
+        type=Path,
+        default=None,
+        help=(
+            "Path to a cartpole_ppo_sweep_manifest.json file. The runner records it as "
+            "PPO hyperparameter-search evidence only if it marks paper_scale_execution true."
+        ),
+    )
     parser.add_argument("--include-direct-opt", action="store_true")
     parser.add_argument("--direct-opt-parallel-threads", type=int, default=1)
     parser.add_argument("--direct-opt-time-limit-seconds", type=float, default=None)
@@ -629,14 +761,17 @@ def reproduction_protocol_status(
     quick: bool,
     ppo_eval_interval: int,
     psm_status: Dict[str, Any],
+    ppo_sweep_status: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     paper_test_steps = CartpoleEnv.test_env().cfg.max_steps
     distinct_seeds = sorted(set(seeds))
     five_distinct_seeds = len(distinct_seeds) == 5
     uses_full_test_horizon = test_max_steps == paper_test_steps
     uses_paper_eval_rollouts = eval_rollouts == PAPER_EVAL_ROLLOUTS
-    ppo_fixed_config_only = include_ppo
-    ppo_hyperparameter_search = False
+    ppo_sweep_status = ppo_sweep_status or ppo_sweep_evidence_status(None)
+    ppo_hyperparameter_search = bool(ppo_sweep_status.get("paper_scale_execution"))
+    includes_ppo_baseline_evidence = include_ppo or ppo_hyperparameter_search
+    ppo_fixed_config_only = include_ppo and not ppo_hyperparameter_search
     full_probabilistic_adaptive_teaching = bool(psm_status.get("full_probabilistic_adaptive_teaching"))
     full_direct_opt_protocol = False
     paper_scale_result = (
@@ -644,7 +779,7 @@ def reproduction_protocol_status(
         and five_distinct_seeds
         and uses_full_test_horizon
         and uses_paper_eval_rollouts
-        and include_ppo
+        and includes_ppo_baseline_evidence
         and include_direct_opt
         and ppo_hyperparameter_search
         and full_probabilistic_adaptive_teaching
@@ -663,10 +798,12 @@ def reproduction_protocol_status(
         "uses_full_test_horizon": uses_full_test_horizon,
         "quick_diagnostic": quick,
         "include_ppo": include_ppo,
+        "includes_ppo_baseline_evidence": includes_ppo_baseline_evidence,
         "include_direct_opt": include_direct_opt,
         "ppo_eval_interval": ppo_eval_interval,
         "ppo_fixed_config_only": ppo_fixed_config_only,
         "ppo_hyperparameter_search": ppo_hyperparameter_search,
+        "ppo_sweep_evidence": ppo_sweep_status,
         "full_probabilistic_adaptive_teaching": full_probabilistic_adaptive_teaching,
         "full_direct_opt_protocol": full_direct_opt_protocol,
         "paper_scale_result": paper_scale_result,
@@ -683,6 +820,8 @@ def main() -> None:
     args = parse_args()
     seeds = [int(value) for value in args.seeds.split(",") if value]
     psm_teacher_overrides = psm_teacher_overrides_from_args(args)
+    ppo_sweep_manifest = load_ppo_sweep_manifest(args.ppo_sweep_manifest)
+    ppo_sweep_status = ppo_sweep_evidence_status(ppo_sweep_manifest)
     rows: List[Dict[str, Any]] = []
     for seed in seeds:
         rows.append(run_psm(seed, args.eval_rollouts, args.test_max_steps, args.quick, args.outdir, psm_teacher_overrides))
@@ -734,6 +873,8 @@ def main() -> None:
         "command": " ".join(sys.argv),
         "quick": args.quick,
         "include_ppo": args.include_ppo,
+        "ppo_sweep_manifest": str(args.ppo_sweep_manifest) if args.ppo_sweep_manifest is not None else None,
+        "ppo_sweep_evidence": ppo_sweep_status,
         "include_direct_opt": args.include_direct_opt,
         "direct_opt_parallel_threads": args.direct_opt_parallel_threads,
         "direct_opt_time_limit_seconds": args.direct_opt_time_limit_seconds,
@@ -756,11 +897,13 @@ def main() -> None:
             quick=args.quick,
             ppo_eval_interval=args.ppo_eval_interval,
             psm_status=psm_status,
+            ppo_sweep_status=ppo_sweep_status,
         ),
         "ppo_eval_interval": args.ppo_eval_interval,
         "paper_scale_note": (
-            "Without --quick, PPO uses 10^7 timesteps per seed. "
-            "This runner records exact configs but does not perform hyperparameter search."
+            "Without --quick, fixed PPO rows use 10^7 timesteps per seed. "
+            "Supply --ppo-sweep-manifest from scripts/run_cartpole_ppo_sweep.py to attach "
+            "paper-scale PPO/PPO-LSTM hyperparameter-search evidence."
         ),
         "summary_note": (
             "cartpole_summary.csv reports per-policy means and sample standard deviations over "
