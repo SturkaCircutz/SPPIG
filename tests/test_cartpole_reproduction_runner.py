@@ -1223,6 +1223,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "teacher_cem_phase_matches_paper_rho"
                 ]
             )
+            self.assertTrue(
+                psm_status["probabilistic_adaptive_teaching_requirements"][
+                    "teacher_elite_distribution_resamples_cover_top_rho"
+                ]
+            )
             self.assertFalse(
                 psm_status["probabilistic_adaptive_teaching_requirements"][
                     "uses_paper_teacher_parallel_threads"
@@ -1270,7 +1275,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 psm_status["missing_adaptive_teaching_protocol_requirements"],
             )
             self.assertEqual(psm_status["teacher_elite_distribution_resamples"], 3)
+            self.assertEqual(psm_status["effective_teacher_elite_distribution_resamples"], 3)
+            self.assertTrue(psm_status["teacher_elite_distribution_resamples_cover_top_rho"])
             self.assertEqual(psm_status["teacher_elite_distribution_rounds"], 2)
+            self.assertEqual(psm_status["effective_teacher_elite_distribution_rounds"], 2)
             self.assertIn("probabilistic_student", psm_metrics)
             self.assertEqual(len(psm_metrics["adaptive_teacher_summary"]), 1)
             adaptive_summary = psm_metrics["adaptive_teacher_summary"][0]
@@ -1508,9 +1516,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 provenance["teacher_search"]["elite_recombination_candidate_count"],
                 "at_most_one_when_elites_have_loop_free_schedules",
             )
-            self.assertEqual(provenance["teacher_search"]["default_elite_distribution_resamples"], 1)
+            self.assertEqual(provenance["teacher_search"]["default_elite_distribution_resamples"], 10)
             self.assertEqual(provenance["teacher_search"]["default_elite_distribution_rounds"], 1)
             self.assertEqual(provenance["teacher_search"]["elite_distribution_mean_candidate_per_round"], 1)
+            self.assertEqual(provenance["teacher_search"]["elite_distribution_default_batch_target"], "paper_top_rho")
+            self.assertTrue(provenance["teacher_search"]["elite_distribution_default_batch_matches_paper_top_rho"])
             self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
             self.assertEqual(
                 provenance["teacher_search"]["elite_distribution_phase"],
@@ -1697,9 +1707,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 row_provenance["teacher_search"]["elite_recombination_candidate_count"],
                 "at_most_one_when_elites_have_loop_free_schedules",
             )
-            self.assertEqual(row_provenance["teacher_search"]["default_elite_distribution_resamples"], 1)
+            self.assertEqual(row_provenance["teacher_search"]["default_elite_distribution_resamples"], 10)
             self.assertEqual(row_provenance["teacher_search"]["default_elite_distribution_rounds"], 1)
             self.assertEqual(row_provenance["teacher_search"]["elite_distribution_mean_candidate_per_round"], 1)
+            self.assertEqual(row_provenance["teacher_search"]["elite_distribution_default_batch_target"], "paper_top_rho")
+            self.assertTrue(row_provenance["teacher_search"]["elite_distribution_default_batch_matches_paper_top_rho"])
             self.assertEqual(row_provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
             self.assertEqual(
                 row_provenance["teacher_search"]["elite_distribution_phase"],

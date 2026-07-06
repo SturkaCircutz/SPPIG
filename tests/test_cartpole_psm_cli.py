@@ -410,9 +410,11 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["elite_recombination_candidate_count"],
             "at_most_one_when_elites_have_loop_free_schedules",
         )
-        self.assertEqual(provenance["teacher_search"]["default_elite_distribution_resamples"], 1)
+        self.assertEqual(provenance["teacher_search"]["default_elite_distribution_resamples"], 10)
         self.assertEqual(provenance["teacher_search"]["default_elite_distribution_rounds"], 1)
         self.assertEqual(provenance["teacher_search"]["elite_distribution_mean_candidate_per_round"], 1)
+        self.assertEqual(provenance["teacher_search"]["elite_distribution_default_batch_target"], "paper_top_rho")
+        self.assertTrue(provenance["teacher_search"]["elite_distribution_default_batch_matches_paper_top_rho"])
         self.assertEqual(provenance["teacher_search"]["elite_distribution_min_action_std"], 0.001)
         self.assertEqual(
             provenance["teacher_search"]["elite_distribution_phase"],
@@ -713,9 +715,17 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertFalse(status["teacher_candidate_rollouts_cover_paper_top_rho"])
         self.assertFalse(status["teacher_cem_phase_matches_paper_rho"])
         self.assertEqual(status["teacher_elite_distribution_resamples"], 3)
+        self.assertEqual(status["effective_teacher_elite_distribution_resamples"], 3)
+        self.assertTrue(status["teacher_elite_distribution_resamples_cover_top_rho"])
         self.assertEqual(status["teacher_elite_distribution_rounds"], 2)
+        self.assertEqual(status["effective_teacher_elite_distribution_rounds"], 2)
         self.assertTrue(status["synthesized_by_current_algorithm"])
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["teacher_cem_phase_matches_paper_rho"])
+        self.assertTrue(
+            status["probabilistic_adaptive_teaching_requirements"][
+                "teacher_elite_distribution_resamples_cover_top_rho"
+            ]
+        )
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_teacher_parallel_threads"])
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["full_continuous_switch_m_step"])

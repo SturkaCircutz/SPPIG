@@ -2836,6 +2836,8 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertTrue(local_status["teacher_candidate_rollouts_cover_selected_top_rho"])
         self.assertFalse(local_status["teacher_candidate_rollouts_cover_paper_top_rho"])
         self.assertFalse(local_status["teacher_cem_phase_matches_paper_rho"])
+        self.assertEqual(local_status["effective_teacher_elite_distribution_resamples"], 10)
+        self.assertTrue(local_status["teacher_elite_distribution_resamples_cover_top_rho"])
         self.assertTrue(paper_rho_status["uses_paper_teacher_top_rho"])
         self.assertEqual(paper_rho_status["effective_teacher_parallel_trace_initial_states"], 32)
         self.assertEqual(paper_rho_status["effective_teacher_parallel_trace_slots"], 10)
@@ -2843,7 +2845,35 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertTrue(paper_rho_status["uses_paper_teacher_parallel_threads"])
         self.assertTrue(paper_rho_status["teacher_candidate_rollouts_cover_paper_top_rho"])
         self.assertTrue(paper_rho_status["teacher_cem_phase_matches_paper_rho"])
+        self.assertEqual(paper_rho_status["teacher_elite_distribution_resamples"], 10)
+        self.assertTrue(paper_rho_status["teacher_elite_distribution_resamples_cover_top_rho"])
+        self.assertTrue(
+            paper_rho_status["probabilistic_adaptive_teaching_requirements"][
+                "teacher_elite_distribution_resamples_cover_top_rho"
+            ]
+        )
         self.assertFalse(paper_rho_status["full_probabilistic_adaptive_teaching"])
+
+    def test_cartpole_teacher_cem_status_records_distribution_batch_below_top_rho(self):
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=10,
+            teacher_top_rho=10,
+            teacher_elite_distribution_resamples=3,
+        )
+        status = cartpole_teacher_cem_protocol_status(cfg)
+        full_status = cartpole_synthesis_protocol_status(cfg)
+
+        self.assertEqual(status["effective_teacher_elite_distribution_resamples"], 3)
+        self.assertFalse(status["teacher_elite_distribution_resamples_cover_top_rho"])
+        self.assertFalse(
+            full_status["probabilistic_adaptive_teaching_requirements"][
+                "teacher_elite_distribution_resamples_cover_top_rho"
+            ]
+        )
+        self.assertIn(
+            "teacher_elite_distribution_resamples_cover_top_rho",
+            full_status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
 
     def test_cartpole_teacher_parallel_status_requires_multiple_initial_states(self):
         single_state_cfg = CartpoleSynthesisConfig(

@@ -55,7 +55,7 @@ TEACHER_TIME_INCREMENT_GRADIENT_STEP_FRACTION = 0.10
 TEACHER_TIME_INCREMENT_GRADIENT_EPS_FRACTION = 0.05
 TEACHER_GRADIENT_BACKTRACK_FACTORS = (1.0, 0.5, 0.25, 0.125)
 TEACHER_STUDENT_SAMPLE_FRACTION = 1.0
-TEACHER_ELITE_DISTRIBUTION_RESAMPLES = 1
+TEACHER_ELITE_DISTRIBUTION_RESAMPLES = PAPER_TEACHER_TOP_RHO
 TEACHER_ELITE_DISTRIBUTION_ROUNDS = 1
 TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD = 1e-3
 TEACHER_ELITE_DISTANCE_DURATION_SCALE_FLOOR = 1.0
@@ -248,6 +248,10 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "default_elite_distribution_rounds": TEACHER_ELITE_DISTRIBUTION_ROUNDS,
             "elite_distribution_samples_teacher_gains": True,
             "elite_distribution_mean_candidate_per_round": 1,
+            "elite_distribution_default_batch_target": "paper_top_rho",
+            "elite_distribution_default_batch_matches_paper_top_rho": (
+                TEACHER_ELITE_DISTRIBUTION_RESAMPLES == PAPER_TEACHER_TOP_RHO
+            ),
             "elite_distribution_min_action_std": TEACHER_ELITE_RESAMPLE_MIN_ACTION_STD,
             "elite_distribution_phase": "bounded_cem_style_distribution_refit_top_rho_refresh",
             "elite_distribution_update": (
@@ -358,6 +362,19 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
             effective_top_rho == PAPER_TEACHER_TOP_RHO
             and effective_candidate_rollouts >= PAPER_TEACHER_TOP_RHO
         ),
+        "teacher_elite_distribution_resamples": cfg.teacher_elite_distribution_resamples,
+        "effective_teacher_elite_distribution_resamples": max(
+            0,
+            int(cfg.teacher_elite_distribution_resamples),
+        ),
+        "teacher_elite_distribution_resamples_cover_top_rho": (
+            max(0, int(cfg.teacher_elite_distribution_resamples)) >= effective_top_rho
+        ),
+        "teacher_elite_distribution_rounds": cfg.teacher_elite_distribution_rounds,
+        "effective_teacher_elite_distribution_rounds": max(
+            0,
+            int(cfg.teacher_elite_distribution_rounds),
+        ),
     }
 
 
@@ -392,6 +409,9 @@ def cartpole_synthesis_protocol_status(
         "transition_specific_switch_conditions": transition_specific_switch_conditions,
         "resamples_parameters_on_mode_entry": resamples_parameters_on_mode_entry,
         "teacher_cem_phase_matches_paper_rho": cem_status["teacher_cem_phase_matches_paper_rho"],
+        "teacher_elite_distribution_resamples_cover_top_rho": cem_status[
+            "teacher_elite_distribution_resamples_cover_top_rho"
+        ],
         "uses_paper_teacher_parallel_threads": cem_status["uses_paper_teacher_parallel_threads"],
         "uses_paper_student_parallel_worker_limit": cem_status["uses_paper_student_parallel_worker_limit"],
         "full_continuous_switch_m_step": full_continuous_switch_m_step,

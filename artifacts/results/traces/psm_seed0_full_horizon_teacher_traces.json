@@ -1,5 +1,5 @@
 {
-  "command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
+  "command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --teacher-elite-distribution-resamples 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
   "config": {
     "candidate_rollouts": 10,
     "force_values": [

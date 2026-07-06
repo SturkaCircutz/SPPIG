@@ -159,7 +159,7 @@
       },
       "bootstrap_switch_std": 1.0,
       "candidate_rollout_count": "configurable_via_candidate_rollouts",
-      "default_elite_distribution_resamples": 1,
+      "default_elite_distribution_resamples": 10,
       "default_elite_distribution_rounds": 1,
       "duration_gradient_epsilon": 1,
       "duration_gradient_step": 1,
@@ -170,6 +170,8 @@
       "elite_distance_action_scale": "max_abs_segment_action_floor_1",
       "elite_distance_duration_scale_floor": 1.0,
       "elite_distance_metric": "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments",
+      "elite_distribution_default_batch_matches_paper_top_rho": true,
+      "elite_distribution_default_batch_target": "paper_top_rho",
       "elite_distribution_fit_diagnostics": "serialized_on_distribution_mean_and_sample_traces_with_source_weights_objectives_and_gaussian_parameters",
       "elite_distribution_mean_candidate_per_round": 1,
       "elite_distribution_min_action_std": 0.001,
@@ -250,6 +252,7 @@
       "paper_eval_rollouts": false,
       "resamples_parameters_on_mode_entry": true,
       "teacher_cem_phase_matches_paper_rho": true,
+      "teacher_elite_distribution_resamples_cover_top_rho": false,
       "transition_specific_switch_conditions": true,
       "two_mode_constant_action_psm": true,
       "uses_paper_reward_scale": true,
@@ -261,6 +264,8 @@
     "effective_student_parallel_switch_slots": 1,
     "effective_student_parallel_switch_workers": 1,
     "effective_teacher_candidate_rollouts": 10,
+    "effective_teacher_elite_distribution_resamples": 1,
+    "effective_teacher_elite_distribution_rounds": 1,
     "effective_teacher_parallel_trace_initial_states": 4,
     "effective_teacher_parallel_trace_slots": 1,
     "effective_teacher_parallel_trace_workers": 1,
@@ -276,6 +281,7 @@
     "loop_free_teacher_horizon_steps": 250,
     "loop_free_teacher_spans_training_horizon": true,
     "missing_adaptive_teaching_protocol_requirements": [
+      "teacher_elite_distribution_resamples_cover_top_rho",
       "uses_paper_teacher_parallel_threads",
       "uses_paper_student_parallel_worker_limit",
       "full_continuous_switch_m_step",
@@ -284,6 +290,7 @@
       "paper_eval_rollouts"
     ],
     "missing_probabilistic_adaptive_teaching_requirements": [
+      "teacher_elite_distribution_resamples_cover_top_rho",
       "uses_paper_teacher_parallel_threads",
       "uses_paper_student_parallel_worker_limit",
       "full_continuous_switch_m_step",
@@ -304,6 +311,7 @@
       "loop_free_teacher_spans_training_horizon": true,
       "resamples_parameters_on_mode_entry": true,
       "teacher_cem_phase_matches_paper_rho": true,
+      "teacher_elite_distribution_resamples_cover_top_rho": false,
       "transition_specific_switch_conditions": true,
       "two_mode_constant_action_psm": true,
       "uses_paper_reward_scale": true,
@@ -383,6 +391,7 @@
     "teacher_candidate_rollouts_cover_selected_top_rho": true,
     "teacher_cem_phase_matches_paper_rho": true,
     "teacher_elite_distribution_resamples": 1,
+    "teacher_elite_distribution_resamples_cover_top_rho": false,
     "teacher_elite_distribution_rounds": 1,
     "test_horizon_seconds": 300.0,
     "test_pole_length": 1.0,
@@ -407,7 +416,7 @@
     "PPO MLP": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/progress_mlp_128k_seed0.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_mlp_full_horizon_seed0.json",
     "PPO-LSTM warm started": "scripts/evaluate_cartpole_checkpoint.py --checkpoint artifacts/debug_lstm_pretrain_ppo_64k_lr1e5.pt --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/ppo_lstm_warm_start_full_horizon_seed0.json",
     "Programmatic state machine": "scripts/evaluate_cartpole_program.py --theta-weight 10 --omega-weight 1 --threshold 0 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_fixed_program_full_horizon.json",
-    "Synthesized PSM diagnostic": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json"
+    "Synthesized PSM diagnostic": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --teacher-elite-distribution-resamples 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json"
   },
   "reward_spec": {
     "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
@@ -1608,7 +1617,7 @@
           },
           "bootstrap_switch_std": 1.0,
           "candidate_rollout_count": "configurable_via_candidate_rollouts",
-          "default_elite_distribution_resamples": 1,
+          "default_elite_distribution_resamples": 10,
           "default_elite_distribution_rounds": 1,
           "duration_gradient_epsilon": 1,
           "duration_gradient_step": 1,
@@ -1619,6 +1628,8 @@
           "elite_distance_action_scale": "max_abs_segment_action_floor_1",
           "elite_distance_duration_scale_floor": 1.0,
           "elite_distance_metric": "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments",
+          "elite_distribution_default_batch_matches_paper_top_rho": true,
+          "elite_distribution_default_batch_target": "paper_top_rho",
           "elite_distribution_fit_diagnostics": "serialized_on_distribution_mean_and_sample_traces_with_source_weights_objectives_and_gaussian_parameters",
           "elite_distribution_mean_candidate_per_round": 1,
           "elite_distribution_min_action_std": 0.001,
@@ -1687,7 +1698,7 @@
         }
       },
       "checkpoint": "",
-      "command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
+      "command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --teacher-elite-distribution-resamples 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "config": {
         "candidate_rollouts": 10,
         "force_values": [
@@ -1714,7 +1725,7 @@
       },
       "eval_rollouts": 20,
       "metrics_output": "artifacts/results/metrics/psm_seed0_full_horizon.json",
-      "notes": "current probabilistic adaptive-teaching diagnostic regenerated with paper rho=10 teacher elite coverage; not paper-scale synthesis",
+      "notes": "current probabilistic adaptive-teaching diagnostic uses paper rho=10 with a local single-resample elite-distribution budget; not paper-scale synthesis",
       "num_traces": 4,
       "paper_eval_rollouts": 1000,
       "paper_protocol_status": {
@@ -1730,6 +1741,7 @@
           "paper_eval_rollouts": false,
           "resamples_parameters_on_mode_entry": true,
           "teacher_cem_phase_matches_paper_rho": true,
+          "teacher_elite_distribution_resamples_cover_top_rho": false,
           "transition_specific_switch_conditions": true,
           "two_mode_constant_action_psm": true,
           "uses_paper_reward_scale": true,
@@ -1741,6 +1753,8 @@
         "effective_student_parallel_switch_slots": 1,
         "effective_student_parallel_switch_workers": 1,
         "effective_teacher_candidate_rollouts": 10,
+        "effective_teacher_elite_distribution_resamples": 1,
+        "effective_teacher_elite_distribution_rounds": 1,
         "effective_teacher_parallel_trace_initial_states": 4,
         "effective_teacher_parallel_trace_slots": 1,
         "effective_teacher_parallel_trace_workers": 1,
@@ -1756,6 +1770,7 @@
         "loop_free_teacher_horizon_steps": 250,
         "loop_free_teacher_spans_training_horizon": true,
         "missing_adaptive_teaching_protocol_requirements": [
+          "teacher_elite_distribution_resamples_cover_top_rho",
           "uses_paper_teacher_parallel_threads",
           "uses_paper_student_parallel_worker_limit",
           "full_continuous_switch_m_step",
@@ -1764,6 +1779,7 @@
           "paper_eval_rollouts"
         ],
         "missing_probabilistic_adaptive_teaching_requirements": [
+          "teacher_elite_distribution_resamples_cover_top_rho",
           "uses_paper_teacher_parallel_threads",
           "uses_paper_student_parallel_worker_limit",
           "full_continuous_switch_m_step",
@@ -1784,6 +1800,7 @@
           "loop_free_teacher_spans_training_horizon": true,
           "resamples_parameters_on_mode_entry": true,
           "teacher_cem_phase_matches_paper_rho": true,
+          "teacher_elite_distribution_resamples_cover_top_rho": false,
           "transition_specific_switch_conditions": true,
           "two_mode_constant_action_psm": true,
           "uses_paper_reward_scale": true,
@@ -1863,6 +1880,7 @@
         "teacher_candidate_rollouts_cover_selected_top_rho": true,
         "teacher_cem_phase_matches_paper_rho": true,
         "teacher_elite_distribution_resamples": 1,
+        "teacher_elite_distribution_resamples_cover_top_rho": false,
         "teacher_elite_distribution_rounds": 1,
         "test_horizon_seconds": 300.0,
         "test_pole_length": 1.0,
@@ -6036,7 +6054,7 @@
     },
     {
       "best_checkpoint": "",
-      "best_command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
+      "best_command": "src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --teacher-elite-distribution-resamples 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json",
       "best_metrics_output": "artifacts/results/metrics/psm_seed0_full_horizon.json",
       "best_seed_by_train": 0,
       "best_test_reward": 41.6,

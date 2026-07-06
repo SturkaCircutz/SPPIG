@@ -224,7 +224,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python scripts/evaluate_cartpole_program.py --paper-figure19 ...`, and its metrics mark
   `policy_source = paper_figure19_manual_transcription` and `synthesized_by_current_algorithm = false`.
 - Current synthesizer diagnostic command:
-  `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
+  `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --teacher-elite-distribution-resamples 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
   train reward mean `28.45`, test reward mean `41.6`; the same artifact records train/test
@@ -232,7 +232,9 @@ These are implementation diagnostics, not paper-scale reproduced results.
   regenerated with the full selected-teacher-trace sidecar, inner student fit history, fixed initial-mode likelihood, and
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`) and the paper's `rho = 10` top-elite teacher setting
-  so the teacher can span the full 250-step training horizon with one-step segments. Its metadata
+  so the teacher can span the full 250-step training horizon with one-step segments, but its recorded local
+  diagnostic budget keeps `teacher_elite_distribution_resamples = 1`, so
+  `teacher_elite_distribution_resamples_cover_top_rho = false`. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
   `initial_mode_prior = fixed_mode_0`,
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
@@ -351,7 +353,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   objective-weighted Gaussian schedule distribution over teacher gains and per-segment actions,
   durations, and time increments from the current top-rho set when a probabilistic student is
   available, falling back to uniform weights before the first student exists. Each bounded round
-  evaluates the fitted distribution mean, samples from that distribution, refreshes the top-rho set, and refits before the next round; local refinement
+  evaluates the fitted distribution mean, samples a paper-rho-sized default batch from that distribution
+  unless the run overrides the local budget, refreshes the top-rho set, and refits before the next round; local refinement
   then uses the refreshed top-rho set for its objective. Distribution-generated
   teacher traces serialize the fitted source weights, source objectives, and
   Gaussian schedule parameters used to produce them. The teacher also records
@@ -882,6 +885,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that the first teacher round keeps the old uniform fit when no student exists yet.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_resample_count_is_configurable`
   verifies that the bounded elite distribution sample count is configured rather than hard-coded.
+- `tests/test_cartpole_paper.py::test_cartpole_teacher_cem_status_records_distribution_batch_below_top_rho`
+  verifies that protocol status records whether the bounded elite-distribution resample batch is large
+  enough to cover the selected top-rho set.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refresh_elites`
   verifies that bounded elite distribution rounds refresh the top-rho set between sampling rounds.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refit_distribution`
@@ -1138,7 +1144,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   candidate per refinement iteration with short backtracking line search, evaluates one deterministic top-rho centroid recombination
   candidate plus configurable bounded rounds that refit an objective-weighted Gaussian schedule
   distribution over teacher gains and per-segment action, duration, and time-increment parameters from
-  the refreshed top-rho set before drawing the next mean/sample candidates, records those fitted
+  the refreshed top-rho set before drawing the next mean plus paper-rho-sized default sample batch, records those fitted
   distribution weights/objectives/parameters on generated traces, records a compact refreshed-elite summary on selected traces, and scores traces with reward plus Gaussian action likelihood and discrete switch timing
   likelihood under the
   previous student, with the elite-distance kernel including teacher gains plus normalized segment action,
