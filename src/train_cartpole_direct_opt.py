@@ -24,6 +24,8 @@ def main() -> None:
     parser.add_argument("--local-refinement-steps", type=int, default=None)
     parser.add_argument("--restart-candidates-on-stall", type=int, default=None)
     parser.add_argument("--local-step-fraction", type=float, default=defaults.local_step_fraction)
+    parser.add_argument("--train-distribution-rerank-candidates", type=int, default=defaults.train_distribution_rerank_candidates)
+    parser.add_argument("--train-distribution-rerank-rollouts", type=int, default=defaults.train_distribution_rerank_rollouts)
     parser.add_argument("--parallel-threads", type=int, default=defaults.parallel_threads)
     parser.add_argument("--time-limit-seconds", type=float, default=defaults.time_limit_seconds)
     parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
@@ -65,6 +67,8 @@ def main() -> None:
             else defaults.restart_candidates_on_stall
         ),
         local_step_fraction=args.local_step_fraction,
+        train_distribution_rerank_candidates=args.train_distribution_rerank_candidates,
+        train_distribution_rerank_rollouts=args.train_distribution_rerank_rollouts,
         parallel_threads=args.parallel_threads,
         time_limit_seconds=args.time_limit_seconds,
         eval_rollouts=args.eval_rollouts,

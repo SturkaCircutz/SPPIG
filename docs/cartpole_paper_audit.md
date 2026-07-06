@@ -64,10 +64,12 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   selected finite training states; with parallel candidate chunks, already-submitted candidates in the
   current chunk are allowed to finish before later chunks/phases are skipped. This moves the local
   diagnostic toward the paper's stated Direct-Opt stopping rule while still remaining
-  a bounded local search. It is still not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
+  a bounded local search. It can optionally rerank the top selected-state candidates with seeded
+  train-distribution rollouts, but that remains sampled evidence rather than the paper's full
+  initial-state-distribution optimization. It is still not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
   `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, bounded versus full continuous
   one-hot grammar, combined-reward optimization over all selected finite training states versus the
-  full initial-state distribution, full test horizon, and `1000`-rollout evaluation;
+  full initial-state distribution, sampled train-distribution reranking, full test horizon, and `1000`-rollout evaluation;
   the status now derives the full Direct-Opt protocol flag from a named requirement map and records
   the unsatisfied requirements for each bounded diagnostic.
 - `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
@@ -253,7 +255,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `alpha_s`/feature-weight/threshold/force local-refinement diagnostics to
   mirror part of the paper baseline's grammar and batch seeding structure. Metrics now also persist
   the selected training initial states and compact per-batch seed/local/restart/full-train
-  reevaluation trace used by the bounded batch refinement. Candidate pools can now be evaluated with configurable local parallel threads and an
+  reevaluation trace used by the bounded batch refinement, plus optional sampled train-distribution
+  rerank diagnostics and rerank rollout counts. Candidate pools can now be evaluated with configurable local parallel threads and an
   optional wall-clock stop, and diagnostics record the selected thread count, time-limit status, and
   whether the search stopped because a selected-training-state solution was found.
   Its diagnostics separate candidate evaluation calls from individual selected-state train rollout
@@ -626,6 +629,10 @@ paper-scale PPO2 runs.
   verifies that a near-paper Direct-Opt configuration records the remaining blockers, including the
   full continuous one-hot switch grammar and full initial-state distribution requirements, instead of
   relying on a hard-coded false paper-scale flag.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_train_distribution_rerank_records_distribution_evidence`
+  verifies that optional sampled train-distribution reranking records candidate-level distribution
+  rewards, success rates, policy descriptions, and rollout accounting without treating it as the
+  paper's full initial-state-distribution optimization.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_can_disable_batch_refinement_for_grid_random_diagnostic`
   verifies that the grid/random/Boolean-tree diagnostic can still be isolated when batch refinement is
   disabled.

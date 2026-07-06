@@ -108,6 +108,8 @@ class DirectOptConfig:
     local_refinement_steps: int = 2
     restart_candidates_on_stall: int = 1
     local_step_fraction: float = 0.25
+    train_distribution_rerank_candidates: int = 0
+    train_distribution_rerank_rollouts: int = 0
     parallel_threads: int = 1
     time_limit_seconds: float | None = None
     eval_rollouts: int = PAPER_EVAL_ROLLOUTS
@@ -177,6 +179,11 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
         "policy_class": "two_mode_constant_action_linear_depth2_boolean_or_continuous_one_hot_switch",
         "selection_objective": "mean_combined_reward_over_selected_initial_states_then_success",
+        "train_distribution_reranking": (
+            "optionally reevaluate top selected-state candidates on seeded CartPole train-distribution "
+            "rollouts before final policy selection; this is sampled distribution evidence, not the "
+            "paper's full continuous initial-state optimization"
+        ),
         "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall",
         "search_stopping": "stop_after_training_solution_or_parallel_chunk_or_time_limit",
         "paper_batch_size": PAPER_DIRECT_OPT_BATCH_SIZE,
@@ -187,7 +194,9 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_leaf_depth2_mixtures",
         "candidate_accounting": (
             "searched_candidates and evaluated_candidates count candidate evaluation calls; "
-            "train_rollout_evaluations counts individual selected-state train rollouts"
+            "train_rollout_evaluations counts individual selected-state train rollouts; "
+            "train_distribution_rerank_rollout_evaluations counts optional sampled "
+            "train-distribution rerank rollouts; total_train_rollout_evaluations counts both"
         ),
         "optimization_trace": (
             "metrics record the exact selected train initial states and a compact "
@@ -227,7 +236,8 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
             "It optimizes mean train-horizon reward over the selected initial states and includes "
             "bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 "
-            "feature-mixture candidate family, and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's "
+            "feature-mixture candidate family, optional sampled train-distribution reranking, "
+            "and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's "
             "two-hour, ten-thread continuous numerical optimization over the full one-hot "
             "switching grammar."
         ),
@@ -242,6 +252,9 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
     selected_time_limit_seconds = cfg.time_limit_seconds
     paper_test_horizon = cfg.test_max_steps == paper_test_env.cfg.max_steps
     paper_eval_rollouts = cfg.eval_rollouts == PAPER_EVAL_ROLLOUTS
+    selected_rerank_candidates = max(0, int(cfg.train_distribution_rerank_candidates))
+    selected_rerank_rollouts = max(0, int(cfg.train_distribution_rerank_rollouts))
+    uses_train_distribution_reranking = selected_rerank_candidates > 0 and selected_rerank_rollouts > 0
     full_continuous_one_hot_switch_grammar = False
     full_batch_optimization = (
         uses_paper_batch_size
@@ -290,6 +303,12 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "optimizes_combined_reward_over_selected_initial_states": True,
         "combined_reward_aggregation": "mean_train_horizon_reward_over_selected_initial_states",
         "optimizes_combined_reward_over_all_selected_initial_states": True,
+        "uses_sampled_train_distribution_reranking": uses_train_distribution_reranking,
+        "selected_train_distribution_rerank_candidates": selected_rerank_candidates,
+        "selected_train_distribution_rerank_rollouts": selected_rerank_rollouts,
+        "train_distribution_rerank_objective": (
+            "mean_train_horizon_reward_over_seeded_train_distribution_rollouts_then_success"
+        ),
         "optimizes_full_initial_state_distribution": optimizes_full_initial_state_distribution,
         "selected_train_initial_states": cfg.num_train_states,
         "paper_test_horizon_steps": paper_test_env.cfg.max_steps,
@@ -317,9 +336,18 @@ def run_cartpole_direct_opt(cfg: DirectOptConfig) -> DirectOptResult:
     train_env = CartpoleEnv.train_env(seed=cfg.seed)
     train_states = [train_env.reset() for _ in range(max(1, cfg.num_train_states))]
     candidates, search_diagnostics = _direct_opt_candidates(train_states, cfg, rng)
-    best = max(
+    selected_state_best = max(candidates, key=_candidate_rank_key)
+    best, rerank_diagnostics = _train_distribution_rerank_candidates(
         candidates,
-        key=_candidate_rank_key,
+        cfg,
+        selected_state_best,
+    )
+    search_diagnostics["selected_state_best_candidate"] = _candidate_trace_summary(selected_state_best)
+    search_diagnostics["train_distribution_rerank"] = rerank_diagnostics
+    rerank_rollout_evaluations = int(rerank_diagnostics["train_rollout_evaluations"])
+    search_diagnostics["train_distribution_rerank_rollout_evaluations"] = rerank_rollout_evaluations
+    search_diagnostics["total_train_rollout_evaluations"] = (
+        int(search_diagnostics["train_rollout_evaluations"]) + rerank_rollout_evaluations
     )
     policy = _candidate_policy(best)
     eval_train_env = CartpoleEnv.train_env(seed=100 + cfg.seed)
@@ -1316,6 +1344,78 @@ def _candidate_rank_key(candidate: DirectOptCandidate) -> Tuple[float, float, fl
         candidate.train_success_rate,
         -_candidate_threshold_magnitude(candidate),
     )
+
+
+def _train_distribution_rerank_candidates(
+    candidates: Sequence[DirectOptCandidate],
+    cfg: DirectOptConfig,
+    selected_state_best: DirectOptCandidate,
+) -> Tuple[DirectOptCandidate, Dict[str, object]]:
+    candidate_count = max(0, int(cfg.train_distribution_rerank_candidates))
+    rollout_count = max(0, int(cfg.train_distribution_rerank_rollouts))
+    if candidate_count <= 0 or rollout_count <= 0:
+        return selected_state_best, {
+            "enabled": False,
+            "requested_candidates": candidate_count,
+            "requested_rollouts": rollout_count,
+            "evaluated_candidates": 0,
+            "train_rollout_evaluations": 0,
+            "sample_seed": None,
+            "sampled_initial_states": [],
+            "selected_candidate_changed": False,
+            "selection_source": selected_state_best.source,
+            "evaluated": [],
+        }
+
+    top_candidates = sorted(candidates, key=_candidate_rank_key, reverse=True)[:candidate_count]
+    sample_seed = 10_000 + cfg.seed
+    sample_env = CartpoleEnv.train_env(seed=sample_seed)
+    sampled_initial_states = [sample_env.reset() for _ in range(rollout_count)]
+    evaluations: List[Dict[str, object]] = []
+    best_candidate = selected_state_best
+    best_key: Tuple[float, float, float, float] | None = None
+    for index, candidate in enumerate(top_candidates):
+        policy = _candidate_policy(candidate)
+        env = CartpoleEnv.train_env(seed=sample_seed + index + 1)
+        summary = _summarize_results(
+            [env.rollout(policy, initial_state=state) for state in sampled_initial_states]
+        )
+        key = (
+            float(summary["reward_mean"]),
+            float(summary["success_rate"]),
+            candidate.train_reward_mean,
+            candidate.train_success_rate,
+        )
+        evaluations.append(
+            {
+                "rank": index,
+                "source": candidate.source,
+                "switch_kind": candidate.switch_kind,
+                "selected_state_train_reward_mean": candidate.train_reward_mean,
+                "selected_state_train_success_rate": candidate.train_success_rate,
+                "train_distribution_reward_mean": summary["reward_mean"],
+                "train_distribution_success_rate": summary["success_rate"],
+                "train_distribution_steps_mean": summary["steps_mean"],
+                "train_distribution_survival_seconds_mean": summary["survival_seconds_mean"],
+                "policy_description": policy.describe(),
+            }
+        )
+        if best_key is None or key > best_key:
+            best_key = key
+            best_candidate = candidate
+
+    return best_candidate, {
+        "enabled": True,
+        "requested_candidates": candidate_count,
+        "requested_rollouts": rollout_count,
+        "evaluated_candidates": len(top_candidates),
+        "train_rollout_evaluations": len(top_candidates) * rollout_count,
+        "sample_seed": sample_seed,
+        "sampled_initial_states": _serialize_initial_states(sampled_initial_states),
+        "selected_candidate_changed": best_candidate is not selected_state_best,
+        "selection_source": best_candidate.source,
+        "evaluated": evaluations,
+    }
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:

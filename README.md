@@ -327,6 +327,7 @@ candidate-evaluation-call counts, the solution-found phase,
 train-rollout-evaluation counts, batch/restart diagnostics with compact
 per-batch seed/local/restart/full-train reevaluation trace, bounded continuous
 `alpha_s`/feature-weight refinement,
+optional sampled train-distribution rerank diagnostics and rerank rollout counts,
 configurable local parallel-candidate evaluation and
 time-limit metadata, selected program, and limitation note. This is still not
 the paper's two-hour, ten-thread Direct-Opt protocol over the optimized
@@ -334,7 +335,8 @@ continuous one-hot switching grammar. The metrics JSON also includes
 `paper_protocol_status`, which keeps the full Direct-Opt protocol flag false
 unless the paper batch size, ten-thread/two-hour optimization budget, full
 continuous one-hot grammar, full initial-state distribution, full test horizon,
-and `1000`-rollout evaluation are actually satisfied. It also lists the named Direct-Opt protocol
+and `1000`-rollout evaluation are actually satisfied. The optional train-distribution rerank is
+sampled evidence only and does not satisfy the full initial-state distribution requirement. It also lists the named Direct-Opt protocol
 requirements that remain unsatisfied for each diagnostic run.
 
 PPO MLP:

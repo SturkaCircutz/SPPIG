@@ -25,6 +25,7 @@ from cartpole_direct_opt import (  # noqa: E402
     _continuous_one_hot_candidates,
     _continuous_one_hot_local_neighbor_candidates,
     _continuous_one_hot_weight_neighbors,
+    _train_distribution_rerank_candidates,
     _batch_restart_refinement_candidates,
     cartpole_direct_opt_protocol_status,
     direct_opt_metrics,
@@ -83,11 +84,20 @@ class CartpoleDirectOptTest(unittest.TestCase):
             diagnostics["train_rollout_evaluations"],
             expected_full_train_rollouts + expected_batch_rollouts,
         )
+        self.assertEqual(diagnostics["train_distribution_rerank_rollout_evaluations"], 0)
+        self.assertEqual(
+            diagnostics["total_train_rollout_evaluations"],
+            diagnostics["train_rollout_evaluations"],
+        )
         self.assertGreater(diagnostics["train_rollout_evaluations"], diagnostics["candidate_evaluation_calls"])
         self.assertIn("mode=1 if", metrics["policy_description"])
         self.assertEqual(metrics["algorithm_provenance"]["paper_baseline"], "Direct-Opt")
         self.assertTrue(metrics["algorithm_provenance"]["not_paper_scale"])
         self.assertIn("candidate evaluation calls", metrics["algorithm_provenance"]["candidate_accounting"])
+        self.assertIn(
+            "train-distribution rerank rollouts",
+            metrics["algorithm_provenance"]["candidate_accounting"],
+        )
         self.assertIn("selected train initial states", metrics["algorithm_provenance"]["optimization_trace"])
         self.assertEqual(metrics["algorithm_provenance"]["paper_batch_size"], 10)
         self.assertEqual(metrics["algorithm_provenance"]["paper_parallel_threads"], 10)
@@ -105,6 +115,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
             metrics["algorithm_provenance"]["selection_objective"],
             "mean_combined_reward_over_selected_initial_states_then_success",
         )
+        self.assertIn("train-distribution", metrics["algorithm_provenance"]["train_distribution_reranking"])
         self.assertEqual(
             metrics["algorithm_provenance"]["switch_search_space"],
             "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_leaf_depth2_mixtures",
@@ -187,6 +198,9 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
         self.assertTrue(status["optimizes_combined_reward_over_all_selected_initial_states"])
         self.assertFalse(status["optimizes_full_initial_state_distribution"])
+        self.assertFalse(status["uses_sampled_train_distribution_reranking"])
+        self.assertEqual(status["selected_train_distribution_rerank_candidates"], 0)
+        self.assertEqual(status["selected_train_distribution_rerank_rollouts"], 0)
         self.assertEqual(
             status["combined_reward_aggregation"],
             "mean_train_horizon_reward_over_selected_initial_states",
@@ -250,6 +264,56 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(diagnostics["continuous_one_hot_candidates"], 0)
         self.assertEqual(diagnostics["batch_refinement_candidates"], 0)
         self.assertFalse(diagnostics["batch_solution_found"])
+        self.assertFalse(diagnostics["train_distribution_rerank"]["enabled"])
+        self.assertEqual(diagnostics["train_distribution_rerank"]["evaluated_candidates"], 0)
+        self.assertEqual(
+            diagnostics["selected_state_best_candidate"]["source"],
+            result.candidate.source,
+        )
+
+    def test_direct_opt_train_distribution_rerank_records_distribution_evidence(self):
+        first = DirectOptCandidate(
+            theta_weight=1.0,
+            omega_weight=0.0,
+            threshold=0.0,
+            left_force=-10.0,
+            right_force=10.0,
+            train_reward_mean=2.0,
+            train_success_rate=0.0,
+            source="selected_state_best",
+        )
+        second = DirectOptCandidate(
+            theta_weight=0.0,
+            omega_weight=1.0,
+            threshold=0.0,
+            left_force=-10.0,
+            right_force=10.0,
+            train_reward_mean=1.0,
+            train_success_rate=0.0,
+            source="runner_up",
+        )
+        cfg = DirectOptConfig(train_distribution_rerank_candidates=2, train_distribution_rerank_rollouts=3)
+
+        selected, diagnostics = _train_distribution_rerank_candidates([first, second], cfg, first)
+
+        self.assertIn(selected, (first, second))
+        self.assertTrue(diagnostics["enabled"])
+        self.assertEqual(diagnostics["requested_candidates"], 2)
+        self.assertEqual(diagnostics["requested_rollouts"], 3)
+        self.assertEqual(diagnostics["evaluated_candidates"], 2)
+        self.assertEqual(diagnostics["train_rollout_evaluations"], 6)
+        self.assertEqual(diagnostics["sample_seed"], 10000)
+        self.assertEqual(len(diagnostics["sampled_initial_states"]), 3)
+        self.assertTrue(all(len(state) == 4 for state in diagnostics["sampled_initial_states"]))
+        self.assertEqual(len(diagnostics["evaluated"]), 2)
+        self.assertIn(
+            diagnostics["selection_source"],
+            {"selected_state_best", "runner_up"},
+        )
+        for row in diagnostics["evaluated"]:
+            self.assertIn("train_distribution_reward_mean", row)
+            self.assertIn("train_distribution_success_rate", row)
+            self.assertIn("policy_description", row)
 
     def test_direct_opt_protocol_status_marks_quick_diagnostic_limits(self):
         status = cartpole_direct_opt_protocol_status(
@@ -283,6 +347,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
                 restart_candidates_on_stall=1,
                 parallel_threads=10,
                 time_limit_seconds=7200,
+                train_distribution_rerank_candidates=4,
+                train_distribution_rerank_rollouts=1000,
                 eval_rollouts=1000,
                 test_max_steps=15000,
                 quick=False,
@@ -294,6 +360,9 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertTrue(status["direct_opt_protocol_requirements"]["paper_time_limit"])
         self.assertTrue(status["direct_opt_protocol_requirements"]["full_test_horizon"])
         self.assertTrue(status["direct_opt_protocol_requirements"]["paper_eval_rollouts"])
+        self.assertTrue(status["uses_sampled_train_distribution_reranking"])
+        self.assertEqual(status["selected_train_distribution_rerank_candidates"], 4)
+        self.assertEqual(status["selected_train_distribution_rerank_rollouts"], 1000)
         self.assertFalse(status["direct_opt_protocol_requirements"]["full_continuous_one_hot_switch_grammar"])
         self.assertFalse(status["direct_opt_protocol_requirements"]["full_initial_state_distribution"])
         self.assertEqual(
@@ -855,6 +924,10 @@ class CartpoleDirectOptTest(unittest.TestCase):
                     "--quick",
                     "--batch-refinement-rounds",
                     "0",
+                    "--train-distribution-rerank-candidates",
+                    "2",
+                    "--train-distribution-rerank-rollouts",
+                    "3",
                     "--eval-rollouts",
                     "1",
                     "--test-max-steps",
@@ -871,7 +944,18 @@ class CartpoleDirectOptTest(unittest.TestCase):
 
         self.assertEqual(metrics["config"]["quick"], True)
         self.assertEqual(metrics["config"]["batch_refinement_rounds"], 0)
+        self.assertEqual(metrics["config"]["train_distribution_rerank_candidates"], 2)
+        self.assertEqual(metrics["config"]["train_distribution_rerank_rollouts"], 3)
         self.assertFalse(metrics["paper_protocol_status"]["batch_optimization_seeded_from_best_so_far"])
+        self.assertTrue(metrics["paper_protocol_status"]["uses_sampled_train_distribution_reranking"])
+        self.assertTrue(metrics["search_diagnostics"]["train_distribution_rerank"]["enabled"])
+        self.assertEqual(metrics["search_diagnostics"]["train_distribution_rerank"]["requested_candidates"], 2)
+        self.assertEqual(metrics["search_diagnostics"]["train_distribution_rerank"]["requested_rollouts"], 3)
+        self.assertEqual(metrics["search_diagnostics"]["train_distribution_rerank_rollout_evaluations"], 6)
+        self.assertEqual(
+            metrics["search_diagnostics"]["total_train_rollout_evaluations"],
+            metrics["search_diagnostics"]["train_rollout_evaluations"] + 6,
+        )
         self.assertEqual(metrics["search_diagnostics"]["batch_refinement_candidates"], 0)
         self.assertEqual(metrics["search_diagnostics"]["batch_seed_evaluations"], 0)
         self.assertEqual(metrics["search_diagnostics"]["batch_seed_rollout_evaluations"], 0)
