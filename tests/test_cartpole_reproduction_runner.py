@@ -604,6 +604,18 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                         "jobs_uncapped_for_selected_space": 100,
                         "hyperparam_mode": "paper-random",
                         "hyperparam_samples": 10,
+                        "runtime_preflight": {
+                            "torch": {"torch_importable": True, "cuda_available": True},
+                            "nvidia_smi": {
+                                "available": True,
+                                "gpus": [{"name": "Test GPU", "memory_total_mib": 8192}],
+                            },
+                            "jobs_planned": 100,
+                            "paper_scale_reference_job_count": 100,
+                            "paper_scale_reference_training_timesteps": 1_000_000_000,
+                            "paper_scale_reference_eval_rollouts": 100_000,
+                            "note": "launch provenance only; does not prove paper-scale execution",
+                        },
                         "hyperparameter_summary": complete_ppo_hyperparameter_summary(),
                         "paper_protocol_status": {
                             "paper_scale_plan": True,
@@ -636,6 +648,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertTrue(status["best_hyperparameters_have_complete_seed_coverage"])
         self.assertEqual(status["jobs_planned"], 100)
         self.assertEqual(status["jobs_completed"], 100)
+        self.assertTrue(status["runtime_preflight"]["torch"]["cuda_available"])
+        self.assertEqual(status["runtime_preflight"]["nvidia_smi"]["gpus"][0]["name"], "Test GPU")
+        self.assertEqual(status["runtime_preflight"]["paper_scale_reference_training_timesteps"], 1_000_000_000)
 
     def test_ppo_sweep_evidence_status_rejects_inconsistent_execution_claim(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -808,6 +823,18 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                         "jobs_uncapped_for_selected_space": 100,
                         "hyperparam_mode": "paper-random",
                         "hyperparam_samples": 10,
+                        "runtime_preflight": {
+                            "torch": {"torch_importable": False, "cuda_available": False},
+                            "nvidia_smi": {
+                                "available": True,
+                                "gpus": [{"name": "Runner GPU", "memory_total_mib": 8192}],
+                            },
+                            "jobs_planned": 100,
+                            "paper_scale_reference_job_count": 100,
+                            "paper_scale_reference_training_timesteps": 1_000_000_000,
+                            "paper_scale_reference_eval_rollouts": 100_000,
+                            "note": "launch provenance only; does not prove paper-scale execution",
+                        },
                         "hyperparameter_summary": complete_ppo_hyperparameter_summary(),
                         "paper_protocol_status": {
                             "paper_scale_plan": True,
@@ -856,6 +883,9 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertEqual(manifest["ppo_sweep_evidence"], evidence)
         self.assertTrue(evidence["manifest_loaded"])
         self.assertTrue(evidence["paper_scale_execution"])
+        self.assertFalse(evidence["runtime_preflight"]["torch"]["torch_importable"])
+        self.assertEqual(evidence["runtime_preflight"]["nvidia_smi"]["gpus"][0]["name"], "Runner GPU")
+        self.assertEqual(evidence["runtime_preflight"]["paper_scale_reference_eval_rollouts"], 100_000)
         self.assertFalse(manifest["include_ppo"])
         self.assertTrue(manifest["paper_protocol_status"]["ppo_hyperparameter_search"])
         self.assertTrue(manifest["paper_protocol_status"]["includes_ppo_baseline_evidence"])

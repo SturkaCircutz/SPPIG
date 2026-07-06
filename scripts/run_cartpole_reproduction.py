@@ -566,6 +566,7 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
             "jobs_planned": 0,
             "jobs_completed": 0,
             "jobs_failed": 0,
+            "runtime_preflight": None,
             "limitation": "No PPO sweep manifest was supplied to the reproduction runner.",
         }
     status = manifest["paper_protocol_status"]
@@ -577,6 +578,9 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
     seeds = manifest.get("seeds", [])
     hyperparam_mode = manifest.get("hyperparam_mode")
     hyperparam_samples = manifest.get("hyperparam_samples")
+    runtime_preflight = manifest.get("runtime_preflight")
+    if not isinstance(runtime_preflight, dict):
+        runtime_preflight = None
     top_level_full_policy_set = (
         isinstance(policies, list)
         and policies == ["mlp", "lstm"]
@@ -641,6 +645,7 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
         "jobs_completed": jobs_completed,
         "jobs_failed": jobs_failed,
         "jobs_uncapped_for_selected_space": jobs_uncapped,
+        "runtime_preflight": runtime_preflight,
         "hyperparam_mode": hyperparam_mode,
         "hyperparam_samples": hyperparam_samples,
         "paper_scale_plan": paper_scale_plan,

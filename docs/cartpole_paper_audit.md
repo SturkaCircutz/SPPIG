@@ -139,7 +139,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   mistaken for the full five-seed paper baseline protocol. The runner can also attach a
   `scripts/run_cartpole_ppo_sweep.py` manifest through `--ppo-sweep-manifest`; it records that
   sweep as PPO hyperparameter-search evidence only when the typed sweep manifest reports
-  `paper_scale_execution = true`, with or without rerunning fixed PPO rows in the same bundle.
+  `paper_scale_execution = true`, with or without rerunning fixed PPO rows in the same bundle,
+  and carries the sweep manifest's dependency-light runtime preflight block as launch
+  provenance rather than execution evidence.
   Direct-Opt manifest evidence is likewise derived from the Direct-Opt rows and their
   metrics JSON artifacts, including command/config provenance and matching per-row
   `paper_protocol_status` blocks, so bounded diagnostics remain false while a future completed
@@ -1109,7 +1111,8 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   provenance, treats dry-run plans and internally inconsistent execution claims as insufficient, and
   accepts PPO hyperparameter-search evidence only when the sweep reports completed paper-scale execution
   with matching top-level manifest fields and embedded best-hyperparameter rows covering every selected
-  seed for both PPO policies.
+  seed for both PPO policies. The completed-manifest and quick-runner tests also verify that PPO
+  sweep runtime preflight provenance is preserved in the reproduction status.
 - `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_complete_row_protocol_evidence`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_metrics_artifact_protocol_match`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_metrics_config_to_match_row`,
