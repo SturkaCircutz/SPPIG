@@ -165,6 +165,8 @@ def summarize_traces(traces: list[CartpoleTrace], max_examples: int = 3):
         }
         if trace.teacher_refinement_elite_summary is not None:
             example["teacher_refinement_elite_summary"] = trace.teacher_refinement_elite_summary
+        if trace.teacher_candidate_pool_diagnostics is not None:
+            example["teacher_candidate_pool_diagnostics"] = trace.teacher_candidate_pool_diagnostics
         if trace.elite_distribution_fit is not None:
             example["elite_distribution_fit"] = trace.elite_distribution_fit
         examples.append(example)
@@ -195,6 +197,8 @@ def serialize_trace(trace: CartpoleTrace):
     }
     if trace.teacher_refinement_elite_summary is not None:
         payload["teacher_refinement_elite_summary"] = trace.teacher_refinement_elite_summary
+    if trace.teacher_candidate_pool_diagnostics is not None:
+        payload["teacher_candidate_pool_diagnostics"] = trace.teacher_candidate_pool_diagnostics
     if trace.elite_distribution_fit is not None:
         payload["elite_distribution_fit"] = trace.elite_distribution_fit
     return payload

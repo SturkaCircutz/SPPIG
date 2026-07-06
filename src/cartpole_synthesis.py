@@ -133,6 +133,7 @@ class CartpoleTrace:
     teacher_refinement_objective: float | None = None
     elite_distribution_fit: Dict[str, object] | None = None
     teacher_refinement_elite_summary: Dict[str, object] | None = None
+    teacher_candidate_pool_diagnostics: Dict[str, object] | None = None
 
 
 def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
@@ -278,6 +279,10 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
                 "teacher_objective",
                 "teacher_refinement_objective",
             ],
+            "selected_trace_candidate_pool_diagnostics": (
+                "serialized_on_selected_teacher_traces_with_counts_for_sampled_candidates_top_rho_elites_"
+                "elite_recombination_distribution_candidates_refinement_seeds_refined_candidates_and_selection_source"
+            ),
             "student_log_probability_cache_policy": (
                 "recompute_from_trace_actions_for_current_student_else_use_cached_segment_only_value"
             ),
@@ -1506,6 +1511,18 @@ def _optimize_loop_free_trace(
         refinement_seeds + refined,
         key=lambda trace: _teacher_refinement_objective(trace, scoring_student, cfg, refinement_elites),
     )
+    candidate_pool_diagnostics = _teacher_candidate_pool_diagnostics(
+        selected,
+        candidates,
+        elites,
+        elite_recombinations,
+        refinement_elites,
+        refinement_seeds,
+        refined,
+        scoring_student,
+        cfg,
+    )
+    selected.teacher_candidate_pool_diagnostics = candidate_pool_diagnostics
     return _record_selected_teacher_objectives(selected, scoring_student, cfg, refinement_elites)
 
 
@@ -1596,6 +1613,85 @@ def _teacher_refinement_elite_summary(
         summary["nearest_elite_kernel_component_weight"] = summary["selected_kernel_component_weights"][nearest_index]
         summary["selected_elite_kernel_log_probability"] = kernel_log_normalizer - elite_log_normalizer
     return summary
+
+
+def _teacher_candidate_pool_diagnostics(
+    selected: CartpoleTrace,
+    candidates: List[CartpoleTrace],
+    elites: List[CartpoleTrace],
+    elite_recombinations: List[CartpoleTrace],
+    refinement_elites: List[CartpoleTrace],
+    refinement_seeds: List[CartpoleTrace],
+    refined: List[CartpoleTrace],
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+) -> Dict[str, object]:
+    selected_pool = refinement_seeds + refined
+    return {
+        "diagnostic_scope": "bounded_loop_free_teacher_candidate_pool",
+        "not_full_paper_cem": True,
+        "candidate_rollouts": cfg.candidate_rollouts,
+        "effective_candidate_rollouts": max(1, int(cfg.candidate_rollouts)),
+        "sampled_candidate_count": len(candidates),
+        "top_rho": max(1, int(cfg.teacher_top_rho)),
+        "elite_count": len(elites),
+        "elite_recombination_candidate_count": len(elite_recombinations),
+        "refinement_elite_count": len(refinement_elites),
+        "refinement_seed_count": len(refinement_seeds),
+        "refined_candidate_count": len(refined),
+        "selection_pool_count": len(selected_pool),
+        "selected_source": selected.teacher_source,
+        "selected_was_refined_candidate": any(selected is candidate for candidate in refined),
+        "source_counts": _teacher_source_counts(selected_pool),
+        "sampled_source_counts": _teacher_source_counts(candidates),
+        "elite_source_counts": _teacher_source_counts(elites),
+        "refinement_elite_source_counts": _teacher_source_counts(refinement_elites),
+        "sampled_teacher_objective": _teacher_objective_stats(candidates, student, cfg),
+        "selection_pool_refinement_objective": _teacher_refinement_objective_stats(
+            selected_pool,
+            student,
+            cfg,
+            refinement_elites,
+        ),
+    }
+
+
+def _teacher_source_counts(traces: List[CartpoleTrace]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for trace in traces:
+        counts[trace.teacher_source] = counts.get(trace.teacher_source, 0) + 1
+    return counts
+
+
+def _teacher_objective_stats(
+    traces: List[CartpoleTrace],
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+) -> Dict[str, object]:
+    values = [_teacher_objective(trace, student, cfg) for trace in traces]
+    return _float_stats(values)
+
+
+def _teacher_refinement_objective_stats(
+    traces: List[CartpoleTrace],
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+    refinement_elites: List[CartpoleTrace],
+) -> Dict[str, object]:
+    values = [
+        _teacher_refinement_objective(trace, student, cfg, refinement_elites)
+        for trace in traces
+    ]
+    return _float_stats(values)
+
+
+def _float_stats(values: List[float]) -> Dict[str, object]:
+    return {
+        "count": len(values),
+        "mean": sum(values) / len(values) if values else None,
+        "min": min(values) if values else None,
+        "max": max(values) if values else None,
+    }
 
 
 def _teacher_candidate_traces(

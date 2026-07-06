@@ -464,6 +464,14 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"]["selected_trace_objective_metrics"],
             ["teacher_objective", "teacher_refinement_objective"],
         )
+        self.assertIn(
+            "selected_trace_candidate_pool_diagnostics",
+            provenance["teacher_search"],
+        )
+        self.assertIn(
+            "sampled_candidates",
+            provenance["teacher_search"]["selected_trace_candidate_pool_diagnostics"],
+        )
         self.assertEqual(
             provenance["teacher_search"]["elite_distance_metric"],
             "normalized_l2_over_teacher_gains_segment_modes_actions_durations_and_time_increments",
@@ -516,6 +524,30 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("teacher_objective", first_trace)
         self.assertIn("teacher_refinement_objective", first_trace)
         self.assertIn("teacher_refinement_elite_summary", first_trace)
+        self.assertIn("teacher_candidate_pool_diagnostics", first_trace)
+        candidate_pool = first_trace["teacher_candidate_pool_diagnostics"]
+        self.assertEqual(candidate_pool["diagnostic_scope"], "bounded_loop_free_teacher_candidate_pool")
+        self.assertTrue(candidate_pool["not_full_paper_cem"])
+        self.assertEqual(candidate_pool["candidate_rollouts"], metrics["config"]["candidate_rollouts"])
+        self.assertEqual(candidate_pool["effective_candidate_rollouts"], metrics["config"]["candidate_rollouts"])
+        self.assertEqual(candidate_pool["sampled_candidate_count"], metrics["config"]["candidate_rollouts"])
+        self.assertEqual(candidate_pool["top_rho"], metrics["config"]["teacher_top_rho"])
+        self.assertEqual(candidate_pool["elite_count"], metrics["config"]["teacher_top_rho"])
+        self.assertGreaterEqual(candidate_pool["elite_recombination_candidate_count"], 1)
+        self.assertGreaterEqual(candidate_pool["refinement_seed_count"], candidate_pool["elite_count"])
+        self.assertGreaterEqual(candidate_pool["selection_pool_count"], candidate_pool["refinement_seed_count"])
+        self.assertIn("selected_source", candidate_pool)
+        self.assertIn("source_counts", candidate_pool)
+        self.assertIn("sampled_source_counts", candidate_pool)
+        self.assertIn("elite_source_counts", candidate_pool)
+        self.assertEqual(
+            candidate_pool["sampled_teacher_objective"]["count"],
+            candidate_pool["sampled_candidate_count"],
+        )
+        self.assertEqual(
+            candidate_pool["selection_pool_refinement_objective"]["count"],
+            candidate_pool["selection_pool_count"],
+        )
         first_elite_summary = first_trace["teacher_refinement_elite_summary"]
         self.assertEqual(first_elite_summary["top_rho"], metrics["config"]["teacher_top_rho"])
         self.assertGreaterEqual(first_elite_summary["elite_count"], 1)
@@ -803,6 +835,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertIn("teacher_objective", metrics["trace_summary"]["examples"][0])
         self.assertIn("teacher_refinement_objective", metrics["trace_summary"]["examples"][0])
         self.assertIn("teacher_refinement_elite_summary", metrics["trace_summary"]["examples"][0])
+        self.assertIn("teacher_candidate_pool_diagnostics", metrics["trace_summary"]["examples"][0])
         trace_summary_distribution_fits = [
             example.get("elite_distribution_fit")
             for example in metrics["trace_summary"]["examples"]

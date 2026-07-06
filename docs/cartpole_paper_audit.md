@@ -91,7 +91,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   sampling model, selected trace-source counts, reward summary, student log-probability coverage, and
   the recorded reward-plus-student-likelihood objective components when available, plus the configured
   teacher candidate rollout count, effective top-rho value, the paper `rho = 10` reference, and whether
-  the local candidate pool covers that paper top-rho setting. Each
+  the local candidate pool covers that paper top-rho setting. Selected teacher traces now also record
+  bounded candidate-pool diagnostics for sampled candidates, raw/effective candidate-rollout counts,
+  top-rho elites, recombination/distribution candidates, refinement seeds/refined candidates,
+  selected source, and sampled/selection-pool objective summaries. Each
   `synthesis_history` row also records `student_fit_history`, a compact trace of the inner
   action-likelihood initialization and switch-timing responsibility/refit passes that produced that
   iteration's probabilistic student, including local trace log-likelihood diagnostics and compact
@@ -350,10 +353,15 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   teacher traces serialize the fitted source weights, source objectives, and
   Gaussian schedule parameters used to produce them. The teacher also records
   selected trace sources plus sampled-trace log probabilities in metrics JSON,
-  and selected traces now carry a compact summary of the refreshed top-rho elite
-  set used by the bounded refinement objective, including source counts,
-  objective ranges, nearest-elite distances, normalized elite probability
-  weights, distance-weighted kernel component weights, and kernel terms when a
+  and selected traces now carry bounded candidate-pool diagnostics: sampled
+  rollout count, raw/effective candidate-rollout counts, top-rho elite count,
+  recombination/distribution candidate count, refinement seed/refined candidate
+  counts, selected source, and objective summaries for the sampled and final
+  selection pools. Selected
+  traces also carry a compact summary of the refreshed top-rho elite set used
+  by the bounded refinement objective, including source counts, objective
+  ranges, nearest-elite distances, normalized elite probability weights,
+  distance-weighted kernel component weights, and kernel terms when a
   probabilistic student is available. When a sampled
   closed-loop rollout is projected back into the loop-free teacher budget, its student likelihood is
   recomputed on the projected trace before teacher-objective ranking. Teacher scoring also
@@ -850,6 +858,11 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that selected teacher traces can serialize the refreshed top-rho elite count, source
   counts, objective ranges, nearest-elite distance, and kernel weights used by the bounded refinement
   objective.
+- `tests/test_cartpole_psm_cli.py::test_cli_writes_metrics_json`
+  verifies that selected teacher traces serialize bounded candidate-pool diagnostics, including
+  sampled candidate count, top-rho elite count, recombination/distribution candidates,
+  refinement-seed/refined-candidate counts, selected source, and sampled/selection-pool objective
+  summaries without marking the teacher optimizer as full paper CEM.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_schedule_weights_are_uniform_without_student`
   verifies that the first teacher round keeps the old uniform fit when no student exists yet.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_resample_count_is_configurable`

@@ -916,6 +916,13 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("segment_actions", psm_traces["traces"][0])
             self.assertIn("segment_durations", psm_traces["traces"][0])
             self.assertIn("segment_time_increments", psm_traces["traces"][0])
+            self.assertIn("teacher_candidate_pool_diagnostics", psm_traces["traces"][0])
+            candidate_pool = psm_traces["traces"][0]["teacher_candidate_pool_diagnostics"]
+            self.assertTrue(candidate_pool["not_full_paper_cem"])
+            self.assertEqual(candidate_pool["effective_candidate_rollouts"], psm_metrics["config"]["candidate_rollouts"])
+            self.assertEqual(candidate_pool["sampled_candidate_count"], psm_metrics["config"]["candidate_rollouts"])
+            self.assertEqual(candidate_pool["top_rho"], psm_metrics["config"]["teacher_top_rho"])
+            self.assertIn("selection_pool_refinement_objective", candidate_pool)
             psm_status = psm_metrics["paper_protocol_status"]
             self.assertTrue(psm_status["cartpole_environment"])
             self.assertEqual(psm_status["train_horizon_seconds"], 5.0)

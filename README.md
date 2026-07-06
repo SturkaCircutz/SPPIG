@@ -151,8 +151,13 @@ when available, including reward-term, student-regularizer-term, direct-objectiv
 and refinement-objective summaries. It also records the configured teacher
 candidate rollout count, effective top-rho value, the paper's `rho=10`
 reference, and whether the local candidate pool actually covers that paper
-top-rho setting. It also summarizes, for selected teacher
-traces, the refreshed top-rho elite set used by the bounded refinement objective:
+top-rho setting. Selected teacher traces also record bounded candidate-pool
+diagnostics: sampled rollout count, top-rho elite count, recombination and
+distribution-candidate count, refinement seed/refined candidate counts, selected
+source, raw/effective candidate-rollout counts, and objective summaries for the
+sampled and final selection pools.
+For selected teacher traces it also summarizes the refreshed top-rho elite set
+used by the bounded refinement objective:
 elite counts, source counts, nearest-elite distances, and kernel log-probability
 terms, including normalized elite probability weights and distance-weighted
 kernel component weights when a probabilistic student is available.
