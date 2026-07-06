@@ -441,6 +441,70 @@ def load_ppo_sweep_manifest(path: Path | None) -> Dict[str, Any] | None:
     return payload
 
 
+def _truthy_bool(value: Any) -> bool:
+    return value is True or (isinstance(value, str) and value == "True")
+
+
+def _int_set(values: List[Any]) -> set[int] | None:
+    try:
+        return {int(value) for value in values}
+    except (TypeError, ValueError):
+        return None
+
+
+def _manifest_seed_set(value: Any) -> set[int] | None:
+    if isinstance(value, list):
+        return _int_set(value)
+    if isinstance(value, str):
+        try:
+            return {int(item) for item in value.split(",") if item != ""}
+        except ValueError:
+            return None
+    return None
+
+
+def _manifest_best_hyperparameter_rows_have_seed_coverage(
+    manifest: Dict[str, Any],
+    policies: List[Any],
+    seeds: List[Any],
+) -> bool:
+    rows = manifest.get("hyperparameter_summary")
+    if not isinstance(rows, list):
+        return False
+    expected_policies = set(policies) if isinstance(policies, list) else set()
+    expected_seed_values = _int_set(seeds) if isinstance(seeds, list) else None
+    if not expected_policies or expected_seed_values is None:
+        return False
+    expected_seed_count = len(expected_seed_values)
+    best_rows_by_policy: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict) or not _truthy_bool(row.get("is_best_hyperparam_for_policy")):
+            continue
+        policy = str(row.get("policy", ""))
+        if policy in best_rows_by_policy:
+            return False
+        best_rows_by_policy[policy] = row
+    if set(best_rows_by_policy) != expected_policies:
+        return False
+    for row in best_rows_by_policy.values():
+        if not _truthy_bool(row.get("complete_seed_coverage")):
+            return False
+        if _manifest_seed_set(row.get("seeds_completed")) != expected_seed_values:
+            return False
+        if _manifest_seed_set(row.get("selected_seeds")) != expected_seed_values:
+            return False
+        try:
+            if int(row.get("selected_seed_count")) != expected_seed_count:
+                return False
+            if int(row.get("seed_count")) != expected_seed_count:
+                return False
+        except (TypeError, ValueError):
+            return False
+        if str(row.get("missing_seeds", "")):
+            return False
+    return True
+
+
 def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]:
     if manifest is None:
         return {
@@ -487,6 +551,11 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
     paper_random_sample_count = bool(status.get("paper_random_sample_count"))
     sampled_ranges_ok = bool(status.get("sampled_hyperparameters_follow_paper_ranges"))
     sampled_minibatches_ok = bool(status.get("sampled_hyperparameters_follow_paper_minibatch_rules"))
+    best_hyperparameters_have_complete_seed_coverage = _manifest_best_hyperparameter_rows_have_seed_coverage(
+        manifest,
+        policies,
+        seeds,
+    )
     completed_job_counts_match = (
         jobs_planned > 0
         and jobs_uncapped == jobs_planned
@@ -511,6 +580,7 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
         and top_level_paper_random_samples
         and sampled_ranges_ok
         and sampled_minibatches_ok
+        and best_hyperparameters_have_complete_seed_coverage
     )
     return {
         "manifest_path": manifest.get("manifest_path"),
@@ -535,6 +605,7 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
         "top_level_paper_random_samples": top_level_paper_random_samples,
         "sampled_hyperparameters_follow_paper_ranges": sampled_ranges_ok,
         "sampled_hyperparameters_follow_paper_minibatch_rules": sampled_minibatches_ok,
+        "best_hyperparameters_have_complete_seed_coverage": best_hyperparameters_have_complete_seed_coverage,
         "full_baseline_policy_set": full_baseline_policy_set,
         "top_level_full_policy_set": top_level_full_policy_set,
         "paper_seed_count": paper_seed_count,
@@ -544,7 +615,8 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
         "paper_test_horizon": paper_test_horizon,
         "limitation": (
             "PPO hyperparameter-search evidence is accepted only when the supplied sweep manifest "
-            "marks paper_scale_execution true and its paper-scale protocol fields are internally consistent."
+            "marks paper_scale_execution true, its protocol fields are internally consistent, and its "
+            "embedded best-hyperparameter rows cover every selected seed for both PPO policies."
         ),
     }
 

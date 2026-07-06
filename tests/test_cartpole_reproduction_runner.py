@@ -47,6 +47,24 @@ class FakePPOConfig:
     metrics_output: str
 
 
+def complete_ppo_hyperparameter_summary():
+    return [
+        {
+            "policy": policy,
+            "hyperparam_mode": "paper-random",
+            "hyperparam_sample": 0,
+            "seed_count": 5,
+            "seeds_completed": "0,1,2,3,4",
+            "selected_seed_count": 5,
+            "selected_seeds": "0,1,2,3,4",
+            "missing_seeds": "",
+            "complete_seed_coverage": True,
+            "is_best_hyperparam_for_policy": True,
+        }
+        for policy in ("mlp", "lstm")
+    ]
+
+
 class CartpoleReproductionRunnerTest(unittest.TestCase):
     def test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale(self):
         status = reproduction_protocol_status(
@@ -350,6 +368,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                         "jobs_uncapped_for_selected_space": 100,
                         "hyperparam_mode": "paper-random",
                         "hyperparam_samples": 10,
+                        "hyperparameter_summary": complete_ppo_hyperparameter_summary(),
                         "paper_protocol_status": {
                             "paper_scale_plan": True,
                             "paper_scale_execution": True,
@@ -378,6 +397,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertTrue(status["paper_scale_execution"])
         self.assertTrue(status["raw_paper_scale_execution"])
         self.assertTrue(status["paper_random_hyperparameter_search"])
+        self.assertTrue(status["best_hyperparameters_have_complete_seed_coverage"])
         self.assertEqual(status["jobs_planned"], 100)
         self.assertEqual(status["jobs_completed"], 100)
 
@@ -464,6 +484,78 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertFalse(status["top_level_paper_random_samples"])
         self.assertFalse(status["paper_scale_execution"])
 
+    def test_ppo_sweep_evidence_status_requires_best_hyperparameter_seed_coverage(self):
+        manifest = {
+            "artifact_kind": "cartpole_ppo_sweep_manifest",
+            "policies": ["mlp", "lstm"],
+            "seeds": [0, 1, 2, 3, 4],
+            "jobs_planned": 100,
+            "jobs_completed": 100,
+            "jobs_failed": 0,
+            "jobs_uncapped_for_selected_space": 100,
+            "hyperparam_mode": "paper-random",
+            "hyperparam_samples": 10,
+            "paper_protocol_status": {
+                "paper_scale_plan": True,
+                "paper_scale_execution": True,
+                "paper_random_hyperparameter_search": True,
+                "paper_random_sample_count": True,
+                "all_planned_jobs_completed": True,
+                "planned_job_count_matches_selected_space": True,
+                "full_baseline_policy_set": True,
+                "paper_seed_count": True,
+                "paper_timestep_budget": True,
+                "uses_paper_eval_rollouts": True,
+                "paper_test_horizon": True,
+                "sampled_hyperparameters_follow_paper_ranges": True,
+                "sampled_hyperparameters_follow_paper_minibatch_rules": True,
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "cartpole_ppo_sweep_manifest.json"
+            incomplete_summary = complete_ppo_hyperparameter_summary()
+            incomplete_summary[0] = {
+                **incomplete_summary[0],
+                "seed_count": 4,
+                "missing_seeds": "4",
+                "complete_seed_coverage": False,
+            }
+            path.write_text(
+                json.dumps(
+                    {
+                        **manifest,
+                        "hyperparameter_summary": incomplete_summary,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            manifest = load_ppo_sweep_manifest(path)
+            status = ppo_sweep_evidence_status(manifest)
+
+        self.assertTrue(status["raw_paper_scale_execution"])
+        self.assertFalse(status["best_hyperparameters_have_complete_seed_coverage"])
+        self.assertFalse(status["paper_scale_execution"])
+
+        mismatched_summary = complete_ppo_hyperparameter_summary()
+        mismatched_summary[0] = {
+            **mismatched_summary[0],
+            "selected_seeds": "0,1,2,3,99",
+        }
+        status = ppo_sweep_evidence_status({**manifest, "hyperparameter_summary": mismatched_summary})
+        self.assertFalse(status["best_hyperparameters_have_complete_seed_coverage"])
+        self.assertFalse(status["paper_scale_execution"])
+
+        mismatched_summary = complete_ppo_hyperparameter_summary()
+        mismatched_summary[0] = {
+            **mismatched_summary[0],
+            "seeds_completed": "0,1,2,3,99",
+        }
+        status = ppo_sweep_evidence_status({**manifest, "hyperparameter_summary": mismatched_summary})
+        self.assertFalse(status["best_hyperparameters_have_complete_seed_coverage"])
+        self.assertFalse(status["paper_scale_execution"])
+
     def test_quick_runner_records_ppo_sweep_manifest_evidence(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             sweep_path = Path(tmpdir) / "cartpole_ppo_sweep_manifest.json"
@@ -480,6 +572,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                         "jobs_uncapped_for_selected_space": 100,
                         "hyperparam_mode": "paper-random",
                         "hyperparam_samples": 10,
+                        "hyperparameter_summary": complete_ppo_hyperparameter_summary(),
                         "paper_protocol_status": {
                             "paper_scale_plan": True,
                             "paper_scale_execution": True,

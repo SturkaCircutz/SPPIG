@@ -73,7 +73,8 @@ timestep budget per seed for fixed-config PPO rows. Pass
 attach PPO/PPO-LSTM hyperparameter-search evidence from the sweep runner; the
 runner requires the typed sweep manifest and only marks that evidence present when the sweep reports
 `paper_scale_execution = true` with matching top-level policy, seed, and sample-count
-fields. This can be used with or without rerunning fixed PPO rows in the same bundle. The Direct-Opt path is a local bounded search over linear
+fields plus embedded best-hyperparameter rows that cover every selected seed for both PPO policies.
+This can be used with or without rerunning fixed PPO rows in the same bundle. The Direct-Opt path is a local bounded search over linear
 switches, Boolean-tree CartPole switch candidates, and bounded Appendix B.3-style
 continuous one-hot leaf/depth-2 feature-mixture candidates, not the paper's full two-hour
 parallel direct optimization protocol. The runner writes
@@ -423,6 +424,7 @@ match and whose checkpoint plus metrics artifacts still exist. Use
 `cartpole_ppo_sweep_failures.csv` and continue; by default, the first failed job
 stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`,
 `cartpole_ppo_sweep_summary.csv`, and `cartpole_ppo_sweep_hyperparam_summary.csv`;
+the manifest embeds the summary and hyperparameter-summary rows used as downstream evidence.
 the first summary selects the best completed single job per policy by train
 success, then train reward, while the hyperparameter summary aggregates completed
 seeds for each sampled config, records selected-seed coverage and missing seeds,

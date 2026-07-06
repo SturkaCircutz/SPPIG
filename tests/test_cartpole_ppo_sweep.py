@@ -25,6 +25,7 @@ from run_cartpole_ppo_sweep import (  # noqa: E402
     sampled_hyperparameter_manifest,
     summarize_hyperparameter_configs,
     summarize_results,
+    write_manifest,
 )
 
 try:
@@ -512,6 +513,47 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertTrue(manifest["paper_protocol_status"]["dry_run_only"])
         self.assertTrue(manifest["paper_protocol_status"]["truncated_by_max_configs"])
 
+    def test_write_manifest_embeds_completed_summary_evidence(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_argv = sys.argv
+            try:
+                sys.argv = [
+                    SCRIPT,
+                    "--quick",
+                    "--max-configs",
+                    "1",
+                    "--outdir",
+                    tmpdir,
+                ]
+                args = parse_args()
+            finally:
+                sys.argv = original_argv
+            job = build_jobs(args)[0]
+            result = {
+                **job,
+                "train_success": 1.0,
+                "test_success": 0.5,
+                "train_reward": 250.0,
+                "test_reward": 12.0,
+                **survival_fields(250.0, 12.0),
+                "selected_timesteps": job["total_timesteps"],
+            }
+            failure = {**job, "error_type": "RuntimeError", "error_message": "boom"}
+
+            write_manifest(args, [job], [result], [failure], completed=1, skipped=0)
+
+            with open(os.path.join(tmpdir, "cartpole_ppo_sweep_manifest.json"), encoding="utf-8") as handle:
+                manifest = json.load(handle)
+
+        self.assertEqual(manifest["summary"], summarize_results([result]))
+        self.assertEqual(
+            manifest["hyperparameter_summary"],
+            summarize_hyperparameter_configs([result], selected_seeds=[0, 1, 2, 3, 4]),
+        )
+        self.assertEqual(manifest["failure_summary"], [failure])
+        self.assertEqual(manifest["jobs_failed"], 1)
+        self.assertFalse(manifest["paper_protocol_status"]["all_planned_jobs_completed"])
+
     def test_paper_protocol_status_identifies_full_dry_run_plan(self):
         original_argv = sys.argv
         try:
@@ -911,6 +953,42 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertIn("hyperparameter_selection_rule", manifest)
         self.assertIn("summary", manifest["artifacts"])
         self.assertIn("hyperparameter_summary", manifest["artifacts"])
+        typed_result_rows = [
+            {
+                key: float(value) if key in {
+                    "train_success",
+                    "test_success",
+                    "train_reward",
+                    "test_reward",
+                    "train_steps",
+                    "test_steps",
+                    "train_survival_seconds",
+                    "test_survival_seconds",
+                } else int(value) if key in {
+                    "job_id",
+                    "seed",
+                    "hyperparam_sample",
+                    "total_timesteps",
+                    "num_steps",
+                    "nminibatches",
+                    "noptepochs",
+                    "hidden_size",
+                    "num_envs",
+                    "eval_rollouts",
+                    "test_max_steps",
+                    "eval_interval",
+                    "selected_timesteps",
+                } else value
+                for key, value in row.items()
+            }
+            for row in result_rows
+        ]
+        self.assertEqual(manifest["summary"], summarize_results(typed_result_rows))
+        self.assertEqual(
+            manifest["hyperparameter_summary"],
+            summarize_hyperparameter_configs(typed_result_rows, selected_seeds=[0, 1, 2, 3, 4]),
+        )
+        self.assertEqual(manifest["failure_summary"], [])
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO sweep execution")
     def test_resume_skips_matching_completed_jobs_with_artifacts(self):

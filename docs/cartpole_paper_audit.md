@@ -156,7 +156,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   provenance for executed rows. Its paper-scale plan/execution flags require the generated
   sampled configs themselves to satisfy the paper's reported exact discrete hyperparameter ranges,
   learning-rate interval, and PPO-LSTM `nminibatches = 1` rule, plus the paper's
-  `1000` evaluation rollouts. Its manifest records the standard CartPole reward spec. This is
+  `1000` evaluation rollouts. Its manifest records the standard CartPole reward spec and embeds the
+  aggregate summary, per-hyperparameter summary, and failure rows so downstream reproduction status
+  checks can validate best-hyperparameter seed coverage without trusting CSV sidecars. This is
   search infrastructure; the full paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
@@ -555,6 +557,9 @@ paper-scale PPO2 runs.
   once and match every per-seed job generated from that config.
 - `tests/test_cartpole_ppo_sweep.py::test_dry_run_writes_plan_and_manifest` verifies that dry-run
   sweep planning writes a CSV plan and manifest with paper-space metadata.
+- `tests/test_cartpole_ppo_sweep.py::test_write_manifest_embeds_completed_summary_evidence`
+  verifies that completed sweep manifests embed the single-job summary, per-hyperparameter summary,
+  and failure rows used as downstream evidence.
 - `tests/test_cartpole_ppo_sweep.py::test_summarize_hyperparameter_configs_aggregates_completed_seeds`
   verifies that completed PPO sweep rows are grouped by policy and sampled hyperparameter config,
   with seed-level mean/std metrics and a best-config flag.
@@ -1020,11 +1025,13 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_accepts_completed_ppo_sweep_evidence_only`,
   `tests/test_cartpole_reproduction_runner.py::test_ppo_sweep_evidence_status_requires_manifest_protocol_status`,
   `tests/test_cartpole_reproduction_runner.py::test_ppo_sweep_evidence_status_records_completed_manifest`,
+  `tests/test_cartpole_reproduction_runner.py::test_ppo_sweep_evidence_status_requires_best_hyperparameter_seed_coverage`,
   and `tests/test_cartpole_reproduction_runner.py::test_quick_runner_records_ppo_sweep_manifest_evidence`
   verify that the reproduction runner can ingest a typed PPO sweep manifest, rejects malformed sweep
   provenance, treats dry-run plans and internally inconsistent execution claims as insufficient, and
   accepts PPO hyperparameter-search evidence only when the sweep reports completed paper-scale execution
-  with matching top-level manifest fields.
+  with matching top-level manifest fields and embedded best-hyperparameter rows covering every selected
+  seed for both PPO policies.
 - `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_complete_row_protocol_evidence`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_rejects_bare_overclaimed_protocol_flag`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_rejects_partial_requirement_map`,

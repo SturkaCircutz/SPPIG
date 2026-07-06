@@ -852,10 +852,13 @@ def failed_job_row(job: Dict[str, Any], error: Exception) -> Dict[str, Any]:
 def write_manifest(
     args: argparse.Namespace,
     jobs: List[Dict[str, Any]],
+    results: List[Dict[str, Any]],
+    failures: List[Dict[str, Any]],
     completed: int,
     skipped: int,
-    failed: int,
 ) -> None:
+    summary_rows = summarize_results(results) if results else []
+    hyperparameter_summary_rows = summarize_hyperparameter_configs(results, _parse_ints(args.seeds)) if results else []
     manifest = {
         "artifact_kind": "cartpole_ppo_sweep_manifest",
         "command": " ".join(sys.argv),
@@ -868,7 +871,7 @@ def write_manifest(
         "jobs_planned": len(jobs),
         "jobs_uncapped_for_selected_space": count_uncapped_jobs(args),
         "jobs_completed": completed,
-        "jobs_failed": failed,
+        "jobs_failed": len(failures),
         "jobs_skipped_existing": skipped,
         "jobs_run_this_invocation": completed - skipped,
         "max_configs": args.max_configs,
@@ -876,7 +879,10 @@ def write_manifest(
         "hyperparam_samples": args.hyperparam_samples,
         "hyperparam_seed": args.hyperparam_seed,
         "sampled_hyperparameters": sampled_hyperparameter_manifest(args),
-        "paper_protocol_status": paper_protocol_status(args, len(jobs), completed, failed),
+        "paper_protocol_status": paper_protocol_status(args, len(jobs), completed, len(failures)),
+        "summary": summary_rows,
+        "hyperparameter_summary": hyperparameter_summary_rows,
+        "failure_summary": failures,
         "paper_space": {
             "timesteps": PAPER_TIMESTEPS,
             "test_max_steps": PAPER_TEST_MAX_STEPS,
@@ -1020,7 +1026,7 @@ def main() -> None:
         )
     if failures:
         write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)
-    write_manifest(args, jobs, len(results), skipped, len(failures))
+    write_manifest(args, jobs, results, failures, len(results), skipped)
     print(f"wrote {args.outdir / 'cartpole_ppo_sweep_plan.csv'}")
     if not args.dry_run:
         print(f"wrote {args.outdir / 'cartpole_ppo_sweep_results.csv'}")
