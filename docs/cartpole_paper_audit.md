@@ -163,10 +163,13 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   provenance for executed rows. Its paper-scale plan/execution flags require the generated
   sampled configs themselves to satisfy the paper's reported exact discrete hyperparameter ranges,
   learning-rate interval, and PPO-LSTM `nminibatches = 1` rule, plus the paper's
-  `1000` evaluation rollouts. Its manifest records the standard CartPole reward spec and embeds the
+  `1000` evaluation rollouts. Its manifest records the standard CartPole reward spec, embeds the
   aggregate summary, per-hyperparameter summary, and failure rows so downstream reproduction status
-  checks can validate best-hyperparameter seed coverage without trusting CSV sidecars. This is
-  search infrastructure; the full paper-scale sweep has not been run.
+  checks can validate best-hyperparameter seed coverage without trusting CSV sidecars, and now includes
+  a dependency-light `runtime_preflight` block with PyTorch/CUDA import status, `nvidia-smi` GPU metadata
+  when available, planned job counts, requested training timesteps, requested evaluation rollouts, and
+  the full paper-scale reference size. This is launch provenance and search infrastructure; the full
+  paper-scale sweep has not been run.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
   generated abstract-result, LaTeX table, PSM policy, and Figure 19 reference fragments consumed by `essay/project.tex`,
@@ -573,7 +576,18 @@ paper-scale PPO2 runs.
   verifies that sampled PPO sweep manifest entries record each policy-level hyperparameter config
   once and match every per-seed job generated from that config.
 - `tests/test_cartpole_ppo_sweep.py::test_dry_run_writes_plan_and_manifest` verifies that dry-run
-  sweep planning writes a CSV plan and manifest with paper-space metadata.
+  sweep planning writes a CSV plan and manifest with paper-space metadata plus runtime preflight
+  fields for PyTorch/CUDA availability, GPU metadata, job counts, and the paper-scale reference work.
+- `tests/test_cartpole_ppo_sweep.py::test_runtime_preflight_records_cuda_without_requiring_real_torch`
+  verifies that runtime preflight records CUDA device metadata when PyTorch reports it, without
+  requiring real local CUDA hardware in the test.
+- `tests/test_cartpole_ppo_sweep.py::test_runtime_preflight_records_cuda_probe_errors_without_failing_manifest`
+  verifies that CUDA probe failures are recorded in the manifest preflight instead of aborting
+  a sweep manifest write.
+- `tests/test_cartpole_ppo_sweep.py::test_nvidia_smi_status_times_out_and_tolerates_nonnumeric_memory`
+  verifies that GPU metadata probing has a timeout and tolerates nonnumeric `nvidia-smi` memory fields.
+- `tests/test_cartpole_ppo_sweep.py::test_runtime_preflight_keeps_full_paper_reference_for_partial_plans`
+  verifies that capped or narrowed local plans still record the full paper-scale PPO reference size.
 - `tests/test_cartpole_ppo_sweep.py::test_write_manifest_embeds_completed_summary_evidence`
   verifies that completed sweep manifests embed the single-job summary, per-hyperparameter summary,
   and failure rows used as downstream evidence.

@@ -439,7 +439,12 @@ match and whose checkpoint plus metrics artifacts still exist. Use
 stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`,
 `cartpole_ppo_sweep_summary.csv`, and `cartpole_ppo_sweep_hyperparam_summary.csv`;
 the manifest embeds the summary and hyperparameter-summary rows used as downstream evidence.
-the first summary selects the best completed single job per policy by train
+Every sweep manifest also writes a dependency-light `runtime_preflight` block with
+PyTorch import/CUDA availability, `nvidia-smi` GPU metadata when available, planned
+job counts, requested training timesteps, requested evaluation rollouts, and the
+full paper-scale reference size. This is launch provenance only; it does not turn
+a dry-run or partial run into paper-scale execution evidence.
+The first summary selects the best completed single job per policy by train
 success, then train reward, while the hyperparameter summary aggregates completed
 seeds for each sampled config, records selected-seed coverage and missing seeds,
 and marks the best config per policy only after preferring complete selected-seed

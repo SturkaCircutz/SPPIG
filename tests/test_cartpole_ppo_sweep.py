@@ -22,6 +22,7 @@ from run_cartpole_ppo_sweep import (  # noqa: E402
     paper_protocol_status,
     read_existing_results,
     resumable_result_for_job,
+    runtime_preflight,
     sampled_hyperparameter_manifest,
     summarize_hyperparameter_configs,
     summarize_results,
@@ -501,6 +502,19 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(manifest["jobs_completed"], 0)
         self.assertEqual(manifest["paper_space"]["timesteps"], 10_000_000)
         self.assertEqual(manifest["paper_space"]["eval_rollouts"], 1000)
+        self.assertIn("runtime_preflight", manifest)
+        self.assertEqual(manifest["runtime_preflight"]["jobs_planned"], 2)
+        self.assertEqual(
+            manifest["runtime_preflight"]["jobs_uncapped_for_selected_space"],
+            manifest["jobs_uncapped_for_selected_space"],
+        )
+        self.assertEqual(manifest["runtime_preflight"]["paper_scale_reference_job_count"], 100)
+        self.assertEqual(manifest["runtime_preflight"]["selected_space_reference_job_count"], 100)
+        self.assertEqual(manifest["runtime_preflight"]["paper_scale_reference_training_timesteps"], 1_000_000_000)
+        self.assertEqual(manifest["runtime_preflight"]["paper_scale_reference_eval_rollouts"], 100_000)
+        self.assertIn("torch_importable", manifest["runtime_preflight"]["torch"])
+        self.assertIn("available", manifest["runtime_preflight"]["nvidia_smi"])
+        self.assertIn("does not prove paper-scale execution", manifest["runtime_preflight"]["note"])
         self.assertTrue(manifest["paper_space"]["reward_spec"]["reward_equals_survived_steps"])
         self.assertEqual(manifest["paper_space"]["space_spec"]["action_dimension"], 1)
         self.assertEqual(manifest["paper_space"]["space_spec"]["observation_dimension"], 4)
@@ -553,6 +567,166 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(manifest["failure_summary"], [failure])
         self.assertEqual(manifest["jobs_failed"], 1)
         self.assertFalse(manifest["paper_protocol_status"]["all_planned_jobs_completed"])
+
+    def test_runtime_preflight_records_cuda_without_requiring_real_torch(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--max-configs", "1"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+        jobs = build_jobs(args)
+
+        class FakeProperties:
+            total_memory = 8 * 1024 * 1024 * 1024
+
+        class FakeCuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def device_count():
+                return 1
+
+            @staticmethod
+            def get_device_properties(_index):
+                return FakeProperties()
+
+            @staticmethod
+            def get_device_name(_index):
+                return "Fake CUDA GPU"
+
+        class FakeTorch:
+            __version__ = "test"
+            cuda = FakeCuda()
+
+        with (
+            patch.dict(sys.modules, {"torch": FakeTorch}),
+            patch(
+                "run_cartpole_ppo_sweep._nvidia_smi_status",
+                return_value={
+                    "available": True,
+                    "gpus": [
+                        {
+                            "index": 0,
+                            "name": "Fake CUDA GPU",
+                            "memory_total_mib": 8192,
+                            "driver_version": "test",
+                        }
+                    ],
+                    "error": None,
+                },
+            ),
+        ):
+            preflight = runtime_preflight(args, jobs)
+
+        self.assertTrue(preflight["torch"]["torch_importable"])
+        self.assertTrue(preflight["torch"]["cuda_available"])
+        self.assertEqual(preflight["torch"]["cuda_device_count"], 1)
+        self.assertEqual(preflight["torch"]["cuda_devices"][0]["name"], "Fake CUDA GPU")
+        self.assertEqual(preflight["torch"]["cuda_devices"][0]["total_memory_bytes"], 8 * 1024 * 1024 * 1024)
+        self.assertTrue(preflight["nvidia_smi"]["available"])
+        self.assertEqual(preflight["jobs_planned"], 1)
+        self.assertEqual(preflight["planned_training_timesteps"], int(jobs[0]["total_timesteps"]))
+
+    def test_runtime_preflight_records_cuda_probe_errors_without_failing_manifest(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--max-configs", "1"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        class BrokenCuda:
+            @staticmethod
+            def is_available():
+                raise RuntimeError("driver mismatch")
+
+        class FakeTorch:
+            __version__ = "broken"
+            cuda = BrokenCuda()
+
+        with (
+            patch.dict(sys.modules, {"torch": FakeTorch}),
+            patch("run_cartpole_ppo_sweep._nvidia_smi_status", return_value={"available": False, "gpus": [], "error": None}),
+        ):
+            preflight = runtime_preflight(args, build_jobs(args))
+
+        self.assertTrue(preflight["torch"]["torch_importable"])
+        self.assertFalse(preflight["torch"]["cuda_available"])
+        self.assertEqual(preflight["torch"]["cuda_device_count"], 0)
+        self.assertIn("driver mismatch", preflight["torch"]["cuda_probe_error"])
+
+    def test_nvidia_smi_status_times_out_and_tolerates_nonnumeric_memory(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--max-configs", "1"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        timeout = subprocess.TimeoutExpired(cmd=["nvidia-smi"], timeout=5)
+        with patch("subprocess.run", side_effect=timeout):
+            timed_out = runtime_preflight(args, [])["nvidia_smi"]
+
+        self.assertFalse(timed_out["available"])
+        self.assertIn("TimeoutExpired", timed_out["error"])
+
+        completed = subprocess.CompletedProcess(
+            args=["nvidia-smi"],
+            returncode=0,
+            stdout="Mystery GPU, N/A, 999.0\n",
+            stderr="",
+        )
+        with patch("subprocess.run", return_value=completed):
+            parsed = runtime_preflight(args, [])["nvidia_smi"]
+
+        self.assertTrue(parsed["available"])
+        self.assertIsNone(parsed["gpus"][0]["memory_total_mib"])
+        self.assertEqual(parsed["gpus"][0]["name"], "Mystery GPU")
+
+    def test_runtime_preflight_keeps_full_paper_reference_for_partial_plans(self):
+        original_argv = sys.argv
+        try:
+            sys.argv = [
+                SCRIPT,
+                "--dry-run",
+                "--policies",
+                "mlp",
+                "--seeds",
+                "0",
+                "--hyperparam-samples",
+                "2",
+                "--max-configs",
+                "1",
+            ]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        preflight = runtime_preflight(args, build_jobs(args))
+
+        self.assertEqual(preflight["jobs_planned"], 1)
+        self.assertEqual(preflight["jobs_uncapped_for_selected_space"], 2)
+        self.assertEqual(preflight["selected_space_reference_job_count"], 2)
+        self.assertEqual(preflight["paper_scale_reference_job_count"], 100)
+        self.assertEqual(preflight["paper_scale_reference_training_timesteps"], 1_000_000_000)
+        self.assertEqual(preflight["paper_scale_reference_eval_rollouts"], 100_000)
+
+        try:
+            sys.argv = [SCRIPT, "--dry-run", "--hyperparam-mode", "grid"]
+            grid_args = parse_args()
+        finally:
+            sys.argv = original_argv
+        grid_preflight = runtime_preflight(grid_args, build_jobs(grid_args))
+
+        self.assertEqual(
+            grid_preflight["selected_space_reference_job_count"],
+            grid_preflight["jobs_uncapped_for_selected_space"],
+        )
+        self.assertGreater(grid_preflight["selected_space_reference_job_count"], 100)
+        self.assertEqual(grid_preflight["paper_scale_reference_job_count"], 100)
 
     def test_paper_protocol_status_identifies_full_dry_run_plan(self):
         original_argv = sys.argv

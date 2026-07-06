@@ -5,6 +5,7 @@ import csv
 import json
 import math
 import random
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -849,6 +850,128 @@ def failed_job_row(job: Dict[str, Any], error: Exception) -> Dict[str, Any]:
     }
 
 
+def _torch_runtime_status() -> Dict[str, Any]:
+    try:
+        import torch  # type: ignore
+    except Exception as exc:
+        return {
+            "torch_importable": False,
+            "torch_version": None,
+            "cuda_available": False,
+            "cuda_device_count": 0,
+            "cuda_devices": [],
+            "torch_import_error": f"{type(exc).__name__}: {exc}",
+            "cuda_probe_error": None,
+        }
+
+    try:
+        cuda_available = bool(torch.cuda.is_available())
+    except Exception as exc:
+        return {
+            "torch_importable": True,
+            "torch_version": getattr(torch, "__version__", None),
+            "cuda_available": False,
+            "cuda_device_count": 0,
+            "cuda_devices": [],
+            "torch_import_error": None,
+            "cuda_probe_error": f"{type(exc).__name__}: {exc}",
+        }
+    devices = []
+    cuda_probe_error = None
+    if cuda_available:
+        try:
+            device_count = int(torch.cuda.device_count())
+            for index in range(device_count):
+                properties = torch.cuda.get_device_properties(index)
+                devices.append(
+                    {
+                        "index": index,
+                        "name": torch.cuda.get_device_name(index),
+                        "total_memory_bytes": int(properties.total_memory),
+                    }
+                )
+        except Exception as exc:
+            cuda_available = False
+            devices = []
+            cuda_probe_error = f"{type(exc).__name__}: {exc}"
+    return {
+        "torch_importable": True,
+        "torch_version": getattr(torch, "__version__", None),
+        "cuda_available": cuda_available,
+        "cuda_device_count": len(devices),
+        "cuda_devices": devices,
+        "torch_import_error": None,
+        "cuda_probe_error": cuda_probe_error,
+    }
+
+
+def _nvidia_smi_status() -> Dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total,driver_version",
+                "--format=csv,noheader,nounits",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        return {
+            "available": False,
+            "gpus": [],
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    gpus = []
+    for index, line in enumerate(completed.stdout.splitlines()):
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) < 3:
+            continue
+        try:
+            memory_total_mib = int(float(parts[1]))
+        except ValueError:
+            memory_total_mib = None
+        gpus.append(
+            {
+                "index": index,
+                "name": parts[0],
+                "memory_total_mib": memory_total_mib,
+                "driver_version": parts[2],
+            }
+        )
+    return {
+        "available": bool(gpus),
+        "gpus": gpus,
+        "error": None,
+    }
+
+
+def runtime_preflight(args: argparse.Namespace, jobs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    planned_training_timesteps = sum(int(job["total_timesteps"]) for job in jobs)
+    planned_eval_rollouts = sum(int(job["eval_rollouts"]) for job in jobs)
+    selected_space_reference_job_count = count_uncapped_jobs(args)
+    paper_scale_job_count = 2 * 5 * PAPER_HYPERPARAMETER_SAMPLES
+    return {
+        "torch": _torch_runtime_status(),
+        "nvidia_smi": _nvidia_smi_status(),
+        "jobs_planned": len(jobs),
+        "jobs_uncapped_for_selected_space": selected_space_reference_job_count,
+        "selected_space_reference_job_count": selected_space_reference_job_count,
+        "paper_scale_reference_job_count": paper_scale_job_count,
+        "planned_training_timesteps": planned_training_timesteps,
+        "paper_scale_reference_training_timesteps": paper_scale_job_count * PAPER_TIMESTEPS,
+        "planned_eval_rollouts": planned_eval_rollouts,
+        "paper_scale_reference_eval_rollouts": paper_scale_job_count * PAPER_EVAL_ROLLOUTS,
+        "note": (
+            "This is a launch preflight for local capacity/provenance only. It does not prove "
+            "paper-scale execution; paper_scale_execution still requires completed matching jobs."
+        ),
+    }
+
+
 def write_manifest(
     args: argparse.Namespace,
     jobs: List[Dict[str, Any]],
@@ -880,6 +1003,7 @@ def write_manifest(
         "hyperparam_seed": args.hyperparam_seed,
         "sampled_hyperparameters": sampled_hyperparameter_manifest(args),
         "paper_protocol_status": paper_protocol_status(args, len(jobs), completed, len(failures)),
+        "runtime_preflight": runtime_preflight(args, jobs),
         "summary": summary_rows,
         "hyperparameter_summary": hyperparameter_summary_rows,
         "failure_summary": failures,
