@@ -57,6 +57,7 @@ class PPOConfig:
     keep_best: bool = True
     verbose: bool = False
     metrics_output: Optional[str] = None
+    device: str = "auto"
 
 
 @dataclass
@@ -117,6 +118,26 @@ def result_to_metrics(result: PPOResult) -> Dict[str, object]:
     }
 
 
+def resolve_torch_device(device: str = "auto") -> Tuple[torch.device, Dict[str, object]]:
+    requested = (device or "auto").strip().lower()
+    if requested == "auto":
+        selected = "cuda" if torch.cuda.is_available() else "cpu"
+    else:
+        selected = requested
+    fallback_reason = None
+    if selected.startswith("cuda") and not torch.cuda.is_available():
+        fallback_reason = "cuda_requested_but_unavailable"
+        selected = "cpu"
+    torch_device = torch.device(selected)
+    return torch_device, {
+        "requested": requested,
+        "selected": str(torch_device),
+        "cuda_available": bool(torch.cuda.is_available()),
+        "cuda_device_count": int(torch.cuda.device_count()) if torch.cuda.is_available() else 0,
+        "fallback_reason": fallback_reason,
+    }
+
+
 def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
     train_env = CartpoleEnv.train_env()
     test_env = CartpoleEnv.test_env()
@@ -162,6 +183,7 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
         "no_local_supervised_warm_start": no_local_supervised_warm_start,
         "paper_timestep_budget": paper_timestep_budget,
         "paper_test_horizon": paper_test_horizon,
+        "torch_device": resolve_torch_device(cfg.device)[1],
         "ppo_lstm_minibatches_fixed_to_one": lstm_minibatches_ok,
         "single_run_matches_paper_budget": single_run_matches_paper_budget,
         "five_seed_hyperparameter_search": False,
@@ -238,7 +260,7 @@ class MLPActorCritic(nn.Module):
         pass
 
     def act(self, observation: Observation) -> float:
-        obs = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
+        obs = torch.tensor(observation, dtype=torch.float32, device=self.log_std.device).unsqueeze(0)
         with torch.no_grad():
             mean = self.action_mean(obs)
         return float(mean.squeeze(0).item())
@@ -289,7 +311,7 @@ class LSTMActorCritic(nn.Module):
         self._state = None
 
     def act(self, observation: Observation) -> float:
-        obs = torch.tensor(observation, dtype=torch.float32).view(1, 1, 4)
+        obs = torch.tensor(observation, dtype=torch.float32, device=self.log_std.device).view(1, 1, 4)
         with torch.no_grad():
             features = torch.tanh(self.encoder(self.normalize(obs)))
             if self._state is None:
@@ -303,8 +325,8 @@ class LSTMActorCritic(nn.Module):
         return self.action_scale * torch.tanh(self.actor(output))
 
     def initial_state(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        h0 = torch.zeros(1, batch_size, self.lstm.hidden_size)
-        c0 = torch.zeros(1, batch_size, self.lstm.hidden_size)
+        h0 = torch.zeros(1, batch_size, self.lstm.hidden_size, device=self.log_std.device)
+        c0 = torch.zeros(1, batch_size, self.lstm.hidden_size, device=self.log_std.device)
         return h0, c0
 
     def sequence_action_and_value(
@@ -360,6 +382,7 @@ class LSTMActorCritic(nn.Module):
 def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn.Module, PPOResult]:
     validate_pretrain_teacher_config(cfg)
     validate_lstm_minibatch_config(cfg)
+    device, device_status = resolve_torch_device(cfg.device)
     torch.manual_seed(cfg.seed)
     random.seed(cfg.seed)
     envs = [CartpoleEnv.train_env(seed=cfg.seed + env_idx) for env_idx in range(cfg.num_envs)]
@@ -370,16 +393,17 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
         model = LSTMActorCritic(cfg.hidden_size, cfg.initial_log_std, cfg.action_scale)
     else:
         raise ValueError("policy_type must be 'mlp' or 'lstm'")
+    model.to(device)
 
     if cfg.pretrain_steps > 0 and isinstance(model, MLPActorCritic):
         pretrain_optimizer = torch.optim.Adam(model.parameters(), lr=cfg.pretrain_learning_rate)
-        _pretrain_mlp_actor(model, pretrain_optimizer, cfg)
+        _pretrain_mlp_actor(model, pretrain_optimizer, cfg, device)
     elif cfg.pretrain_steps > 0 and isinstance(model, LSTMActorCritic):
         pretrain_optimizer = torch.optim.Adam(model.parameters(), lr=cfg.pretrain_learning_rate)
-        _pretrain_lstm_actor(model, pretrain_optimizer, cfg)
+        _pretrain_lstm_actor(model, pretrain_optimizer, cfg, device)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.learning_rate)
-    obs = torch.tensor([env.reset() for env in envs], dtype=torch.float32)
-    episode_steps = torch.zeros(cfg.num_envs, dtype=torch.long)
+    obs = torch.tensor([env.reset() for env in envs], dtype=torch.float32, device=device)
+    episode_steps = torch.zeros(cfg.num_envs, dtype=torch.long, device=device)
     lstm_state: Optional[Tuple[torch.Tensor, torch.Tensor]]
     lstm_state = model.initial_state(cfg.num_envs) if isinstance(model, LSTMActorCritic) else None
     timesteps = 0
@@ -437,6 +461,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
                 timesteps=timesteps,
                 rollouts=cfg.eval_rollouts,
                 test_max_steps=cfg.eval_test_max_steps,
+                device=device,
             )
             score = current.train_success_rate * 1_000_000.0 + current.train_reward_mean
             eval_history.append(result_to_metrics(current))
@@ -465,11 +490,19 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
             timesteps=timesteps,
             rollouts=cfg.eval_rollouts,
             test_max_steps=cfg.eval_test_max_steps,
+            device=device,
         )
     final_metrics = result_to_metrics(result)
     if output is not None:
         os.makedirs(os.path.dirname(output), exist_ok=True)
-        torch.save({"config": cfg.__dict__, "state_dict": model.state_dict(), "result": result.__dict__}, output)
+        torch.save(
+            {
+                "config": cfg.__dict__,
+                "state_dict": {key: value.detach().cpu() for key, value in model.state_dict().items()},
+                "result": result.__dict__,
+            },
+            output,
+        )
     metrics_output = cfg.metrics_output
     if metrics_output is None and output is not None:
         metrics_output = f"{os.path.splitext(output)[0]}_metrics.json"
@@ -488,6 +521,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
                     "reward_spec": cartpole_reward_spec(),
                     "space_spec": cartpole_space_spec(CartpoleEnv.train_env().cfg),
                     "paper_protocol_status": ppo_paper_protocol_status(cfg),
+                    "torch_device": device_status,
                     "selection_rule": "max train_success_rate, then train_reward_mean when eval_interval > 0 and keep_best is true",
                 },
                 handle,
@@ -535,6 +569,7 @@ def _collect_rollout(
     values: List[torch.Tensor] = []
 
     num_envs = len(envs)
+    device = obs.device
     if isinstance(model, LSTMActorCritic):
         state = lstm_state if lstm_state is not None else model.initial_state(num_envs)
         # PPO-LSTM updates replay the exact rollout sequence, so they need the
@@ -583,7 +618,7 @@ def _collect_rollout(
             step_dones.append(float(episode_done))
             step_horizon_truncations.append(float(truncated and not done))
             step_failure_terminations.append(float(done))
-        done_tensor = torch.tensor(step_dones, dtype=torch.float32)
+        done_tensor = torch.tensor(step_dones, dtype=torch.float32, device=device)
         if state is not None:
             # Reset recurrent memory for envs that terminated or hit the
             # configured horizon before their reset observation is reused.
@@ -591,12 +626,12 @@ def _collect_rollout(
             state = (state[0] * mask, state[1] * mask)
         actions.append(action)
         log_probs.append(log_prob)
-        rewards.append(torch.tensor(step_rewards, dtype=torch.float32))
+        rewards.append(torch.tensor(step_rewards, dtype=torch.float32, device=device))
         dones.append(done_tensor)
-        horizon_truncations.append(torch.tensor(step_horizon_truncations, dtype=torch.float32))
-        failure_terminations.append(torch.tensor(step_failure_terminations, dtype=torch.float32))
+        horizon_truncations.append(torch.tensor(step_horizon_truncations, dtype=torch.float32, device=device))
+        failure_terminations.append(torch.tensor(step_failure_terminations, dtype=torch.float32, device=device))
         values.append(value.view(num_envs))
-        obs = torch.tensor(next_observations, dtype=torch.float32)
+        obs = torch.tensor(next_observations, dtype=torch.float32, device=device)
         episode_steps = next_episode_steps
 
     obs_batch = torch.stack(observations)
@@ -685,7 +720,7 @@ def _update_mlp(
     for _ in range(cfg.update_epochs):
         # MLP policies can shuffle individual transitions because there is no
         # recurrent context to preserve.
-        indices = torch.randperm(batch_size)
+        indices = torch.randperm(batch_size, device=advantages.device)
         for start in range(0, batch_size, minibatch_size):
             idx = indices[start : start + minibatch_size]
             _, new_log_prob, entropy, value = model.get_action_and_value(observations[idx], actions[idx].unsqueeze(-1))
@@ -764,7 +799,12 @@ def _update_lstm(
     return _ppo_optimizer_metrics(policy_losses, value_losses, entropies, losses, approx_kls, clip_fractions)
 
 
-def _pretrain_mlp_actor(model: MLPActorCritic, optimizer: torch.optim.Optimizer, cfg: PPOConfig) -> None:
+def _pretrain_mlp_actor(
+    model: MLPActorCritic,
+    optimizer: torch.optim.Optimizer,
+    cfg: PPOConfig,
+    device: torch.device,
+) -> None:
     env = CartpoleEnv.train_env(seed=cfg.seed + 10_000)
     teacher = BangBangCartpolePSM()
     observations: List[torch.Tensor] = []
@@ -774,15 +814,15 @@ def _pretrain_mlp_actor(model: MLPActorCritic, optimizer: torch.optim.Optimizer,
         teacher.reset()
         for _ in range(env.cfg.max_steps):
             action = teacher.act(obs)
-            observations.append(torch.tensor(obs, dtype=torch.float32))
+            observations.append(torch.tensor(obs, dtype=torch.float32, device=device))
             actions.append(action)
             obs, _, done = env.step(action)
             if done:
                 break
     obs_batch = torch.stack(observations)
-    action_batch = torch.tensor(actions, dtype=torch.float32).unsqueeze(-1)
+    action_batch = torch.tensor(actions, dtype=torch.float32, device=device).unsqueeze(-1)
     for _ in range(cfg.pretrain_steps):
-        idx = torch.randint(0, len(obs_batch), (min(cfg.pretrain_batch_size, len(obs_batch)),))
+        idx = torch.randint(0, len(obs_batch), (min(cfg.pretrain_batch_size, len(obs_batch)),), device=device)
         pred = model.action_mean(obs_batch[idx])
         loss = F.mse_loss(pred, action_batch[idx])
         optimizer.zero_grad()
@@ -790,7 +830,12 @@ def _pretrain_mlp_actor(model: MLPActorCritic, optimizer: torch.optim.Optimizer,
         optimizer.step()
 
 
-def _pretrain_lstm_actor(model: LSTMActorCritic, optimizer: torch.optim.Optimizer, cfg: PPOConfig) -> None:
+def _pretrain_lstm_actor(
+    model: LSTMActorCritic,
+    optimizer: torch.optim.Optimizer,
+    cfg: PPOConfig,
+    device: torch.device,
+) -> None:
     env = CartpoleEnv.train_env(seed=cfg.seed + 20_000)
     teacher = BangBangCartpolePSM()
     obs_sequences: List[torch.Tensor] = []
@@ -802,17 +847,17 @@ def _pretrain_lstm_actor(model: LSTMActorCritic, optimizer: torch.optim.Optimize
         actions: List[float] = []
         for _ in range(env.cfg.max_steps):
             action = teacher.act(obs)
-            observations.append(torch.tensor(obs, dtype=torch.float32))
+            observations.append(torch.tensor(obs, dtype=torch.float32, device=device))
             actions.append(action)
             obs, _, done = env.step(action)
             if done:
                 break
         if observations:
             obs_sequences.append(torch.stack(observations))
-            action_sequences.append(torch.tensor(actions, dtype=torch.float32))
+            action_sequences.append(torch.tensor(actions, dtype=torch.float32, device=device))
 
     for _ in range(cfg.pretrain_steps):
-        seq_idx = torch.randint(0, len(obs_sequences), (1,)).item()
+        seq_idx = torch.randint(0, len(obs_sequences), (1,), device=device).item()
         obs = obs_sequences[seq_idx].unsqueeze(1)
         target = action_sequences[seq_idx].unsqueeze(1)
         pred = model.sequence_action_mean(obs)
@@ -828,7 +873,11 @@ def evaluate_ppo_model(
     timesteps: int,
     rollouts: int = 20,
     test_max_steps: int = 15_000,
+    device: torch.device | None = None,
 ) -> PPOResult:
+    if device is None:
+        device = next(model.parameters()).device
+    model.to(device)
     train_env = CartpoleEnv.train_env(seed=100)
     test_env = CartpoleEnv.test_env(seed=200)
     train_results = [train_env.rollout(model) for _ in range(rollouts)]

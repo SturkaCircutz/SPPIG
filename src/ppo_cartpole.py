@@ -1,3 +1,7 @@
 from __future__ import annotations
 
-from cartpole.ppo.core import *  # noqa: F401,F403
+import sys
+
+from cartpole.ppo import core as _core
+
+sys.modules[__name__] = _core

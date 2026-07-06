@@ -51,6 +51,17 @@ python3 -m venv .venv
 .venv/bin/python -m unittest discover -s tests
 ```
 
+## Repository Structure
+
+- `src/cartpole/env.py`: CartPole environment, reward/space provenance, and fixed/manual PSM evaluators.
+- `src/cartpole/ppo/`: PPO/PPO-LSTM runtime and training CLI implementation.
+- `src/cartpole/psm/`: current probabilistic-programmatic synthesis, PSM training CLI, and evaluator.
+- `src/cartpole/direct_opt/`: bounded Direct-Opt diagnostic baseline and CLI implementation.
+- Legacy entry points such as `src/train_cartpole_ppo.py`, `src/train_cartpole_psm.py`,
+  `src/train_cartpole_direct_opt.py`, `src/cartpole_env.py`, `src/cartpole_synthesis.py`,
+  and `src/cartpole_direct_opt.py` are retained as compatibility wrappers, so older commands in this
+  README and existing artifact provenance still work.
+
 ## Run Experiments
 
 Regenerate the CartPole result table, summary, and manifest:
@@ -382,7 +393,11 @@ PPO MLP:
 
 The standalone PPO CLI defaults to the paper `10^7` timestep budget when
 `--timesteps` is omitted. The shorter commands above are local diagnostic
-examples that override the default explicitly.
+examples that override the default explicitly. PPO accepts `--device auto`,
+`--device cpu`, or `--device cuda[:index]` and records the selected torch device
+in metrics. A CUDA-capable PyTorch install is required before local GPU runs can
+use the visible NVIDIA GPU; CPU-only smoke runs remain valid launch diagnostics
+but are not paper-scale training evidence.
 
 PPO-LSTM diagnostic:
 

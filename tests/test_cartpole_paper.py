@@ -151,6 +151,7 @@ if HAS_TORCH:
         _collect_rollout,
         _update_lstm,
         ppo_paper_protocol_status,
+        resolve_torch_device,
         train_ppo_cartpole,
     )
 
@@ -6328,9 +6329,23 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertFalse(status["local_supervised_warm_start"])
         self.assertTrue(status["no_local_supervised_warm_start"])
         self.assertTrue(status["ppo_lstm_minibatches_fixed_to_one"])
+        self.assertEqual(status["torch_device"]["requested"], "auto")
+        self.assertIn(status["torch_device"]["selected"], {"cpu", "cuda"})
         self.assertTrue(status["single_run_matches_paper_budget"])
         self.assertFalse(status["five_seed_hyperparameter_search"])
         self.assertFalse(status["paper_scale_baseline_protocol"])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_device_resolution_falls_back_when_cuda_unavailable(self):
+        device, status = resolve_torch_device("cuda")
+
+        if torch.cuda.is_available():
+            self.assertEqual(str(device), "cuda")
+            self.assertIsNone(status["fallback_reason"])
+        else:
+            self.assertEqual(str(device), "cpu")
+            self.assertEqual(status["fallback_reason"], "cuda_requested_but_unavailable")
+        self.assertEqual(status["requested"], "cuda")
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_protocol_status_records_warm_start_teacher_order(self):

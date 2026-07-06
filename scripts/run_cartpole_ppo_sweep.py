@@ -47,6 +47,7 @@ PLAN_FIELDS = [
     "eval_rollouts",
     "test_max_steps",
     "eval_interval",
+    "device",
     "output",
     "metrics_output",
 ]
@@ -236,6 +237,7 @@ def build_jobs(args: argparse.Namespace) -> List[Dict[str, Any]]:
                         "eval_rollouts": args.eval_rollouts,
                         "test_max_steps": args.test_max_steps,
                         "eval_interval": args.eval_interval,
+                        "device": args.device,
                         "output": str(args.outdir / "checkpoints" / f"{name}.pt"),
                         "metrics_output": str(args.outdir / "metrics" / f"{name}.json"),
                     }
@@ -692,6 +694,34 @@ def _status_int_matches(status: Dict[str, Any], field: str, expected: int) -> bo
         return False
 
 
+def _expected_selected_device(requested_device: str) -> str:
+    requested = (requested_device or "auto").strip().lower()
+    if requested.startswith("cuda"):
+        return requested
+    return requested
+
+
+def _torch_device_block_matches_resumable_job(job: Dict[str, Any], torch_device: Dict[str, Any]) -> bool:
+    requested = str(job["device"]).strip().lower()
+    if torch_device.get("requested") != requested:
+        return False
+    selected = torch_device.get("selected")
+    if not isinstance(selected, str):
+        return False
+    if requested == "auto":
+        return selected in {"cpu", "cuda"} or selected.startswith("cuda:")
+    if requested == "cpu":
+        return selected == "cpu"
+    if requested.startswith("cuda"):
+        return selected == _expected_selected_device(requested) and torch_device.get("fallback_reason") is None
+    return selected == requested
+
+
+def _torch_device_matches_resumable_job(job: Dict[str, Any], status: Dict[str, Any]) -> bool:
+    torch_device = status.get("torch_device")
+    return isinstance(torch_device, dict) and _torch_device_block_matches_resumable_job(job, torch_device)
+
+
 def _protocol_status_matches_resumable_job(job: Dict[str, Any], status: Dict[str, Any]) -> bool:
     policy = str(job["policy"])
     total_timesteps = int(job["total_timesteps"])
@@ -711,6 +741,7 @@ def _protocol_status_matches_resumable_job(job: Dict[str, Any], status: Dict[str
 
     return (
         status.get("policy_type") == policy
+        and _torch_device_matches_resumable_job(job, status)
         and _status_int_matches(status, "selected_test_max_steps", test_max_steps)
         and _status_int_matches(status, "paper_test_horizon_steps", PAPER_TEST_MAX_STEPS)
         and _status_int_matches(status, "selected_eval_rollouts", eval_rollouts)
@@ -738,9 +769,12 @@ def _metrics_match_resumable_row(job: Dict[str, Any], row: Dict[str, str]) -> bo
     config = metrics.get("config")
     selected_result = metrics.get("selected_result")
     paper_status = metrics.get("paper_protocol_status")
+    torch_device = metrics.get("torch_device")
     if not isinstance(command, str) or not command.strip():
         return False
     if not isinstance(config, dict) or not isinstance(selected_result, dict) or not isinstance(paper_status, dict):
+        return False
+    if not isinstance(torch_device, dict) or not _torch_device_block_matches_resumable_job(job, torch_device):
         return False
 
     config_checks = {
@@ -756,6 +790,7 @@ def _metrics_match_resumable_row(job: Dict[str, Any], row: Dict[str, str]) -> bo
         "eval_interval": int(job["eval_interval"]),
         "seed": int(job["seed"]),
         "metrics_output": str(job["metrics_output"]),
+        "device": str(job["device"]),
     }
     for key, expected in config_checks.items():
         if config.get(key) != expected:
@@ -824,6 +859,7 @@ def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
         eval_test_max_steps=int(job["test_max_steps"]),
         eval_interval=int(job["eval_interval"]),
         metrics_output=job["metrics_output"],
+        device=str(job["device"]),
         seed=int(job["seed"]),
         initial_log_std=-1.0,
     )
@@ -1001,6 +1037,7 @@ def write_manifest(
         "hyperparam_mode": args.hyperparam_mode,
         "hyperparam_samples": args.hyperparam_samples,
         "hyperparam_seed": args.hyperparam_seed,
+        "device": args.device,
         "sampled_hyperparameters": sampled_hyperparameter_manifest(args),
         "paper_protocol_status": paper_protocol_status(args, len(jobs), completed, len(failures)),
         "runtime_preflight": runtime_preflight(args, jobs),
@@ -1065,6 +1102,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-rollouts", type=int, default=PAPER_EVAL_ROLLOUTS)
     parser.add_argument("--test-max-steps", type=int, default=15_000)
     parser.add_argument("--eval-interval", type=int, default=0)
+    parser.add_argument("--device", default="auto", help="Torch device for PPO jobs: auto, cpu, cuda, or cuda:N.")
     parser.add_argument(
         "--hyperparam-mode",
         choices=("paper-random", "grid"),

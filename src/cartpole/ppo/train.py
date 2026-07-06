@@ -39,6 +39,7 @@ def main() -> None:
     parser.add_argument("--eval-interval", type=int, default=0)
     parser.add_argument("--no-keep-best", action="store_true")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--device", default="auto", help="Torch device: auto, cpu, cuda, or cuda:N.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--output", default="artifacts/cartpole_ppo.pt")
     parser.add_argument("--metrics-output", default=None)
@@ -65,6 +66,7 @@ def main() -> None:
         keep_best=not args.no_keep_best,
         verbose=args.verbose,
         metrics_output=args.metrics_output,
+        device=args.device,
         seed=args.seed,
     )
     _, result = train_ppo_cartpole(cfg, output=args.output)

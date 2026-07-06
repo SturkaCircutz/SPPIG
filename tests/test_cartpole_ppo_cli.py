@@ -63,7 +63,34 @@ class CartpolePPOCliTest(unittest.TestCase):
 
         self.assertEqual(captured["cfg"].total_timesteps, PAPER_PPO_TIMESTEPS)
         self.assertEqual(captured["cfg"].eval_rollouts, PAPER_EVAL_ROLLOUTS)
+        self.assertEqual(captured["cfg"].device, "auto")
         self.assertEqual(captured["output"], "artifacts/cartpole_ppo.pt")
+
+    def test_cli_passes_requested_device_without_running(self):
+        captured = {}
+
+        def fake_train(cfg, output=None):
+            captured["cfg"] = cfg
+            captured["output"] = output
+
+            class Result:
+                timesteps = cfg.total_timesteps
+                train_success_rate = 0.0
+                test_success_rate = 0.0
+                train_reward_mean = 0.0
+                test_reward_mean = 0.0
+
+            return None, Result()
+
+        def fake_load_ppo_runtime():
+            return FakePPOConfig, fake_train
+
+        with patch.object(sys, "argv", [SCRIPT, "--device", "cuda:0"]), patch.object(
+            train_cartpole_ppo, "_load_ppo_runtime", fake_load_ppo_runtime
+        ):
+            train_cartpole_ppo.main()
+
+        self.assertEqual(captured["cfg"].device, "cuda:0")
 
     def test_cli_help_does_not_require_torch(self):
         result = subprocess.run(
@@ -76,6 +103,7 @@ class CartpolePPOCliTest(unittest.TestCase):
 
         self.assertIn("--timesteps", result.stdout)
         self.assertIn("--policy", result.stdout)
+        self.assertIn("--device", result.stdout)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_cli_writes_checkpoint_and_metrics_json(self):
@@ -100,6 +128,8 @@ class CartpolePPOCliTest(unittest.TestCase):
                     "1",
                     "--hidden-size",
                     "8",
+                    "--device",
+                    "cpu",
                     "--eval-interval",
                     "32",
                     "--eval-rollouts",
@@ -120,6 +150,8 @@ class CartpolePPOCliTest(unittest.TestCase):
                 metrics = json.load(handle)
 
         self.assertEqual(metrics["config"]["hidden_size"], 8)
+        self.assertEqual(metrics["config"]["device"], "cpu")
+        self.assertEqual(metrics["torch_device"]["selected"], "cpu")
         self.assertGreaterEqual(len(metrics["eval_history"]), 1)
         self.assertEqual(len(metrics["update_history"]), 2)
         self.assertEqual(metrics["update_history"][0]["rollout_steps"], 32)

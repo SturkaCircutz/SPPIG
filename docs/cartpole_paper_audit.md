@@ -36,20 +36,29 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 
 ## Implementation Mapping
 
-- `src/cartpole_env.py`: continuous-force Cartpole with the train/test pole length and horizon split.
+- Canonical CartPole code now lives under `src/cartpole/`. The old top-level modules
+  `src/cartpole_env.py`, `src/ppo_cartpole.py`, `src/cartpole_synthesis.py`,
+  `src/cartpole_direct_opt.py`, and the `src/train_cartpole_*.py` CLIs remain as compatibility
+  wrappers so older commands, scripts, and tests continue to resolve.
+- `src/cartpole/env.py` (`src/cartpole_env.py` wrapper): continuous-force Cartpole with the
+  train/test pole length and horizon split.
   It exposes a machine-readable reward spec for the standard OpenAI CartPole reward used by the
   paper's classic-control baselines: `+1` per survived simulator step and no extra terminal bonus or
   penalty. It also includes `PaperFigure19CartpolePSM`, a manual visual transcription of the
   CartPole policy diagram in paper Figure 19 for reference reevaluation and exact-policy comparison;
   this is not produced by the current synthesizer.
-- `src/ppo_cartpole.py`: local PyTorch PPO implementation with MLP and LSTM policy classes.
-- `src/train_cartpole_ppo.py`: CLI for PPO and PPO-LSTM experiments; with `--eval-interval`, it can
+- `src/cartpole/ppo/core.py` (`src/ppo_cartpole.py` wrapper): local PyTorch PPO implementation with
+  MLP and LSTM policy classes.
+- `src/cartpole/ppo/train.py` (`src/train_cartpole_ppo.py` wrapper): CLI for PPO and PPO-LSTM
+  experiments; with `--eval-interval`, it can
   persist per-evaluation train/test metrics to JSON for checkpoint provenance. Its default
   `--timesteps` value is the paper PPO budget `10^7`; local diagnostic commands override that
   default explicitly. Help/default inspection does not import PyTorch, but PPO training still requires
   the PyTorch runtime.
-- `src/evaluate_cartpole_psm.py`: two-mode constant-action/depth-2-switch programmatic policy evaluator.
-- `src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py`: bounded diagnostic Direct-Opt
+- `src/cartpole/psm/evaluate.py` (`src/evaluate_cartpole_psm.py` wrapper): two-mode
+  constant-action/depth-2-switch programmatic policy evaluator.
+- `src/cartpole/direct_opt/core.py` and `src/cartpole/direct_opt/train.py`
+  (`src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py` wrappers): bounded diagnostic Direct-Opt
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
   tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
@@ -75,7 +84,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   full initial-state distribution, sampled train-distribution reranking, full test horizon, and `1000`-rollout evaluation;
   the status now derives the full Direct-Opt protocol flag from a named requirement map and records
   the unsatisfied requirements for each bounded diagnostic.
-- `src/train_cartpole_psm.py`: CLI for synthesizing and evaluating the Cartpole programmatic state
+- `src/cartpole/psm/train.py` (`src/train_cartpole_psm.py` wrapper): CLI for synthesizing and evaluating the Cartpole programmatic state
   machine; it exposes the current teacher gain, teacher/student iteration, reward-scale,
   regularization, top-rho, and local-refinement settings, and can persist config, policy description,
   fixed local synthesis constants, probabilistic-student parameters, trace count, and train/test
@@ -102,15 +111,16 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   action-likelihood initialization and switch-timing responsibility/refit passes that produced that
   iteration's probabilistic student, including local trace log-likelihood diagnostics and compact
   adjacent switch-pair posterior mass used by the bounded switch M-step.
-- `src/cartpole_env.py::cartpole_space_spec`: records CartPole action/observation space provenance.
+- `src/cartpole/env.py::cartpole_space_spec` (`src/cartpole_env.py::cartpole_space_spec` wrapper):
+  records CartPole action/observation space provenance.
   The paper-derived claims are limited to Figure 8's `#A = 1` and `#O = 4` plus Appendix B.4's
   statement that RL baselines used the same action spaces, observation spaces, and set of initial
   states as the programmatic-policy approach. Force bounds, feature names, and the local
   independent-uniform reset range `[-0.05, 0.05]` are explicitly tagged as local implementation
   provenance, not as separately paper-specified numeric details.
-- `src/cartpole_synthesis.py`: trace-based synthesis of a two-mode constant-action policy, plus a
-  partial probabilistic Cartpole student with Gaussian action-parameter distributions and Boolean-tree
-  switch candidates.
+- `src/cartpole/psm/synthesis.py` (`src/cartpole_synthesis.py` module alias): trace-based synthesis
+  of a two-mode constant-action policy, plus a partial probabilistic Cartpole student with Gaussian
+  action-parameter distributions and Boolean-tree switch candidates.
 - `scripts/evaluate_cartpole_program.py`: reevaluates fixed two-mode CartPole programs and writes a
   `paper_protocol_status` block that keeps manual programs distinct from the current synthesis
   algorithm. With `--paper-figure19`, it reevaluates the manually transcribed Figure 19 reference

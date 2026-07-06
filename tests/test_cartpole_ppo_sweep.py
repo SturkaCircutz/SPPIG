@@ -92,9 +92,24 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 "eval_interval": int(job["eval_interval"]),
                 "seed": int(job["seed"]),
                 "metrics_output": job["metrics_output"],
+                "device": job["device"],
+            },
+            "torch_device": {
+                "requested": job["device"],
+                "selected": job["device"] if job["device"] != "auto" else "cpu",
+                "cuda_available": False,
+                "cuda_device_count": 0,
+                "fallback_reason": None,
             },
             "paper_protocol_status": {
                 "policy_type": job["policy"],
+                "torch_device": {
+                    "requested": job["device"],
+                    "selected": job["device"] if job["device"] != "auto" else "cpu",
+                    "cuda_available": False,
+                    "cuda_device_count": 0,
+                    "fallback_reason": None,
+                },
                 "paper_test_horizon_steps": 15000,
                 "selected_test_max_steps": int(job["test_max_steps"]),
                 "paper_eval_rollouts": 1000,
@@ -466,6 +481,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
                     "--quick",
                     "--max-configs",
                     "2",
+                    "--device",
+                    "cpu",
                     "--outdir",
                     tmpdir,
                 ],
@@ -484,8 +501,10 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 manifest = json.load(handle)
 
         self.assertEqual(len(plan_rows), 2)
+        self.assertEqual(plan_rows[0]["device"], "cpu")
         self.assertEqual(plan_rows[0]["hyperparam_mode"], "paper-random")
         self.assertEqual(manifest["artifact_kind"], "cartpole_ppo_sweep_manifest")
+        self.assertEqual(manifest["device"], "cpu")
         self.assertTrue(manifest["dry_run"])
         self.assertTrue(manifest["quick"])
         self.assertEqual(manifest["jobs_planned"], 2)
@@ -1075,6 +1094,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
                     "--quick",
                     "--max-configs",
                     "1",
+                    "--device",
+                    "cpu",
                     "--outdir",
                     tmpdir,
                 ],
@@ -1100,6 +1121,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 manifest = json.load(handle)
 
         self.assertEqual(result_rows[0]["hyperparam_mode"], "paper-random")
+        self.assertEqual(result_rows[0]["device"], "cpu")
         self.assertEqual(result_rows[0]["hyperparam_sample"], "0")
         self.assertIn("test_steps", result_rows[0])
         self.assertIn("test_survival_seconds", result_rows[0])
@@ -1118,6 +1140,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertIn("test_survival_seconds_mean", hyperparam_summary_rows[0])
         self.assertEqual(hyperparam_summary_rows[0]["is_best_hyperparam_for_policy"], "True")
         self.assertEqual(manifest["hyperparam_mode"], "paper-random")
+        self.assertEqual(manifest["device"], "cpu")
         self.assertEqual(manifest["hyperparam_samples"], 10)
         self.assertEqual(manifest["jobs_completed"], 1)
         self.assertEqual(manifest["jobs_failed"], 0)
@@ -1277,6 +1300,38 @@ class CartpolePPOSweepTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             job, row, metrics = self.resumable_fixture(tmpdir)
             metrics["config"]["seed"] = int(job["seed"]) + 1
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertIsNone(resumable_result_for_job(job, existing))
+
+    def test_resume_rejects_rows_with_stale_metrics_device_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job, row, metrics = self.resumable_fixture(tmpdir)
+            metrics["config"]["device"] = "cuda"
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertIsNone(resumable_result_for_job(job, existing))
+
+    def test_resume_rejects_explicit_cuda_row_that_fell_back_to_cpu(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job, row, metrics = self.resumable_fixture(tmpdir)
+            job = {**job, "device": "cuda"}
+            row = {**row, "device": "cuda"}
+            metrics["config"]["device"] = "cuda"
+            for key in ("torch_device",):
+                metrics[key]["requested"] = "cuda"
+                metrics[key]["selected"] = "cpu"
+                metrics[key]["fallback_reason"] = "cuda_requested_but_unavailable"
+            metrics["paper_protocol_status"]["torch_device"]["requested"] = "cuda"
+            metrics["paper_protocol_status"]["torch_device"]["selected"] = "cpu"
+            metrics["paper_protocol_status"]["torch_device"][
+                "fallback_reason"
+            ] = "cuda_requested_but_unavailable"
+            existing = self.write_existing_result_fixture(tmpdir, row, metrics)
+            self.assertIsNone(resumable_result_for_job(job, existing))
+
+    def test_resume_rejects_rows_with_stale_protocol_device(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job, row, metrics = self.resumable_fixture(tmpdir)
+            metrics["paper_protocol_status"]["torch_device"]["requested"] = "cuda"
             existing = self.write_existing_result_fixture(tmpdir, row, metrics)
             self.assertIsNone(resumable_result_for_job(job, existing))
 
