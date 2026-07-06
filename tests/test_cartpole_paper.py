@@ -4261,6 +4261,21 @@ class CartpolePaperTest(unittest.TestCase):
             trace.teacher_refinement_objective,
             _teacher_refinement_objective(trace, student, cfg, [candidate]),
         )
+        selected = trace.teacher_candidate_pool_diagnostics["selected_candidate"]
+        self.assertEqual(selected["source"], "student_sample")
+        self.assertEqual(selected["selection_pool_index"], 0)
+        self.assertEqual(selected["selection_rank_by_refinement_objective"], 1)
+        self.assertEqual(selected["selection_pool_count"], 2)
+        self.assertTrue(selected["is_sampled_candidate"])
+        self.assertTrue(selected["is_initial_top_rho_elite"])
+        self.assertTrue(selected["is_refinement_elite"])
+        self.assertFalse(selected["is_elite_recombination_candidate"])
+        self.assertFalse(selected["is_elite_distribution_candidate"])
+        self.assertFalse(selected["is_elite_recombination_or_distribution_candidate"])
+        self.assertTrue(selected["is_refined_candidate"])
+        self.assertEqual(selected["reward"], 3.0)
+        self.assertEqual(selected["teacher_objective"], trace.teacher_objective)
+        self.assertEqual(selected["teacher_refinement_objective"], trace.teacher_refinement_objective)
 
     def test_cartpole_teacher_can_refine_student_sampled_trace(self):
         env = CartpoleEnv.train_env(seed=0)
@@ -4538,6 +4553,16 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(trace.teacher_source, "student_elite_distribution_sample")
         self.assertEqual(trace.segment_actions, (1.0, 10.0))
         self.assertEqual(trace.reward, 6.0)
+        selected = trace.teacher_candidate_pool_diagnostics["selected_candidate"]
+        self.assertEqual(selected["source"], "student_elite_distribution_sample")
+        self.assertEqual(selected["selection_pool_index"], 3)
+        self.assertEqual(selected["selection_rank_by_refinement_objective"], 1)
+        self.assertFalse(selected["is_elite_recombination_candidate"])
+        self.assertTrue(selected["is_elite_distribution_candidate"])
+        self.assertTrue(selected["is_elite_recombination_or_distribution_candidate"])
+        self.assertTrue(selected["is_refinement_elite"])
+        self.assertFalse(selected["is_sampled_candidate"])
+        self.assertFalse(selected["is_initial_top_rho_elite"])
 
     def test_cartpole_teacher_refinement_uses_refreshed_distribution_elites(self):
         env = CartpoleEnv.train_env(seed=0)

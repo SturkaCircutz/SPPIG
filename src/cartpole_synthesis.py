@@ -292,7 +292,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             ],
             "selected_trace_candidate_pool_diagnostics": (
                 "serialized_on_selected_teacher_traces_with_counts_for_sampled_candidates_top_rho_elites_"
-                "elite_recombination_distribution_candidates_refinement_seeds_refined_candidates_and_selection_source"
+                "elite_recombination_distribution_candidates_refinement_seeds_refined_candidates_selection_source_"
+                "and_selected_candidate_objective_rank_membership"
             ),
             "student_log_probability_cache_policy": (
                 "recompute_from_trace_actions_for_current_student_else_use_cached_segment_only_value"
@@ -1669,6 +1670,17 @@ def _teacher_candidate_pool_diagnostics(
         "selection_pool_count": len(selected_pool),
         "selected_source": selected.teacher_source,
         "selected_was_refined_candidate": any(selected is candidate for candidate in refined),
+        "selected_candidate": _selected_teacher_candidate_diagnostics(
+            selected,
+            candidates,
+            elites,
+            elite_recombinations,
+            refinement_elites,
+            refined,
+            selected_pool,
+            student,
+            cfg,
+        ),
         "source_counts": _teacher_source_counts(selected_pool),
         "sampled_source_counts": _teacher_source_counts(candidates),
         "elite_source_counts": _teacher_source_counts(elites),
@@ -1680,6 +1692,52 @@ def _teacher_candidate_pool_diagnostics(
             cfg,
             refinement_elites,
         ),
+    }
+
+
+def _selected_teacher_candidate_diagnostics(
+    selected: CartpoleTrace,
+    sampled_candidates: List[CartpoleTrace],
+    initial_elites: List[CartpoleTrace],
+    elite_recombinations: List[CartpoleTrace],
+    refinement_elites: List[CartpoleTrace],
+    refined_candidates: List[CartpoleTrace],
+    selection_pool: List[CartpoleTrace],
+    student: ProbabilisticCartpoleStudent | None,
+    cfg: CartpoleSynthesisConfig,
+) -> Dict[str, object]:
+    ranked = sorted(
+        enumerate(selection_pool),
+        key=lambda item: _teacher_refinement_objective(item[1], student, cfg, refinement_elites),
+        reverse=True,
+    )
+    selected_pool_index = next((index for index, trace in enumerate(selection_pool) if trace is selected), None)
+    selected_rank = next((rank for rank, (_, trace) in enumerate(ranked, start=1) if trace is selected), None)
+    selected_refinement_objective = _teacher_refinement_objective(
+        selected,
+        student,
+        cfg,
+        refinement_elites,
+    )
+    is_recombination_or_distribution = any(selected is trace for trace in elite_recombinations)
+    return {
+        "source": selected.teacher_source,
+        "reward": selected.reward,
+        "student_log_probability": selected.student_log_probability,
+        "teacher_objective": _teacher_objective(selected, student, cfg),
+        "teacher_refinement_objective": selected_refinement_objective,
+        "selection_pool_index": selected_pool_index,
+        "selection_rank_by_refinement_objective": selected_rank,
+        "selection_pool_count": len(selection_pool),
+        "is_sampled_candidate": any(selected is trace for trace in sampled_candidates),
+        "is_initial_top_rho_elite": any(selected is trace for trace in initial_elites),
+        "is_elite_recombination_candidate": is_recombination_or_distribution
+        and "elite_centroid" in selected.teacher_source,
+        "is_elite_distribution_candidate": is_recombination_or_distribution
+        and "elite_distribution" in selected.teacher_source,
+        "is_elite_recombination_or_distribution_candidate": is_recombination_or_distribution,
+        "is_refinement_elite": any(selected is trace for trace in refinement_elites),
+        "is_refined_candidate": any(selected is trace for trace in refined_candidates),
     }
 
 

@@ -477,7 +477,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             provenance["teacher_search"],
         )
         self.assertIn(
-            "sampled_candidates",
+            "selected_candidate_objective_rank_membership",
             provenance["teacher_search"]["selected_trace_candidate_pool_diagnostics"],
         )
         self.assertEqual(
@@ -545,6 +545,18 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertGreaterEqual(candidate_pool["refinement_seed_count"], candidate_pool["elite_count"])
         self.assertGreaterEqual(candidate_pool["selection_pool_count"], candidate_pool["refinement_seed_count"])
         self.assertIn("selected_source", candidate_pool)
+        selected_candidate = candidate_pool["selected_candidate"]
+        self.assertEqual(selected_candidate["source"], candidate_pool["selected_source"])
+        self.assertEqual(selected_candidate["selection_rank_by_refinement_objective"], 1)
+        self.assertEqual(selected_candidate["selection_pool_count"], candidate_pool["selection_pool_count"])
+        self.assertIn("selection_pool_index", selected_candidate)
+        self.assertIn("teacher_objective", selected_candidate)
+        self.assertIn("teacher_refinement_objective", selected_candidate)
+        self.assertIn("is_sampled_candidate", selected_candidate)
+        self.assertIn("is_elite_recombination_candidate", selected_candidate)
+        self.assertIn("is_elite_distribution_candidate", selected_candidate)
+        self.assertIn("is_elite_recombination_or_distribution_candidate", selected_candidate)
+        self.assertIn("is_refinement_elite", selected_candidate)
         self.assertIn("source_counts", candidate_pool)
         self.assertIn("sampled_source_counts", candidate_pool)
         self.assertIn("elite_source_counts", candidate_pool)

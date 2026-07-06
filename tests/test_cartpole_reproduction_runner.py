@@ -1282,6 +1282,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(candidate_pool["sampled_candidate_count"], psm_metrics["config"]["candidate_rollouts"])
             self.assertEqual(candidate_pool["top_rho"], psm_metrics["config"]["teacher_top_rho"])
             self.assertIn("selection_pool_refinement_objective", candidate_pool)
+            self.assertIn("selected_candidate", candidate_pool)
+            self.assertEqual(
+                candidate_pool["selected_candidate"]["selection_rank_by_refinement_objective"],
+                1,
+            )
             psm_status = psm_metrics["paper_protocol_status"]
             self.assertTrue(psm_status["cartpole_environment"])
             self.assertEqual(psm_status["train_horizon_seconds"], 5.0)

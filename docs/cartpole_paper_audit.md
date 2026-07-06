@@ -375,8 +375,11 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   and selected traces now carry bounded candidate-pool diagnostics: sampled
   rollout count, raw/effective candidate-rollout counts, top-rho elite count,
   recombination/distribution candidate count, refinement seed/refined candidate
-  counts, selected source, and objective summaries for the sampled and final
-  selection pools. Selected
+  counts, selected source, the selected candidate's source, reward, student log
+  probability, teacher/refinement objectives, selection-pool index/rank, pool
+  membership flags for sampled, top-rho, centroid/distribution, refreshed-elite, and refined candidates,
+  and objective summaries for the sampled and final selection
+  pools. Selected
   traces also carry a compact summary of the refreshed top-rho elite set used
   by the bounded refinement objective, including source counts, objective
   ranges, nearest-elite distances, normalized elite probability weights,
@@ -914,8 +917,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_psm_cli.py::test_cli_writes_metrics_json`
   verifies that selected teacher traces serialize bounded candidate-pool diagnostics, including
   sampled candidate count, top-rho elite count, recombination/distribution candidates,
-  refinement-seed/refined-candidate counts, selected source, and sampled/selection-pool objective
-  summaries without marking the teacher optimizer as full paper CEM.
+  refinement-seed/refined-candidate counts, selected source, selected-candidate
+  objective/rank/membership provenance, and sampled/selection-pool objective summaries without marking
+  the teacher optimizer as full paper CEM.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_schedule_weights_are_uniform_without_student`
   verifies that the first teacher round keeps the old uniform fit when no student exists yet.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_resample_count_is_configurable`
