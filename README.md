@@ -268,8 +268,9 @@ normalized to the CartPole simulator step, so per-segment time increments
 influence the bounded Eq. (12)-style timing terms. The final observed segment
 contributes no-transition-before-duration evidence, so a trace that stays in a
 mode is not scored only by its action likelihood. The per-iteration switch M-step
-consumes adjacent pair posteriors from the latest forward-backward pass for
-transition/stay weights instead of reconstructing them only from independent
+consumes adjacent pair posteriors from the latest forward-backward pass plus
+final-segment stay weights from final segment marginals for transition/stay weights
+instead of reconstructing them only from independent
 neighboring segment marginals.
 The switch threshold Gaussian means and standard deviations are locally refined
 against the current Eq. (12)-style timing likelihood using a grid initializer

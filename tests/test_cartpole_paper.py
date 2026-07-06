@@ -75,6 +75,8 @@ from cartpole_synthesis import (
     _fit_student_switch,
     _fit_directed_transition_switches,
     _fit_transition_switches,
+    _directed_transition_examples,
+    _directed_switch_pair_responsibilities,
     _elite_loop_free_schedules,
     _refresh_teacher_elites_with_distribution,
     _duration_gradient_refinement_candidate,
@@ -121,6 +123,7 @@ from cartpole_synthesis import (
     _top_teacher_elites,
     _switch_timing_loss,
     _switch_timing_pairs,
+    _switch_pair_transition_weights,
     _next_cartpole_mode,
     _transition_switch_descriptions,
     _teacher_objective,
@@ -673,6 +676,116 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertAlmostEqual(pair.off_to_on_weight, 0.90)
         self.assertAlmostEqual(pair.on_to_off_weight, 0.03)
         self.assertAlmostEqual(pair.stay_on_weight, 0.02)
+
+    def test_cartpole_switch_timing_pairs_accept_final_stay_posteriors(self):
+        segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.2, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        final_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.2, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+
+        pairs = _switch_timing_pairs(
+            [[segment, final_segment]],
+            [(1.0, 0.0), (0.0, 1.0)],
+            [
+                (0.1, 0.7, 0.2, 0.0),
+                (0.0, 0.0, 0.0, 0.8),
+            ],
+        )
+
+        self.assertEqual(len(pairs), 2)
+        self.assertAlmostEqual(pairs[0].off_to_on_weight, 0.7)
+        self.assertAlmostEqual(pairs[1].stay_on_weight, 0.8)
+        self.assertAlmostEqual(pairs[1].off_to_on_weight, 0.0)
+
+    def test_cartpole_switch_timing_pairs_keep_adjacent_only_rows_per_trace(self):
+        first_off = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.3, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        first_on = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.3, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        second_off = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.4, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        second_on = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.4, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+
+        pairs = _switch_timing_pairs(
+            [[first_off, first_on], [second_off, second_on]],
+            [(1.0, 0.0), (0.0, 1.0), (1.0, 0.0), (0.0, 1.0)],
+            [
+                (0.1, 0.7, 0.2, 0.0),
+                (0.3, 0.4, 0.2, 0.1),
+            ],
+        )
+
+        self.assertEqual(len(pairs), 4)
+        self.assertAlmostEqual(pairs[0].off_to_on_weight, 0.7)
+        self.assertAlmostEqual(pairs[1].stay_on_weight, 1.0)
+        self.assertAlmostEqual(pairs[2].off_to_on_weight, 0.4)
+        self.assertAlmostEqual(pairs[3].stay_on_weight, 1.0)
+
+    def test_cartpole_switch_pair_transition_weights_ignore_interleaved_final_stay_rows(self):
+        first_off = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.3, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        first_on = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.3, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        second_off = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.4, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        second_on = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.4, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+
+        weights = _switch_pair_transition_weights(
+            [[first_off, first_on], [second_off, second_on]],
+            [(1.0, 0.0), (0.0, 1.0), (1.0, 0.0), (0.0, 1.0)],
+            [
+                (0.0, 0.7, 0.1, 0.0),
+                (0.2, 0.0, 0.0, 0.0),
+                (0.0, 0.4, 0.2, 0.0),
+                (0.3, 0.0, 0.0, 0.0),
+            ],
+        )
+
+        self.assertEqual(len(weights), 2)
+        self.assertAlmostEqual(weights[0], 0.8)
+        self.assertAlmostEqual(weights[1], 0.6)
 
     def test_cartpole_student_alternates_switch_responsibility_passes_per_em_iteration(self):
         trace = CartpoleTrace(
@@ -1783,6 +1896,154 @@ class CartpolePaperTest(unittest.TestCase):
             [(transition, switch.describe()) for transition, switch, _ in parallel],
             [(transition, switch.describe()) for transition, switch, _ in serial],
         )
+
+    def test_cartpole_directed_switch_pairs_include_final_stay_evidence(self):
+        off_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.4, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        on_segment = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.4, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[off_segment, on_segment]]
+        responsibilities = [(0.9, 0.1), (0.2, 0.8)]
+        pair_posteriors = [(0.1, 0.7, 0.2, 0.0)]
+
+        off_to_on_pairs = _directed_switch_pair_responsibilities(
+            segments_by_trace,
+            responsibilities,
+            pair_posteriors,
+            (0, 1),
+        )
+        on_to_off_pairs = _directed_switch_pair_responsibilities(
+            segments_by_trace,
+            responsibilities,
+            pair_posteriors,
+            (1, 0),
+        )
+
+        self.assertEqual(off_to_on_pairs, [(0.1, 0.7, 0.0, 0.0), (0.2, 0.0, 0.0, 0.0)])
+        self.assertEqual(on_to_off_pairs, [(0.0, 0.2, 0.0, 0.0), (0.8, 0.0, 0.0, 0.0)])
+
+    def test_cartpole_directed_switch_pairs_accept_interleaved_final_stay_rows(self):
+        first_off = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.3, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        first_on = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.3, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        second_off = CartpoleSegment(
+            observations=[[0.0, 0.0, -0.4, 0.0]],
+            action_parameter=-10.0,
+            duration=1,
+            hard_mode=0,
+        )
+        second_on = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.4, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        segments_by_trace = [[first_off, first_on], [second_off, second_on]]
+        responsibilities = [(1.0, 0.0), (0.1, 0.9), (1.0, 0.0), (0.2, 0.8)]
+        pair_posteriors = [
+            (0.0, 0.7, 0.1, 0.0),
+            (0.25, 0.0, 0.0, 0.75),
+            (0.0, 0.4, 0.2, 0.0),
+            (0.35, 0.0, 0.0, 0.65),
+        ]
+
+        off_to_on_pairs = _directed_switch_pair_responsibilities(
+            segments_by_trace,
+            responsibilities,
+            pair_posteriors,
+            (0, 1),
+        )
+        on_to_off_pairs = _directed_switch_pair_responsibilities(
+            segments_by_trace,
+            responsibilities,
+            pair_posteriors,
+            (1, 0),
+        )
+
+        self.assertEqual(
+            off_to_on_pairs,
+            [
+                (0.0, 0.7, 0.0, 0.0),
+                (0.25, 0.0, 0.0, 0.0),
+                (0.0, 0.4, 0.0, 0.0),
+                (0.35, 0.0, 0.0, 0.0),
+            ],
+        )
+        self.assertEqual(
+            on_to_off_pairs,
+            [
+                (0.0, 0.1, 0.0, 0.0),
+                (0.75, 0.0, 0.0, 0.0),
+                (0.0, 0.2, 0.0, 0.0),
+                (0.65, 0.0, 0.0, 0.0),
+            ],
+        )
+
+    def test_cartpole_directed_transition_examples_skip_interleaved_final_stay_rows(self):
+        first_off = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.4, 0.0],
+                [0.0, 0.0, -0.2, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=2,
+            hard_mode=0,
+        )
+        first_on = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.3, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+        second_off = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.5, 0.0],
+                [0.0, 0.0, -0.25, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=2,
+            hard_mode=0,
+        )
+        second_on = CartpoleSegment(
+            observations=[[0.0, 0.0, 0.4, 0.0]],
+            action_parameter=10.0,
+            duration=1,
+            hard_mode=1,
+        )
+
+        examples = _directed_transition_examples(
+            [[first_off, first_on], [second_off, second_on]],
+            [(1.0, 0.0), (0.0, 0.0), (1.0, 0.0), (0.0, 0.0)],
+            [
+                (0.0, 0.7, 0.0, 0.0),
+                (0.3, 0.0, 0.0, 0.0),
+                (0.0, 0.4, 0.0, 0.0),
+                (0.2, 0.0, 0.0, 0.0),
+            ],
+            (0, 1),
+        )
+
+        positive_weights = [example.weight for example in examples if example.label == 1]
+        self.assertEqual(len(positive_weights), 2)
+        self.assertAlmostEqual(positive_weights[0], 0.7)
+        self.assertAlmostEqual(positive_weights[1], 0.4)
 
     def test_cartpole_transition_specific_switches_respect_soft_pair_weights(self):
         off_segment = CartpoleSegment(

@@ -396,8 +396,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   the executable PSM's fixed initial mode `0` instead of a uniform latent start prior. The E-step pair
   potentials and bounded switch timing loss use directed 0-to-1 and 1-to-0 selector events plus
   final-segment stay evidence, and the switch M-step now consumes adjacent pair posteriors from the
-  same forward-backward pass rather than reconstructing transition weights only from independent
-  segment marginals. The final fitted student also carries separate bounded transition conditions for
+  same forward-backward pass plus final-segment stay weights from final segment marginals rather than
+  reconstructing transition weights only from independent segment marginals. The final fitted student also carries
+  separate bounded transition conditions for
   `0->1` and `1->0`, and deterministic/sampled PSM projections execute those ordered-transition
   switches instead of using one selector complement when they are available. This moves Eq. (10) and
   Eq. (12) closer to the paper by using both `H` and ordered-transition `G` evidence throughout the
@@ -699,11 +700,17 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   iteration and that later passes receive the directed transition switches fitted by the previous
   bounded switch M-step.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_timing_e_step_returns_adjacent_pair_posteriors`,
-  `tests/test_cartpole_paper.py::test_cartpole_switch_pair_posteriors_are_not_marginal_products`, and
-  `tests/test_cartpole_paper.py::test_cartpole_switch_timing_pairs_use_forward_backward_pair_posteriors`
-  verify that the bounded E-step exposes adjacent switch-pair posteriors and that switch timing
-  losses use those joint transition/stay weights instead of reducing them to independent products of
-  neighboring segment marginals.
+  `tests/test_cartpole_paper.py::test_cartpole_switch_pair_posteriors_are_not_marginal_products`,
+  `tests/test_cartpole_paper.py::test_cartpole_switch_timing_pairs_use_forward_backward_pair_posteriors`,
+  `tests/test_cartpole_paper.py::test_cartpole_switch_timing_pairs_accept_final_stay_posteriors`,
+  `tests/test_cartpole_paper.py::test_cartpole_switch_timing_pairs_keep_adjacent_only_rows_per_trace`,
+  `tests/test_cartpole_paper.py::test_cartpole_switch_pair_transition_weights_ignore_interleaved_final_stay_rows`,
+  `tests/test_cartpole_paper.py::test_cartpole_directed_switch_pairs_accept_interleaved_final_stay_rows`,
+  `tests/test_cartpole_paper.py::test_cartpole_directed_transition_examples_skip_interleaved_final_stay_rows`, and
+  `tests/test_cartpole_paper.py::test_cartpole_directed_switch_pairs_include_final_stay_evidence`
+  verify that the bounded E-step exposes adjacent switch-pair posteriors and final-segment stay
+  weights, and that switch timing losses use those joint transition/stay weights instead of reducing
+  them to independent products of neighboring segment marginals.
 - `tests/test_cartpole_paper.py::test_cartpole_fits_transition_specific_switches`,
   `tests/test_cartpole_paper.py::test_cartpole_deterministic_psm_uses_transition_specific_switches`,
   and `tests/test_cartpole_paper.py::test_cartpole_probabilistic_rollout_samples_transition_specific_switches`

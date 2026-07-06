@@ -3928,6 +3928,14 @@ def _directed_transition_examples(
     directed_pair_responsibilities: List[Tuple[float, float, float, float]],
     transition: Tuple[int, int],
 ) -> List[_WeightedSwitchExample]:
+    pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
+    final_segment_count = sum(1 for trace_segments in segments_by_trace if trace_segments)
+    if len(directed_pair_responsibilities) not in {pair_count, pair_count + final_segment_count}:
+        raise ValueError("directed pair responsibility count must match adjacent pairs plus optional final stays")
+    has_final_stay_rows = (
+        len(directed_pair_responsibilities) == pair_count + final_segment_count
+        and final_segment_count > 0
+    )
     examples: List[_WeightedSwitchExample] = []
     pair_index = 0
     segment_index = 0
@@ -3954,6 +3962,8 @@ def _directed_transition_examples(
                 examples.append(_WeightedSwitchExample(segment.end_observation, 1, transition_weight))
             if no_transition_weight > 0.0:
                 examples.append(_WeightedSwitchExample(segment.end_observation, 0, no_transition_weight))
+        if has_final_stay_rows and trace_segments:
+            pair_index += 1
     return examples
 
 
@@ -4082,8 +4092,17 @@ def _directed_switch_pair_responsibilities(
     if len(flat_segments) != len(responsibilities):
         raise ValueError("responsibility count must match directed switch timing segments")
     pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
-    if switch_pair_responsibilities is not None and len(switch_pair_responsibilities) != pair_count:
-        raise ValueError("switch pair responsibility count must match adjacent segment pairs")
+    final_segment_count = sum(1 for trace_segments in segments_by_trace if trace_segments)
+    if (
+        switch_pair_responsibilities is not None
+        and len(switch_pair_responsibilities) not in {pair_count, pair_count + final_segment_count}
+    ):
+        raise ValueError("switch pair responsibility count must match adjacent pairs plus optional final stays")
+    has_final_stay_rows = (
+        switch_pair_responsibilities is not None
+        and len(switch_pair_responsibilities) == pair_count + final_segment_count
+        and final_segment_count > 0
+    )
     responsibility_by_id = {
         id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
     }
@@ -4107,6 +4126,22 @@ def _directed_switch_pair_responsibilities(
                 directed.append((stay_off_weight, off_to_on_weight, 0.0, 0.0))
             elif transition == (1, 0):
                 directed.append((stay_on_weight, on_to_off_weight, 0.0, 0.0))
+            else:
+                raise ValueError(f"unsupported CartPole transition: {transition}")
+        if trace_segments:
+            if has_final_stay_rows:
+                final_stay_off_weight, _, _, final_stay_on_weight = switch_pair_responsibilities[
+                    pair_index
+                ]
+                pair_index += 1
+            else:
+                final_segment = trace_segments[-1]
+                final_resp = responsibility_by_id.get(id(final_segment), (0.5, 0.5))
+                final_stay_off_weight, final_stay_on_weight = final_resp
+            if transition == (0, 1):
+                directed.append((final_stay_off_weight, 0.0, 0.0, 0.0))
+            elif transition == (1, 0):
+                directed.append((final_stay_on_weight, 0.0, 0.0, 0.0))
             else:
                 raise ValueError(f"unsupported CartPole transition: {transition}")
     return directed
@@ -4829,8 +4864,17 @@ def _switch_timing_pairs(
         id(segment): resp for segment, resp in zip(flat_segments, responsibilities)
     }
     pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
-    if switch_pair_responsibilities is not None and len(switch_pair_responsibilities) != pair_count:
-        raise ValueError("switch pair responsibility count must match adjacent segment pairs")
+    final_segment_count = sum(1 for trace_segments in segments_by_trace if trace_segments)
+    if (
+        switch_pair_responsibilities is not None
+        and len(switch_pair_responsibilities) not in {pair_count, pair_count + final_segment_count}
+    ):
+        raise ValueError("switch pair responsibility count must match adjacent pairs plus optional final stays")
+    has_final_stay_rows = (
+        switch_pair_responsibilities is not None
+        and len(switch_pair_responsibilities) == pair_count + final_segment_count
+        and final_segment_count > 0
+    )
     pairs: List[_SwitchTimingPair] = []
     pair_index = 0
     for trace_segments in segments_by_trace:
@@ -4851,6 +4895,11 @@ def _switch_timing_pairs(
                 off_to_on_weight = current_resp[0] * next_resp[1] if next_resp is not None else 0.0
                 on_to_off_weight = current_resp[1] * next_resp[0] if next_resp is not None else 0.0
                 stay_on_weight = current_resp[1] * next_resp[1] if next_resp is not None else current_resp[1]
+            if next_resp is None and has_final_stay_rows:
+                stay_off_weight, off_to_on_weight, on_to_off_weight, stay_on_weight = switch_pair_responsibilities[
+                    pair_index
+                ]
+                pair_index += 1
             observations = tuple(current_segment.observations)
             pairs.append(
                 _SwitchTimingPair(
@@ -5238,12 +5287,27 @@ def _switch_pair_transition_weights(
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
 ) -> List[float]:
     pair_count = sum(max(0, len(trace_segments) - 1) for trace_segments in segments_by_trace)
+    final_segment_count = sum(1 for trace_segments in segments_by_trace if trace_segments)
     if switch_pair_responsibilities is not None:
-        if len(switch_pair_responsibilities) != pair_count:
-            raise ValueError("switch pair responsibility count must match adjacent segment pairs")
+        if len(switch_pair_responsibilities) not in {pair_count, pair_count + final_segment_count}:
+            raise ValueError("switch pair responsibility count must match adjacent pairs plus optional final stays")
+        has_final_stay_rows = (
+            len(switch_pair_responsibilities) == pair_count + final_segment_count
+            and final_segment_count > 0
+        )
+        adjacent_pair_responsibilities: List[Tuple[float, float, float, float]] = []
+        pair_index = 0
+        for trace_segments in segments_by_trace:
+            adjacent_count = max(0, len(trace_segments) - 1)
+            adjacent_pair_responsibilities.extend(
+                switch_pair_responsibilities[pair_index : pair_index + adjacent_count]
+            )
+            pair_index += adjacent_count
+            if has_final_stay_rows and trace_segments:
+                pair_index += 1
         return [
             off_to_on + on_to_off
-            for _, off_to_on, on_to_off, _ in switch_pair_responsibilities
+            for _, off_to_on, on_to_off, _ in adjacent_pair_responsibilities
         ]
     flat_segments = [segment for trace_segments in segments_by_trace for segment in trace_segments]
     if len(flat_segments) != len(responsibilities):
