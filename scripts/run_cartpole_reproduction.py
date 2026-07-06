@@ -18,12 +18,16 @@ sys.path.insert(0, str(SRC))
 from cartpole_env import PAPER_EVAL_ROLLOUTS, CartpoleEnv, cartpole_reward_spec, cartpole_space_spec  # noqa: E402
 from cartpole_direct_opt import (  # noqa: E402
     DirectOptConfig,
+    PAPER_DIRECT_OPT_PARALLEL_THREADS,
+    PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
     cartpole_direct_opt_protocol_status,
     direct_opt_metrics,
     run_cartpole_direct_opt,
 )
 from cartpole_synthesis import (  # noqa: E402
     CartpoleSynthesisConfig,
+    PAPER_STUDENT_PARALLEL_THREADS,
+    PAPER_TEACHER_PARALLEL_THREADS,
     cartpole_synthesis_algorithm_provenance,
     cartpole_synthesis_protocol_status,
     cartpole_switch_fit_diagnostics,
@@ -946,7 +950,7 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--include-direct-opt", action="store_true")
-    parser.add_argument("--direct-opt-parallel-threads", type=int, default=1)
+    parser.add_argument("--direct-opt-parallel-threads", type=int, default=None)
     parser.add_argument("--direct-opt-time-limit-seconds", type=float, default=None)
     parser.add_argument("--psm-teacher-theta-gain", type=float, default=default_psm.teacher_theta_gain)
     parser.add_argument("--psm-teacher-omega-gain", type=float, default=default_psm.teacher_omega_gain)
@@ -976,8 +980,8 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=default_psm.teacher_elite_distribution_rounds,
     )
-    parser.add_argument("--psm-parallel-trace-workers", type=int, default=default_psm.parallel_trace_workers)
-    parser.add_argument("--psm-parallel-switch-workers", type=int, default=default_psm.parallel_switch_workers)
+    parser.add_argument("--psm-parallel-trace-workers", type=int, default=None)
+    parser.add_argument("--psm-parallel-switch-workers", type=int, default=None)
     parser.add_argument(
         "--ppo-eval-interval",
         type=int,
@@ -993,6 +997,18 @@ def parse_args() -> argparse.Namespace:
         args.ppo_eval_interval = 32 if args.quick else 0
     if args.psm_teacher_student_iters is None:
         args.psm_teacher_student_iters = 1 if args.quick else default_psm.teacher_student_iters
+    if args.psm_parallel_trace_workers is None:
+        args.psm_parallel_trace_workers = (
+            default_psm.parallel_trace_workers if args.quick else PAPER_TEACHER_PARALLEL_THREADS
+        )
+    if args.psm_parallel_switch_workers is None:
+        args.psm_parallel_switch_workers = (
+            default_psm.parallel_switch_workers if args.quick else PAPER_STUDENT_PARALLEL_THREADS
+        )
+    if args.direct_opt_parallel_threads is None:
+        args.direct_opt_parallel_threads = 1 if args.quick else PAPER_DIRECT_OPT_PARALLEL_THREADS
+    if args.direct_opt_time_limit_seconds is None and not args.quick:
+        args.direct_opt_time_limit_seconds = PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS
     return args
 
 

@@ -68,7 +68,9 @@ Regenerate the CartPole result table, summary, and manifest:
 Use `--quick` for a small diagnostic run, add `--include-ppo` to include
 PPO/PPO-LSTM, and add `--include-direct-opt` to include the bounded Direct-Opt
 diagnostic baseline. Without `--quick`, PPO uses the paper-scale `10^7`
-timestep budget per seed for fixed-config PPO rows. Pass
+timestep budget per seed for fixed-config PPO rows, and the PSM runner profile
+defaults to the paper-reported 10 teacher workers and 10 student-switch workers.
+Pass
 `--ppo-sweep-manifest artifacts/ppo_sweep/cartpole_ppo_sweep_manifest.json` to
 attach PPO/PPO-LSTM hyperparameter-search evidence from the sweep runner; the
 runner requires the typed sweep manifest and only marks that evidence present when the sweep reports
@@ -77,7 +79,10 @@ fields plus embedded best-hyperparameter rows that cover every selected seed for
 This can be used with or without rerunning fixed PPO rows in the same bundle. The Direct-Opt path is a local bounded search over linear
 switches, Boolean-tree CartPole switch candidates, and bounded Appendix B.3-style
 continuous one-hot leaf/depth-2 feature-mixture candidates, not the paper's full two-hour
-parallel direct optimization protocol. The runner writes
+parallel direct optimization protocol; without `--quick`, its runner profile
+defaults to the paper-reported 10 candidate-evaluation threads and 7200-second
+time limit while keeping the protocol flag false until the remaining Direct-Opt
+requirements are actually satisfied. The runner writes
 raw per-seed rows to `cartpole_results.csv`, grouped mean/std plus the best training seed to
 `cartpole_summary.csv`, and full configs/provenance to `cartpole_manifest.json`.
 The manifest includes a top-level `paper_protocol_status` block that records
@@ -185,8 +190,10 @@ parallel trace slots, so runs with fewer than 10 initial states do not claim the
 paper's 10-thread execution. `--parallel-switch-workers 2` can evaluate the two
 directed CartPole student transition-switch fits concurrently; the paper's
 10-thread student-side claim still remains false because this bounded two-mode
-grammar has only two directed transition fits. The default remains serial for
-local diagnostics.
+grammar has only two directed transition fits. Standalone PSM CLI runs and
+`--quick` reproduction diagnostics remain serial unless these flags are
+provided explicitly; non-quick reproduction-runner PSM rows default the two
+worker counts to the paper-reported value of 10.
 The current CartPole PSM defaults use one-step loop-free teacher segments over
 the full 250-step training horizon (`segment_steps=1`, `segments_per_trace=250`);
 this is a local teacher hyperparameter profile selected for CartPole
@@ -337,9 +344,11 @@ per-batch seed/local/restart/full-train reevaluation trace, bounded continuous
 `alpha_s`/feature-weight refinement,
 optional sampled train-distribution rerank diagnostics and rerank rollout counts,
 configurable local parallel-candidate evaluation and
-time-limit metadata, selected program, and limitation note. This is still not
-the paper's two-hour, ten-thread Direct-Opt protocol over the optimized
-continuous one-hot switching grammar. The metrics JSON also includes
+time-limit metadata, selected program, and limitation note. Standalone and
+`--quick` diagnostics remain serial with no wall-clock cap unless flags are
+provided explicitly; non-quick reproduction-runner Direct-Opt rows default to
+the paper's 10-thread, 7200-second budget. This is still not the paper's full
+Direct-Opt protocol over the optimized continuous one-hot switching grammar. The metrics JSON also includes
 `paper_protocol_status`, which keeps the full Direct-Opt protocol flag false
 unless the paper batch size, ten-thread/two-hour optimization budget, full
 continuous one-hot grammar, full initial-state distribution, full test horizon,

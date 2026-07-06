@@ -21,7 +21,10 @@ from run_cartpole_reproduction import (  # noqa: E402
     HAS_TORCH,
     direct_opt_evidence_status,
     load_ppo_sweep_manifest,
+    parse_args,
     ppo_sweep_evidence_status,
+    psm_config,
+    psm_teacher_overrides_from_args,
     reproduction_protocol_status,
     run_ppo,
     run_psm,
@@ -102,6 +105,81 @@ def write_direct_opt_metrics(path, status, *, seed=0, eval_rollouts=1000, test_m
 
 
 class CartpoleReproductionRunnerTest(unittest.TestCase):
+    def test_parse_args_defaults_quick_psm_workers_to_serial_diagnostic(self):
+        original_argv = sys.argv[:]
+        try:
+            sys.argv = [SCRIPT, "--quick"]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        self.assertEqual(args.psm_parallel_trace_workers, 1)
+        self.assertEqual(args.psm_parallel_switch_workers, 1)
+        cfg = psm_config(0, args.quick, psm_teacher_overrides_from_args(args))
+        self.assertEqual(cfg.parallel_trace_workers, 1)
+        self.assertEqual(cfg.parallel_switch_workers, 1)
+        self.assertEqual(args.direct_opt_parallel_threads, 1)
+        self.assertIsNone(args.direct_opt_time_limit_seconds)
+
+    def test_parse_args_defaults_nonquick_psm_workers_to_paper_thread_counts(self):
+        original_argv = sys.argv[:]
+        try:
+            sys.argv = [SCRIPT]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        self.assertEqual(
+            args.psm_parallel_trace_workers,
+            run_cartpole_reproduction.PAPER_TEACHER_PARALLEL_THREADS,
+        )
+        self.assertEqual(
+            args.psm_parallel_switch_workers,
+            run_cartpole_reproduction.PAPER_STUDENT_PARALLEL_THREADS,
+        )
+        cfg = psm_config(0, args.quick, psm_teacher_overrides_from_args(args))
+        status = run_cartpole_reproduction.cartpole_synthesis_protocol_status(
+            cfg,
+            eval_rollouts=1000,
+            test_max_steps=15000,
+            five_seed_selection=True,
+        )
+        self.assertEqual(cfg.parallel_trace_workers, run_cartpole_reproduction.PAPER_TEACHER_PARALLEL_THREADS)
+        self.assertEqual(cfg.parallel_switch_workers, run_cartpole_reproduction.PAPER_STUDENT_PARALLEL_THREADS)
+        self.assertTrue(status["uses_paper_teacher_parallel_threads"])
+        self.assertTrue(status["uses_paper_student_parallel_worker_limit"])
+        self.assertEqual(
+            args.direct_opt_parallel_threads,
+            run_cartpole_reproduction.PAPER_DIRECT_OPT_PARALLEL_THREADS,
+        )
+        self.assertEqual(
+            args.direct_opt_time_limit_seconds,
+            run_cartpole_reproduction.PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS,
+        )
+
+    def test_parse_args_preserves_explicit_worker_and_time_overrides(self):
+        original_argv = sys.argv[:]
+        try:
+            sys.argv = [
+                SCRIPT,
+                "--psm-parallel-trace-workers",
+                "3",
+                "--psm-parallel-switch-workers",
+                "4",
+                "--direct-opt-parallel-threads",
+                "5",
+                "--direct-opt-time-limit-seconds",
+                "6",
+            ]
+            args = parse_args()
+        finally:
+            sys.argv = original_argv
+
+        self.assertEqual(args.psm_parallel_trace_workers, 3)
+        self.assertEqual(args.psm_parallel_switch_workers, 4)
+        self.assertEqual(args.direct_opt_parallel_threads, 5)
+        self.assertEqual(args.direct_opt_time_limit_seconds, 6.0)
+
     def test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale(self):
         status = reproduction_protocol_status(
             seeds=[0, 1, 2, 3, 4],

@@ -66,7 +66,10 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   diagnostic toward the paper's stated Direct-Opt stopping rule while still remaining
   a bounded local search. It can optionally rerank the top selected-state candidates with seeded
   train-distribution rollouts, but that remains sampled evidence rather than the paper's full
-  initial-state-distribution optimization. It is still not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
+  initial-state-distribution optimization. Non-quick reproduction-runner Direct-Opt rows default to
+  the paper-reported 10 candidate-evaluation threads and 7200-second wall-clock budget, while
+  standalone and quick diagnostics remain serial/no-limit unless flags are supplied explicitly. It is
+  still not the paper's full two-hour parallel direct optimization protocol. Direct-Opt metrics include
   `paper_protocol_status` flags for the paper batch size, ten-thread/two-hour budget, bounded versus full continuous
   one-hot grammar, combined-reward optimization over all selected finite training states versus the
   full initial-state distribution, sampled train-distribution reranking, full test horizon, and `1000`-rollout evaluation;
@@ -122,6 +125,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   teacher-trace provenance plus a full selected-teacher-trace and per-iteration trace-history sidecar.
   Per-seed PSM metrics keep `five_seed_selection` false, while the manifest-level PSM protocol status
   records five distinct seeds when the runner bundle actually contains that result-selection evidence.
+  Non-quick runner PSM rows default to the paper-reported 10 local teacher workers and 10
+  student-switch workers unless those flags are explicitly overridden; `--quick` keeps the serial
+  local-diagnostic worker profile.
   When PPO is included, it also writes per-row PPO checkpoints and metrics
   JSON under the requested output directory; `--ppo-eval-interval` controls whether those metrics
   contain intermediate train/test `eval_history` entries or only the selected final result.
@@ -423,7 +429,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - The PSM training CLI now exposes the current configurable teacher/adaptive-teaching settings,
   including local parallel trace workers for independent loop-free teacher optimization across
   initial states and local parallel switch workers for directed student transition-switch fitting,
-  and records their exact values in metrics JSON.
+  and records their exact values in metrics JSON. Standalone CLI and quick runner diagnostics remain
+  serial by default, while non-quick reproduction-runner PSM rows default these worker counts to the
+  paper-reported value of 10.
 - PSM metrics and reproduction-runner manifests now record fixed local synthesis constants such as
   default EM iterations, Gaussian floors, switch-timing scale, switch-search grids, and teacher-search
   refinement schedule. The actual configured student EM iterations and per-EM switch-responsibility
