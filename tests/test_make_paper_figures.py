@@ -15,6 +15,49 @@ import make_paper_figures  # noqa: E402
 PSM_TRACE_COMMAND = "python train.py --traces-output traces.json"
 RUNNER_QUICK_COMMAND = "python scripts/run_cartpole_reproduction.py --quick"
 FIXED_PSM_COMMAND = "python scripts/evaluate_cartpole_program.py"
+PSM_TRACE_CONFIG = {"teacher_student_iters": 1}
+PSM_TRACES = [
+    {
+        "reward": 1,
+        "actions": [0.0],
+        "mode_labels": [0],
+        "observations": [[0.0, 0.0, 0.0, 0.0]],
+        "theta_gain": 1.0,
+        "omega_gain": 0.0,
+        "segment_actions": [0.0],
+        "segment_durations": [1],
+        "segment_time_increments": [0.02],
+        "teacher_source": "unit_test_teacher",
+        "student_log_probability": -1.0,
+        "teacher_objective": 1.0,
+        "teacher_refinement_objective": 1.0,
+    }
+]
+PSM_TRACE_SUMMARY = {
+    "count": 1,
+    "reward_mean": 1.0,
+    "length_mean": 1.0,
+    "teacher_source_counts": {"unit_test_teacher": 1},
+    "examples": [
+        {
+            "reward": 1,
+            "steps": 1,
+            "switches": 0,
+            "theta_gain": 1.0,
+            "omega_gain": 0.0,
+            "segment_actions": [0.0],
+            "segment_durations": [1],
+            "segment_time_increments": [0.02],
+            "teacher_source": "unit_test_teacher",
+            "student_log_probability": -1.0,
+            "teacher_objective": 1.0,
+            "teacher_refinement_objective": 1.0,
+            "first_observation": [0.0, 0.0, 0.0, 0.0],
+            "last_observation": [0.0, 0.0, 0.0, 0.0],
+            "mode_prefix": [0],
+        }
+    ],
+}
 
 
 def current_synthesized_psm_algorithm_provenance() -> dict:
@@ -59,14 +102,47 @@ def one_iteration_objective_component_metrics() -> dict:
         "objective_component_summary": minimal_objective_component_summary(),
     }
     return {
+        "config": dict(PSM_TRACE_CONFIG),
+        "num_traces": 1,
+        "trace_summary": dict(PSM_TRACE_SUMMARY),
         "adaptive_teacher_summary": [adaptive_summary],
         "synthesis_history": [
             {
                 "iteration": 1,
+                "trace_summary": dict(PSM_TRACE_SUMMARY),
                 "adaptive_teacher_summary": adaptive_summary,
             }
         ],
     }
+
+
+def one_iteration_trace_payload(command: str = PSM_TRACE_COMMAND, **overrides) -> dict:
+    payload = {
+        "command": command,
+        "config": dict(PSM_TRACE_CONFIG),
+        "num_traces": 1,
+        "traces": list(PSM_TRACES),
+        "trace_history": [
+            {
+                "iteration": 1,
+                "num_traces": 1,
+                "traces": list(PSM_TRACES),
+            }
+        ],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def one_iteration_metrics_payload(**overrides) -> dict:
+    payload = {
+        "command": PSM_TRACE_COMMAND,
+        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+        "paper_protocol_status": current_synthesized_psm_status(),
+        **one_iteration_objective_component_metrics(),
+    }
+    payload.update(overrides)
+    return payload
 
 
 def artifact_row(
@@ -330,15 +406,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     handle,
                 )
             with open(traces_path, "w", encoding="utf-8") as handle:
-                json.dump(
-                    {
-                        "config": {"teacher_student_iters": 1},
-                        "num_traces": 1,
-                        "traces": [{"reward": 1}],
-                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
-                    },
-                    handle,
-                )
+                json.dump(one_iteration_trace_payload(), handle)
 
             make_paper_figures.require_result_artifacts(
                 [synthesized_psm_row(metrics_path)]
@@ -393,15 +461,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     handle,
                 )
             with open(traces_path, "w", encoding="utf-8") as handle:
-                json.dump(
-                    {
-                        "config": {"teacher_student_iters": 1},
-                        "num_traces": 1,
-                        "traces": [{"reward": 1}],
-                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
-                    },
-                    handle,
-                )
+                json.dump(one_iteration_trace_payload(), handle)
 
             with self.assertRaisesRegex(ValueError, "objective components"):
                 make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
@@ -422,15 +482,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     handle,
                 )
             with open(traces_path, "w", encoding="utf-8") as handle:
-                json.dump(
-                    {
-                        "config": {"teacher_student_iters": 1},
-                        "num_traces": 1,
-                        "traces": [{"reward": 1}],
-                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
-                    },
-                    handle,
-                )
+                json.dump(one_iteration_trace_payload(command=RUNNER_QUICK_COMMAND), handle)
 
             make_paper_figures.require_result_artifacts(
                 [runner_psm_row(metrics_path)]
@@ -452,15 +504,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     handle,
                 )
             with open(traces_path, "w", encoding="utf-8") as handle:
-                json.dump(
-                    {
-                        "config": {"teacher_student_iters": 1},
-                        "num_traces": 1,
-                        "traces": [{"reward": 1}],
-                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
-                    },
-                    handle,
-                )
+                json.dump(one_iteration_trace_payload(), handle)
 
             with self.assertRaisesRegex(ValueError, "current-synthesis protocol status"):
                 make_paper_figures.require_result_artifacts([runner_psm_row(metrics_path)])
@@ -484,15 +528,7 @@ class MakePaperFiguresTest(unittest.TestCase):
                     handle,
                 )
             with open(traces_path, "w", encoding="utf-8") as handle:
-                json.dump(
-                    {
-                        "config": {"teacher_student_iters": 1},
-                        "num_traces": 1,
-                        "traces": [{"reward": 1}],
-                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
-                    },
-                    handle,
-                )
+                json.dump(one_iteration_trace_payload(), handle)
 
             with self.assertRaisesRegex(ValueError, "current-synthesis protocol status"):
                 make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
@@ -762,17 +798,211 @@ class MakePaperFiguresTest(unittest.TestCase):
                     handle,
                 )
             with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(one_iteration_trace_payload(), handle)
+
+            with self.assertRaises(ValueError):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
+
+    def test_require_result_artifacts_rejects_synthesized_psm_trace_command_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
-                        "config": {"teacher_student_iters": 1},
-                        "num_traces": 1,
-                        "traces": [{"reward": 1}],
-                        "trace_history": [{"iteration": 1, "num_traces": 1, "traces": [{"reward": 1}]}],
+                        "command": PSM_TRACE_COMMAND,
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": current_synthesized_psm_status(),
+                        "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
                     },
                     handle,
                 )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(one_iteration_trace_payload(command="python stale.py --traces-output traces.json"), handle)
 
-            with self.assertRaises(ValueError):
+            with self.assertRaisesRegex(ValueError, "disagree with metrics provenance"):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
+
+    def test_require_result_artifacts_rejects_synthesized_psm_trace_config_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": PSM_TRACE_COMMAND,
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": current_synthesized_psm_status(),
+                        "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(one_iteration_trace_payload(config={"teacher_student_iters": 1, "seed": 7}), handle)
+
+            with self.assertRaisesRegex(ValueError, "disagree with metrics provenance"):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
+
+    def test_require_result_artifacts_rejects_synthesized_psm_trace_summary_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            stale_traces = [
+                {
+                    "reward": 1,
+                    "actions": [0.0, 0.0],
+                    "mode_labels": [0, 0],
+                    "observations": [[0.0, 0.0, 0.0, 0.0], [0.1, 0.0, 0.0, 0.0]],
+                    "theta_gain": 1.0,
+                    "omega_gain": 0.0,
+                    "segment_actions": [0.0],
+                    "segment_durations": [2],
+                    "segment_time_increments": [0.02],
+                    "teacher_source": "unit_test_teacher",
+                    "student_log_probability": -1.0,
+                    "teacher_objective": 1.0,
+                    "teacher_refinement_objective": 1.0,
+                }
+            ]
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": PSM_TRACE_COMMAND,
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": current_synthesized_psm_status(),
+                        "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    one_iteration_trace_payload(
+                        traces=stale_traces,
+                        trace_history=[{"iteration": 1, "num_traces": 1, "traces": stale_traces}],
+                    ),
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "disagree with metrics provenance"):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
+
+    def test_require_result_artifacts_rejects_synthesized_psm_trace_example_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            stale_traces = [
+                {
+                    **PSM_TRACES[0],
+                    "segment_actions": [0.5],
+                }
+            ]
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": PSM_TRACE_COMMAND,
+                        "algorithm_provenance": current_synthesized_psm_algorithm_provenance(),
+                        "paper_protocol_status": current_synthesized_psm_status(),
+                        "traces_output": traces_path,
+                        **one_iteration_objective_component_metrics(),
+                    },
+                    handle,
+                )
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    one_iteration_trace_payload(
+                        traces=stale_traces,
+                        trace_history=[{"iteration": 1, "num_traces": 1, "traces": stale_traces}],
+                    ),
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "disagree with metrics provenance"):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
+
+    def test_require_result_artifacts_rejects_synthesized_psm_missing_top_level_trace_examples(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            trace_summary = dict(PSM_TRACE_SUMMARY)
+            trace_summary["examples"] = []
+            metrics = one_iteration_metrics_payload(
+                traces_output=traces_path,
+                trace_summary=trace_summary,
+            )
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(metrics, handle)
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(one_iteration_trace_payload(), handle)
+
+            with self.assertRaisesRegex(ValueError, "disagree with metrics provenance"):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
+
+    def test_require_result_artifacts_rejects_synthesized_psm_truncated_top_level_trace_examples(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            traces = [
+                PSM_TRACES[0],
+                {
+                    **PSM_TRACES[0],
+                    "observations": [[0.1, 0.0, 0.0, 0.0]],
+                    "segment_actions": [0.1],
+                },
+            ]
+            trace_summary = {
+                "count": 2,
+                "reward_mean": 1.0,
+                "length_mean": 1.0,
+                "teacher_source_counts": {"unit_test_teacher": 2},
+                "examples": [PSM_TRACE_SUMMARY["examples"][0]],
+            }
+            metrics = one_iteration_metrics_payload(
+                traces_output=traces_path,
+                num_traces=2,
+                trace_summary=trace_summary,
+            )
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(metrics, handle)
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    one_iteration_trace_payload(
+                        num_traces=2,
+                        traces=traces,
+                        trace_history=[{"iteration": 1, "num_traces": 2, "traces": traces}],
+                    ),
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "disagree with metrics provenance"):
+                make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
+
+    def test_require_result_artifacts_rejects_synthesized_psm_missing_iteration_trace_examples(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            traces_path = os.path.join(tmpdir, "traces.json")
+            history_trace_summary = dict(PSM_TRACE_SUMMARY)
+            history_trace_summary["examples"] = []
+            metrics = one_iteration_metrics_payload(
+                traces_output=traces_path,
+                synthesis_history=[
+                    {
+                        "iteration": 1,
+                        "trace_summary": history_trace_summary,
+                        "adaptive_teacher_summary": one_iteration_objective_component_metrics()[
+                            "adaptive_teacher_summary"
+                        ][0],
+                    }
+                ],
+            )
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(metrics, handle)
+            with open(traces_path, "w", encoding="utf-8") as handle:
+                json.dump(one_iteration_trace_payload(), handle)
+
+            with self.assertRaisesRegex(ValueError, "disagree with metrics provenance"):
                 make_paper_figures.require_result_artifacts([synthesized_psm_row(metrics_path)])
 
     def test_require_result_artifacts_rejects_missing_protocol_status(self):

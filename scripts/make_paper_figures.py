@@ -126,6 +126,158 @@ def psm_trace_payload_is_complete(trace_payload: object) -> bool:
     return trace_history[-1].get("traces") == traces
 
 
+def numeric_json_value(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def numeric_json_values_match(left: object, right: object) -> bool:
+    return (
+        numeric_json_value(left)
+        and numeric_json_value(right)
+        and abs(float(left) - float(right)) <= 1e-9
+    )
+
+
+def serialized_trace_example(trace: object) -> dict[str, object] | None:
+    if not isinstance(trace, dict):
+        return None
+    actions = trace.get("actions")
+    mode_labels = trace.get("mode_labels")
+    observations = trace.get("observations")
+    segment_actions = trace.get("segment_actions")
+    segment_durations = trace.get("segment_durations")
+    segment_time_increments = trace.get("segment_time_increments")
+    teacher_source = trace.get("teacher_source")
+    if (
+        not isinstance(actions, list)
+        or not isinstance(mode_labels, list)
+        or not isinstance(observations, list)
+        or not isinstance(segment_actions, list)
+        or not isinstance(segment_durations, list)
+        or not isinstance(segment_time_increments, list)
+        or not isinstance(teacher_source, str)
+    ):
+        return None
+    required_keys = (
+        "reward",
+        "theta_gain",
+        "omega_gain",
+        "student_log_probability",
+        "teacher_objective",
+        "teacher_refinement_objective",
+    )
+    if any(key not in trace for key in required_keys):
+        return None
+    example = {
+        "reward": trace["reward"],
+        "steps": len(actions),
+        "switches": sum(
+            int(left != right)
+            for left, right in zip(mode_labels, mode_labels[1:])
+        ),
+        "theta_gain": trace["theta_gain"],
+        "omega_gain": trace["omega_gain"],
+        "segment_actions": list(segment_actions),
+        "segment_durations": list(segment_durations),
+        "segment_time_increments": list(segment_time_increments),
+        "teacher_source": teacher_source,
+        "student_log_probability": trace["student_log_probability"],
+        "teacher_objective": trace["teacher_objective"],
+        "teacher_refinement_objective": trace["teacher_refinement_objective"],
+        "first_observation": observations[0] if observations else None,
+        "last_observation": observations[-1] if observations else None,
+        "mode_prefix": mode_labels[: min(8, len(mode_labels))],
+    }
+    if trace.get("teacher_refinement_elite_summary") is not None:
+        example["teacher_refinement_elite_summary"] = trace["teacher_refinement_elite_summary"]
+    if trace.get("teacher_candidate_pool_diagnostics") is not None:
+        example["teacher_candidate_pool_diagnostics"] = trace["teacher_candidate_pool_diagnostics"]
+    if trace.get("elite_distribution_fit") is not None:
+        example["elite_distribution_fit"] = trace["elite_distribution_fit"]
+    return example
+
+
+def serialized_trace_summary(traces: object) -> dict[str, object] | None:
+    if not isinstance(traces, list):
+        return None
+    rewards = []
+    lengths = []
+    source_counts: dict[str, int] = {}
+    for trace in traces:
+        if not isinstance(trace, dict):
+            return None
+        reward = trace.get("reward")
+        actions = trace.get("actions")
+        teacher_source = trace.get("teacher_source")
+        if not numeric_json_value(reward) or not isinstance(actions, list) or not isinstance(teacher_source, str):
+            return None
+        rewards.append(float(reward))
+        lengths.append(len(actions))
+        source_counts[teacher_source] = source_counts.get(teacher_source, 0) + 1
+    return {
+        "count": len(traces),
+        "reward_mean": sum(rewards) / len(rewards) if rewards else 0.0,
+        "length_mean": sum(lengths) / len(lengths) if lengths else 0.0,
+        "teacher_source_counts": source_counts,
+    }
+
+
+def psm_trace_summary_matches(summary: object, traces: object, max_examples: int) -> bool:
+    if not isinstance(summary, dict):
+        return False
+    trace_summary = serialized_trace_summary(traces)
+    if trace_summary is None:
+        return False
+    examples = summary.get("examples")
+    if not isinstance(examples, list) or not isinstance(traces, list):
+        return False
+    if len(examples) != min(max_examples, len(traces)):
+        return False
+    expected_examples = []
+    for trace in traces[: len(examples)]:
+        example = serialized_trace_example(trace)
+        if example is None:
+            return False
+        expected_examples.append(example)
+    return (
+        summary.get("count") == trace_summary["count"]
+        and numeric_json_values_match(summary.get("reward_mean"), trace_summary["reward_mean"])
+        and numeric_json_values_match(summary.get("length_mean"), trace_summary["length_mean"])
+        and summary.get("teacher_source_counts") == trace_summary["teacher_source_counts"]
+        and examples == expected_examples
+    )
+
+
+def psm_trace_payload_matches_metrics(metrics: object, trace_payload: object) -> bool:
+    if not isinstance(metrics, dict) or not isinstance(trace_payload, dict):
+        return False
+    if not psm_trace_payload_is_complete(trace_payload):
+        return False
+    if trace_payload.get("command") != metrics.get("command"):
+        return False
+    if trace_payload.get("config") != metrics.get("config"):
+        return False
+    if trace_payload.get("num_traces") != metrics.get("num_traces"):
+        return False
+    if not psm_trace_summary_matches(metrics.get("trace_summary"), trace_payload.get("traces"), 3):
+        return False
+
+    synthesis_history = metrics.get("synthesis_history")
+    trace_history = trace_payload.get("trace_history")
+    if not isinstance(synthesis_history, list) or not isinstance(trace_history, list):
+        return False
+    if len(synthesis_history) != len(trace_history):
+        return False
+    for metrics_entry, trace_entry in zip(synthesis_history, trace_history):
+        if not isinstance(metrics_entry, dict) or not isinstance(trace_entry, dict):
+            return False
+        if metrics_entry.get("iteration") != trace_entry.get("iteration"):
+            return False
+        if not psm_trace_summary_matches(metrics_entry.get("trace_summary"), trace_entry.get("traces"), 1):
+            return False
+    return True
+
+
 def metrics_payload_has_synthesis_history(metrics: object) -> bool:
     if not isinstance(metrics, dict):
         return False
@@ -252,6 +404,7 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         )
     missing_psm_trace_artifacts: list[str] = []
     incomplete_psm_trace_artifacts: list[str] = []
+    mismatched_psm_trace_artifacts: list[str] = []
     stale_psm_algorithm_provenance: list[str] = []
     missing_psm_synthesis_status: list[str] = []
     missing_psm_objective_components: list[str] = []
@@ -281,6 +434,8 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
             trace_payload = json.load(handle)
         if not psm_trace_payload_is_complete(trace_payload):
             incomplete_psm_trace_artifacts.append(row["policy"])
+        elif not psm_trace_payload_matches_metrics(metrics, trace_payload):
+            mismatched_psm_trace_artifacts.append(row["policy"])
     if missing_psm_synthesis_status:
         raise ValueError(
             "synthesized PSM metrics lack current-synthesis protocol status: "
@@ -300,6 +455,11 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         raise ValueError(
             "synthesized PSM trace artifacts lack per-iteration trace history: "
             + ", ".join(incomplete_psm_trace_artifacts)
+        )
+    if mismatched_psm_trace_artifacts:
+        raise ValueError(
+            "synthesized PSM trace artifacts disagree with metrics provenance: "
+            + ", ".join(mismatched_psm_trace_artifacts)
         )
     if stale_psm_algorithm_provenance:
         raise ValueError(

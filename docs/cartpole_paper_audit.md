@@ -463,7 +463,9 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
   each metrics artifact to carry the command that produced it. Synthesized PSM rows are also rejected
   unless their metrics include adaptive-teacher objective-component summaries and their full-trace
   sidecar contains per-iteration trace history whose iteration sequence matches the configured
-  teacher/student loop count and whose recorded trace counts match the serialized trace lists.
+  teacher/student loop count, whose recorded trace counts match the serialized trace lists, and whose
+  command, config, trace count, and derived per-iteration trace summaries and compact examples match
+  the metrics JSON.
 - PPO hyperparameter search can now be planned or executed through
   `scripts/run_cartpole_ppo_sweep.py`; the runner records the paper search ranges, reproducible
   `paper-random` hyperparameter sample IDs, the concrete sampled hyperparameter configs, and the
@@ -1020,6 +1022,25 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   verifies that generated paper artifacts reject synthesized PSM diagnostics whose recorded full
   `cartpole_synthesis_algorithm_provenance()` block does not match the current implementation, so
   stale metrics cannot silently back result figures after a bounded student/teacher algorithm change.
+- `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_synthesized_psm_trace_command_mismatch`
+  verifies that generated paper artifacts reject synthesized PSM trace sidecars whose command
+  provenance disagrees with the metrics JSON.
+- `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_synthesized_psm_trace_config_mismatch`
+  verifies that generated paper artifacts reject synthesized PSM trace sidecars whose recorded
+  synthesis config disagrees with the metrics JSON.
+- `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_synthesized_psm_trace_summary_mismatch`
+  verifies that generated paper artifacts reject synthesized PSM trace sidecars whose serialized
+  traces no longer reproduce the metrics JSON trace summaries.
+- `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_synthesized_psm_trace_example_mismatch`
+  verifies that generated paper artifacts reject synthesized PSM trace sidecars whose serialized
+  traces reproduce the same aggregate summary but not the compact trace examples recorded in metrics.
+- `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_synthesized_psm_missing_top_level_trace_examples`
+  and `test_require_result_artifacts_rejects_synthesized_psm_truncated_top_level_trace_examples`
+  verify that generated paper artifacts reject synthesized PSM metrics whose top-level trace summary
+  omits or truncates the producer's expected compact examples.
+- `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_synthesized_psm_missing_iteration_trace_examples`
+  verifies that generated paper artifacts reject synthesized PSM metrics whose per-iteration trace
+  summaries omit the producer's compact example.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_writes_results_and_manifest`
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and
