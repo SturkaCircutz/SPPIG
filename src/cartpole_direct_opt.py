@@ -176,7 +176,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "baseline": "direct_opt",
         "paper_baseline": "Direct-Opt",
         "not_paper_scale": True,
-        "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
+        "search_method": "deterministic_grid_seeded_continuous_one_hot_random_search_plus_bounded_batch_restart_refinement",
         "policy_class": "two_mode_constant_action_linear_depth2_boolean_or_continuous_one_hot_switch",
         "selection_objective": "mean_combined_reward_over_selected_initial_states_then_success",
         "train_distribution_reranking": (
@@ -184,7 +184,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
             "rollouts before final policy selection; this is sampled distribution evidence, not the "
             "paper's full continuous initial-state optimization"
         ),
-        "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall",
+        "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall_with_continuous_one_hot_candidates",
         "search_stopping": "stop_after_training_solution_or_parallel_chunk_or_time_limit",
         "paper_batch_size": PAPER_DIRECT_OPT_BATCH_SIZE,
         "paper_parallel_threads": PAPER_DIRECT_OPT_PARALLEL_THREADS,
@@ -216,11 +216,12 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "continuous_one_hot_weight_step_scale": DIRECT_OPT_CONTINUOUS_ONE_HOT_WEIGHT_STEP_SCALE,
         "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
         "continuous_one_hot_expansion": "evaluate_all_leaf_mixtures_then_depth2_expansions_from_top_training_reward_leaves",
+        "random_restart_encoding": "bounded_appendix_b3_continuous_one_hot_alpha_s_simplex_feature_weights_threshold_force",
         "one_hot_switch_encoding": (
-            "evaluates a bounded Appendix B.3 continuous leaf/depth2 feature-mixture candidate family and records "
-            "continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, "
-            "and depth-2 tree operator choices; does not optimize the paper's full continuous "
-            "one-hot relaxation"
+            "evaluates a bounded Appendix B.3 continuous leaf/depth2 feature-mixture candidate family, samples "
+            "bounded continuous one-hot random restarts, and records continuous one-hot vertex fields plus "
+            "bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not "
+            "optimize the paper's full continuous one-hot relaxation"
         ),
         "local_refinement": (
             "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_"
@@ -236,8 +237,9 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
             "It optimizes mean train-horizon reward over the selected initial states and includes "
             "bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 "
-            "feature-mixture candidate family, optional sampled train-distribution reranking, "
-            "and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's "
+            "feature-mixture candidate family, bounded continuous one-hot random restarts, optional "
+            "sampled train-distribution reranking, and bounded alpha_s/weight/threshold/force local "
+            "refinement, but is not the paper's "
             "two-hour, ten-thread continuous numerical optimization over the full one-hot "
             "switching grammar."
         ),
@@ -440,15 +442,13 @@ def _direct_opt_candidates(
     candidates.extend(grid_candidates)
     stopped_after_grid = deadline.expired()
     solution_found_phase = _direct_opt_solution_phase(grid_candidates, "grid")
-    random_params = [
-        (*_random_candidate_params(rng), "random_restart")
-        for _ in range(0 if stopped_after_grid or solution_found_phase is not None else max(0, cfg.random_candidates))
-    ]
-    random_candidates = _evaluate_candidate_params(
-        random_params,
+    random_candidates = _continuous_one_hot_random_restart_candidates(
+        0 if stopped_after_grid or solution_found_phase is not None else max(0, cfg.random_candidates),
         train_states,
         cfg,
+        rng,
         deadline,
+        "random_restart",
         stop_on_solution=True,
     )
     candidates.extend(random_candidates)
@@ -504,6 +504,8 @@ def _direct_opt_candidates(
     diagnostics = {
         "grid_candidates": len(grid_candidates),
         "random_candidates": len(random_candidates),
+        "random_restart_switch_kind": "continuous_one_hot",
+        "random_restart_candidates_with_appendix_b3_metadata": len(random_candidates),
         **boolean_diagnostics,
         **continuous_one_hot_diagnostics,
         "batch_refinement_candidates": len(batch_candidates),
@@ -967,14 +969,13 @@ def _batch_restart_refinement_candidates(
                     step_trace["accepted_local_improvement"] = True
                     local_step_traces.append(step_trace)
                     continue
-                restarts = _evaluate_candidate_params(
-                    [
-                        (*_random_candidate_params(rng), "batch_random_restart")
-                        for _ in range(max(0, cfg.restart_candidates_on_stall))
-                    ],
+                restarts = _continuous_one_hot_random_restart_candidates(
+                    max(0, cfg.restart_candidates_on_stall),
                     batch,
                     cfg,
+                    rng,
                     deadline,
+                    "batch_random_restart",
                 )
                 restart_evaluations += len(restarts)
                 restart_rollout_evaluations += len(restarts) * len(batch)
@@ -1052,15 +1053,56 @@ def _direct_opt_batches(
     ]
 
 
-def _random_candidate_params(rng: random.Random) -> Tuple[float, float, float, float, float]:
-    left_force = rng.choice(DIRECT_OPT_FORCE_VALUES)
-    return (
-        rng.choice(DIRECT_OPT_THETA_WEIGHTS),
-        rng.choice(DIRECT_OPT_OMEGA_WEIGHTS),
-        rng.uniform(-DIRECT_OPT_THRESHOLD_SCALE, DIRECT_OPT_THRESHOLD_SCALE),
-        left_force,
-        -left_force,
+def _continuous_one_hot_random_restart_candidates(
+    count: int,
+    train_states: List[Sequence[float]],
+    cfg: DirectOptConfig,
+    rng: random.Random,
+    deadline: _DirectOptDeadline | None,
+    source: str,
+    stop_on_solution: bool = False,
+) -> List[DirectOptCandidate]:
+    params = [
+        (*_random_continuous_one_hot_params(rng), source)
+        for _ in range(max(0, count))
+    ]
+    return _evaluate_continuous_one_hot_candidates(
+        params,
+        train_states,
+        cfg,
+        deadline,
+        stop_on_solution=stop_on_solution,
     )
+
+
+def _random_continuous_one_hot_params(
+    rng: random.Random,
+) -> Tuple[DirectOptContinuousOneHotSwitch, float, float]:
+    left_force = rng.choice(DIRECT_OPT_FORCE_VALUES)
+    return _random_continuous_one_hot_switch(rng), left_force, -left_force
+
+
+def _random_continuous_one_hot_switch(rng: random.Random) -> DirectOptContinuousOneHotSwitch:
+    operator = rng.choice(DIRECT_OPT_TREE_OPERATORS)
+    first = _random_continuous_one_hot_predicate(rng)
+    second = None if operator == "leaf" else _random_continuous_one_hot_predicate(rng)
+    return DirectOptContinuousOneHotSwitch(first, second, operator=operator)
+
+
+def _random_continuous_one_hot_predicate(rng: random.Random) -> DirectOptContinuousOneHotPredicate:
+    return DirectOptContinuousOneHotPredicate(
+        rng.uniform(-1.0, 1.0),
+        _random_simplex_weights(rng, len(DIRECT_OPT_OBSERVATION_FEATURES)),
+        rng.uniform(
+            min(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS),
+            max(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS),
+        ),
+    )
+
+
+def _random_simplex_weights(rng: random.Random, width: int) -> Tuple[float, ...]:
+    raw = [rng.random() for _ in range(max(1, width))]
+    return _normalize_continuous_one_hot_weights(raw)
 
 
 def _local_neighbor_candidates(

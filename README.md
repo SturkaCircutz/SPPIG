@@ -77,8 +77,9 @@ runner requires the typed sweep manifest and only marks that evidence present wh
 `paper_scale_execution = true` with matching top-level policy, seed, and sample-count
 fields plus embedded best-hyperparameter rows that cover every selected seed for both PPO policies.
 This can be used with or without rerunning fixed PPO rows in the same bundle. The Direct-Opt path is a local bounded search over linear
-switches, Boolean-tree CartPole switch candidates, and bounded Appendix B.3-style
-continuous one-hot leaf/depth-2 feature-mixture candidates, not the paper's full two-hour
+switches, Boolean-tree CartPole switch candidates, bounded Appendix B.3-style
+continuous one-hot leaf/depth-2 feature-mixture candidates, and bounded continuous
+one-hot random restarts, not the paper's full two-hour
 parallel direct optimization protocol; without `--quick`, its runner profile
 defaults to the paper-reported 10 candidate-evaluation threads and 7200-second
 time limit while keeping the protocol flag false until the remaining Direct-Opt
@@ -329,7 +330,8 @@ This baseline searches a bounded two-mode constant-action CartPole PSM directly
 on the 5-second training split, including the previous linear switch grid,
 bounded depth-1/depth-2 Boolean-tree switch predicates with explicit one-hot
 feature, relation, and tree-operator metadata, and a bounded Appendix B.3-style
-continuous one-hot leaf/depth-2 feature-mixture candidate family. It then applies a bounded
+continuous one-hot leaf/depth-2 feature-mixture candidate family, with bounded continuous
+one-hot random restarts when random or stalled-batch restart phases are reached. It then applies a bounded
 batch/restart local refinement over forces, thresholds, and continuous one-hot `alpha_s`/feature weights
 seeded from the best candidate so far when no earlier candidate has solved all selected training
 states, optimizing

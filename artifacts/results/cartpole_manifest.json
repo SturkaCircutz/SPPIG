@@ -699,7 +699,7 @@
     {
       "algorithm_provenance": {
         "baseline": "direct_opt",
-        "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall",
+        "batch_refinement": "seed_each_batch_from_best_so_far_and_restart_on_stall_with_continuous_one_hot_candidates",
         "boolean_tree_depth": 2,
         "boolean_tree_expansion": "evaluate_all_stumps_then_depth2_expansions_from_top_training_reward_stumps",
         "boolean_tree_features": [
@@ -739,7 +739,7 @@
             0.5
           ]
         ],
-        "candidate_accounting": "searched_candidates and evaluated_candidates count candidate evaluation calls; train_rollout_evaluations counts individual selected-state train rollouts",
+        "candidate_accounting": "searched_candidates and evaluated_candidates count candidate evaluation calls; train_rollout_evaluations counts individual selected-state train rollouts; train_distribution_rerank_rollout_evaluations counts optional sampled train-distribution rerank rollouts; total_train_rollout_evaluations counts both",
         "continuous_one_hot_alpha_s_step_scale": 1.0,
         "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
         "continuous_one_hot_expansion": "evaluate_all_leaf_mixtures_then_depth2_expansions_from_top_training_reward_leaves",
@@ -780,7 +780,7 @@
           -10.0,
           10.0
         ],
-        "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
+        "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, bounded continuous one-hot random restarts, optional sampled train-distribution reranking, and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
         "local_parallel_threads": "configurable_via_parallel_threads",
         "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_continuous_one_hot_alpha_s_weight_threshold_force_neighbors",
         "local_time_limit_seconds": "configurable_via_time_limit_seconds",
@@ -800,14 +800,15 @@
           5.0,
           10.0
         ],
-        "one_hot_switch_encoding": "evaluates a bounded Appendix B.3 continuous leaf/depth2 feature-mixture candidate family and records continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not optimize the paper's full continuous one-hot relaxation",
+        "one_hot_switch_encoding": "evaluates a bounded Appendix B.3 continuous leaf/depth2 feature-mixture candidate family, samples bounded continuous one-hot random restarts, and records continuous one-hot vertex fields plus bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not optimize the paper's full continuous one-hot relaxation",
         "optimization_trace": "metrics record the exact selected train initial states and a compact batch-refinement trace with batch seed, local-neighbor, restart, and full-train reevaluation decisions",
         "paper_baseline": "Direct-Opt",
         "paper_batch_size": 10,
         "paper_parallel_threads": 10,
         "paper_time_limit_seconds": 7200,
         "policy_class": "two_mode_constant_action_linear_depth2_boolean_or_continuous_one_hot_switch",
-        "search_method": "deterministic_grid_seeded_random_search_plus_bounded_batch_restart_refinement",
+        "random_restart_encoding": "bounded_appendix_b3_continuous_one_hot_alpha_s_simplex_feature_weights_threshold_force",
+        "search_method": "deterministic_grid_seeded_continuous_one_hot_random_search_plus_bounded_batch_restart_refinement",
         "search_stopping": "stop_after_training_solution_or_parallel_chunk_or_time_limit",
         "selection_objective": "mean_combined_reward_over_selected_initial_states_then_success",
         "switch_search_space": "linear_theta_omega_grid_plus_bounded_boolean_tree_predicates_plus_bounded_continuous_one_hot_leaf_depth2_mixtures",
@@ -827,6 +828,7 @@
           50.0
         ],
         "threshold_scale": 0.25,
+        "train_distribution_reranking": "optionally reevaluate top selected-state candidates on seeded CartPole train-distribution rollouts before final policy selection; this is sampled distribution evidence, not the paper's full continuous initial-state optimization",
         "train_horizon_seconds": 5.0
       },
       "best_candidate": {
@@ -877,7 +879,9 @@
         "restart_candidates_on_stall": 1,
         "seed": 0,
         "test_max_steps": 15000,
-        "time_limit_seconds": null
+        "time_limit_seconds": null,
+        "train_distribution_rerank_candidates": 0,
+        "train_distribution_rerank_rollouts": 0
       },
       "eval_rollouts": 20,
       "metrics_output": "artifacts/results/metrics/direct_opt_seed0_full_horizon.json",
@@ -927,13 +931,17 @@
         "selected_parallel_threads": 1,
         "selected_test_max_steps": 15000,
         "selected_time_limit_seconds": null,
+        "selected_train_distribution_rerank_candidates": 0,
+        "selected_train_distribution_rerank_rollouts": 0,
         "selected_train_initial_states": 10,
         "stops_when_training_solution_found": true,
+        "train_distribution_rerank_objective": "mean_train_horizon_reward_over_seeded_train_distribution_rollouts_then_success",
         "uses_full_test_horizon": true,
         "uses_paper_batch_size": true,
         "uses_paper_eval_rollouts": false,
         "uses_paper_parallel_threads": false,
-        "uses_paper_time_limit": false
+        "uses_paper_time_limit": false,
+        "uses_sampled_train_distribution_reranking": false
       },
       "paper_test_horizon_steps": 15000,
       "policy": "Direct-Opt diagnostic",
@@ -978,12 +986,40 @@
         "grid_candidates": 86,
         "parallel_threads": 1,
         "random_candidates": 0,
+        "random_restart_candidates_with_appendix_b3_metadata": 0,
+        "random_restart_switch_kind": "continuous_one_hot",
         "restart_evaluations": 0,
         "restart_rollout_evaluations": 0,
+        "selected_state_best_candidate": {
+          "policy_description": "m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0; directed_transitions={}",
+          "rank_key": [
+            250.0,
+            1.0,
+            -0.0
+          ],
+          "source": "grid",
+          "switch_kind": "linear",
+          "train_reward_mean": 250.0,
+          "train_success_rate": 1.0
+        },
         "solution_found": true,
         "solution_found_phase": "grid",
         "time_limit_reached": false,
         "time_limit_seconds": null,
+        "total_train_rollout_evaluations": 860,
+        "train_distribution_rerank": {
+          "enabled": false,
+          "evaluated": [],
+          "evaluated_candidates": 0,
+          "requested_candidates": 0,
+          "requested_rollouts": 0,
+          "sample_seed": null,
+          "sampled_initial_states": [],
+          "selected_candidate_changed": false,
+          "selection_source": "grid",
+          "train_rollout_evaluations": 0
+        },
+        "train_distribution_rerank_rollout_evaluations": 0,
         "train_rollout_evaluations": 860,
         "uses_parallel_candidate_evaluation": false
       },

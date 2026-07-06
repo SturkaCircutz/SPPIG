@@ -1965,7 +1965,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertIn("--include-direct-opt", direct_metrics["command"])
             self.assertEqual(direct_metrics["algorithm_provenance"]["paper_baseline"], "Direct-Opt")
             self.assertTrue(direct_metrics["algorithm_provenance"]["not_paper_scale"])
-            self.assertEqual(direct_metrics["algorithm_provenance"]["batch_refinement"], "seed_each_batch_from_best_so_far_and_restart_on_stall")
+            self.assertEqual(
+                direct_metrics["algorithm_provenance"]["batch_refinement"],
+                "seed_each_batch_from_best_so_far_and_restart_on_stall_with_continuous_one_hot_candidates",
+            )
+            self.assertIn("continuous_one_hot", direct_metrics["algorithm_provenance"]["random_restart_encoding"])
             self.assertEqual(
                 direct_metrics["algorithm_provenance"]["search_stopping"],
                 "stop_after_training_solution_or_parallel_chunk_or_time_limit",

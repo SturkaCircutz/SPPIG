@@ -24,7 +24,10 @@ from cartpole_direct_opt import (  # noqa: E402
     _continuous_one_hot_alpha_s_neighbors,
     _continuous_one_hot_candidates,
     _continuous_one_hot_local_neighbor_candidates,
+    _continuous_one_hot_random_restart_candidates,
     _continuous_one_hot_weight_neighbors,
+    _direct_opt_candidates,
+    _random_continuous_one_hot_switch,
     _train_distribution_rerank_candidates,
     _batch_restart_refinement_candidates,
     cartpole_direct_opt_protocol_status,
@@ -93,6 +96,10 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertIn("mode=1 if", metrics["policy_description"])
         self.assertEqual(metrics["algorithm_provenance"]["paper_baseline"], "Direct-Opt")
         self.assertTrue(metrics["algorithm_provenance"]["not_paper_scale"])
+        self.assertEqual(
+            metrics["algorithm_provenance"]["search_method"],
+            "deterministic_grid_seeded_continuous_one_hot_random_search_plus_bounded_batch_restart_refinement",
+        )
         self.assertIn("candidate evaluation calls", metrics["algorithm_provenance"]["candidate_accounting"])
         self.assertIn(
             "train-distribution rerank rollouts",
@@ -135,6 +142,7 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["algorithm_provenance"]["continuous_one_hot_alpha_s_step_scale"], 1.0)
         self.assertEqual(metrics["algorithm_provenance"]["continuous_one_hot_weight_step_scale"], 0.25)
         self.assertIn("depth2", metrics["algorithm_provenance"]["continuous_one_hot_expansion"])
+        self.assertIn("continuous_one_hot", metrics["algorithm_provenance"]["random_restart_encoding"])
         self.assertIn("bounded Appendix B.3", metrics["algorithm_provenance"]["one_hot_switch_encoding"])
         self.assertIn("bounded continuous one-hot", metrics["algorithm_provenance"]["limitations"])
         self.assertEqual(len(metrics["selected_train_initial_states"]), 2)
@@ -143,6 +151,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertTrue(diagnostics["solution_found"])
         self.assertEqual(diagnostics["solution_found_phase"], "grid")
         self.assertEqual(diagnostics["random_candidates"], 0)
+        self.assertEqual(diagnostics["random_restart_switch_kind"], "continuous_one_hot")
+        self.assertEqual(diagnostics["random_restart_candidates_with_appendix_b3_metadata"], 0)
         self.assertEqual(diagnostics["boolean_stump_candidates"], 0)
         self.assertEqual(diagnostics["boolean_depth2_candidates"], 0)
         self.assertEqual(diagnostics["boolean_top_stumps_for_depth2"], 0)
@@ -812,6 +822,135 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertTrue(all(min(weights) >= 0.0 for weights in neighbors))
         self.assertTrue(all(abs(sum(weights) - 1.0) < 1e-12 for weights in neighbors))
 
+    def test_direct_opt_random_continuous_one_hot_switch_stays_in_appendix_b3_bounds(self):
+        rng = random.Random(7)
+
+        switches = [_random_continuous_one_hot_switch(rng) for _ in range(25)]
+
+        self.assertTrue(any(switch.operator in {"and", "or"} for switch in switches))
+        for switch in switches:
+            self.assertIn(switch.operator, {"leaf", "and", "or"})
+            predicates = [switch.first] + ([] if switch.second is None else [switch.second])
+            self.assertEqual(switch.second is None, switch.operator == "leaf")
+            for predicate in predicates:
+                self.assertGreaterEqual(predicate.alpha_s, -1.0)
+                self.assertLessEqual(predicate.alpha_s, 1.0)
+                self.assertEqual(len(predicate.feature_weights), 4)
+                self.assertTrue(all(weight >= 0.0 for weight in predicate.feature_weights))
+                self.assertAlmostEqual(sum(predicate.feature_weights), 1.0)
+                self.assertGreaterEqual(predicate.alpha_0, -0.5)
+                self.assertLessEqual(predicate.alpha_0, 0.5)
+
+    def test_direct_opt_random_restart_candidates_use_continuous_one_hot_metadata(self):
+        evaluated_sources: list[str] = []
+
+        def fake_evaluate(switch, left_force, right_force, _train_states, source):
+            evaluated_sources.append(source)
+            return DirectOptCandidate(
+                theta_weight=0.0,
+                omega_weight=0.0,
+                threshold=0.0,
+                left_force=left_force,
+                right_force=right_force,
+                train_reward_mean=1.0,
+                train_success_rate=0.0,
+                source=source,
+                switch_kind="continuous_one_hot",
+                continuous_one_hot_alpha_s=switch.first.alpha_s,
+                continuous_one_hot_feature_weights=switch.first.feature_weights,
+                continuous_one_hot_alpha_0=switch.first.alpha_0,
+                continuous_one_hot_operator=switch.operator,
+                first_appendix_b3_alpha_s=switch.first.alpha_s,
+                first_appendix_b3_feature_weights=switch.first.feature_weights,
+                first_appendix_b3_alpha_0=switch.first.alpha_0,
+                second_appendix_b3_alpha_s=(switch.second.alpha_s if switch.second is not None else None),
+                second_appendix_b3_feature_weights=(switch.second.feature_weights if switch.second is not None else ()),
+                second_appendix_b3_alpha_0=(switch.second.alpha_0 if switch.second is not None else None),
+            )
+
+        with patch("cartpole_direct_opt._evaluate_continuous_one_hot_candidate", side_effect=fake_evaluate):
+            candidates = _continuous_one_hot_random_restart_candidates(
+                4,
+                [[0.0, 0.0, 0.0, 0.0]],
+                DirectOptConfig(),
+                random.Random(3),
+                None,
+                "random_restart",
+            )
+
+        self.assertEqual(evaluated_sources, ["random_restart"] * 4)
+        self.assertEqual(len(candidates), 4)
+        self.assertTrue(all(candidate.switch_kind == "continuous_one_hot" for candidate in candidates))
+        self.assertTrue(all(candidate.first_appendix_b3_feature_weights for candidate in candidates))
+        self.assertTrue(
+            all(
+                abs(sum(candidate.continuous_one_hot_feature_weights) - 1.0) < 1e-12
+                for candidate in candidates
+            )
+        )
+
+    def test_direct_opt_candidates_enter_random_phase_with_continuous_one_hot_restarts(self):
+        evaluated_random_sources: list[str] = []
+
+        def fake_grid_candidate(theta_weight, omega_weight, threshold, left_force, right_force, _train_states, source):
+            return DirectOptCandidate(
+                theta_weight=theta_weight,
+                omega_weight=omega_weight,
+                threshold=threshold,
+                left_force=left_force,
+                right_force=right_force,
+                train_reward_mean=1.0,
+                train_success_rate=0.0,
+                source=source,
+            )
+
+        def fake_random_candidate(switch, left_force, right_force, _train_states, source):
+            evaluated_random_sources.append(source)
+            return DirectOptCandidate(
+                theta_weight=0.0,
+                omega_weight=0.0,
+                threshold=0.0,
+                left_force=left_force,
+                right_force=right_force,
+                train_reward_mean=250.0,
+                train_success_rate=1.0,
+                source=source,
+                switch_kind="continuous_one_hot",
+                continuous_one_hot_alpha_s=switch.first.alpha_s,
+                continuous_one_hot_feature_weights=switch.first.feature_weights,
+                continuous_one_hot_alpha_0=switch.first.alpha_0,
+                continuous_one_hot_operator=switch.operator,
+                first_appendix_b3_alpha_s=switch.first.alpha_s,
+                first_appendix_b3_feature_weights=switch.first.feature_weights,
+                first_appendix_b3_alpha_0=switch.first.alpha_0,
+                second_appendix_b3_alpha_s=(switch.second.alpha_s if switch.second is not None else None),
+                second_appendix_b3_feature_weights=(switch.second.feature_weights if switch.second is not None else ()),
+                second_appendix_b3_alpha_0=(switch.second.alpha_0 if switch.second is not None else None),
+            )
+
+        with (
+            patch("cartpole_direct_opt._evaluate_candidate", side_effect=fake_grid_candidate),
+            patch("cartpole_direct_opt._evaluate_continuous_one_hot_candidate", side_effect=fake_random_candidate),
+        ):
+            candidates, diagnostics = _direct_opt_candidates(
+                [[0.0, 0.0, 0.0, 0.0]],
+                DirectOptConfig(random_candidates=3),
+                random.Random(5),
+            )
+
+        self.assertEqual(evaluated_random_sources, ["random_restart"])
+        self.assertEqual(diagnostics["grid_candidates"], 156)
+        self.assertEqual(diagnostics["random_candidates"], 1)
+        self.assertEqual(diagnostics["random_restart_switch_kind"], "continuous_one_hot")
+        self.assertEqual(diagnostics["random_restart_candidates_with_appendix_b3_metadata"], 1)
+        self.assertTrue(diagnostics["solution_found"])
+        self.assertEqual(diagnostics["solution_found_phase"], "random")
+        self.assertEqual(diagnostics["boolean_stump_candidates"], 0)
+        self.assertEqual(diagnostics["continuous_one_hot_candidates"], 0)
+        self.assertEqual(diagnostics["batch_refinement_candidates"], 0)
+        self.assertEqual(candidates[-1].source, "random_restart")
+        self.assertEqual(candidates[-1].switch_kind, "continuous_one_hot")
+
     def test_direct_opt_batch_refinement_preserves_full_train_best_so_far(self):
         env = CartpoleEnv.train_env(seed=1)
         train_states = [env.reset() for _ in range(3)]
@@ -848,6 +987,38 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertGreaterEqual(max(candidate.train_reward_mean for candidate in candidates), seed_candidate.train_reward_mean)
         self.assertEqual(diagnostics["batch_count"], 3)
         self.assertGreaterEqual(len(diagnostics["batch_refinement_trace"]), 1)
+
+    def test_direct_opt_batch_random_restarts_use_continuous_one_hot_candidates(self):
+        seed_candidate = DirectOptCandidate(
+            theta_weight=0.0,
+            omega_weight=0.0,
+            threshold=0.0,
+            left_force=-10.0,
+            right_force=10.0,
+            train_reward_mean=10.0,
+            train_success_rate=0.0,
+            source="test_seed",
+        )
+        cfg = DirectOptConfig(
+            batch_size=1,
+            batch_refinement_rounds=1,
+            local_refinement_steps=1,
+            restart_candidates_on_stall=2,
+        )
+
+        with patch("cartpole_direct_opt._local_neighbor_candidates", return_value=[]):
+            candidates, diagnostics = _batch_restart_refinement_candidates(
+                seed_candidate,
+                [[0.0, 0.0, 0.0, 0.0]],
+                cfg,
+                random.Random(11),
+            )
+
+        self.assertEqual(diagnostics["restart_evaluations"], 2)
+        restart_summary = diagnostics["batch_refinement_trace"][0]["local_steps"][0]["best_restart_candidate"]
+        self.assertEqual(restart_summary["source"], "batch_random_restart")
+        self.assertEqual(restart_summary["switch_kind"], "continuous_one_hot")
+        self.assertEqual(len(candidates), 1)
 
     def test_direct_opt_cli_writes_metrics_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
