@@ -256,9 +256,6 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
     missing_psm_synthesis_status: list[str] = []
     missing_psm_objective_components: list[str] = []
     current_psm_provenance = cartpole_synthesis_algorithm_provenance()
-    current_teacher_candidates = (
-        current_psm_provenance["teacher_search"]["finite_difference_candidates_per_refinement_iteration"]
-    )
     for row in rows:
         metrics_path = row_metrics_path(row)
         metrics = {}
@@ -272,12 +269,7 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
             continue
         if not psm_metrics_payload_has_objective_components(metrics):
             missing_psm_objective_components.append(row["policy"])
-        metric_teacher_candidates = (
-            metrics.get("algorithm_provenance", {})
-            .get("teacher_search", {})
-            .get("finite_difference_candidates_per_refinement_iteration")
-        )
-        if metric_teacher_candidates != current_teacher_candidates:
+        if metrics.get("algorithm_provenance") != current_psm_provenance:
             stale_psm_algorithm_provenance.append(row["policy"])
         trace_path = row_traces_path(row)
         if not trace_path:

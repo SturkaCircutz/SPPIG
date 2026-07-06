@@ -168,8 +168,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   plots PPO training curves when metrics JSON artifacts with `eval_history` are present. Its
   survival plot uses explicit survived-step fields when available and falls back to reward only for
   older artifacts. The artifact gate identifies synthesized PSM artifacts from metrics provenance,
-  not just the display policy name, and rejects synthesized PSM metrics whose teacher-search
-  finite-difference candidate provenance is stale relative to the current synthesis code.
+  not just the display policy name, and rejects synthesized PSM metrics whose full recorded
+  synthesis algorithm provenance is stale relative to the current synthesis code.
 - `artifacts/results/cartpole_summary.csv` and `artifacts/results/cartpole_manifest.json`: checked-in
   local diagnostic provenance for the current result bundle. The manifest records the command behind
   each metrics artifact and explicitly keeps `paper_scale_result` false. Its bundle-level
@@ -1016,6 +1016,10 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_synthesized_psm_missing_protocol_requirements`
   verifies that generated paper artifacts reject synthesized PSM metrics that claim current synthesis
   status without the named adaptive-teaching requirement maps.
+- `tests/test_make_paper_figures.py::test_require_result_artifacts_rejects_stale_synthesized_psm_algorithm_provenance`
+  verifies that generated paper artifacts reject synthesized PSM diagnostics whose recorded full
+  `cartpole_synthesis_algorithm_provenance()` block does not match the current implementation, so
+  stale metrics cannot silently back result figures after a bounded student/teacher algorithm change.
 - `tests/test_cartpole_reproduction_runner.py::test_quick_runner_writes_results_and_manifest`
   verifies that the reproduction runner writes raw results, grouped summary statistics, and a manifest
   with the exact quick-run command settings, PSM teacher overrides, fixed PSM synthesis constants, and

@@ -18,14 +18,7 @@ FIXED_PSM_COMMAND = "python scripts/evaluate_cartpole_program.py"
 
 
 def current_synthesized_psm_algorithm_provenance() -> dict:
-    current_provenance = make_paper_figures.cartpole_synthesis_algorithm_provenance()
-    return {
-        "teacher_search": {
-            "finite_difference_candidates_per_refinement_iteration": current_provenance["teacher_search"][
-                "finite_difference_candidates_per_refinement_iteration"
-            ]
-        }
-    }
+    return make_paper_figures.cartpole_synthesis_algorithm_provenance()
 
 
 def current_synthesized_psm_status() -> dict:
@@ -752,20 +745,16 @@ class MakePaperFiguresTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
             traces_path = os.path.join(tmpdir, "traces.json")
+            stale_provenance = current_synthesized_psm_algorithm_provenance()
+            stale_provenance["teacher_search"] = {
+                **stale_provenance["teacher_search"],
+                "selected_trace_candidate_pool_diagnostics": "stale_partial_diagnostics",
+            }
             with open(metrics_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
                         "command": PSM_TRACE_COMMAND,
-                        "algorithm_provenance": {
-                            "teacher_search": {
-                                "finite_difference_candidates_per_refinement_iteration": {
-                                    "teacher_gain_schedule": 1,
-                                    "action_schedule": 1,
-                                    "duration_schedule": 1,
-                                    "time_increment_schedule": 1,
-                                }
-                            }
-                        },
+                        "algorithm_provenance": stale_provenance,
                         "paper_protocol_status": current_synthesized_psm_status(),
                         "traces_output": traces_path,
                         **one_iteration_objective_component_metrics(),

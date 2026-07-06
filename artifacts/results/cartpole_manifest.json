@@ -216,6 +216,7 @@
       "parallel_unit": "independent_loop_free_teacher_optimization_per_initial_state",
       "phase_one_objective": "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_log_p_trace_under_student",
       "refinement_delta_decay": 0.5,
+      "selected_trace_candidate_pool_diagnostics": "serialized_on_selected_teacher_traces_with_counts_for_sampled_candidates_top_rho_elites_elite_recombination_distribution_candidates_refinement_seeds_refined_candidates_and_selection_source",
       "selected_trace_objective_metrics": [
         "teacher_objective",
         "teacher_refinement_objective"
@@ -1664,6 +1665,7 @@
           "parallel_unit": "independent_loop_free_teacher_optimization_per_initial_state",
           "phase_one_objective": "teacher_reward_lambda_times_reward_plus_teacher_student_regularizer_times_log_p_trace_under_student",
           "refinement_delta_decay": 0.5,
+          "selected_trace_candidate_pool_diagnostics": "serialized_on_selected_teacher_traces_with_counts_for_sampled_candidates_top_rho_elites_elite_recombination_distribution_candidates_refinement_seeds_refined_candidates_and_selection_source",
           "selected_trace_objective_metrics": [
             "teacher_objective",
             "teacher_refinement_objective"
@@ -2206,7 +2208,7 @@
             "program_complexity": 2,
             "responsibility_weighted_label_loss": 29.765284874998663,
             "source_mode": 0,
-            "stay_mass": 69.39896340008517,
+            "stay_mass": 71.32389501880475,
             "switch_condition": "o[2] <= -0.141 and o[0] <= 0.274",
             "target_mode": 1,
             "transition": "0->1",
@@ -2248,7 +2250,7 @@
             "program_complexity": 1,
             "responsibility_weighted_label_loss": 26.184185487866436,
             "source_mode": 1,
-            "stay_mass": 80.60250073326638,
+            "stay_mass": 82.6775691145468,
             "switch_condition": "-10.000*theta + 2.000*omega >= 0.352",
             "target_mode": 0,
             "transition": "1->0",
@@ -3192,7 +3194,7 @@
                 "program_complexity": 1,
                 "responsibility_weighted_label_loss": 9.377863759029847,
                 "source_mode": 0,
-                "stay_mass": 124.56800597868957,
+                "stay_mass": 126.45026679455712,
                 "switch_condition": "-10.000*theta + 2.000*omega >= 0.497",
                 "target_mode": 1,
                 "transition": "0->1",
@@ -3238,7 +3240,7 @@
                 "program_complexity": 2,
                 "responsibility_weighted_label_loss": 2.898852973417189,
                 "source_mode": 1,
-                "stay_mass": 17.56224683794399,
+                "stay_mass": 19.679986022076445,
                 "switch_condition": "o[0] >= 0.019 or o[0] <= -0.053",
                 "target_mode": 0,
                 "transition": "1->0",
@@ -3352,6 +3354,55 @@
                 "steps": 23,
                 "student_log_probability": -77.02098090836714,
                 "switches": 1,
+                "teacher_candidate_pool_diagnostics": {
+                  "candidate_rollouts": 10,
+                  "diagnostic_scope": "bounded_loop_free_teacher_candidate_pool",
+                  "effective_candidate_rollouts": 10,
+                  "elite_count": 10,
+                  "elite_recombination_candidate_count": 3,
+                  "elite_source_counts": {
+                    "bootstrap_student_sample": 10
+                  },
+                  "not_full_paper_cem": true,
+                  "refined_candidate_count": 13,
+                  "refinement_elite_count": 10,
+                  "refinement_elite_source_counts": {
+                    "bootstrap_elite_distribution_mean": 1,
+                    "bootstrap_elite_distribution_sample": 1,
+                    "bootstrap_student_sample": 8
+                  },
+                  "refinement_seed_count": 13,
+                  "sampled_candidate_count": 10,
+                  "sampled_source_counts": {
+                    "bootstrap_student_sample": 10
+                  },
+                  "sampled_teacher_objective": {
+                    "count": 10,
+                    "max": 2222.8702765800845,
+                    "mean": 1530.1164353793422,
+                    "min": 1064.9555822322195
+                  },
+                  "selected_source": "bootstrap_student_sample_refined",
+                  "selected_was_refined_candidate": true,
+                  "selection_pool_count": 26,
+                  "selection_pool_refinement_objective": {
+                    "count": 26,
+                    "max": 2294.1399651821457,
+                    "mean": 1716.6386228499482,
+                    "min": 1095.0829961014128
+                  },
+                  "source_counts": {
+                    "bootstrap_elite_centroid": 1,
+                    "bootstrap_elite_centroid_refined": 1,
+                    "bootstrap_elite_distribution_mean": 1,
+                    "bootstrap_elite_distribution_mean_refined": 1,
+                    "bootstrap_elite_distribution_sample": 1,
+                    "bootstrap_elite_distribution_sample_refined": 1,
+                    "bootstrap_student_sample": 11,
+                    "bootstrap_student_sample_refined": 9
+                  },
+                  "top_rho": 10
+                },
                 "teacher_objective": 2222.979019091633,
                 "teacher_refinement_elite_summary": {
                   "elite_count": 10,
@@ -4387,7 +4438,7 @@
                 "program_complexity": 2,
                 "responsibility_weighted_label_loss": 29.765284874998663,
                 "source_mode": 0,
-                "stay_mass": 69.39896340008517,
+                "stay_mass": 71.32389501880475,
                 "switch_condition": "o[2] <= -0.141 and o[0] <= 0.274",
                 "target_mode": 1,
                 "transition": "0->1",
@@ -4429,7 +4480,7 @@
                 "program_complexity": 1,
                 "responsibility_weighted_label_loss": 26.184185487866436,
                 "source_mode": 1,
-                "stay_mass": 80.60250073326638,
+                "stay_mass": 82.6775691145468,
                 "switch_condition": "-10.000*theta + 2.000*omega >= 0.352",
                 "target_mode": 0,
                 "transition": "1->0",
@@ -4639,6 +4690,55 @@
                 "steps": 55,
                 "student_log_probability": -127.04201448549942,
                 "switches": 4,
+                "teacher_candidate_pool_diagnostics": {
+                  "candidate_rollouts": 10,
+                  "diagnostic_scope": "bounded_loop_free_teacher_candidate_pool",
+                  "effective_candidate_rollouts": 10,
+                  "elite_count": 10,
+                  "elite_recombination_candidate_count": 3,
+                  "elite_source_counts": {
+                    "student_sample": 10
+                  },
+                  "not_full_paper_cem": true,
+                  "refined_candidate_count": 13,
+                  "refinement_elite_count": 10,
+                  "refinement_elite_source_counts": {
+                    "student_elite_distribution_mean": 1,
+                    "student_elite_distribution_sample": 1,
+                    "student_sample": 8
+                  },
+                  "refinement_seed_count": 13,
+                  "sampled_candidate_count": 10,
+                  "sampled_source_counts": {
+                    "student_sample": 10
+                  },
+                  "sampled_teacher_objective": {
+                    "count": 10,
+                    "max": 5372.9579855145,
+                    "mean": 3605.5311986786883,
+                    "min": 1862.0862541268784
+                  },
+                  "selected_source": "student_sample",
+                  "selected_was_refined_candidate": true,
+                  "selection_pool_count": 26,
+                  "selection_pool_refinement_objective": {
+                    "count": 26,
+                    "max": 5492.413386379585,
+                    "mean": 3986.688970912833,
+                    "min": 1895.4293555886254
+                  },
+                  "source_counts": {
+                    "student_elite_centroid": 1,
+                    "student_elite_centroid_refined": 1,
+                    "student_elite_distribution_mean": 1,
+                    "student_elite_distribution_mean_refined": 1,
+                    "student_elite_distribution_sample": 1,
+                    "student_elite_distribution_sample_refined": 1,
+                    "student_sample": 16,
+                    "student_sample_refined": 4
+                  },
+                  "top_rho": 10
+                },
                 "teacher_objective": 5372.9579855145,
                 "teacher_refinement_elite_summary": {
                   "elite_count": 10,
@@ -4935,6 +5035,55 @@
             "steps": 55,
             "student_log_probability": -127.04201448549942,
             "switches": 4,
+            "teacher_candidate_pool_diagnostics": {
+              "candidate_rollouts": 10,
+              "diagnostic_scope": "bounded_loop_free_teacher_candidate_pool",
+              "effective_candidate_rollouts": 10,
+              "elite_count": 10,
+              "elite_recombination_candidate_count": 3,
+              "elite_source_counts": {
+                "student_sample": 10
+              },
+              "not_full_paper_cem": true,
+              "refined_candidate_count": 13,
+              "refinement_elite_count": 10,
+              "refinement_elite_source_counts": {
+                "student_elite_distribution_mean": 1,
+                "student_elite_distribution_sample": 1,
+                "student_sample": 8
+              },
+              "refinement_seed_count": 13,
+              "sampled_candidate_count": 10,
+              "sampled_source_counts": {
+                "student_sample": 10
+              },
+              "sampled_teacher_objective": {
+                "count": 10,
+                "max": 5372.9579855145,
+                "mean": 3605.5311986786883,
+                "min": 1862.0862541268784
+              },
+              "selected_source": "student_sample",
+              "selected_was_refined_candidate": true,
+              "selection_pool_count": 26,
+              "selection_pool_refinement_objective": {
+                "count": 26,
+                "max": 5492.413386379585,
+                "mean": 3986.688970912833,
+                "min": 1895.4293555886254
+              },
+              "source_counts": {
+                "student_elite_centroid": 1,
+                "student_elite_centroid_refined": 1,
+                "student_elite_distribution_mean": 1,
+                "student_elite_distribution_mean_refined": 1,
+                "student_elite_distribution_sample": 1,
+                "student_elite_distribution_sample_refined": 1,
+                "student_sample": 16,
+                "student_sample_refined": 4
+              },
+              "top_rho": 10
+            },
             "teacher_objective": 5372.9579855145,
             "teacher_refinement_elite_summary": {
               "elite_count": 10,
@@ -5277,6 +5426,55 @@
             "steps": 79,
             "student_log_probability": -81.03013433408958,
             "switches": 0,
+            "teacher_candidate_pool_diagnostics": {
+              "candidate_rollouts": 10,
+              "diagnostic_scope": "bounded_loop_free_teacher_candidate_pool",
+              "effective_candidate_rollouts": 10,
+              "elite_count": 10,
+              "elite_recombination_candidate_count": 3,
+              "elite_source_counts": {
+                "student_sample": 10
+              },
+              "not_full_paper_cem": true,
+              "refined_candidate_count": 13,
+              "refinement_elite_count": 10,
+              "refinement_elite_source_counts": {
+                "student_elite_distribution_mean": 1,
+                "student_elite_distribution_sample": 1,
+                "student_sample": 8
+              },
+              "refinement_seed_count": 13,
+              "sampled_candidate_count": 10,
+              "sampled_source_counts": {
+                "student_sample": 10
+              },
+              "sampled_teacher_objective": {
+                "count": 10,
+                "max": 7821.901558775342,
+                "mean": 2903.518058377373,
+                "min": 1750.270366545398
+              },
+              "selected_source": "student_sample_refined",
+              "selected_was_refined_candidate": true,
+              "selection_pool_count": 26,
+              "selection_pool_refinement_objective": {
+                "count": 26,
+                "max": 7889.59417592217,
+                "mean": 3803.635247573985,
+                "min": 1793.542270143761
+              },
+              "source_counts": {
+                "student_elite_centroid": 1,
+                "student_elite_centroid_refined": 1,
+                "student_elite_distribution_mean": 1,
+                "student_elite_distribution_mean_refined": 1,
+                "student_elite_distribution_sample": 1,
+                "student_elite_distribution_sample_refined": 1,
+                "student_sample": 13,
+                "student_sample_refined": 7
+              },
+              "top_rho": 10
+            },
             "teacher_objective": 7818.96986566591,
             "teacher_refinement_elite_summary": {
               "elite_count": 10,
@@ -5496,6 +5694,55 @@
             "steps": 38,
             "student_log_probability": -44.56170915237713,
             "switches": 2,
+            "teacher_candidate_pool_diagnostics": {
+              "candidate_rollouts": 10,
+              "diagnostic_scope": "bounded_loop_free_teacher_candidate_pool",
+              "effective_candidate_rollouts": 10,
+              "elite_count": 10,
+              "elite_recombination_candidate_count": 3,
+              "elite_source_counts": {
+                "student_sample": 10
+              },
+              "not_full_paper_cem": true,
+              "refined_candidate_count": 13,
+              "refinement_elite_count": 10,
+              "refinement_elite_source_counts": {
+                "student_elite_distribution_mean": 1,
+                "student_elite_distribution_sample": 1,
+                "student_sample": 8
+              },
+              "refinement_seed_count": 13,
+              "sampled_candidate_count": 10,
+              "sampled_source_counts": {
+                "student_sample": 10
+              },
+              "sampled_teacher_objective": {
+                "count": 10,
+                "max": 3755.578352441883,
+                "mean": 2181.5389842616964,
+                "min": 866.1575848964324
+              },
+              "selected_source": "student_sample_refined",
+              "selected_was_refined_candidate": true,
+              "selection_pool_count": 26,
+              "selection_pool_refinement_objective": {
+                "count": 26,
+                "max": 3793.02269046901,
+                "mean": 2497.7031052166667,
+                "min": 894.1158577186075
+              },
+              "source_counts": {
+                "student_elite_centroid": 1,
+                "student_elite_centroid_refined": 1,
+                "student_elite_distribution_mean": 1,
+                "student_elite_distribution_mean_refined": 1,
+                "student_elite_distribution_sample": 1,
+                "student_elite_distribution_sample_refined": 1,
+                "student_sample": 11,
+                "student_sample_refined": 9
+              },
+              "top_rho": 10
+            },
             "teacher_objective": 3755.4382908476227,
             "teacher_refinement_elite_summary": {
               "elite_count": 10,
