@@ -273,33 +273,33 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `python scripts/evaluate_cartpole_program.py --paper-figure19 ...`, and its metrics mark
   `policy_source = paper_figure19_manual_transcription` and `synthesized_by_current_algorithm = false`.
 - Current synthesizer diagnostic command:
-  `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --teacher-elite-distribution-resamples 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
+  `python src/train_cartpole_psm.py --num-initial-states 4 --candidate-rollouts 10 --teacher-top-rho 10 --teacher-refinement-steps 1 --teacher-elite-distribution-resamples 10 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/psm_seed0_full_horizon.json --traces-output artifacts/results/traces/psm_seed0_full_horizon_teacher_traces.json`
 - Current synthesizer diagnostic output:
   train success `0.000`, test success over the full 15000-step/300-second horizon `0.000`,
-  train reward mean `28.45`, test reward mean `41.6`; the same artifact records train/test
-  survived-step means `28.45` and `41.6`, or `0.569s` and `0.832s`. The tracked artifact was
+  train reward mean `40.5`, test reward mean `60.4`; the same artifact records train/test
+  survived-step means `40.5` and `60.4`, or `0.81s` and `1.208s`. The tracked artifact was
   regenerated with the full selected-teacher-trace sidecar, inner student fit history, fixed initial-mode likelihood, and
   `mode_update_order = act_with_current_mode_then_update_next_mode`. It uses the CartPole PSM loop-free teacher profile
   (`segment_steps = 1`, `segments_per_trace = 250`) and the paper's `rho = 10` top-elite teacher setting
-  so the teacher can span the full 250-step training horizon with one-step segments, but its recorded local
-  diagnostic budget keeps `teacher_elite_distribution_resamples = 1`, so
-  `teacher_elite_distribution_resamples_cover_top_rho = false`. Its metadata
+  so the teacher can span the full 250-step training horizon with one-step segments, and the checked local
+  diagnostic now uses `teacher_elite_distribution_resamples = 10`, so
+  `teacher_elite_distribution_resamples_cover_top_rho = true`. Its metadata
   records `rollout_parameter_resampling = on_mode_entry`,
   `initial_mode_prior = fixed_mode_0`,
   `bootstrap_source = probabilistic_student_prior`, fitted teacher-gain sampling in the bounded
   elite-distribution refresh, first-iteration source counts
-  `{"bootstrap_elite_distribution_mean": 1, "bootstrap_student_sample_refined": 3}`,
-  final-iteration source counts `{"student_sample": 2, "student_sample_refined": 2}`, compact adaptive-teacher
+  `{"bootstrap_elite_distribution_mean": 2, "bootstrap_student_sample": 2}`,
+  final-iteration source counts `{"student_elite_distribution_mean": 1, "student_sample": 3}`, compact adaptive-teacher
   objective-component summaries, and policy
-  `m0 action=-0.798; m1 action=0.338; mode=1 if o[1] >= -0.384 and o[1] <= 0.767, else mode=0;
-  directed_transitions={'0->1': 'fire 0->1 if o[2] <= -0.141 and o[0] <= 0.274',
-  '1->0': 'fire 1->0 if -10.000*theta + 2.000*omega >= 0.352'}`; it also records
+  `m0 action=-0.264; m1 action=0.470; mode=1 if -20.000*theta + -0.250*omega >= -3.507, else mode=0;
+  directed_transitions={'0->1': 'fire 0->1 if o[1] >= 0.089 or o[0] >= 0.037',
+  '1->0': 'fire 1->0 if 1.000*theta + 0.000*omega >= 1000000000.000'}`; it also records
   `student_sample_segment_budget =
   preserve_sampled_mode_action_runs_split_by_max_segment_duration_then_reroll_loop_free_trace_and_recompute_likelihood`.
   Its `paper_protocol_status` lists the remaining adaptive-teaching blockers, including no five-seed
-  paper result selection in this per-seed artifact, no paper 10-thread active teacher coverage, no
-  paper student worker limit, no full continuous switch M-step, no full CEM teacher optimizer, and no
-  `1000`-rollout evaluation. This remains a local synthesis diagnostic and still demonstrates a
+  paper result selection in this per-seed artifact, no paper 10-thread active teacher/student coverage,
+  no student switch-candidate parallelism matching the paper threads, no full continuous switch M-step,
+  no full CEM teacher optimizer, and no `1000`-rollout evaluation. This remains a local synthesis diagnostic and still demonstrates a
   full-horizon programmatic-policy gap, not a paper-level reproduction result.
 - Direct-Opt diagnostic command:
   `python src/train_cartpole_direct_opt.py --seed 0 --num-train-states 10 --random-candidates 256 --batch-size 10 --batch-refinement-rounds 1 --local-refinement-steps 2 --restart-candidates-on-stall 1 --eval-rollouts 20 --test-max-steps 15000 --metrics-output artifacts/results/metrics/direct_opt_seed0_full_horizon.json`
