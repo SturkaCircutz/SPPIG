@@ -386,9 +386,10 @@ PPO MLP:
   --eval-rollouts 20 \
   --test-max-steps 15000 \
   --eval-interval 16384 \
+  --device cuda \
   --verbose \
-  --output artifacts/cartpole_ppo_mlp.pt \
-  --metrics-output artifacts/cartpole_ppo_mlp_metrics.json
+  --output artifacts/ppo_gpu_diagnostics/cartpole_ppo_mlp_131k_cuda.pt \
+  --metrics-output artifacts/ppo_gpu_diagnostics/cartpole_ppo_mlp_131k_cuda_metrics.json
 ```
 
 The standalone PPO CLI defaults to the paper `10^7` timestep budget when
@@ -411,11 +412,22 @@ PPO-LSTM diagnostic:
   --learning-rate 0.0003 \
   --entropy-coef 0.01 \
   --initial-log-std -1 \
+  --eval-rollouts 20 \
+  --test-max-steps 15000 \
   --eval-interval 32768 \
+  --device cuda \
   --verbose \
-  --output artifacts/cartpole_ppo_lstm.pt \
-  --metrics-output artifacts/cartpole_ppo_lstm_metrics.json
+  --output artifacts/ppo_gpu_diagnostics/cartpole_ppo_lstm_262k_cuda.pt \
+  --metrics-output artifacts/ppo_gpu_diagnostics/cartpole_ppo_lstm_262k_cuda_metrics.json
 ```
+
+Current CUDA diagnostic artifacts from those bounded commands record
+`requested=cuda`, `selected=cuda`. The MLP run selected the 98,304-step
+checkpoint with train success `1.00`, test success `0.00`, train reward
+`250.0`, and test reward `448.65`. The pure PPO-LSTM run selected the
+32,768-step checkpoint with train success `0.00`, test success `0.00`, train
+reward `43.75`, and test reward `59.15`. These artifacts are local runtime
+diagnostics, not paper-scale result evidence.
 
 When `--eval-interval` is positive, the PPO trainer records each train/test
 evaluation in `eval_history`, plus the selected checkpoint result and config in
@@ -516,7 +528,8 @@ sampled search.
   bundle-level `paper_protocol_status` block for the checked-in diagnostics
 - Programmatic policy metrics: `artifacts/cartpole_psm*_metrics.json`
 - PPO training metrics: `artifacts/cartpole_ppo_*_metrics.json`,
-  `artifacts/results/metrics/*.json`, and `artifacts/ppo_sweep/metrics/*.json`
+  `artifacts/ppo_gpu_diagnostics/*_metrics.json`, `artifacts/results/metrics/*.json`,
+  and `artifacts/ppo_sweep/metrics/*.json`
 - PPO sweep plan/results: `artifacts/ppo_sweep/`
 - PPO training-curve figure: `essay/figures/cartpole_ppo_training_curves.png`
 

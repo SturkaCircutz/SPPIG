@@ -28,6 +28,7 @@ FIGURE19_TEX = os.path.join(ROOT, "essay", "cartpole_figure19_reference_fragment
 ABSTRACT_RESULTS_TEX = os.path.join(ROOT, "essay", "cartpole_abstract_results.tex")
 PPO_METRICS_GLOBS = [
     os.path.join(ROOT, "artifacts", "cartpole_ppo_*_metrics.json"),
+    os.path.join(ROOT, "artifacts", "ppo_gpu_diagnostics", "*_metrics.json"),
     os.path.join(ROOT, "artifacts", "results", "metrics", "*.json"),
     os.path.join(ROOT, "artifacts", "ppo_sweep", "metrics", "*.json"),
 ]

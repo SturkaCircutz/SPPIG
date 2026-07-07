@@ -293,16 +293,17 @@ These are implementation diagnostics, not paper-scale reproduced results.
   Its diagnostics separate candidate evaluation calls from individual selected-state train rollout
   evaluations, while keeping `not_paper_scale` true.
 - PPO MLP command:
-  `python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --seed 0 --eval-rollouts 20 --test-max-steps 1000 --eval-interval 16384 --verbose --output artifacts/progress_mlp_128k_seed0.pt`
+  `.venv/bin/python src/train_cartpole_ppo.py --policy mlp --timesteps 131072 --rollout-steps 128 --num-envs 8 --update-epochs 8 --minibatches 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --eval-rollouts 20 --test-max-steps 15000 --eval-interval 16384 --device cuda --verbose --output artifacts/ppo_gpu_diagnostics/cartpole_ppo_mlp_131k_cuda.pt --metrics-output artifacts/ppo_gpu_diagnostics/cartpole_ppo_mlp_131k_cuda_metrics.json`
 - PPO MLP selected checkpoint:
-  train success `1.000`, diagnostic 1000-step test success `0.350`,
-  train reward mean `250.0`, diagnostic test reward mean `861.0`.
-- PPO MLP full-horizon reevaluation:
   train success `1.000`, test success `0.000`, train reward mean `250.0`,
-  test reward mean `910.6`.
+  test reward mean `448.65`, selected at `98304` timesteps. The metrics record
+  `requested = cuda`, `selected = cuda`.
 - Pure PPO-LSTM diagnostics:
+  `.venv/bin/python src/train_cartpole_ppo.py --policy lstm --timesteps 262144 --rollout-steps 128 --num-envs 8 --update-epochs 8 --learning-rate 0.0003 --entropy-coef 0.01 --initial-log-std -1 --eval-rollouts 20 --test-max-steps 15000 --eval-interval 32768 --device cuda --verbose --output artifacts/ppo_gpu_diagnostics/cartpole_ppo_lstm_262k_cuda.pt --metrics-output artifacts/ppo_gpu_diagnostics/cartpole_ppo_lstm_262k_cuda_metrics.json`
   with corrected recurrent state and MLP heads, `262144` timesteps did not solve the training split;
-  best observed train success `0.000`, train reward mean `45.0`.
+  best observed train success `0.000`, test success `0.000`, train reward mean
+  `43.75`, test reward mean `59.15`, selected at `32768` timesteps. The metrics
+  record `requested = cuda`, `selected = cuda`.
 - PPO-LSTM warm-start diagnostic:
   supervised pretraining from the two-mode controller followed by PPO fine-tuning preserves train
   success `1.000`, but full-horizon test success remains `0.000`. The checked-in warm-start
@@ -313,7 +314,8 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `act_with_current_mode_then_update_next_mode` pretraining semantics.
 
 The PPO diagnostics now verify that the feed-forward PPO baseline can solve the paper's training
-split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol.
+split locally on the available CUDA runtime. They still do not reproduce the paper-scale
+PPO/PPO-LSTM protocol.
 
 ## Bugs Fixed During Audit
 
@@ -481,7 +483,8 @@ split locally. They still do not reproduce the paper-scale PPO/PPO-LSTM protocol
 - `scripts/make_paper_figures.py` can turn those PPO metrics JSON files into
   `essay/figures/cartpole_ppo_training_curves.png`. Current smoke metrics are local diagnostics only,
   not paper-scale learning curves. It discovers standalone PPO metrics, reproduction-runner metrics
-  under `artifacts/results/metrics/`, and PPO sweep metrics.
+  under `artifacts/results/metrics/`, bounded CUDA diagnostic metrics under
+  `artifacts/ppo_gpu_diagnostics/`, and PPO sweep metrics.
 - `scripts/make_paper_figures.py` now writes abstract result claims from result artifacts, and parses
   linear Cartpole PSM switch boundaries from PSM metrics artifacts before writing
   `essay/cartpole_policy_fragment.tex` and plotting
@@ -596,6 +599,10 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_ppo_sweep.py::test_runtime_preflight_records_cuda_without_requiring_real_torch`
   verifies that runtime preflight records CUDA device metadata when PyTorch reports it, without
   requiring real local CUDA hardware in the test.
+- `tests/test_cartpole_paper.py::test_ppo_device_resolution_falls_back_when_cuda_unavailable`
+  and `tests/test_cartpole_ppo_cli.py::test_cli_passes_requested_device_without_running` verify the
+  standalone PPO device-selection path, while PPO metrics record both the requested and selected torch
+  device so CPU fallback cannot be mistaken for CUDA execution.
 - `tests/test_cartpole_ppo_sweep.py::test_runtime_preflight_records_cuda_probe_errors_without_failing_manifest`
   verifies that CUDA probe failures are recorded in the manifest preflight instead of aborting
   a sweep manifest write.
@@ -615,11 +622,14 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_ppo_sweep.py::test_resume_accepts_rows_only_when_metrics_match_result_and_config`,
   `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_with_stale_metrics_result`,
   `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_with_stale_metrics_config`,
+  `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_with_stale_metrics_device_config`,
+  `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_explicit_cuda_row_that_fell_back_to_cpu`,
+  `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_with_stale_protocol_device`,
   `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_without_metrics_command_or_protocol_status`,
   and `tests/test_cartpole_ppo_sweep.py::test_resume_rejects_rows_with_stale_protocol_status`
   verify that PPO sweep resume accepts an existing completed row only when its checkpoint exists and
-  its metrics JSON records command provenance, protocol status, the matching job config, and matching
-  selected-result numbers.
+  its metrics JSON records command provenance, protocol status, the matching job config, the requested
+  and selected torch device, and matching selected-result numbers.
 - `tests/test_cartpole_ppo_sweep.py::test_paper_protocol_status_identifies_full_dry_run_plan`
   verifies that the manifest status flags distinguish a full paper-scale dry-run plan from completed
   paper-scale execution.

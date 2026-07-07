@@ -1327,9 +1327,13 @@ class MakePaperFiguresTest(unittest.TestCase):
 
     def test_default_ppo_metric_globs_include_runner_metrics_dir(self):
         runner_metrics_pattern = os.path.join("artifacts", "results", "metrics", "*.json")
+        gpu_metrics_pattern = os.path.join("artifacts", "ppo_gpu_diagnostics", "*_metrics.json")
 
         self.assertTrue(
             any(pattern.endswith(runner_metrics_pattern) for pattern in make_paper_figures.PPO_METRICS_GLOBS)
+        )
+        self.assertTrue(
+            any(pattern.endswith(gpu_metrics_pattern) for pattern in make_paper_figures.PPO_METRICS_GLOBS)
         )
 
     def test_default_psm_metric_globs_include_runner_metrics_dir(self):
