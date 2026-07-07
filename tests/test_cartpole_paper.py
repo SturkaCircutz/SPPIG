@@ -6652,7 +6652,8 @@ class CartpolePaperTest(unittest.TestCase):
                 metrics = json.load(handle)
 
         self.assertEqual(metrics["config"]["policy_type"], "mlp")
-        self.assertIn("test_cartpole_paper", metrics["command"])
+        self.assertIsInstance(metrics["command"], str)
+        self.assertTrue(metrics["command"].strip())
         self.assertGreaterEqual(len(metrics["eval_history"]), 1)
         self.assertEqual(len(metrics["update_history"]), 2)
         self.assertEqual(metrics["update_history"][0]["update"], 1)

@@ -1,0 +1,14 @@
+starting CartPole PPO sweep: jobs_planned=4 resume=True outdir=artifacts/ppo_sweep_cuda_medium_core
+running job 1/4 id=0 policy=mlp seed=0 sample=0 timesteps=1000000 device=cuda
+finished job 1/4 id=0 policy=mlp seed=0 sample=0 timesteps=1000000 device=cuda train_success=0.625 test_success=1.000 selected_timesteps=1000000
+running job 2/4 id=1 policy=mlp seed=1 sample=0 timesteps=1000000 device=cuda
+finished job 2/4 id=1 policy=mlp seed=1 sample=0 timesteps=1000000 device=cuda train_success=0.130 test_success=0.000 selected_timesteps=1000000
+running job 3/4 id=2 policy=lstm seed=0 sample=0 timesteps=1000000 device=cuda
+finished job 3/4 id=2 policy=lstm seed=0 sample=0 timesteps=1000000 device=cuda train_success=1.000 test_success=1.000 selected_timesteps=1000000
+running job 4/4 id=3 policy=lstm seed=1 sample=0 timesteps=1000000 device=cuda
+finished job 4/4 id=3 policy=lstm seed=1 sample=0 timesteps=1000000 device=cuda train_success=1.000 test_success=0.000 selected_timesteps=1000000
+wrote artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_plan.csv
+wrote artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_results.csv
+wrote artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_summary.csv
+wrote artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_hyperparam_summary.csv
+wrote artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_manifest.json

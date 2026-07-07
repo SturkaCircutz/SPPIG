@@ -463,13 +463,39 @@ PPO hyperparameter sweep plan/execution:
   --outdir artifacts/ppo_sweep
 ```
 
+Medium partial PPO/PPO-LSTM sweep for essay-scale local evidence:
+
+```bash
+.venv/bin/python scripts/run_cartpole_ppo_sweep.py \
+  --resume \
+  --device cuda \
+  --outdir artifacts/ppo_sweep_cuda_medium_core \
+  --timesteps 1000000 \
+  --policies mlp,lstm \
+  --seeds 0,1 \
+  --hyperparam-mode paper-random \
+  --hyperparam-samples 1 \
+  --eval-rollouts 200 \
+  --test-max-steps 15000
+```
+
+This medium partial sweep runs both PPO MLP and PPO-LSTM with two seeds and one
+paper-range random hyperparameter sample per policy at `10^6` timesteps per
+job. It is intended for local essay tables when the full `10^7` timestep,
+five-seed, ten-sample search is too expensive, while avoiding an extra sampled
+PPO configuration whose `noptepochs * nminibatches` cost can dominate a laptop
+run. Its manifest must still report `paper_scale_plan = false` and
+`paper_scale_execution = false`.
+
 Use `--dry-run` to write only `cartpole_ppo_sweep_plan.csv` and the manifest,
 or `--quick --max-configs 1` for a smoke execution. Use `--resume` to continue
 an interrupted sweep; it skips only completed rows whose plan fields still
 match and whose checkpoint plus metrics artifacts still exist. Use
 `--continue-on-error` only when a long sweep should record failed jobs to
 `cartpole_ppo_sweep_failures.csv` and continue; by default, the first failed job
-stops the sweep. Executed sweeps also write `cartpole_ppo_sweep_results.csv`,
+stops the sweep. Use `--eval-interval N --verbose-jobs` when a long local sweep
+should print intermediate PPO evaluation progress as well as store `eval_history`
+in each metrics JSON. Executed sweeps also write `cartpole_ppo_sweep_results.csv`,
 `cartpole_ppo_sweep_summary.csv`, and `cartpole_ppo_sweep_hyperparam_summary.csv`;
 the manifest embeds the summary and hyperparameter-summary rows used as downstream evidence.
 Every sweep manifest also writes a dependency-light `runtime_preflight` block with
@@ -512,6 +538,7 @@ sampled search.
 - Paper draft: `essay/project.tex`
 - Generated abstract result fragment: `essay/cartpole_abstract_results.tex`
 - Generated result table fragment: `essay/cartpole_results_table.tex`
+- Generated medium PPO sweep fragment: `essay/cartpole_ppo_sweep_fragment.tex`
 - Generated PSM policy fragment: `essay/cartpole_policy_fragment.tex`
 - Generated Figure 19 reference fragment:
   `essay/cartpole_figure19_reference_fragment.tex`
@@ -519,9 +546,10 @@ sampled search.
 - Figures: `essay/figures/`
 - Figure generation script: `scripts/make_paper_figures.py` (uses
   `cartpole_summary.csv` when present, otherwise raw result rows, and rewrites
-  the abstract result, table, PSM policy, and Figure 19 reference fragments; if PSM metrics with a
-  linear switch exist, it writes the switch-boundary figure from that artifact,
-  and if PPO metrics JSON files exist, it also writes a training-curve figure;
+  the abstract result, table, medium PPO sweep, PSM policy, and Figure 19
+  reference fragments; if PSM metrics with a linear switch exist, it writes
+  the switch-boundary figure from that artifact, and if PPO metrics JSON files
+  exist, it also writes a training-curve figure;
   survival-reward plots prefer explicit survived-step fields when present;
   generated result fragments carry a local-diagnostic limitation note and reject
   rows whose explicit `test_horizon_steps` is not the paper 300-second horizon)
@@ -535,8 +563,9 @@ sampled search.
 - Programmatic policy metrics: `artifacts/cartpole_psm*_metrics.json`
 - PPO training metrics: `artifacts/cartpole_ppo_*_metrics.json`,
   `artifacts/ppo_gpu_diagnostics/*_metrics.json`, `artifacts/results/metrics/*.json`,
-  and `artifacts/ppo_sweep/metrics/*.json`
-- PPO sweep plan/results: `artifacts/ppo_sweep/`
+  `artifacts/ppo_sweep/metrics/*.json`, and `artifacts/ppo_sweep_*/metrics/*.json`
+- PPO sweep plan/results: `artifacts/ppo_sweep/` and
+  `artifacts/ppo_sweep_cuda_medium_core/`
 - PPO training-curve figure: `essay/figures/cartpole_ppo_training_curves.png`
 
 ## Resume Framing

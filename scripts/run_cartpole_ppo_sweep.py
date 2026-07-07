@@ -474,7 +474,7 @@ def paper_protocol_status(
 def write_csv(path: Path, fieldnames: List[str], rows: Iterable[Dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row[field] for field in fieldnames})
@@ -838,7 +838,7 @@ def resumable_result_for_job(
     return row
 
 
-def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
+def run_job(job: Dict[str, Any], verbose: bool = False) -> Dict[str, Any]:
     if job["policy"] not in {"mlp", "lstm"}:
         raise ValueError(f"unknown policy_type: {job['policy']}")
 
@@ -862,6 +862,7 @@ def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
         device=str(job["device"]),
         seed=int(job["seed"]),
         initial_log_std=-1.0,
+        verbose=verbose,
     )
     _, result = train_ppo_cartpole(cfg, output=job["output"])
     return {
@@ -1151,6 +1152,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Rebuild plan, summaries, and manifest from existing result/failure CSVs without running jobs.",
     )
+    parser.add_argument(
+        "--verbose-jobs",
+        action="store_true",
+        help="Print per-job PPO evaluation progress when --eval-interval is enabled.",
+    )
     parser.add_argument("--quick", action="store_true", help="Use tiny local settings; pair with --max-configs.")
     args = parser.parse_args()
     if args.quick:
@@ -1287,7 +1293,7 @@ def main() -> None:
             else:
                 try:
                     _log_progress(f"running {prefix}")
-                    result = run_job(job)
+                    result = run_job(job, verbose=args.verbose_jobs)
                     results.append(result)
                     _log_progress(
                         f"finished {prefix} train_success={result['train_success']:.3f} "

@@ -17,6 +17,11 @@
       "usage": "generated local-diagnostic result table"
     },
     {
+      "filename": "cartpole_ppo_sweep_fragment.tex",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated medium partial PPO sweep result fragment"
+    },
+    {
       "filename": "cartpole_policy_fragment.tex",
       "generated_by": "scripts/make_paper_figures.py",
       "usage": "generated programmatic-policy fragment"

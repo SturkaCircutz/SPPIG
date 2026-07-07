@@ -180,7 +180,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   job, and `--refresh-manifest` can rebuild the manifest and summaries from existing CSV artifacts
   without launching training after validating each completed row against its checkpoint, metrics
   command, device, protocol-status, config, and selected-result provenance, so interrupted
-  paper-scale sweeps still carry accurate partial-run evidence. Its paper-scale plan/execution flags require the generated
+  paper-scale sweeps still carry accurate partial-run evidence. `--verbose-jobs` forwards the
+  PPO trainer's existing evaluation-progress logging when `--eval-interval` is enabled, but this is
+  observability only and does not change the sweep protocol. Its paper-scale plan/execution flags require the generated
   sampled configs themselves to satisfy the paper's reported exact discrete hyperparameter ranges,
   learning-rate interval, and PPO-LSTM `nminibatches = 1` rule, plus the paper's
   `1000` evaluation rollouts. Its manifest records the standard CartPole reward spec, embeds the
@@ -190,14 +192,20 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   when available, planned job counts, requested training timesteps, requested evaluation rollouts, and
   the full paper-scale reference size. This is launch provenance and search infrastructure; the full
   paper-scale sweep has not been run.
+  The documented medium partial CUDA sweep under `artifacts/ppo_sweep_cuda_medium_core`
+  uses `--timesteps 1000000 --policies mlp,lstm --seeds 0,1 --hyperparam-samples 1
+  --eval-rollouts 200 --test-max-steps 15000`. It keeps both PPO baselines, multiple seeds,
+  one paper-range sampled hyperparameter configuration per policy, and the full 300-second test
+  horizon, but it is only essay-scale local evidence because it omits the paper `10^7` timestep
+  budget, five seeds, ten samples per policy, and `1000`-rollout evaluation.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
-  generated abstract-result, LaTeX table, PSM policy, and Figure 19 reference fragments consumed by `essay/project.tex`,
+  generated abstract-result, LaTeX table, medium PPO sweep, PSM policy, and Figure 19 reference fragments consumed by `essay/project.tex`,
   requiring Figure 19 reference metrics to carry both manual-transcription status and command provenance,
   plots the PSM switch-boundary figure from a linear-switch PSM metrics artifact with command and
   paper-protocol provenance when available, and
   plots PPO training curves only from metrics JSON artifacts with non-empty `eval_history`, command
-  provenance, and a paper-protocol status block. Its
+  provenance, and a paper-protocol status block, including `artifacts/ppo_sweep_*/metrics/*.json`. Its
   survival plot uses explicit survived-step fields when available and falls back to reward only for
   older artifacts. The artifact gate identifies synthesized PSM artifacts from metrics provenance,
   not just the display policy name, and rejects synthesized PSM metrics whose full recorded

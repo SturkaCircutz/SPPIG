@@ -28,11 +28,31 @@ TABLE_TEX = os.path.join(ROOT, "essay", "cartpole_results_table.tex")
 POLICY_TEX = os.path.join(ROOT, "essay", "cartpole_policy_fragment.tex")
 FIGURE19_TEX = os.path.join(ROOT, "essay", "cartpole_figure19_reference_fragment.tex")
 ABSTRACT_RESULTS_TEX = os.path.join(ROOT, "essay", "cartpole_abstract_results.tex")
+PPO_SWEEP_SUMMARY_CSV = os.path.join(
+    ROOT,
+    "artifacts",
+    "ppo_sweep_cuda_medium_core",
+    "cartpole_ppo_sweep_hyperparam_summary.csv",
+)
+PPO_SWEEP_PLAN_CSV = os.path.join(
+    ROOT,
+    "artifacts",
+    "ppo_sweep_cuda_medium_core",
+    "cartpole_ppo_sweep_plan.csv",
+)
+PPO_SWEEP_MANIFEST_JSON = os.path.join(
+    ROOT,
+    "artifacts",
+    "ppo_sweep_cuda_medium_core",
+    "cartpole_ppo_sweep_manifest.json",
+)
+PPO_SWEEP_TEX = os.path.join(ROOT, "essay", "cartpole_ppo_sweep_fragment.tex")
 PPO_METRICS_GLOBS = [
     os.path.join(ROOT, "artifacts", "cartpole_ppo_*_metrics.json"),
     os.path.join(ROOT, "artifacts", "ppo_gpu_diagnostics", "*_metrics.json"),
     os.path.join(ROOT, "artifacts", "results", "metrics", "*.json"),
     os.path.join(ROOT, "artifacts", "ppo_sweep", "metrics", "*.json"),
+    os.path.join(ROOT, "artifacts", "ppo_sweep_*", "metrics", "*.json"),
 ]
 PSM_METRICS_GLOBS = [
     os.path.join(ROOT, "artifacts", "cartpole_psm*_metrics.json"),
@@ -134,12 +154,20 @@ def metric_or_none(row: dict[str, str], name: str) -> float | None:
     return float(value) if value not in (None, "") else None
 
 
+def format_optional_metric(value: float | None, spec: str) -> str:
+    return format(value, spec) if value is not None else "--"
+
+
 def artifact_path(path: str) -> str:
     return path if os.path.isabs(path) else os.path.join(ROOT, path)
 
 
 def truthy_csv(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes"}
+
+
+def latex_escape(value: object) -> str:
+    return str(value).replace("\\", r"\textbackslash{}").replace("_", r"\_")
 
 
 def row_metrics_path(row: dict[str, str]) -> str:
@@ -714,6 +742,245 @@ def write_abstract_results(rows: list[dict[str, str]], outpath: str = ABSTRACT_R
     return True
 
 
+def read_ppo_sweep_summary(path: str = PPO_SWEEP_SUMMARY_CSV) -> list[dict[str, str]]:
+    if not os.path.exists(path):
+        return []
+    with open(path, newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def csv_row_count(path: str) -> int:
+    if not os.path.exists(path):
+        return 0
+    with open(path, newline="", encoding="utf-8") as handle:
+        return sum(1 for _ in csv.DictReader(handle))
+
+
+def read_json_object(path: str) -> dict[str, object]:
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return payload if isinstance(payload, dict) else {}
+
+
+def require_ppo_sweep_fragment_artifacts(rows: list[dict[str, str]]) -> None:
+    missing_checkpoints: list[str] = []
+    missing_metrics: list[str] = []
+    missing_command_provenance: list[str] = []
+    missing_protocol_status: list[str] = []
+    missing_selected_result: list[str] = []
+
+    for row in _best_ppo_sweep_rows(rows):
+        policy = row.get("policy") or row.get("best_output") or row.get("best_metrics_output") or "unknown"
+        checkpoint_path = row.get("best_output") or row.get("output")
+        metrics_path = row.get("best_metrics_output") or row.get("metrics_output")
+        if not checkpoint_path or not os.path.exists(artifact_path(checkpoint_path)):
+            missing_checkpoints.append(policy)
+        if not metrics_path or not os.path.exists(artifact_path(metrics_path)):
+            missing_metrics.append(policy)
+            continue
+        with open(artifact_path(metrics_path), encoding="utf-8") as handle:
+            metrics = json.load(handle)
+        if not isinstance(metrics, dict):
+            missing_protocol_status.append(policy)
+            missing_command_provenance.append(policy)
+            missing_selected_result.append(policy)
+            continue
+        if not isinstance(metrics.get("command"), str) or not metrics["command"].strip():
+            missing_command_provenance.append(policy)
+        if not isinstance(metrics.get("paper_protocol_status"), dict):
+            missing_protocol_status.append(policy)
+        if not isinstance(metrics.get("selected_result"), dict):
+            missing_selected_result.append(policy)
+
+    if missing_checkpoints:
+        raise FileNotFoundError(
+            "PPO sweep fragment rows lack checkpoint artifacts: "
+            + ", ".join(missing_checkpoints)
+        )
+    if missing_metrics:
+        raise FileNotFoundError(
+            "PPO sweep fragment rows lack metrics artifacts: "
+            + ", ".join(missing_metrics)
+        )
+    if missing_command_provenance:
+        raise ValueError(
+            "PPO sweep fragment metrics lack command provenance: "
+            + ", ".join(missing_command_provenance)
+        )
+    if missing_protocol_status:
+        raise ValueError(
+            "PPO sweep fragment metrics lack paper-protocol status: "
+            + ", ".join(missing_protocol_status)
+        )
+    if missing_selected_result:
+        raise ValueError(
+            "PPO sweep fragment metrics lack selected-result provenance: "
+            + ", ".join(missing_selected_result)
+        )
+
+
+def _best_ppo_sweep_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    best_rows = [row for row in rows if truthy_csv(row.get("is_best_hyperparam_for_policy"))]
+    if best_rows:
+        return sorted(best_rows, key=lambda row: row.get("policy", ""))
+    return sorted(rows, key=lambda row: row.get("policy", ""))
+
+
+def planned_ppo_sweep_policies(status: dict[str, object]) -> list[str]:
+    policies = status.get("selected_policies")
+    if not isinstance(policies, list):
+        return []
+    planned: list[str] = []
+    for policy in policies:
+        policy_name = str(policy)
+        if policy_name and policy_name not in planned:
+            planned.append(policy_name)
+    return planned
+
+
+def completed_and_missing_ppo_sweep_rows(
+    rows: list[dict[str, str]],
+    planned_policies: list[str],
+    selected_seed_count: int | None,
+) -> list[dict[str, str]]:
+    best_rows = _best_ppo_sweep_rows(rows)
+    rows_by_policy = {row.get("policy", ""): row for row in best_rows}
+    ordered: list[dict[str, str]] = []
+    for policy in planned_policies:
+        if policy in rows_by_policy:
+            ordered.append(rows_by_policy.pop(policy))
+        else:
+            ordered.append(
+                {
+                    "policy": policy,
+                    "seed_count": "0",
+                    "selected_seed_count": str(selected_seed_count or ""),
+                }
+            )
+    ordered.extend(rows_by_policy[policy] for policy in sorted(rows_by_policy))
+    return ordered
+
+
+def display_ppo_sweep_policy(policy: str) -> str:
+    return {
+        "mlp": "PPO MLP",
+        "lstm": "PPO-LSTM",
+    }.get(policy, policy)
+
+
+def ppo_sweep_seed_coverage(row: dict[str, str]) -> str:
+    completed = int_like(row.get("seed_count") or row.get("jobs_completed"))
+    selected = int_like(row.get("selected_seed_count"))
+    if completed is None:
+        return ""
+    return f"{completed}/{selected}" if selected else str(completed)
+
+
+def write_ppo_sweep_fragment(
+    summary_rows: list[dict[str, str]] | None = None,
+    manifest: dict[str, object] | None = None,
+    outpath: str = PPO_SWEEP_TEX,
+    validate_artifacts: bool | None = None,
+) -> bool:
+    validate_real_artifacts = summary_rows is None and manifest is None
+    rows = read_ppo_sweep_summary() if summary_rows is None else summary_rows
+    manifest_payload = read_json_object(PPO_SWEEP_MANIFEST_JSON) if manifest is None else manifest
+    if validate_artifacts is None:
+        validate_artifacts = validate_real_artifacts
+    status = manifest_payload.get("paper_protocol_status", {})
+    status = status if isinstance(status, dict) else {}
+    jobs_completed = int_like(manifest_payload.get("jobs_completed")) or 0
+    jobs_planned = int_like(manifest_payload.get("jobs_planned")) or csv_row_count(PPO_SWEEP_PLAN_CSV)
+    selected_timesteps = int_like(status.get("selected_timesteps"))
+    if selected_timesteps is None:
+        runtime_preflight = manifest_payload.get("runtime_preflight", {})
+        if isinstance(runtime_preflight, dict):
+            planned_training = int_like(runtime_preflight.get("planned_training_timesteps"))
+            selected_space_jobs = int_like(runtime_preflight.get("selected_space_reference_job_count"))
+            if planned_training is not None and selected_space_jobs:
+                selected_timesteps = planned_training // selected_space_jobs
+    selected_eval_rollouts = int_like(status.get("selected_eval_rollouts"))
+    selected_test_steps = int_like(status.get("selected_test_max_steps"))
+    selected_seed_count = int_like(status.get("selected_seed_count"))
+    paper_scale_plan = bool(status.get("paper_scale_plan"))
+    paper_scale_execution = bool(status.get("paper_scale_execution"))
+    planned_policies = planned_ppo_sweep_policies(status)
+    lines = [
+        "% Generated by scripts/make_paper_figures.py from PPO sweep artifacts.",
+        f"% {LOCAL_DIAGNOSTIC_NOTE}",
+    ]
+    if not rows or jobs_completed == 0:
+        lines.extend(
+            [
+                (
+                    "The medium PPO/PPO-LSTM sweep has not produced completed result rows yet. "
+                    f"The current plan contains {jobs_planned} jobs and remains local diagnostic evidence only."
+                ),
+                "",
+            ]
+        )
+        with open(outpath, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(lines))
+        return False
+
+    if validate_artifacts:
+        require_ppo_sweep_fragment_artifacts(rows)
+
+    lines.extend(
+        [
+            (
+                "Medium partial PPO/PPO-LSTM sweep summary. "
+                f"Completed jobs: {jobs_completed}/{jobs_planned}. "
+                f"Paper-scale plan: {str(paper_scale_plan).lower()}; "
+                f"paper-scale execution: {str(paper_scale_execution).lower()}."
+            ),
+            "\\begin{tabular}{lrrrrr}",
+            "\\toprule",
+            "Policy & Seeds & Train succ. & Test succ. & Train rew. & Test rew. \\\\",
+            "\\midrule",
+        ]
+    )
+    for row in completed_and_missing_ppo_sweep_rows(rows, planned_policies, selected_seed_count):
+        train_success = metric_or_none(row, "train_success")
+        test_success = metric_or_none(row, "test_success")
+        train_reward = metric_or_none(row, "train_reward")
+        test_reward = metric_or_none(row, "test_reward")
+        lines.append(
+            f"{latex_escape(display_ppo_sweep_policy(row.get('policy', '')))} & "
+            f"{latex_escape(ppo_sweep_seed_coverage(row))} & "
+            f"{format_optional_metric(train_success, '.2f')} & "
+            f"{format_optional_metric(test_success, '.2f')} & "
+            f"{format_optional_metric(train_reward, '.1f')} & "
+            f"{format_optional_metric(test_reward, '.1f')} \\\\"
+        )
+    lines.extend(
+        [
+            "\\bottomrule",
+            "\\end{tabular}",
+        ]
+    )
+    if selected_timesteps is not None or selected_eval_rollouts is not None or selected_test_steps is not None:
+        detail_parts = []
+        if selected_timesteps is not None:
+            detail_parts.append(f"{selected_timesteps:,} timesteps per job")
+        if selected_eval_rollouts is not None:
+            detail_parts.append(f"{selected_eval_rollouts} evaluation rollouts")
+        if selected_test_steps is not None:
+            detail_parts.append(f"{selected_test_steps} test steps")
+        lines.append("\\par\\smallskip\\noindent " + ", ".join(detail_parts) + ".")
+    lines.extend(
+        [
+            f"\\par\\smallskip\\noindent\\emph{{Note:}} {LOCAL_DIAGNOSTIC_TEX_NOTE}",
+            "",
+        ]
+    )
+    with open(outpath, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines))
+    return True
+
+
 def plot_success_bars(rows: list[dict[str, str]]) -> None:
     labels = [row["policy"].replace("Programmatic state machine", "Programmatic PSM") for row in rows]
     train = [metric(row, "train_success") for row in rows]
@@ -1011,6 +1278,7 @@ def main() -> None:
     figure19_metric_files = read_figure19_metric_files()
     write_results_table(rows)
     write_abstract_results(rows)
+    write_ppo_sweep_fragment()
     write_policy_fragment(psm_metric_files)
     write_figure19_reference_fragment(figure19_metric_files)
     plot_success_bars(rows)

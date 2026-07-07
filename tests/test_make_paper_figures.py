@@ -290,6 +290,7 @@ class MakePaperFiguresTest(unittest.TestCase):
 
         self.assertIn("cartpole_abstract_results.tex", filenames)
         self.assertIn("cartpole_results_table.tex", filenames)
+        self.assertIn("cartpole_ppo_sweep_fragment.tex", filenames)
         self.assertIn("cartpole_policy_fragment.tex", filenames)
         self.assertIn("cartpole_figure19_reference_fragment.tex", filenames)
         self.assertIn("figures/cartpole_success_rates.png", filenames)
@@ -1666,6 +1667,7 @@ class MakePaperFiguresTest(unittest.TestCase):
     def test_default_ppo_metric_globs_include_runner_metrics_dir(self):
         runner_metrics_pattern = os.path.join("artifacts", "results", "metrics", "*.json")
         gpu_metrics_pattern = os.path.join("artifacts", "ppo_gpu_diagnostics", "*_metrics.json")
+        sweep_metrics_pattern = os.path.join("artifacts", "ppo_sweep_*", "metrics", "*.json")
 
         self.assertTrue(
             any(pattern.endswith(runner_metrics_pattern) for pattern in make_paper_figures.PPO_METRICS_GLOBS)
@@ -1673,6 +1675,206 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertTrue(
             any(pattern.endswith(gpu_metrics_pattern) for pattern in make_paper_figures.PPO_METRICS_GLOBS)
         )
+        self.assertTrue(
+            any(pattern.endswith(sweep_metrics_pattern) for pattern in make_paper_figures.PPO_METRICS_GLOBS)
+        )
+
+    def test_write_ppo_sweep_fragment_records_missing_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "sweep.tex")
+            plan_path = os.path.join(tmpdir, "plan.csv")
+            with open(plan_path, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["job_id"])
+                writer.writeheader()
+                writer.writerows([{"job_id": "0"}, {"job_id": "1"}, {"job_id": "2"}, {"job_id": "3"}])
+            original_plan = make_paper_figures.PPO_SWEEP_PLAN_CSV
+            try:
+                make_paper_figures.PPO_SWEEP_PLAN_CSV = plan_path
+                wrote = make_paper_figures.write_ppo_sweep_fragment(
+                    [],
+                    {
+                        "jobs_completed": 0,
+                        "paper_protocol_status": {
+                            "paper_scale_plan": False,
+                            "paper_scale_execution": False,
+                        },
+                    },
+                    outpath,
+                )
+                with open(outpath, encoding="utf-8") as handle:
+                    fragment = handle.read()
+            finally:
+                make_paper_figures.PPO_SWEEP_PLAN_CSV = original_plan
+
+        self.assertFalse(wrote)
+        self.assertIn("has not produced completed result rows yet", fragment)
+        self.assertIn("4 jobs", fragment)
+        self.assertIn("local diagnostic evidence only", fragment)
+
+    def test_write_ppo_sweep_fragment_reports_completed_partial_without_paper_claim(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "sweep.tex")
+            wrote = make_paper_figures.write_ppo_sweep_fragment(
+                [
+                    {
+                        "policy": "mlp",
+                        "is_best_hyperparam_for_policy": "True",
+                        "seed_count": "1",
+                        "selected_seed_count": "2",
+                        "train_success_mean": "0.75",
+                        "test_success_mean": "0.25",
+                        "train_reward_mean": "180.0",
+                        "test_reward_mean": "900.0",
+                    },
+                    {
+                        "policy": "lstm",
+                        "is_best_hyperparam_for_policy": "True",
+                        "seed_count": "2",
+                        "selected_seed_count": "2",
+                        "train_success_mean": "0.50",
+                        "test_success_mean": "0.00",
+                        "train_reward_mean": "160.0",
+                        "test_reward_mean": "700.0",
+                    },
+                ],
+                {
+                    "jobs_planned": 8,
+                    "jobs_completed": 8,
+                    "paper_protocol_status": {
+                        "paper_scale_plan": False,
+                        "paper_scale_execution": False,
+                        "selected_policies": ["mlp", "lstm"],
+                        "selected_seed_count": 2,
+                        "selected_eval_rollouts": 200,
+                        "selected_test_max_steps": 15000,
+                    },
+                    "runtime_preflight": {
+                        "planned_training_timesteps": 8_000_000,
+                        "selected_space_reference_job_count": 8,
+                    },
+                },
+                outpath,
+            )
+            with open(outpath, encoding="utf-8") as handle:
+                fragment = handle.read()
+
+        self.assertTrue(wrote)
+        self.assertIn("Completed jobs: 8/8", fragment)
+        self.assertIn("Paper-scale plan: false", fragment)
+        self.assertIn("paper-scale execution: false", fragment)
+        self.assertIn("Policy & Seeds & Train succ.", fragment)
+        self.assertIn("PPO MLP & 1/2 & 0.75", fragment)
+        self.assertIn("PPO-LSTM & 2/2 & 0.50", fragment)
+        self.assertIn("1,000,000 timesteps per job", fragment)
+        self.assertIn("200 evaluation rollouts", fragment)
+        self.assertIn("15000 test steps", fragment)
+
+    def test_write_ppo_sweep_fragment_shows_planned_policy_without_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "sweep.tex")
+            make_paper_figures.write_ppo_sweep_fragment(
+                [
+                    {
+                        "policy": "mlp",
+                        "is_best_hyperparam_for_policy": "True",
+                        "seed_count": "2",
+                        "selected_seed_count": "2",
+                        "train_success_mean": "0.38",
+                        "test_success_mean": "0.50",
+                        "train_reward_mean": "235.3",
+                        "test_reward_mean": "7701.6",
+                    }
+                ],
+                {
+                    "jobs_planned": 4,
+                    "jobs_completed": 2,
+                    "paper_protocol_status": {
+                        "paper_scale_plan": False,
+                        "paper_scale_execution": False,
+                        "selected_policies": ["mlp", "lstm"],
+                        "selected_seed_count": 2,
+                    },
+                },
+                outpath,
+            )
+            with open(outpath, encoding="utf-8") as handle:
+                fragment = handle.read()
+
+        self.assertIn("PPO MLP & 2/2 & 0.38 & 0.50 & 235.3 & 7701.6", fragment)
+        self.assertIn("PPO-LSTM & 0/2 & -- & -- & -- & --", fragment)
+
+    def test_write_ppo_sweep_fragment_rejects_missing_artifact_when_validating(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "sweep.tex")
+            with self.assertRaises(FileNotFoundError) as caught:
+                make_paper_figures.write_ppo_sweep_fragment(
+                    [
+                        {
+                            "policy": "mlp",
+                            "is_best_hyperparam_for_policy": "True",
+                            "seed_count": "1",
+                            "selected_seed_count": "1",
+                            "train_success_mean": "0.75",
+                            "best_output": os.path.join(tmpdir, "missing.pt"),
+                            "best_metrics_output": os.path.join(tmpdir, "missing.json"),
+                        }
+                    ],
+                    {
+                        "jobs_planned": 1,
+                        "jobs_completed": 1,
+                        "paper_protocol_status": {
+                            "paper_scale_plan": False,
+                            "paper_scale_execution": False,
+                        },
+                    },
+                    outpath,
+                    validate_artifacts=True,
+                )
+
+        self.assertIn("lack checkpoint artifacts", str(caught.exception))
+
+    def test_write_ppo_sweep_fragment_rejects_metrics_without_command_when_validating(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outpath = os.path.join(tmpdir, "sweep.tex")
+            checkpoint_path = os.path.join(tmpdir, "model.pt")
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            with open(checkpoint_path, "w", encoding="utf-8") as handle:
+                handle.write("checkpoint")
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {"paper_scale_execution": False},
+                        "selected_result": {"timesteps": 64},
+                    },
+                    handle,
+                )
+
+            with self.assertRaises(ValueError) as caught:
+                make_paper_figures.write_ppo_sweep_fragment(
+                    [
+                        {
+                            "policy": "mlp",
+                            "is_best_hyperparam_for_policy": "True",
+                            "seed_count": "1",
+                            "selected_seed_count": "1",
+                            "train_success_mean": "0.75",
+                            "best_output": checkpoint_path,
+                            "best_metrics_output": metrics_path,
+                        }
+                    ],
+                    {
+                        "jobs_planned": 1,
+                        "jobs_completed": 1,
+                        "paper_protocol_status": {
+                            "paper_scale_plan": False,
+                            "paper_scale_execution": False,
+                        },
+                    },
+                    outpath,
+                    validate_artifacts=True,
+                )
+
+        self.assertIn("lack command provenance", str(caught.exception))
 
     def test_default_psm_metric_globs_include_runner_metrics_dir(self):
         runner_metrics_pattern = os.path.join("artifacts", "results", "metrics", "psm_seed*.json")

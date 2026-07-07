@@ -493,7 +493,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
 
     def test_dry_run_writes_plan_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            subprocess.run(
+            completed = subprocess.run(
                 [
                     sys.executable,
                     SCRIPT,
@@ -1107,7 +1107,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO sweep execution")
     def test_quick_execution_writes_results_summary_and_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            subprocess.run(
+            completed = subprocess.run(
                 [
                     sys.executable,
                     SCRIPT,
@@ -1434,7 +1434,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
             manifest_before_failure = []
             successful_results = []
 
-            def fake_run_job(job):
+            def fake_run_job(job, verbose=False):
                 if job["policy"] == "bad":
                     with open(os.path.join(tmpdir, "cartpole_ppo_sweep_manifest.json"), encoding="utf-8") as handle:
                         manifest_before_failure.append(json.load(handle))
@@ -1493,6 +1493,44 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(manifest["failure_summary"][0]["policy"], "bad")
         self.assertFalse(manifest["paper_protocol_status"]["all_planned_jobs_completed"])
         self.assertFalse(manifest["paper_protocol_status"]["paper_scale_execution"])
+
+    def test_verbose_jobs_passes_trainer_progress_flag_without_changing_plan(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            verbose_values = []
+
+            def fake_run_job(job, verbose=False):
+                verbose_values.append(verbose)
+                return {
+                    **job,
+                    "train_success": 0.25,
+                    "test_success": 0.5,
+                    "train_reward": 10.0,
+                    "test_reward": 12.0,
+                    **survival_fields(train_steps=10.0, test_steps=12.0),
+                    "selected_timesteps": int(job["total_timesteps"]),
+                }
+
+            original_argv = sys.argv
+            try:
+                sys.argv = [
+                    SCRIPT,
+                    "--quick",
+                    "--verbose-jobs",
+                    "--max-configs",
+                    "1",
+                    "--outdir",
+                    tmpdir,
+                ]
+                with patch("run_cartpole_ppo_sweep.run_job", side_effect=fake_run_job):
+                    sweep_main()
+            finally:
+                sys.argv = original_argv
+
+            with open(os.path.join(tmpdir, "cartpole_ppo_sweep_plan.csv"), newline="", encoding="utf-8") as handle:
+                plan_row = next(csv.DictReader(handle))
+
+        self.assertEqual(verbose_values, [True])
+        self.assertNotIn("verbose_jobs", plan_row)
 
     def test_refresh_manifest_rebuilds_existing_partial_result_evidence_without_running_jobs(self):
         with tempfile.TemporaryDirectory() as tmpdir:

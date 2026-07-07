@@ -231,6 +231,12 @@ artifacts.  Test success uses the full
 \input{cartpole_results_table.tex}
 \end{table}
 
+The medium partial PPO sweep is reported separately from the fixed local
+comparison, because it narrows the paper's compute budget while preserving both
+PPO baselines, multiple seeds, sampled paper-range hyperparameters, and the full
+300-second test horizon.
+\input{cartpole_ppo_sweep_fragment.tex}
+
 \paragraph{PPO-LSTM status.}
 Pure PPO-LSTM is implemented and executable, but did not solve the training
 split within the local diagnostic budget.  A supervised warm start from the

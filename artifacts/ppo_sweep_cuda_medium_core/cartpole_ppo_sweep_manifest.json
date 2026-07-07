@@ -1,0 +1,409 @@
+{
+  "artifact_kind": "cartpole_ppo_sweep_manifest",
+  "artifacts": {
+    "checkpoints": "artifacts/ppo_sweep_cuda_medium_core/checkpoints",
+    "failures": "artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_failures.csv",
+    "hyperparameter_summary": "artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_hyperparam_summary.csv",
+    "metrics": "artifacts/ppo_sweep_cuda_medium_core/metrics",
+    "plan": "artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_plan.csv",
+    "results": "artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_results.csv",
+    "summary": "artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_summary.csv"
+  },
+  "command": "scripts/run_cartpole_ppo_sweep.py --refresh-manifest --resume --device cuda --outdir artifacts/ppo_sweep_cuda_medium_core --timesteps 1000000 --policies mlp,lstm --seeds 0,1 --hyperparam-mode paper-random --hyperparam-samples 1 --eval-rollouts 200 --test-max-steps 15000",
+  "continue_on_error": false,
+  "device": "cuda",
+  "dry_run": false,
+  "failure_summary": [],
+  "hyperparam_mode": "paper-random",
+  "hyperparam_samples": 1,
+  "hyperparam_seed": 0,
+  "hyperparameter_selection_rule": "per policy and hyperparameter sample: prefer configs with complete selected-seed coverage, then aggregate completed seeds by mean train_success, then mean train_reward, then completed seed count, then lower sample id",
+  "hyperparameter_summary": [
+    {
+      "best_job_id": 0,
+      "best_metrics_output": "artifacts/ppo_sweep_cuda_medium_core/metrics/00000_mlp_seed0.json",
+      "best_output": "artifacts/ppo_sweep_cuda_medium_core/checkpoints/00000_mlp_seed0.pt",
+      "best_seed": 0,
+      "best_selected_timesteps": 1000000,
+      "best_test_reward": 15000.0,
+      "best_test_steps": 15000.0,
+      "best_test_success": 1.0,
+      "best_test_survival_seconds": 300.0,
+      "best_train_reward": 246.985,
+      "best_train_steps": 246.985,
+      "best_train_success": 0.625,
+      "best_train_survival_seconds": 4.9397,
+      "clip_range": 0.2,
+      "complete_seed_coverage": true,
+      "entropy_coef": 0.1,
+      "hyperparam_mode": "paper-random",
+      "hyperparam_sample": 0,
+      "is_best_hyperparam_for_policy": true,
+      "jobs_completed": 2,
+      "learning_rate": 0.002275073436806206,
+      "minibatches": 64,
+      "missing_seeds": "",
+      "policy": "mlp",
+      "seed_count": 2,
+      "seeds_completed": "0,1",
+      "selected_seed_count": 2,
+      "selected_seeds": "0,1",
+      "test_reward_mean": 7701.555,
+      "test_reward_std": 10321.559903234103,
+      "test_steps_mean": 7701.555,
+      "test_steps_std": 10321.559903234103,
+      "test_success_mean": 0.5,
+      "test_success_std": 0.7071067811865476,
+      "test_survival_seconds_mean": 154.0311,
+      "test_survival_seconds_std": 206.4311980646821,
+      "train_reward_mean": 235.2725,
+      "train_reward_std": 16.563976349294883,
+      "train_steps_mean": 235.2725,
+      "train_steps_std": 16.563976349294883,
+      "train_success_mean": 0.3775,
+      "train_success_std": 0.35001785668734103,
+      "train_survival_seconds_mean": 4.705450000000001,
+      "train_survival_seconds_std": 0.3312795269858973,
+      "update_epochs": 5
+    },
+    {
+      "best_job_id": 2,
+      "best_metrics_output": "artifacts/ppo_sweep_cuda_medium_core/metrics/00002_lstm_seed0.json",
+      "best_output": "artifacts/ppo_sweep_cuda_medium_core/checkpoints/00002_lstm_seed0.pt",
+      "best_seed": 0,
+      "best_selected_timesteps": 1000000,
+      "best_test_reward": 15000.0,
+      "best_test_steps": 15000.0,
+      "best_test_success": 1.0,
+      "best_test_survival_seconds": 300.0,
+      "best_train_reward": 250.0,
+      "best_train_steps": 250.0,
+      "best_train_success": 1.0,
+      "best_train_survival_seconds": 5.0,
+      "clip_range": 0.1,
+      "complete_seed_coverage": true,
+      "entropy_coef": 0.05,
+      "hyperparam_mode": "paper-random",
+      "hyperparam_sample": 0,
+      "is_best_hyperparam_for_policy": true,
+      "jobs_completed": 2,
+      "learning_rate": 0.0015500577915270816,
+      "minibatches": 1,
+      "missing_seeds": "",
+      "policy": "lstm",
+      "seed_count": 2,
+      "seeds_completed": "0,1",
+      "selected_seed_count": 2,
+      "selected_seeds": "0,1",
+      "test_reward_mean": 8105.345,
+      "test_reward_std": 9750.514608883472,
+      "test_steps_mean": 8105.345,
+      "test_steps_std": 9750.514608883472,
+      "test_success_mean": 0.5,
+      "test_success_std": 0.7071067811865476,
+      "test_survival_seconds_mean": 162.1069,
+      "test_survival_seconds_std": 195.01029217766944,
+      "train_reward_mean": 250.0,
+      "train_reward_std": 0.0,
+      "train_steps_mean": 250.0,
+      "train_steps_std": 0.0,
+      "train_success_mean": 1.0,
+      "train_success_std": 0.0,
+      "train_survival_seconds_mean": 5.0,
+      "train_survival_seconds_std": 0.0,
+      "update_epochs": 36
+    }
+  ],
+  "jobs_completed": 4,
+  "jobs_failed": 0,
+  "jobs_planned": 4,
+  "jobs_run_this_invocation": 0,
+  "jobs_skipped_existing": 0,
+  "jobs_uncapped_for_selected_space": 4,
+  "max_configs": null,
+  "paper_protocol_status": {
+    "all_planned_jobs_completed": true,
+    "distinct_policies": [
+      "lstm",
+      "mlp"
+    ],
+    "distinct_seed_count": 2,
+    "distinct_seeds": [
+      0,
+      1
+    ],
+    "dry_run_only": false,
+    "full_baseline_policy_set": true,
+    "full_default_learning_rate_grid": false,
+    "full_reported_mlp_grid": false,
+    "generated_paper_random_sample_count": false,
+    "grid_hyperparameter_search": false,
+    "grid_learning_rate_values_within_reported_interval": false,
+    "hyperparam_mode": "paper-random",
+    "includes_ppo_lstm": true,
+    "includes_ppo_mlp": true,
+    "jobs_expected_for_selected_space": 4,
+    "learning_rate_interval_only": true,
+    "learning_rate_values_within_reported_interval": true,
+    "paper_eval_rollouts": 1000,
+    "paper_random_hyperparameter_samples": 1,
+    "paper_random_hyperparameter_search": true,
+    "paper_random_learning_rate_values_within_reported_interval": true,
+    "paper_random_sample_count": false,
+    "paper_scale_execution": false,
+    "paper_scale_plan": false,
+    "paper_seed_count": false,
+    "paper_test_horizon": true,
+    "paper_test_horizon_steps": 15000,
+    "paper_timestep_budget": false,
+    "planned_job_count_matches_selected_space": true,
+    "ppo_lstm_minibatches_fixed_to_one": true,
+    "quick_diagnostic": false,
+    "requested_paper_random_sample_count": false,
+    "sampled_hyperparameters_follow_paper_minibatch_rules": true,
+    "sampled_hyperparameters_follow_paper_ranges": true,
+    "sampled_learning_rate_values_within_reported_interval": true,
+    "selected_eval_rollouts": 200,
+    "selected_policies": [
+      "mlp",
+      "lstm"
+    ],
+    "selected_seed_count": 2,
+    "selected_seeds": [
+      0,
+      1
+    ],
+    "selected_test_max_steps": 15000,
+    "truncated_by_max_configs": false,
+    "uses_paper_eval_rollouts": false
+  },
+  "paper_space": {
+    "cliprange": [
+      0.1,
+      0.2,
+      0.3
+    ],
+    "ent_coef": [
+      0.0,
+      0.01,
+      0.05,
+      0.1
+    ],
+    "eval_rollouts": 1000,
+    "hyperparameter_samples": 10,
+    "hyperparameter_sampling": "10 uniformly sampled configs from the reported space per policy, evaluated for each seed",
+    "learning_rate_interval": [
+      5e-06,
+      0.003
+    ],
+    "learning_rate_note": "The paper reports uniform sampling from this interval, not the exact sampled values. Use --hyperparam-mode paper-random for reproducible local samples; grid mode is a local diagnostic extension.",
+    "learning_rate_values_used": [
+      5e-06,
+      1e-05,
+      3e-05,
+      0.0001,
+      0.0003,
+      0.001,
+      0.003
+    ],
+    "lstm_nminibatches": [
+      1
+    ],
+    "nminibatches": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      32,
+      64,
+      128,
+      256,
+      512,
+      1024,
+      2048
+    ],
+    "noptepochs": [
+      3,
+      36
+    ],
+    "reward_spec": {
+      "note": "The paper reports using standard OpenAI rewards for classic-control baselines; this CartPole environment gives +1 for each non-terminal simulator step and no extra terminal bonus or penalty.",
+      "reward_equals_survived_steps": true,
+      "reward_per_alive_step": 1.0,
+      "source": "OpenAI Gym classic-control CartPole standard reward",
+      "termination_reward": 0.0
+    },
+    "space_spec": {
+      "action_dimension": 1,
+      "action_dimension_source": "paper_figure_8",
+      "action_space": {
+        "clipped_to_bounds": true,
+        "high": 10.0,
+        "low": -10.0,
+        "source": "local_cartpole_env_implementation",
+        "type": "continuous_scalar_force"
+      },
+      "initial_state_distribution": {
+        "explicit_state_override": true,
+        "features": [
+          "x",
+          "cart_velocity",
+          "theta",
+          "omega"
+        ],
+        "high": 0.05,
+        "low": -0.05,
+        "seeded_by": "CartpoleEnv(seed) local random.Random stream",
+        "source": "local_cartpole_env_reset",
+        "type": "independent_uniform"
+      },
+      "local_provenance_fields": [
+        "action_space_bounds",
+        "observation_feature_names",
+        "initial_state_distribution"
+      ],
+      "note": "Figure 8 gives #A=1 and #O=4 for CartPole, and Appendix B.4 states RL baselines use the same action spaces, observation spaces, and initial states as the programmatic-policy approach. Force bounds, feature names, and the numeric reset distribution are local implementation provenance, not separately specified by the paper.",
+      "observation_dimension": 4,
+      "observation_dimension_source": "paper_figure_8",
+      "observation_space": {
+        "features": [
+          "x",
+          "cart_velocity",
+          "theta",
+          "omega"
+        ],
+        "source": "local_cartpole_env_implementation",
+        "type": "full_state_vector"
+      },
+      "paper_sources": [
+        "SPPIG paper Figure 8 CartPole #A/#O row",
+        "SPPIG paper Appendix B.4 same action/observation spaces and initial states statement"
+      ],
+      "paper_specified_fields": [
+        "action_dimension",
+        "observation_dimension",
+        "shared_action_observation_initial_state_contract"
+      ]
+    },
+    "test_max_steps": 15000,
+    "timesteps": 10000000
+  },
+  "policies": [
+    "mlp",
+    "lstm"
+  ],
+  "quick": false,
+  "resume": true,
+  "runtime_preflight": {
+    "jobs_planned": 4,
+    "jobs_uncapped_for_selected_space": 4,
+    "note": "This is a launch preflight for local capacity/provenance only. It does not prove paper-scale execution; paper_scale_execution still requires completed matching jobs.",
+    "nvidia_smi": {
+      "available": true,
+      "error": null,
+      "gpus": [
+        {
+          "driver_version": "595.58.03",
+          "index": 0,
+          "memory_total_mib": 8188,
+          "name": "NVIDIA GeForce RTX 4060 Laptop GPU"
+        }
+      ]
+    },
+    "paper_scale_reference_eval_rollouts": 100000,
+    "paper_scale_reference_job_count": 100,
+    "paper_scale_reference_training_timesteps": 1000000000,
+    "planned_eval_rollouts": 800,
+    "planned_training_timesteps": 4000000,
+    "selected_space_reference_job_count": 4,
+    "torch": {
+      "cuda_available": true,
+      "cuda_device_count": 1,
+      "cuda_devices": [
+        {
+          "index": 0,
+          "name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+          "total_memory_bytes": 8186822656
+        }
+      ],
+      "cuda_probe_error": null,
+      "torch_import_error": null,
+      "torch_importable": true,
+      "torch_version": "2.11.0+cu128"
+    }
+  },
+  "sampled_hyperparameters": [
+    {
+      "clip_range": 0.2,
+      "entropy_coef": 0.1,
+      "hyperparam_mode": "paper-random",
+      "hyperparam_sample": 0,
+      "learning_rate": 0.002275073436806206,
+      "minibatches": 64,
+      "policy": "mlp",
+      "update_epochs": 5
+    },
+    {
+      "clip_range": 0.1,
+      "entropy_coef": 0.05,
+      "hyperparam_mode": "paper-random",
+      "hyperparam_sample": 0,
+      "learning_rate": 0.0015500577915270816,
+      "minibatches": 1,
+      "policy": "lstm",
+      "update_epochs": 36
+    }
+  ],
+  "seeds": [
+    0,
+    1
+  ],
+  "selection_rule": "single completed job per policy: max train_success, then train_reward, then lower job_id",
+  "summary": [
+    {
+      "best_clip_range": 0.2,
+      "best_entropy_coef": 0.1,
+      "best_job_id": 0,
+      "best_learning_rate": 0.002275073436806206,
+      "best_metrics_output": "artifacts/ppo_sweep_cuda_medium_core/metrics/00000_mlp_seed0.json",
+      "best_minibatches": 64,
+      "best_output": "artifacts/ppo_sweep_cuda_medium_core/checkpoints/00000_mlp_seed0.pt",
+      "best_seed": 0,
+      "best_selected_timesteps": 1000000,
+      "best_test_reward": 15000.0,
+      "best_test_steps": 15000.0,
+      "best_test_success": 1.0,
+      "best_test_survival_seconds": 300.0,
+      "best_train_reward": 246.985,
+      "best_train_steps": 246.985,
+      "best_train_success": 0.625,
+      "best_train_survival_seconds": 4.9397,
+      "best_update_epochs": 5,
+      "jobs_completed": 2,
+      "policy": "mlp"
+    },
+    {
+      "best_clip_range": 0.1,
+      "best_entropy_coef": 0.05,
+      "best_job_id": 2,
+      "best_learning_rate": 0.0015500577915270816,
+      "best_metrics_output": "artifacts/ppo_sweep_cuda_medium_core/metrics/00002_lstm_seed0.json",
+      "best_minibatches": 1,
+      "best_output": "artifacts/ppo_sweep_cuda_medium_core/checkpoints/00002_lstm_seed0.pt",
+      "best_seed": 0,
+      "best_selected_timesteps": 1000000,
+      "best_test_reward": 15000.0,
+      "best_test_steps": 15000.0,
+      "best_test_success": 1.0,
+      "best_test_survival_seconds": 300.0,
+      "best_train_reward": 250.0,
+      "best_train_steps": 250.0,
+      "best_train_success": 1.0,
+      "best_train_survival_seconds": 5.0,
+      "best_update_epochs": 36,
+      "jobs_completed": 2,
+      "policy": "lstm"
+    }
+  ]
+}
