@@ -229,6 +229,11 @@ status block separately records whether the teacher CEM-style sampling phase
 used the paper's `rho=10` top-elite setting, whether local teacher trace
 optimization actually had `10` active trace slots, and how many student
 transition-switch fit slots were active for the local bounded switch M-step.
+The student status distinguishes a configured `10`-worker limit from actual
+`10`-slot switch optimizer coverage; the bounded implementation can now use
+`parallel_switch_workers` for candidate-level switch rescoring, but still keeps
+only a bounded depth-2/transition switch M-step instead of the paper's full
+continuous switch optimizer.
 The probabilistic student likelihood and EM responsibility refinement are
 conditioned on the executable CartPole PSM's fixed initial mode `0`, matching
 the paper's fixed initial memory-state assumption. After the first bounded

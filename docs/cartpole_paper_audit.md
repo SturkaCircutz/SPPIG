@@ -97,8 +97,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   artifacts with `synthesized_by_current_algorithm = true`, and derives the full probabilistic
   adaptive-teaching and paper-scale result flags from named requirement maps. Those maps record
   CartPole environment coverage, full-horizon and `1000`-rollout evaluation, five-seed result
-  selection, teacher CEM top-rho coverage, teacher/student worker coverage, bounded switch/teacher
-  optimizer limitations, and the unsatisfied requirements for each diagnostic run. The metrics now include a
+  selection, teacher CEM top-rho coverage, teacher/student worker coverage, bounded student switch
+  candidate-rescoring parallel coverage, bounded switch/teacher optimizer limitations, and
+  the unsatisfied requirements for each diagnostic run. The metrics now include a
   compact `adaptive_teacher_summary` for each teacher/student iteration, recording the teacher
   sampling model, selected trace-source counts, reward summary, student log-probability coverage, and
   the recorded reward-plus-student-likelihood objective components when available, plus the configured
@@ -981,6 +982,13 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   and `test_cartpole_teacher_cem_status_requires_distribution_refit_round` verify that protocol
   status records whether the bounded elite-distribution phase both runs at least one refit round and
   samples a batch large enough to cover the selected top-rho set.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_structure_rescore_candidates_parallel_matches_serial`
+  verifies that the bounded student switch candidate-rescoring path gives the same ranked candidates
+  with serial and `10`-worker execution.
+- `tests/test_cartpole_paper.py::test_cartpole_student_parallel_switch_status_tracks_candidate_rescoring_slots`
+  verifies that requesting the paper's `10` student switch workers covers bounded candidate-level
+  rescoring slots while still leaving the broader paper student M-step incomplete because the current
+  implementation is a bounded depth-2/transition switch fit.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refresh_elites`
   verifies that bounded elite distribution rounds refresh the top-rho set between sampling rounds.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refit_distribution`
@@ -1156,6 +1164,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_reproduction_runner.py::test_psm_artifact_consistency_rejects_trace_sidecar_mismatch`
   verifies that runner PSM artifact validation fails if the top-level selected traces disagree with
   the final per-iteration trace history.
+- `tests/test_cartpole_reproduction_runner.py::test_psm_artifact_consistency_rejects_stale_protocol_requirement_map`
+  verifies that runner PSM artifact validation rejects stale metrics whose protocol requirement map
+  does not include the current student switch candidate-parallel M-step requirement key.
 - `tests/test_cartpole_reproduction_runner.py::test_reproduction_protocol_status_keeps_fixed_config_runs_non_paper_scale`
   verifies that a five-seed, full-horizon, 1000-rollout fixed-config runner setup is still not tagged
   as paper-scale because it lacks PPO hyperparameter search, full probabilistic adaptive teaching, and

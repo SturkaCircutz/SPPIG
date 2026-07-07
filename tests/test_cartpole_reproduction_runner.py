@@ -152,9 +152,21 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertTrue(status["uses_paper_teacher_parallel_threads"])
         self.assertTrue(status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(status["uses_paper_student_parallel_threads"])
+        self.assertEqual(status["effective_student_parallel_switch_candidate_slots"], 10)
+        self.assertTrue(status["uses_parallel_student_switch_candidate_optimization"])
+        self.assertTrue(status["student_switch_candidate_parallelism_matches_paper_threads"])
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_student_parallel_threads"])
+        self.assertTrue(
+            status["probabilistic_adaptive_teaching_requirements"][
+                "student_switch_candidate_parallelism_matches_paper_threads"
+            ]
+        )
         self.assertIn(
             "uses_paper_student_parallel_threads",
+            status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
+        self.assertNotIn(
+            "student_switch_candidate_parallelism_matches_paper_threads",
             status["missing_probabilistic_adaptive_teaching_requirements"],
         )
         self.assertEqual(
@@ -1468,6 +1480,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertEqual(psm_status["paper_student_parallel_threads"], 10)
             self.assertFalse(psm_status["uses_parallel_student_switch_optimization"])
             self.assertFalse(psm_status["uses_paper_student_parallel_threads"])
+            self.assertFalse(psm_status["student_switch_candidate_parallelism_matches_paper_threads"])
             self.assertTrue(psm_status["teacher_candidate_rollouts_cover_selected_top_rho"])
             self.assertFalse(psm_status["teacher_candidate_rollouts_cover_paper_top_rho"])
             self.assertFalse(psm_status["teacher_cem_phase_matches_paper_rho"])
@@ -1493,6 +1506,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertFalse(
                 psm_status["probabilistic_adaptive_teaching_requirements"][
+                    "student_switch_candidate_parallelism_matches_paper_threads"
+                ]
+            )
+            self.assertFalse(
+                psm_status["probabilistic_adaptive_teaching_requirements"][
                     "full_continuous_switch_m_step"
                 ]
             )
@@ -1506,6 +1524,10 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertIn(
                 "uses_paper_student_parallel_threads",
+                psm_status["missing_probabilistic_adaptive_teaching_requirements"],
+            )
+            self.assertIn(
+                "student_switch_candidate_parallelism_matches_paper_threads",
                 psm_status["missing_probabilistic_adaptive_teaching_requirements"],
             )
             self.assertIn(
@@ -2051,7 +2073,21 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     },
                 }
             ],
-            "paper_protocol_status": {"synthesized_by_current_algorithm": True},
+            "paper_protocol_status": {
+                "synthesized_by_current_algorithm": True,
+                "probabilistic_adaptive_teaching_requirements": {
+                    "uses_paper_student_parallel_threads": False,
+                    "student_switch_candidate_parallelism_matches_paper_threads": False,
+                    "full_continuous_switch_m_step": False,
+                    "full_cem_teacher_optimizer": False,
+                },
+                "missing_probabilistic_adaptive_teaching_requirements": [
+                    "uses_paper_student_parallel_threads",
+                    "student_switch_candidate_parallelism_matches_paper_threads",
+                    "full_continuous_switch_m_step",
+                    "full_cem_teacher_optimizer",
+                ],
+            },
             "train": {"success_rate": 1.0},
             "test": {"success_rate": 0.0},
         }
@@ -2070,6 +2106,59 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         }
 
         with self.assertRaisesRegex(ValueError, "final trace_history traces disagree"):
+            validate_psm_artifact_consistency(metrics, trace_payload)
+
+    def test_psm_artifact_consistency_rejects_stale_protocol_requirement_map(self):
+        metrics = {
+            "command": "python runner.py",
+            "config": {"teacher_student_iters": 1},
+            "num_traces": 1,
+            "trace_summary": {"count": 1},
+            "adaptive_teacher_summary": [{"iteration": 1, "trace_count": 1}],
+            "synthesis_history": [
+                {
+                    "iteration": 1,
+                    "trace_summary": {"count": 1},
+                    "evaluation": {
+                        "train": {"success_rate": 1.0},
+                        "test": {"success_rate": 0.0},
+                    },
+                }
+            ],
+            "paper_protocol_status": {
+                "synthesized_by_current_algorithm": True,
+                "probabilistic_adaptive_teaching_requirements": {
+                    "uses_paper_student_parallel_threads": False,
+                    "full_continuous_switch_m_step": False,
+                    "full_cem_teacher_optimizer": False,
+                },
+                "missing_probabilistic_adaptive_teaching_requirements": [
+                    "uses_paper_student_parallel_threads",
+                    "full_continuous_switch_m_step",
+                    "full_cem_teacher_optimizer",
+                ],
+            },
+            "train": {"success_rate": 1.0},
+            "test": {"success_rate": 0.0},
+        }
+        trace_payload = {
+            "command": "python runner.py",
+            "config": {"teacher_student_iters": 1},
+            "num_traces": 1,
+            "traces": [{"actions": [1.0]}],
+            "trace_history": [
+                {
+                    "iteration": 1,
+                    "num_traces": 1,
+                    "traces": [{"actions": [1.0]}],
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "student_switch_candidate_parallelism_matches_paper_threads",
+        ):
             validate_psm_artifact_consistency(metrics, trace_payload)
 
     def test_nonquick_psm_profile_uses_full_training_horizon_loop_free_segments(self):
@@ -2102,8 +2191,11 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertEqual(row["paper_protocol_status"]["effective_teacher_parallel_trace_slots"], 1)
         self.assertFalse(row["paper_protocol_status"]["uses_parallel_teacher_trace_optimization"])
         self.assertEqual(row["paper_protocol_status"]["selected_student_parallel_switch_workers"], 2)
-        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_slots"], 2)
+        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_slots"], 1)
+        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_candidate_slots"], 2)
         self.assertTrue(row["paper_protocol_status"]["uses_parallel_student_switch_optimization"])
+        self.assertFalse(row["paper_protocol_status"]["uses_parallel_student_transition_switch_optimization"])
+        self.assertTrue(row["paper_protocol_status"]["uses_parallel_student_switch_candidate_optimization"])
 
     def test_quick_runner_can_include_direct_opt_diagnostic(self):
         with tempfile.TemporaryDirectory() as tmpdir:

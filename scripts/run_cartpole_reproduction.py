@@ -352,6 +352,20 @@ def validate_psm_artifact_consistency(
     status = metrics.get("paper_protocol_status", {})
     if not isinstance(status, dict) or status.get("synthesized_by_current_algorithm") is not True:
         raise ValueError("PSM metrics must mark runner-generated rows as current synthesized artifacts")
+    requirements = status.get("probabilistic_adaptive_teaching_requirements")
+    missing_requirements = status.get("missing_probabilistic_adaptive_teaching_requirements")
+    if not isinstance(requirements, dict) or not isinstance(missing_requirements, list):
+        raise ValueError("PSM metrics must record probabilistic adaptive-teaching requirement maps")
+    for requirement in (
+        "uses_paper_student_parallel_threads",
+        "student_switch_candidate_parallelism_matches_paper_threads",
+        "full_continuous_switch_m_step",
+        "full_cem_teacher_optimizer",
+    ):
+        if requirement not in requirements:
+            raise ValueError(f"PSM metrics missing protocol requirement: {requirement}")
+        if requirements[requirement] is False and requirement not in missing_requirements:
+            raise ValueError(f"PSM metrics missing unsatisfied protocol requirement: {requirement}")
     return {
         "validated_by_runner": True,
         "num_traces": num_traces,

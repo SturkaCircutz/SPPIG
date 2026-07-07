@@ -156,7 +156,12 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
             "transition_specific_switches": "separate_fitted_conditions_for_0_to_1_and_1_to_0",
             "paper_parallel_switch_threads": PAPER_STUDENT_PARALLEL_THREADS,
             "local_parallel_switch_workers": "configurable_via_parallel_switch_workers",
-            "parallel_switch_unit": "independent_directed_transition_switch_fit",
+            "parallel_switch_unit": "bounded_switch_candidate_rescoring",
+            "paper_parallel_switch_thread_gap": (
+                "bounded candidate rescoring can use the configured worker limit, but the current "
+                "student M-step is still a bounded depth-2/transition fit rather than the paper's "
+                "full continuous switch optimizer"
+            ),
             "initial_mode": INITIAL_CARTPOLE_PSM_MODE,
             "initial_mode_prior": "fixed_mode_0",
             "min_gaussian_std": MIN_GAUSSIAN_STD,
@@ -334,9 +339,11 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
     )
     effective_parallel_switch_workers = max(1, int(cfg.parallel_switch_workers))
     transition_switch_fit_count = 2
-    effective_parallel_switch_slots = min(
+    effective_parallel_switch_slots = 1
+    student_switch_candidate_parallel_work_units = SWITCH_STRUCTURE_RESCORING_TOP_K
+    effective_student_parallel_switch_candidate_slots = min(
         effective_parallel_switch_workers,
-        transition_switch_fit_count,
+        student_switch_candidate_parallel_work_units,
     )
     effective_teacher_elite_distribution_resamples = max(
         0,
@@ -370,14 +377,24 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
         "effective_student_parallel_switch_workers": effective_parallel_switch_workers,
         "student_transition_switch_fit_count": transition_switch_fit_count,
         "effective_student_parallel_switch_slots": effective_parallel_switch_slots,
+        "student_switch_candidate_rescoring_top_k": SWITCH_STRUCTURE_RESCORING_TOP_K,
+        "student_switch_candidate_parallel_work_units": student_switch_candidate_parallel_work_units,
+        "effective_student_parallel_switch_candidate_slots": effective_student_parallel_switch_candidate_slots,
         "paper_student_parallel_threads": PAPER_STUDENT_PARALLEL_THREADS,
-        "uses_parallel_student_switch_optimization": effective_parallel_switch_slots > 1,
+        "uses_parallel_student_switch_optimization": effective_student_parallel_switch_candidate_slots > 1,
+        "uses_parallel_student_transition_switch_optimization": effective_parallel_switch_slots > 1,
+        "uses_parallel_student_switch_candidate_optimization": (
+            effective_student_parallel_switch_candidate_slots > 1
+        ),
         "uses_paper_student_parallel_worker_limit": (
             effective_parallel_switch_workers == PAPER_STUDENT_PARALLEL_THREADS
         ),
         "uses_paper_student_parallel_threads": (
             effective_parallel_switch_workers == PAPER_STUDENT_PARALLEL_THREADS
             and effective_parallel_switch_slots == PAPER_STUDENT_PARALLEL_THREADS
+        ),
+        "student_switch_candidate_parallelism_matches_paper_threads": (
+            effective_student_parallel_switch_candidate_slots >= PAPER_STUDENT_PARALLEL_THREADS
         ),
         "teacher_candidate_rollouts_cover_selected_top_rho": effective_candidate_rollouts >= effective_top_rho,
         "teacher_candidate_rollouts_cover_paper_top_rho": effective_candidate_rollouts >= PAPER_TEACHER_TOP_RHO,
@@ -437,6 +454,9 @@ def cartpole_synthesis_protocol_status(
         ],
         "uses_paper_teacher_parallel_threads": cem_status["uses_paper_teacher_parallel_threads"],
         "uses_paper_student_parallel_threads": cem_status["uses_paper_student_parallel_threads"],
+        "student_switch_candidate_parallelism_matches_paper_threads": cem_status[
+            "student_switch_candidate_parallelism_matches_paper_threads"
+        ],
         "full_continuous_switch_m_step": full_continuous_switch_m_step,
         "full_cem_teacher_optimizer": full_cem_teacher_optimizer,
     }
@@ -489,6 +509,9 @@ def cartpole_synthesis_protocol_status(
         "student_switch_responsibility_passes": cfg.student_switch_responsibility_passes,
         "teacher_elite_distribution_resamples": cfg.teacher_elite_distribution_resamples,
         "teacher_elite_distribution_rounds": cfg.teacher_elite_distribution_rounds,
+        "student_switch_candidate_parallelism_matches_paper_threads": cem_status[
+            "student_switch_candidate_parallelism_matches_paper_threads"
+        ],
         "synthesized_by_current_algorithm": True,
         "probabilistic_adaptive_teaching_requirements": probabilistic_adaptive_teaching_requirements,
         "missing_probabilistic_adaptive_teaching_requirements": missing_probabilistic_adaptive_teaching_requirements,
@@ -1179,6 +1202,7 @@ def fit_probabilistic_cartpole_student_with_history(
                     segments_by_trace,
                     responsibilities,
                     switch_pair_responsibilities or None,
+                    cfg,
                 )
                 transition_switches, transition_switch_parameter_distributions = _fit_transition_switches(
                     traces,
@@ -1268,6 +1292,7 @@ def fit_probabilistic_cartpole_student_with_history(
             segments_by_trace,
             responsibilities,
             switch_pair_responsibilities or None,
+            cfg,
         )
         transition_switches, transition_switch_parameter_distributions = _fit_transition_switches(
             traces,
@@ -1300,6 +1325,7 @@ def fit_probabilistic_cartpole_student_with_history(
             segments_by_trace,
             responsibilities,
             switch_pair_responsibilities or None,
+            cfg,
         )
     if not transition_switches:
         transition_switches, transition_switch_parameter_distributions = _fit_transition_switches(
@@ -3872,6 +3898,7 @@ def _fit_student_switch(
     segments_by_trace: List[List[CartpoleSegment]],
     responsibilities: List[Tuple[float, float]],
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
+    cfg: CartpoleSynthesisConfig | None = None,
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
     # Refit switch structure and Gaussian threshold parameters for the bounded
     # Eq. (12)-style M-step.
@@ -3880,6 +3907,7 @@ def _fit_student_switch(
         segments_by_trace,
         responsibilities,
         switch_pair_responsibilities,
+        parallel_workers=max(1, int(cfg.parallel_switch_workers)) if cfg is not None else 1,
     )
     distributions = _fit_switch_parameter_distributions(
         switch,
@@ -3939,15 +3967,12 @@ def _fit_directed_transition_switches(
             directed_pairs,
             transition,
             fallback_switch,
+            parallel_workers=parallel_workers,
         )
         return transition, switch, switch_distributions
 
     parallel_workers = max(1, int(cfg.parallel_switch_workers)) if cfg is not None else 1
-    if parallel_workers == 1 or len(transitions) <= 1:
-        return [fit_one(transition) for transition in transitions]
-    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
-        futures = [executor.submit(fit_one, transition) for transition in transitions]
-        return [future.result() for future in futures]
+    return [fit_one(transition) for transition in transitions]
 
 
 def _fit_directed_transition_switch(
@@ -3956,6 +3981,7 @@ def _fit_directed_transition_switch(
     directed_pair_responsibilities: List[Tuple[float, float, float, float]],
     transition: Tuple[int, int],
     fallback_switch: SwitchProgram,
+    parallel_workers: int = 1,
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
     directed_responsibilities = _directed_switch_responsibilities(
         segments_by_trace,
@@ -3980,6 +4006,7 @@ def _fit_directed_transition_switch(
         return _constant_directed_switch(weighted_examples, fire=True)
     switch = _learn_switch_from_examples(
         weighted_examples,
+        parallel_workers=parallel_workers,
     )
     distributions = _fit_switch_parameter_distributions(
         switch,
@@ -4069,6 +4096,7 @@ def _directed_transition_examples(
 
 def _learn_switch_from_examples(
     weighted_examples: List[_WeightedSwitchExample],
+    parallel_workers: int = 1,
 ) -> SwitchProgram:
     examples = [
         (example.observation, example.label)
@@ -4092,9 +4120,12 @@ def _learn_switch_from_examples(
         weighted_examples,
     )
 
-    return min(
+    return _best_directed_switch(
         candidate_switches,
-        key=lambda switch: _directed_switch_structure_cost(switch, weighted_examples, examples, example_cache),
+        weighted_examples,
+        examples,
+        example_cache,
+        parallel_workers=parallel_workers,
     )
 
 
@@ -4169,6 +4200,38 @@ def _directed_switch_structure_cost(
     label_loss = _weighted_switch_label_loss(switch, weighted_examples)
     complexity = switch.node_count if isinstance(switch, BooleanTreeSwitch) else 1
     return label_loss, float(_switch_label_mistakes(switch, examples, example_cache)), complexity, switch.describe()
+
+
+def _best_directed_switch(
+    switches: List[SwitchProgram],
+    weighted_examples: List[_WeightedSwitchExample],
+    examples: List[Tuple[Observation, int]],
+    example_cache: _SwitchExampleCache,
+    parallel_workers: int = 1,
+) -> SwitchProgram:
+    if parallel_workers <= 1 or len(switches) <= 1:
+        return min(
+            switches,
+            key=lambda switch: _directed_switch_structure_cost(
+                switch,
+                weighted_examples,
+                examples,
+                example_cache,
+            ),
+        )
+    with ThreadPoolExecutor(max_workers=min(max(1, int(parallel_workers)), len(switches))) as executor:
+        costs = list(
+            executor.map(
+                lambda switch: _directed_switch_structure_cost(
+                    switch,
+                    weighted_examples,
+                    examples,
+                    example_cache,
+                ),
+                switches,
+            )
+        )
+    return min(zip(costs, switches), key=lambda item: item[0])[1]
 
 
 def _weighted_switch_label_loss(
@@ -5574,6 +5637,7 @@ def _learn_depth2_switch(
     segments_by_trace: List[List[CartpoleSegment]] | None = None,
     responsibilities: List[Tuple[float, float]] | None = None,
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
+    parallel_workers: int = 1,
 ) -> SwitchProgram:
     examples: List[Tuple[Observation, int]] = []
     for trace in traces:
@@ -5590,6 +5654,7 @@ def _learn_depth2_switch(
         switch_pair_responsibilities=switch_pair_responsibilities,
         cache=objective_cache,
         example_cache=example_cache,
+        parallel_workers=parallel_workers,
     )
     candidates_with_mistakes: List[Tuple[SwitchProgram, int]] = [
         *_depth2_switch_candidates_with_mistakes(example_cache),
@@ -5600,8 +5665,7 @@ def _learn_depth2_switch(
     ]
     candidate_switches = _prefilter_switches_by_label_mistakes(candidates_with_mistakes)
 
-    candidates = []
-    for switch in _switch_structure_rescore_candidates(
+    rescored_switches = _switch_structure_rescore_candidates(
         candidate_switches,
         examples,
         segments_by_trace=segments_by_trace,
@@ -5609,22 +5673,19 @@ def _learn_depth2_switch(
         switch_pair_responsibilities=switch_pair_responsibilities,
         cache=objective_cache,
         example_cache=example_cache,
-    ):
-        candidates.append(
-            (
-                *_switch_structure_cost(
-                    switch,
-                    examples,
-                    segments_by_trace=segments_by_trace,
-                    responsibilities=responsibilities,
-                    switch_pair_responsibilities=switch_pair_responsibilities,
-                    cache=objective_cache,
-                    example_cache=example_cache,
-                ),
-                switch,
-            )
-        )
-    return min(candidates, key=lambda item: item[:-1])[-1]
+        parallel_workers=parallel_workers,
+    )
+    costs = _switch_structure_costs(
+        rescored_switches,
+        examples,
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+        objective_cache,
+        example_cache,
+        parallel_workers=parallel_workers,
+    )
+    return min(zip(costs, rescored_switches), key=lambda item: item[0])[1]
 
 
 def _depth2_switch_candidates_with_mistakes(
@@ -5688,6 +5749,7 @@ def _greedy_boolean_tree_candidates(
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
     cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
+    parallel_workers: int = 1,
 ) -> List[BooleanTreeSwitch]:
     stumps = [BooleanTreeSwitch(predicate) for predicate in _predicate_candidates(examples)]
     if not stumps:
@@ -5701,6 +5763,7 @@ def _greedy_boolean_tree_candidates(
         switch_pair_responsibilities,
         cache=cache,
         example_cache=switch_examples,
+        parallel_workers=parallel_workers,
     )
     best_mistakes = _switch_label_mistakes(best, examples, switch_examples)
     seed_stumps = [
@@ -5750,6 +5813,7 @@ def _greedy_boolean_tree_candidates(
                 switch_pair_responsibilities,
                 cache=cache,
                 example_cache=switch_examples,
+                parallel_workers=parallel_workers,
             )
         )
     if disjunctions:
@@ -5767,6 +5831,7 @@ def _greedy_boolean_tree_candidates(
                 switch_pair_responsibilities,
                 cache=cache,
                 example_cache=switch_examples,
+                parallel_workers=parallel_workers,
             )
         )
     return result
@@ -5780,6 +5845,7 @@ def _best_switch(
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
     cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
+    parallel_workers: int = 1,
 ) -> BooleanTreeSwitch:
     objective_cache: Dict[str, Tuple[float, float, int, str]] = cache if cache is not None else {}
     switch_examples = example_cache or _switch_example_cache(examples)
@@ -5792,6 +5858,7 @@ def _best_switch(
             switch_pair_responsibilities=switch_pair_responsibilities,
             cache=objective_cache,
             example_cache=switch_examples,
+            parallel_workers=parallel_workers,
         ),
         key=lambda switch: _switch_structure_cost(
             switch,
@@ -5813,31 +5880,89 @@ def _switch_structure_rescore_candidates(
     switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None = None,
     cache: Dict[str, Tuple[float, float, int, str]] | None = None,
     example_cache: _SwitchExampleCache | None = None,
+    parallel_workers: int = 1,
 ) -> List[SwitchProgram]:
-    if segments_by_trace is None or responsibilities is None or len(switches) <= SWITCH_STRUCTURE_RESCORING_TOP_K:
+    if segments_by_trace is None or responsibilities is None:
+        return switches
+    if len(switches) <= SWITCH_STRUCTURE_RESCORING_TOP_K and parallel_workers <= 1:
         return switches
 
     switch_examples = example_cache or _switch_example_cache(examples)
-    prefiltered = _prefilter_switches_by_label_mistakes(
-        [
-            (switch, _switch_label_mistakes(switch, examples, switch_examples))
+    if len(switches) <= SWITCH_STRUCTURE_RESCORING_TOP_K:
+        prefiltered = switches
+    else:
+        prefiltered = _prefilter_switches_by_label_mistakes(
+            [
+                (switch, _switch_label_mistakes(switch, examples, switch_examples))
+                for switch in switches
+            ]
+        )
+    objective_cache: Dict[str, Tuple[float, float, int, str]] = cache if cache is not None else {}
+    costs = _switch_structure_costs(
+        prefiltered,
+        examples,
+        segments_by_trace,
+        responsibilities,
+        switch_pair_responsibilities,
+        objective_cache,
+        switch_examples,
+        parallel_workers=parallel_workers,
+    )
+    ranked = [switch for _, switch in sorted(zip(costs, prefiltered), key=lambda item: item[0])]
+    return ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]
+
+
+def _switch_structure_costs(
+    switches: List[SwitchProgram],
+    examples: List[Tuple[Observation, int]],
+    segments_by_trace: List[List[CartpoleSegment]],
+    responsibilities: List[Tuple[float, float]],
+    switch_pair_responsibilities: List[Tuple[float, float, float, float]] | None,
+    cache: Dict[str, Tuple[float, float, int, str]],
+    example_cache: _SwitchExampleCache,
+    parallel_workers: int = 1,
+) -> List[Tuple[float, float, int, str]]:
+    if parallel_workers <= 1 or len(switches) <= 1:
+        return [
+            _switch_structure_cost(
+                switch,
+                examples,
+                segments_by_trace,
+                responsibilities,
+                switch_pair_responsibilities=switch_pair_responsibilities,
+                cache=cache,
+                example_cache=example_cache,
+            )
             for switch in switches
         ]
-    )
-    objective_cache: Dict[str, Tuple[float, float, int, str]] = cache if cache is not None else {}
-    ranked = sorted(
-        prefiltered,
-        key=lambda switch: _switch_structure_cost(
-            switch,
-            examples,
-            segments_by_trace,
-            responsibilities,
-            switch_pair_responsibilities=switch_pair_responsibilities,
-            cache=objective_cache,
-            example_cache=switch_examples,
-        ),
-    )
-    return ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]
+
+    missing_switches = [
+        switch
+        for switch in switches
+        if _switch_structure_objective_cache_key(switch, switch_pair_responsibilities) not in cache
+    ]
+    if missing_switches:
+        with ThreadPoolExecutor(max_workers=min(max(1, int(parallel_workers)), len(missing_switches))) as executor:
+            missing_costs = list(
+                executor.map(
+                    lambda switch: _switch_structure_cost(
+                        switch,
+                        examples,
+                        segments_by_trace,
+                        responsibilities,
+                        switch_pair_responsibilities=switch_pair_responsibilities,
+                        cache=None,
+                        example_cache=example_cache,
+                    ),
+                    missing_switches,
+                )
+            )
+        for switch, cost in zip(missing_switches, missing_costs):
+            cache[_switch_structure_objective_cache_key(switch, switch_pair_responsibilities)] = cost
+    return [
+        cache[_switch_structure_objective_cache_key(switch, switch_pair_responsibilities)]
+        for switch in switches
+    ]
 
 
 def _switch_structure_cost(

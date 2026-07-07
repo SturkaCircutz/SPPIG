@@ -2291,6 +2291,56 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(len(selected), 32)
         self.assertEqual(fit_objective.call_count, 32)
 
+    def test_cartpole_switch_structure_rescore_candidates_parallel_matches_serial(self):
+        segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, -0.2, 0.0],
+                [0.0, 0.0, -0.1, 0.0],
+            ],
+            action_parameter=-10.0,
+            duration=2,
+            hard_mode=0,
+        )
+        next_segment = CartpoleSegment(
+            observations=[
+                [0.0, 0.0, 0.1, 0.0],
+                [0.0, 0.0, 0.2, 0.0],
+            ],
+            action_parameter=10.0,
+            duration=2,
+            hard_mode=1,
+        )
+        segments_by_trace = [[segment, next_segment]]
+        responsibilities = [(0.9, 0.1), (0.1, 0.9)]
+        examples = [
+            (observation, trace_segment.hard_mode)
+            for trace_segments in segments_by_trace
+            for trace_segment in trace_segments
+            for observation in trace_segment.observations
+        ]
+        switches = [
+            Depth2Switch(theta_weight, 0.0, threshold / 100.0)
+            for theta_weight in (-2.0, -1.0, 1.0, 2.0)
+            for threshold in range(-30, 50)
+        ]
+
+        serial = _switch_structure_rescore_candidates(
+            switches,
+            examples,
+            segments_by_trace,
+            responsibilities,
+            parallel_workers=1,
+        )
+        parallel = _switch_structure_rescore_candidates(
+            switches,
+            examples,
+            segments_by_trace,
+            responsibilities,
+            parallel_workers=10,
+        )
+
+        self.assertEqual([switch.describe() for switch in parallel], [switch.describe() for switch in serial])
+
     def test_cartpole_best_switch_reuses_rescore_cache(self):
         examples = [
             ([0.0, 0.0, -0.2, 0.0], 0),
@@ -3014,7 +3064,7 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertFalse(zero_state_status["uses_parallel_teacher_trace_optimization"])
         self.assertFalse(zero_state_status["uses_paper_teacher_parallel_threads"])
 
-    def test_cartpole_student_parallel_switch_status_tracks_active_transition_slots(self):
+    def test_cartpole_student_parallel_switch_status_tracks_candidate_rescoring_slots(self):
         serial_cfg = CartpoleSynthesisConfig(parallel_switch_workers=1)
         local_parallel_cfg = CartpoleSynthesisConfig(parallel_switch_workers=2)
         paper_limit_cfg = CartpoleSynthesisConfig(parallel_switch_workers=10)
@@ -3026,25 +3076,47 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(serial_status["paper_student_parallel_threads"], 10)
         self.assertEqual(serial_status["student_transition_switch_fit_count"], 2)
         self.assertEqual(serial_status["effective_student_parallel_switch_slots"], 1)
+        self.assertEqual(serial_status["student_switch_candidate_rescoring_top_k"], 32)
+        self.assertEqual(serial_status["effective_student_parallel_switch_candidate_slots"], 1)
         self.assertFalse(serial_status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(serial_status["uses_parallel_student_transition_switch_optimization"])
+        self.assertFalse(serial_status["uses_parallel_student_switch_candidate_optimization"])
         self.assertFalse(serial_status["uses_paper_student_parallel_threads"])
+        self.assertFalse(serial_status["student_switch_candidate_parallelism_matches_paper_threads"])
         self.assertEqual(local_parallel_status["effective_student_parallel_switch_workers"], 2)
-        self.assertEqual(local_parallel_status["effective_student_parallel_switch_slots"], 2)
+        self.assertEqual(local_parallel_status["effective_student_parallel_switch_slots"], 1)
+        self.assertEqual(local_parallel_status["effective_student_parallel_switch_candidate_slots"], 2)
         self.assertTrue(local_parallel_status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(local_parallel_status["uses_parallel_student_transition_switch_optimization"])
+        self.assertTrue(local_parallel_status["uses_parallel_student_switch_candidate_optimization"])
         self.assertFalse(local_parallel_status["uses_paper_student_parallel_threads"])
+        self.assertFalse(local_parallel_status["student_switch_candidate_parallelism_matches_paper_threads"])
         self.assertEqual(paper_limit_status["effective_student_parallel_switch_workers"], 10)
-        self.assertEqual(paper_limit_status["effective_student_parallel_switch_slots"], 2)
+        self.assertEqual(paper_limit_status["effective_student_parallel_switch_slots"], 1)
+        self.assertEqual(paper_limit_status["effective_student_parallel_switch_candidate_slots"], 10)
         self.assertTrue(paper_limit_status["uses_parallel_student_switch_optimization"])
+        self.assertFalse(paper_limit_status["uses_parallel_student_transition_switch_optimization"])
+        self.assertTrue(paper_limit_status["uses_parallel_student_switch_candidate_optimization"])
         self.assertTrue(paper_limit_status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(paper_limit_status["uses_paper_student_parallel_threads"])
+        self.assertTrue(paper_limit_status["student_switch_candidate_parallelism_matches_paper_threads"])
         paper_limit_full_status = cartpole_synthesis_protocol_status(paper_limit_cfg)
         self.assertFalse(
             paper_limit_full_status["probabilistic_adaptive_teaching_requirements"][
                 "uses_paper_student_parallel_threads"
             ]
         )
+        self.assertTrue(
+            paper_limit_full_status["probabilistic_adaptive_teaching_requirements"][
+                "student_switch_candidate_parallelism_matches_paper_threads"
+            ]
+        )
         self.assertIn(
             "uses_paper_student_parallel_threads",
+            paper_limit_full_status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
+        self.assertNotIn(
+            "student_switch_candidate_parallelism_matches_paper_threads",
             paper_limit_full_status["missing_probabilistic_adaptive_teaching_requirements"],
         )
 
