@@ -91,6 +91,8 @@ def checkpoint_reevaluation_protocol_status(
     return {
         "artifact_kind": "ppo_checkpoint_reevaluation",
         "policy_type": checkpoint_config.get("policy_type"),
+        "checkpoint_training_reused": True,
+        "training_launched": False,
         "paper_timestep_budget": PAPER_PPO_TIMESTEPS,
         "checkpoint_total_timesteps": checkpoint_timesteps,
         "checkpoint_uses_paper_timestep_budget": checkpoint_timesteps == PAPER_PPO_TIMESTEPS,
@@ -124,6 +126,52 @@ def checkpoint_reevaluation_protocol_status(
     }
 
 
+def evaluate_checkpoint_metrics(
+    checkpoint_path: Path,
+    eval_rollouts: int,
+    test_max_steps: int,
+    command: str,
+) -> dict[str, object]:
+    checkpoint, model = load_model(checkpoint_path)
+    _, _, _, evaluate_ppo_model, result_to_metrics = _load_ppo_runtime()
+    prior_result = checkpoint.get("result", {})
+    timesteps = int(prior_result.get("timesteps", checkpoint["config"].get("total_timesteps", 0)))
+    result = evaluate_ppo_model(
+        model,
+        timesteps=timesteps,
+        rollouts=eval_rollouts,
+        test_max_steps=test_max_steps,
+    )
+    return {
+        "command": command,
+        "checkpoint": str(checkpoint_path),
+        "checkpoint_config": checkpoint["config"],
+        "checkpoint_result": prior_result,
+        "eval_rollouts": eval_rollouts,
+        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
+        "uses_paper_eval_rollouts": eval_rollouts == PAPER_EVAL_ROLLOUTS,
+        "reward_spec": cartpole_reward_spec(),
+        "space_spec": cartpole_space_spec(CartpoleEnv.train_env().cfg),
+        "paper_protocol_status": checkpoint_reevaluation_protocol_status(
+            checkpoint["config"],
+            eval_rollouts,
+            test_max_steps,
+        ),
+        "test_max_steps": test_max_steps,
+        "paper_test_horizon_steps": 15_000,
+        "selected_result": result_to_metrics(result),
+    }
+
+
+def write_metrics(path: str | os.PathLike[str], metrics: dict[str, object]) -> None:
+    metrics_dir = os.path.dirname(path)
+    if metrics_dir:
+        os.makedirs(metrics_dir, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(metrics, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Reevaluate a CartPole PPO checkpoint and write metrics JSON.")
     parser.add_argument("--checkpoint", required=True)
@@ -133,49 +181,22 @@ def main() -> None:
     args = parser.parse_args()
 
     checkpoint_path = Path(args.checkpoint)
-    checkpoint, model = load_model(checkpoint_path)
-    _, _, _, evaluate_ppo_model, result_to_metrics = _load_ppo_runtime()
-    prior_result = checkpoint.get("result", {})
-    timesteps = int(prior_result.get("timesteps", checkpoint["config"].get("total_timesteps", 0)))
-    result = evaluate_ppo_model(
-        model,
-        timesteps=timesteps,
-        rollouts=args.eval_rollouts,
-        test_max_steps=args.test_max_steps,
+    metrics = evaluate_checkpoint_metrics(
+        checkpoint_path,
+        args.eval_rollouts,
+        args.test_max_steps,
+        " ".join(sys.argv),
     )
-    metrics = {
-        "command": " ".join(sys.argv),
-        "checkpoint": str(checkpoint_path),
-        "checkpoint_config": checkpoint["config"],
-        "checkpoint_result": prior_result,
-        "eval_rollouts": args.eval_rollouts,
-        "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
-        "uses_paper_eval_rollouts": args.eval_rollouts == PAPER_EVAL_ROLLOUTS,
-        "reward_spec": cartpole_reward_spec(),
-        "space_spec": cartpole_space_spec(CartpoleEnv.train_env().cfg),
-        "paper_protocol_status": checkpoint_reevaluation_protocol_status(
-            checkpoint["config"],
-            args.eval_rollouts,
-            args.test_max_steps,
-        ),
-        "test_max_steps": args.test_max_steps,
-        "paper_test_horizon_steps": 15_000,
-        "selected_result": result_to_metrics(result),
-    }
 
-    metrics_dir = os.path.dirname(args.metrics_output)
-    if metrics_dir:
-        os.makedirs(metrics_dir, exist_ok=True)
-    with open(args.metrics_output, "w", encoding="utf-8") as handle:
-        json.dump(metrics, handle, indent=2, sort_keys=True)
-        handle.write("\n")
+    write_metrics(args.metrics_output, metrics)
 
     print("CartPole checkpoint evaluation")
     print(f"  checkpoint={checkpoint_path}")
-    print(f"  train_success_rate={result.train_success_rate:.3f}")
-    print(f"  test_success_rate={result.test_success_rate:.3f}")
-    print(f"  train_reward_mean={result.train_reward_mean:.1f}")
-    print(f"  test_reward_mean={result.test_reward_mean:.1f}")
+    selected = metrics["selected_result"]
+    print(f"  train_success_rate={selected['train_success_rate']:.3f}")
+    print(f"  test_success_rate={selected['test_success_rate']:.3f}")
+    print(f"  train_reward_mean={selected['train_reward_mean']:.1f}")
+    print(f"  test_reward_mean={selected['test_reward_mean']:.1f}")
     print(f"  metrics={args.metrics_output}")
 
 

@@ -169,6 +169,12 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   from the later full-horizon reevaluation budget, keeping paper-scale checkpoint-result claims false
   for short or warm-started local checkpoints. For warm-started checkpoints it also records whether
   the checkpoint config itself proves the pretraining teacher policy and PSM mode-update order.
+- `scripts/evaluate_cartpole_ppo_sweep_checkpoints.py`: batch-reevaluates the PPO/PPO-LSTM checkpoint
+  paths listed in a sweep `cartpole_ppo_sweep_results.csv`, writing fresh metrics, a summary CSV, and
+  a manifest with `training_launched = false`. It validates the required source CSV columns and rejects
+  empty or nonpositive-budget inputs before writing metrics, so checkpoint-reuse summaries cannot be
+  generated from malformed sweep provenance. This is checkpoint-reuse evidence only; it does not
+  launch PPO training or upgrade a medium partial sweep into the paper-scale baseline protocol.
 - `scripts/run_cartpole_ppo_sweep.py`: PPO/PPO-LSTM hyperparameter sweep runner that defaults to 10
   uniformly sampled hyperparameter configs from the reported ranges per policy, evaluates each
   config for every selected seed, writes a plan/manifest that includes the concrete sampled
@@ -993,10 +999,13 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_structure_rescore_candidates_parallel_matches_serial`
   verifies that the bounded student switch candidate-rescoring path gives the same ranked candidates
   with serial and `10`-worker execution.
-- `tests/test_cartpole_paper.py::test_cartpole_student_parallel_switch_status_tracks_candidate_rescoring_slots`
-  verifies that requesting the paper's `10` student switch workers covers bounded candidate-level
-  rescoring slots while still leaving the broader paper student M-step incomplete because the current
-  implementation is a bounded depth-2/transition switch fit.
+- `tests/test_cartpole_paper.py::test_cartpole_parallel_transition_switch_fit_preserves_order`
+  and `test_cartpole_student_parallel_switch_status_tracks_candidate_rescoring_slots` verify that the
+  two bounded directed transition-switch fits preserve serial ordering when run with local switch
+  workers, and that requesting the paper's `10` student switch workers caps the combined outer
+  directed-fit and inner candidate-rescoring worker budget while still leaving the broader paper
+  student M-step incomplete because the current implementation is a bounded depth-2/transition
+  switch fit.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refresh_elites`
   verifies that bounded elite distribution rounds refresh the top-rho set between sampling rounds.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refit_distribution`

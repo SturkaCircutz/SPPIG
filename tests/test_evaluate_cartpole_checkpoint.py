@@ -34,6 +34,8 @@ class EvaluateCartpoleCheckpointTest(unittest.TestCase):
 
         self.assertEqual(status["artifact_kind"], "ppo_checkpoint_reevaluation")
         self.assertEqual(status["policy_type"], "mlp")
+        self.assertTrue(status["checkpoint_training_reused"])
+        self.assertFalse(status["training_launched"])
         self.assertEqual(status["paper_timestep_budget"], 10_000_000)
         self.assertFalse(status["checkpoint_uses_paper_timestep_budget"])
         self.assertEqual(status["checkpoint_eval_test_max_steps"], 1000)

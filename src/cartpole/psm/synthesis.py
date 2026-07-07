@@ -339,11 +339,22 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
     )
     effective_parallel_switch_workers = max(1, int(cfg.parallel_switch_workers))
     transition_switch_fit_count = 2
-    effective_parallel_switch_slots = 1
+    effective_parallel_switch_slots = min(
+        effective_parallel_switch_workers,
+        transition_switch_fit_count,
+    )
+    effective_student_parallel_switch_candidate_workers_per_fit = max(
+        1,
+        effective_parallel_switch_workers // max(1, effective_parallel_switch_slots),
+    )
     student_switch_candidate_parallel_work_units = SWITCH_STRUCTURE_RESCORING_TOP_K
     effective_student_parallel_switch_candidate_slots = min(
-        effective_parallel_switch_workers,
+        effective_student_parallel_switch_candidate_workers_per_fit,
         student_switch_candidate_parallel_work_units,
+    )
+    effective_total_student_switch_worker_slots = min(
+        effective_parallel_switch_workers,
+        effective_parallel_switch_slots * effective_student_parallel_switch_candidate_slots,
     )
     effective_teacher_elite_distribution_resamples = max(
         0,
@@ -377,11 +388,18 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
         "effective_student_parallel_switch_workers": effective_parallel_switch_workers,
         "student_transition_switch_fit_count": transition_switch_fit_count,
         "effective_student_parallel_switch_slots": effective_parallel_switch_slots,
+        "effective_student_parallel_switch_candidate_workers_per_fit": (
+            effective_student_parallel_switch_candidate_workers_per_fit
+        ),
         "student_switch_candidate_rescoring_top_k": SWITCH_STRUCTURE_RESCORING_TOP_K,
         "student_switch_candidate_parallel_work_units": student_switch_candidate_parallel_work_units,
         "effective_student_parallel_switch_candidate_slots": effective_student_parallel_switch_candidate_slots,
+        "effective_total_student_switch_worker_slots": effective_total_student_switch_worker_slots,
         "paper_student_parallel_threads": PAPER_STUDENT_PARALLEL_THREADS,
-        "uses_parallel_student_switch_optimization": effective_student_parallel_switch_candidate_slots > 1,
+        "uses_parallel_student_switch_optimization": (
+            effective_parallel_switch_slots > 1
+            or effective_student_parallel_switch_candidate_slots > 1
+        ),
         "uses_parallel_student_transition_switch_optimization": effective_parallel_switch_slots > 1,
         "uses_parallel_student_switch_candidate_optimization": (
             effective_student_parallel_switch_candidate_slots > 1
@@ -3967,12 +3985,17 @@ def _fit_directed_transition_switches(
             directed_pairs,
             transition,
             fallback_switch,
-            parallel_workers=parallel_workers,
+            parallel_workers=directed_fit_parallel_workers,
         )
         return transition, switch, switch_distributions
 
     parallel_workers = max(1, int(cfg.parallel_switch_workers)) if cfg is not None else 1
-    return [fit_one(transition) for transition in transitions]
+    outer_workers = min(parallel_workers, len(transitions))
+    directed_fit_parallel_workers = max(1, parallel_workers // max(1, outer_workers))
+    if outer_workers <= 1:
+        return [fit_one(transition) for transition in transitions]
+    with ThreadPoolExecutor(max_workers=outer_workers) as executor:
+        return list(executor.map(fit_one, transitions))
 
 
 def _fit_directed_transition_switch(

@@ -135,12 +135,14 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(status["selected_student_parallel_switch_workers"], 2)
         self.assertEqual(status["effective_student_parallel_switch_workers"], 2)
         self.assertEqual(status["student_transition_switch_fit_count"], 2)
-        self.assertEqual(status["effective_student_parallel_switch_slots"], 1)
-        self.assertEqual(status["effective_student_parallel_switch_candidate_slots"], 2)
+        self.assertEqual(status["effective_student_parallel_switch_slots"], 2)
+        self.assertEqual(status["effective_student_parallel_switch_candidate_workers_per_fit"], 1)
+        self.assertEqual(status["effective_student_parallel_switch_candidate_slots"], 1)
+        self.assertEqual(status["effective_total_student_switch_worker_slots"], 2)
         self.assertEqual(status["paper_student_parallel_threads"], 10)
         self.assertTrue(status["uses_parallel_student_switch_optimization"])
-        self.assertFalse(status["uses_parallel_student_transition_switch_optimization"])
-        self.assertTrue(status["uses_parallel_student_switch_candidate_optimization"])
+        self.assertTrue(status["uses_parallel_student_transition_switch_optimization"])
+        self.assertFalse(status["uses_parallel_student_switch_candidate_optimization"])
         self.assertFalse(status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(status["uses_paper_student_parallel_threads"])
 
@@ -170,7 +172,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_teacher_parallel_threads"])
         self.assertTrue(status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(status["adaptive_teaching_protocol_requirements"]["uses_paper_student_parallel_threads"])
-        self.assertTrue(
+        self.assertFalse(
             status["adaptive_teaching_protocol_requirements"][
                 "student_switch_candidate_parallelism_matches_paper_threads"
             ]
@@ -183,6 +185,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             status["missing_adaptive_teaching_protocol_requirements"],
             [
                 "uses_paper_student_parallel_threads",
+                "student_switch_candidate_parallelism_matches_paper_threads",
                 "full_continuous_switch_m_step",
                 "full_cem_teacher_optimizer",
             ],
@@ -191,6 +194,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             status["missing_probabilistic_adaptive_teaching_requirements"],
             [
                 "uses_paper_student_parallel_threads",
+                "student_switch_candidate_parallelism_matches_paper_threads",
                 "full_continuous_switch_m_step",
                 "full_cem_teacher_optimizer",
             ],

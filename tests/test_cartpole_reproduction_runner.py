@@ -152,11 +152,14 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertTrue(status["uses_paper_teacher_parallel_threads"])
         self.assertTrue(status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(status["uses_paper_student_parallel_threads"])
-        self.assertEqual(status["effective_student_parallel_switch_candidate_slots"], 10)
+        self.assertEqual(status["effective_student_parallel_switch_slots"], 2)
+        self.assertEqual(status["effective_student_parallel_switch_candidate_workers_per_fit"], 5)
+        self.assertEqual(status["effective_student_parallel_switch_candidate_slots"], 5)
+        self.assertEqual(status["effective_total_student_switch_worker_slots"], 10)
         self.assertTrue(status["uses_parallel_student_switch_candidate_optimization"])
-        self.assertTrue(status["student_switch_candidate_parallelism_matches_paper_threads"])
+        self.assertFalse(status["student_switch_candidate_parallelism_matches_paper_threads"])
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_student_parallel_threads"])
-        self.assertTrue(
+        self.assertFalse(
             status["probabilistic_adaptive_teaching_requirements"][
                 "student_switch_candidate_parallelism_matches_paper_threads"
             ]
@@ -165,7 +168,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             "uses_paper_student_parallel_threads",
             status["missing_probabilistic_adaptive_teaching_requirements"],
         )
-        self.assertNotIn(
+        self.assertIn(
             "student_switch_candidate_parallelism_matches_paper_threads",
             status["missing_probabilistic_adaptive_teaching_requirements"],
         )
@@ -2191,11 +2194,13 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertEqual(row["paper_protocol_status"]["effective_teacher_parallel_trace_slots"], 1)
         self.assertFalse(row["paper_protocol_status"]["uses_parallel_teacher_trace_optimization"])
         self.assertEqual(row["paper_protocol_status"]["selected_student_parallel_switch_workers"], 2)
-        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_slots"], 1)
-        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_candidate_slots"], 2)
+        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_slots"], 2)
+        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_candidate_workers_per_fit"], 1)
+        self.assertEqual(row["paper_protocol_status"]["effective_student_parallel_switch_candidate_slots"], 1)
+        self.assertEqual(row["paper_protocol_status"]["effective_total_student_switch_worker_slots"], 2)
         self.assertTrue(row["paper_protocol_status"]["uses_parallel_student_switch_optimization"])
-        self.assertFalse(row["paper_protocol_status"]["uses_parallel_student_transition_switch_optimization"])
-        self.assertTrue(row["paper_protocol_status"]["uses_parallel_student_switch_candidate_optimization"])
+        self.assertTrue(row["paper_protocol_status"]["uses_parallel_student_transition_switch_optimization"])
+        self.assertFalse(row["paper_protocol_status"]["uses_parallel_student_switch_candidate_optimization"])
 
     def test_quick_runner_can_include_direct_opt_diagnostic(self):
         with tempfile.TemporaryDirectory() as tmpdir:

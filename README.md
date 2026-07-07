@@ -231,9 +231,10 @@ optimization actually had `10` active trace slots, and how many student
 transition-switch fit slots were active for the local bounded switch M-step.
 The student status distinguishes a configured `10`-worker limit from actual
 `10`-slot switch optimizer coverage; the bounded implementation can now use
-`parallel_switch_workers` for candidate-level switch rescoring, but still keeps
-only a bounded depth-2/transition switch M-step instead of the paper's full
-continuous switch optimizer.
+`parallel_switch_workers` for the two directed transition-switch fits and splits
+the same worker budget across their candidate-level switch rescoring pools, but
+still keeps only a bounded depth-2/transition switch M-step instead of the
+paper's full continuous switch optimizer.
 The probabilistic student likelihood and EM responsibility refinement are
 conditioned on the executable CartPole PSM's fixed initial mode `0`, matching
 the paper's fixed initial memory-state assumption. After the first bounded
@@ -486,6 +487,26 @@ five-seed, ten-sample search is too expensive, while avoiding an extra sampled
 PPO configuration whose `noptepochs * nminibatches` cost can dominate a laptop
 run. Its manifest must still report `paper_scale_plan = false` and
 `paper_scale_execution = false`.
+
+The trained parameters from that sweep are stored as `.pt` checkpoint files in
+`artifacts/ppo_sweep_cuda_medium_core/checkpoints/`, with the exact mapping in
+`artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_results.csv`. To
+re-test those saved PPO/PPO-LSTM parameters without training again, run:
+
+```bash
+.venv/bin/python scripts/evaluate_cartpole_ppo_sweep_checkpoints.py \
+  --results-csv artifacts/ppo_sweep_cuda_medium_core/cartpole_ppo_sweep_results.csv \
+  --outdir artifacts/ppo_sweep_cuda_medium_core/checkpoint_reevaluations
+```
+
+This writes fresh checkpoint-reevaluation metrics and a summary CSV under the
+output directory. The source results CSV must contain checkpoint, policy, seed,
+rollout, and test-horizon columns for each row, and the selected rollout/horizon
+budgets must be positive; malformed, empty, or nonpositive-budget inputs are
+rejected before metrics are written. The reevaluation manifest records
+`training_launched = false` and keeps `paper_scale_checkpoint_result = false`,
+because it reuses the saved local partial-sweep parameters rather than running
+the paper's full PPO/PPO-LSTM baseline protocol.
 
 Use `--dry-run` to write only `cartpole_ppo_sweep_plan.csv` and the manifest,
 or `--quick --max-configs 1` for a smoke execution. Use `--resume` to continue
