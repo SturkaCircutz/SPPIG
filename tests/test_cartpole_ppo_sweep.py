@@ -1101,6 +1101,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 ],
                 check=True,
                 cwd=ROOT,
+                capture_output=True,
+                text=True,
             )
 
             results_path = os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv")
@@ -1126,6 +1128,9 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertIn("test_steps", result_rows[0])
         self.assertIn("test_survival_seconds", result_rows[0])
         self.assertGreater(float(result_rows[0]["test_steps"]), 0.0)
+        self.assertIn("starting CartPole PPO sweep: jobs_planned=1", completed.stdout)
+        self.assertIn("running job 1/1 id=0 policy=mlp", completed.stdout)
+        self.assertIn("finished job 1/1 id=0 policy=mlp", completed.stdout)
         self.assertEqual(len(summary_rows), 1)
         self.assertEqual(summary_rows[0]["best_job_id"], "0")
         self.assertIn("best_test_steps", summary_rows[0])
@@ -1190,7 +1195,7 @@ class CartpolePPOSweepTest(unittest.TestCase):
     @unittest.skipUnless(HAS_TORCH, "PyTorch is required for PPO sweep execution")
     def test_resume_skips_matching_completed_jobs_with_artifacts(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            subprocess.run(
+            first_completed = subprocess.run(
                 [
                     sys.executable,
                     SCRIPT,
@@ -1202,11 +1207,13 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 ],
                 check=True,
                 cwd=ROOT,
+                capture_output=True,
+                text=True,
             )
             with open(os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv"), newline="", encoding="utf-8") as handle:
                 first_rows = list(csv.DictReader(handle))
 
-            subprocess.run(
+            second_completed = subprocess.run(
                 [
                     sys.executable,
                     SCRIPT,
@@ -1219,6 +1226,8 @@ class CartpolePPOSweepTest(unittest.TestCase):
                 ],
                 check=True,
                 cwd=ROOT,
+                capture_output=True,
+                text=True,
             )
 
             with open(os.path.join(tmpdir, "cartpole_ppo_sweep_results.csv"), newline="", encoding="utf-8") as handle:
@@ -1236,6 +1245,10 @@ class CartpolePPOSweepTest(unittest.TestCase):
         self.assertEqual(len(hyperparam_summary), 2)
         self.assertEqual(rows[0], first_rows[0])
         self.assertEqual(rows[1]["job_id"], "1")
+        self.assertIn("running job 1/1 id=0 policy=mlp", first_completed.stdout)
+        self.assertIn("starting CartPole PPO sweep: jobs_planned=2 resume=True", second_completed.stdout)
+        self.assertIn("skipping completed job 1/2 id=0 policy=mlp", second_completed.stdout)
+        self.assertIn("running job 2/2 id=1 policy=mlp", second_completed.stdout)
         self.assertEqual(hyperparam_summary[0]["complete_seed_coverage"], "False")
         self.assertEqual(hyperparam_summary[0]["missing_seeds"], "1,2,3,4")
         self.assertTrue(manifest["resume"])

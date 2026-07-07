@@ -148,6 +148,12 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertEqual(cfg.parallel_switch_workers, run_cartpole_reproduction.PAPER_STUDENT_PARALLEL_THREADS)
         self.assertTrue(status["uses_paper_teacher_parallel_threads"])
         self.assertTrue(status["uses_paper_student_parallel_worker_limit"])
+        self.assertFalse(status["uses_paper_student_parallel_threads"])
+        self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_student_parallel_threads"])
+        self.assertIn(
+            "uses_paper_student_parallel_threads",
+            status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
         self.assertEqual(
             args.direct_opt_parallel_threads,
             run_cartpole_reproduction.PAPER_DIRECT_OPT_PARALLEL_THREADS,
@@ -1348,7 +1354,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             )
             self.assertFalse(
                 psm_status["probabilistic_adaptive_teaching_requirements"][
-                    "uses_paper_student_parallel_worker_limit"
+                    "uses_paper_student_parallel_threads"
                 ]
             )
             self.assertFalse(
@@ -1365,7 +1371,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                 psm_status["missing_probabilistic_adaptive_teaching_requirements"],
             )
             self.assertIn(
-                "uses_paper_student_parallel_worker_limit",
+                "uses_paper_student_parallel_threads",
                 psm_status["missing_probabilistic_adaptive_teaching_requirements"],
             )
             self.assertIn(

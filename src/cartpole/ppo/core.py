@@ -41,6 +41,7 @@ class PPOConfig:
     entropy_coef: float = 0.01
     value_coef: float = 0.5
     max_grad_norm: float = 0.5
+    adam_eps: float = 1e-5
     hidden_size: int = 64
     seed: int = 0
     initial_log_std: float = 0.0
@@ -220,16 +221,59 @@ def _ppo_optimizer_metrics(
     losses: List[float],
     approx_kls: List[float],
     clip_fractions: List[float],
+    grad_norms: List[float],
+    optimizer_minibatch_attempts: int,
+    optimizer_minibatch_skipped_nonfinite: int,
 ) -> Dict[str, object]:
     return {
         "optimizer_minibatch_updates": len(policy_losses),
+        "optimizer_minibatch_attempts": optimizer_minibatch_attempts,
+        "optimizer_minibatch_skipped_nonfinite": optimizer_minibatch_skipped_nonfinite,
         "policy_loss_mean": _mean_metric(policy_losses),
         "value_loss_mean": _mean_metric(value_losses),
         "entropy_mean": _mean_metric(entropies),
         "loss_mean": _mean_metric(losses),
         "approx_kl_mean": _mean_metric(approx_kls),
         "clip_fraction_mean": _mean_metric(clip_fractions),
+        "grad_norm_mean": _mean_metric(grad_norms),
     }
+
+
+def _optimizer_step_if_finite(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    loss: torch.Tensor,
+    cfg: PPOConfig,
+) -> Tuple[bool, float | None]:
+    optimizer.zero_grad()
+    if not torch.isfinite(loss):
+        return False, None
+    before_step = [parameter.detach().clone() for parameter in model.parameters()]
+    loss.backward()
+    grad_norm = torch.nn.utils.clip_grad_norm_(
+        model.parameters(),
+        cfg.max_grad_norm,
+        error_if_nonfinite=False,
+    )
+    if not torch.isfinite(grad_norm):
+        optimizer.zero_grad()
+        return False, None
+    optimizer.step()
+    parameters_are_finite = all(torch.isfinite(parameter).all() for parameter in model.parameters())
+    optimizer_state_is_finite = all(
+        torch.isfinite(value).all()
+        for state in optimizer.state.values()
+        for value in state.values()
+        if torch.is_tensor(value)
+    )
+    if not parameters_are_finite or not optimizer_state_is_finite:
+        with torch.no_grad():
+            for current, previous in zip(model.parameters(), before_step):
+                current.copy_(previous)
+        optimizer.state.clear()
+        optimizer.zero_grad()
+        return False, None
+    return True, float(grad_norm.detach().cpu().item())
 
 
 class MLPActorCritic(nn.Module):
@@ -401,7 +445,7 @@ def train_ppo_cartpole(cfg: PPOConfig, output: Optional[str] = None) -> Tuple[nn
     elif cfg.pretrain_steps > 0 and isinstance(model, LSTMActorCritic):
         pretrain_optimizer = torch.optim.Adam(model.parameters(), lr=cfg.pretrain_learning_rate)
         _pretrain_lstm_actor(model, pretrain_optimizer, cfg, device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.learning_rate, eps=cfg.adam_eps)
     obs = torch.tensor([env.reset() for env in envs], dtype=torch.float32, device=device)
     episode_steps = torch.zeros(cfg.num_envs, dtype=torch.long, device=device)
     lstm_state: Optional[Tuple[torch.Tensor, torch.Tensor]]
@@ -717,6 +761,9 @@ def _update_mlp(
     losses: List[float] = []
     approx_kls: List[float] = []
     clip_fractions: List[float] = []
+    grad_norms: List[float] = []
+    optimizer_minibatch_attempts = 0
+    optimizer_minibatch_skipped_nonfinite = 0
     for _ in range(cfg.update_epochs):
         # MLP policies can shuffle individual transitions because there is no
         # recurrent context to preserve.
@@ -730,10 +777,11 @@ def _update_mlp(
             policy_loss = torch.max(pg_loss1, pg_loss2).mean()
             value_loss = F.mse_loss(value, returns[idx])
             loss = policy_loss + cfg.value_coef * value_loss - cfg.entropy_coef * entropy.mean()
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
-            optimizer.step()
+            optimizer_minibatch_attempts += 1
+            stepped, grad_norm = _optimizer_step_if_finite(model, optimizer, loss, cfg)
+            if not stepped:
+                optimizer_minibatch_skipped_nonfinite += 1
+                continue
             with torch.no_grad():
                 log_ratio = new_log_prob - old_log_probs[idx]
                 approx_kl = ((ratio - 1.0) - log_ratio).mean()
@@ -744,7 +792,19 @@ def _update_mlp(
                 losses.append(float(loss.item()))
                 approx_kls.append(float(approx_kl.item()))
                 clip_fractions.append(float(clip_fraction.item()))
-    return _ppo_optimizer_metrics(policy_losses, value_losses, entropies, losses, approx_kls, clip_fractions)
+                if grad_norm is not None:
+                    grad_norms.append(grad_norm)
+    return _ppo_optimizer_metrics(
+        policy_losses,
+        value_losses,
+        entropies,
+        losses,
+        approx_kls,
+        clip_fractions,
+        grad_norms,
+        optimizer_minibatch_attempts,
+        optimizer_minibatch_skipped_nonfinite,
+    )
 
 
 def _update_lstm(
@@ -767,6 +827,9 @@ def _update_lstm(
     losses: List[float] = []
     approx_kls: List[float] = []
     clip_fractions: List[float] = []
+    grad_norms: List[float] = []
+    optimizer_minibatch_attempts = 0
+    optimizer_minibatch_skipped_nonfinite = 0
     for _ in range(cfg.update_epochs):
         # The recurrent policy is updated on the full time-major rollout so
         # hidden-state resets stay aligned with environment terminations.
@@ -782,10 +845,11 @@ def _update_lstm(
         policy_loss = torch.max(pg_loss1, pg_loss2).mean()
         value_loss = F.mse_loss(value, returns)
         loss = policy_loss + cfg.value_coef * value_loss - cfg.entropy_coef * entropy.mean()
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
-        optimizer.step()
+        optimizer_minibatch_attempts += 1
+        stepped, grad_norm = _optimizer_step_if_finite(model, optimizer, loss, cfg)
+        if not stepped:
+            optimizer_minibatch_skipped_nonfinite += 1
+            continue
         with torch.no_grad():
             log_ratio = new_log_prob - old_log_probs
             approx_kl = ((ratio - 1.0) - log_ratio).mean()
@@ -796,7 +860,19 @@ def _update_lstm(
             losses.append(float(loss.item()))
             approx_kls.append(float(approx_kl.item()))
             clip_fractions.append(float(clip_fraction.item()))
-    return _ppo_optimizer_metrics(policy_losses, value_losses, entropies, losses, approx_kls, clip_fractions)
+            if grad_norm is not None:
+                grad_norms.append(grad_norm)
+    return _ppo_optimizer_metrics(
+        policy_losses,
+        value_losses,
+        entropies,
+        losses,
+        approx_kls,
+        clip_fractions,
+        grad_norms,
+        optimizer_minibatch_attempts,
+        optimizer_minibatch_skipped_nonfinite,
+    )
 
 
 def _pretrain_mlp_actor(

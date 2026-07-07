@@ -421,7 +421,7 @@ def cartpole_synthesis_protocol_status(
             "teacher_elite_distribution_resamples_cover_top_rho"
         ],
         "uses_paper_teacher_parallel_threads": cem_status["uses_paper_teacher_parallel_threads"],
-        "uses_paper_student_parallel_worker_limit": cem_status["uses_paper_student_parallel_worker_limit"],
+        "uses_paper_student_parallel_threads": cem_status["uses_paper_student_parallel_threads"],
         "full_continuous_switch_m_step": full_continuous_switch_m_step,
         "full_cem_teacher_optimizer": full_cem_teacher_optimizer,
     }

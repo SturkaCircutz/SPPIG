@@ -156,6 +156,8 @@ class CartpolePPOCliTest(unittest.TestCase):
         self.assertEqual(len(metrics["update_history"]), 2)
         self.assertEqual(metrics["update_history"][0]["rollout_steps"], 32)
         self.assertEqual(metrics["update_history"][0]["optimizer_minibatch_updates"], 1)
+        self.assertEqual(metrics["update_history"][0]["optimizer_minibatch_attempts"], 1)
+        self.assertEqual(metrics["update_history"][0]["optimizer_minibatch_skipped_nonfinite"], 0)
         for field in (
             "policy_loss_mean",
             "value_loss_mean",
@@ -163,8 +165,10 @@ class CartpolePPOCliTest(unittest.TestCase):
             "loss_mean",
             "approx_kl_mean",
             "clip_fraction_mean",
+            "grad_norm_mean",
         ):
             self.assertIsInstance(metrics["update_history"][0][field], float)
+        self.assertEqual(metrics["config"]["adam_eps"], 1e-05)
         self.assertIn("selected_result", metrics)
         self.assertIn("train_steps_mean", metrics["selected_result"])
         self.assertIn("test_steps_mean", metrics["selected_result"])

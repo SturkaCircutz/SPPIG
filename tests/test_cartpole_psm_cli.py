@@ -160,7 +160,8 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_reward_scale"])
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["teacher_cem_phase_matches_paper_rho"])
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_teacher_parallel_threads"])
-        self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_student_parallel_worker_limit"])
+        self.assertTrue(status["uses_paper_student_parallel_worker_limit"])
+        self.assertFalse(status["adaptive_teaching_protocol_requirements"]["uses_paper_student_parallel_threads"])
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["full_test_horizon"])
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["paper_eval_rollouts"])
         self.assertFalse(status["adaptive_teaching_protocol_requirements"]["full_continuous_switch_m_step"])
@@ -168,6 +169,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(
             status["missing_adaptive_teaching_protocol_requirements"],
             [
+                "uses_paper_student_parallel_threads",
                 "full_continuous_switch_m_step",
                 "full_cem_teacher_optimizer",
             ],
@@ -175,6 +177,7 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(
             status["missing_probabilistic_adaptive_teaching_requirements"],
             [
+                "uses_paper_student_parallel_threads",
                 "full_continuous_switch_m_step",
                 "full_cem_teacher_optimizer",
             ],
@@ -745,7 +748,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             ]
         )
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_teacher_parallel_threads"])
-        self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_student_parallel_worker_limit"])
+        self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["uses_paper_student_parallel_threads"])
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["full_continuous_switch_m_step"])
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["full_cem_teacher_optimizer"])
         self.assertIn(
@@ -757,7 +760,7 @@ class CartpolePSMCliTest(unittest.TestCase):
             status["missing_probabilistic_adaptive_teaching_requirements"],
         )
         self.assertIn(
-            "uses_paper_student_parallel_worker_limit",
+            "uses_paper_student_parallel_threads",
             status["missing_probabilistic_adaptive_teaching_requirements"],
         )
         self.assertIn(

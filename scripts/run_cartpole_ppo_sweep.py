@@ -878,6 +878,18 @@ def run_job(job: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _log_progress(message: str) -> None:
+    print(message, flush=True)
+
+
+def _job_progress_prefix(job: Dict[str, Any], index: int, total: int) -> str:
+    return (
+        f"job {index}/{total} id={job['job_id']} policy={job['policy']} "
+        f"seed={job['seed']} sample={job['hyperparam_sample']} "
+        f"timesteps={job['total_timesteps']} device={job['device']}"
+    )
+
+
 def failed_job_row(job: Dict[str, Any], error: Exception) -> Dict[str, Any]:
     return {
         **job,
@@ -1152,22 +1164,36 @@ def main() -> None:
     failures: List[Dict[str, Any]] = []
     skipped = 0
     if not args.dry_run:
+        _log_progress(
+            f"starting CartPole PPO sweep: jobs_planned={len(jobs)} "
+            f"resume={args.resume} outdir={args.outdir}"
+        )
         existing_results = (
             read_existing_results(args.outdir / "cartpole_ppo_sweep_results.csv")
             if args.resume
             else {}
         )
-        for job in jobs:
+        for index, job in enumerate(jobs, start=1):
+            prefix = _job_progress_prefix(job, index, len(jobs))
             existing = resumable_result_for_job(job, existing_results) if args.resume else None
             if existing is not None:
+                _log_progress(f"skipping completed {prefix}")
                 results.append(existing)
                 skipped += 1
             else:
                 try:
-                    results.append(run_job(job))
+                    _log_progress(f"running {prefix}")
+                    result = run_job(job)
+                    results.append(result)
+                    _log_progress(
+                        f"finished {prefix} train_success={result['train_success']:.3f} "
+                        f"test_success={result['test_success']:.3f} "
+                        f"selected_timesteps={result['selected_timesteps']}"
+                    )
                 except Exception as exc:
                     if not args.continue_on_error:
                         raise
+                    _log_progress(f"failed {prefix} error={type(exc).__name__}: {exc}")
                     failures.append(failed_job_row(job, exc))
                     write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)
                     continue

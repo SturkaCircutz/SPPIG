@@ -149,6 +149,7 @@ if HAS_TORCH:
         PAPER_PPO_TIMESTEPS,
         PPOConfig,
         _collect_rollout,
+        _optimizer_step_if_finite,
         _update_lstm,
         ppo_paper_protocol_status,
         resolve_torch_device,
@@ -2999,7 +3000,18 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(paper_limit_status["effective_student_parallel_switch_workers"], 10)
         self.assertEqual(paper_limit_status["effective_student_parallel_switch_slots"], 2)
         self.assertTrue(paper_limit_status["uses_parallel_student_switch_optimization"])
+        self.assertTrue(paper_limit_status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(paper_limit_status["uses_paper_student_parallel_threads"])
+        paper_limit_full_status = cartpole_synthesis_protocol_status(paper_limit_cfg)
+        self.assertFalse(
+            paper_limit_full_status["probabilistic_adaptive_teaching_requirements"][
+                "uses_paper_student_parallel_threads"
+            ]
+        )
+        self.assertIn(
+            "uses_paper_student_parallel_threads",
+            paper_limit_full_status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
 
     def test_cartpole_teacher_objective_uses_student_regularizer(self):
         cfg = CartpoleSynthesisConfig(teacher_student_regularizer=10.0)
@@ -6543,6 +6555,8 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertIn("horizon_truncations", metrics["update_history"][0])
         self.assertIn("failure_terminations", metrics["update_history"][0])
         self.assertEqual(metrics["update_history"][0]["optimizer_minibatch_updates"], 1)
+        self.assertEqual(metrics["update_history"][0]["optimizer_minibatch_attempts"], 1)
+        self.assertEqual(metrics["update_history"][0]["optimizer_minibatch_skipped_nonfinite"], 0)
         for field in (
             "policy_loss_mean",
             "value_loss_mean",
@@ -6550,8 +6564,10 @@ class CartpolePaperTest(unittest.TestCase):
             "loss_mean",
             "approx_kl_mean",
             "clip_fraction_mean",
+            "grad_norm_mean",
         ):
             self.assertIsInstance(metrics["update_history"][0][field], float)
+        self.assertEqual(metrics["config"]["adam_eps"], 1e-05)
         self.assertEqual(metrics["selected_result"]["timesteps"], result.timesteps)
         self.assertEqual(metrics["paper_protocol_status"]["selected_test_max_steps"], 20)
         self.assertTrue(metrics["reward_spec"]["reward_equals_survived_steps"])
@@ -6634,6 +6650,36 @@ class CartpolePaperTest(unittest.TestCase):
         )
 
         self.assertTrue(torch.any(rollout.actions.abs() > env.cfg.force_limit))
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_optimizer_skips_nonfinite_loss_without_poisoning_parameters(self):
+        model = MLPActorCritic(hidden_size=8)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, eps=PPOConfig().adam_eps)
+        before = [parameter.detach().clone() for parameter in model.parameters()]
+        loss = next(model.parameters()).sum() * torch.tensor(float("nan"))
+
+        stepped, grad_norm = _optimizer_step_if_finite(model, optimizer, loss, PPOConfig())
+
+        self.assertFalse(stepped)
+        self.assertIsNone(grad_norm)
+        for parameter, previous in zip(model.parameters(), before):
+            self.assertTrue(torch.equal(parameter, previous))
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_optimizer_rolls_back_nonfinite_parameters_after_step(self):
+        model = MLPActorCritic(hidden_size=8)
+        cfg = PPOConfig(max_grad_norm=1.0)
+        optimizer = torch.optim.SGD(model.parameters(), lr=float("inf"))
+        first_parameter = next(model.parameters())
+        before = [parameter.detach().clone() for parameter in model.parameters()]
+        loss = first_parameter.sum()
+
+        stepped, grad_norm = _optimizer_step_if_finite(model, optimizer, loss, cfg)
+
+        self.assertFalse(stepped)
+        self.assertIsNone(grad_norm)
+        for parameter, previous in zip(model.parameters(), before):
+            self.assertTrue(torch.equal(parameter, previous))
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_lstm_update_replays_rollout_initial_state(self):
