@@ -225,7 +225,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         ),
         "local_refinement": (
             "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_"
-            "continuous_one_hot_alpha_s_weight_threshold_force_neighbors"
+            "continuous_one_hot_operator_alpha_s_weight_threshold_force_neighbors"
         ),
         "train_horizon_seconds": CartpoleEnv.train_env().cfg.horizon_seconds,
         "test_horizon_steps": CartpoleEnv.test_env().cfg.max_steps,
@@ -238,8 +238,8 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
             "It optimizes mean train-horizon reward over the selected initial states and includes "
             "bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 "
             "feature-mixture candidate family, bounded continuous one-hot random restarts, optional "
-            "sampled train-distribution reranking, and bounded alpha_s/weight/threshold/force local "
-            "refinement, but is not the paper's "
+            "sampled train-distribution reranking, and bounded one-hot operator/alpha_s/weight/"
+            "threshold/force local refinement, but is not the paper's "
             "two-hour, ten-thread continuous numerical optimization over the full one-hot "
             "switching grammar."
         ),
@@ -1281,6 +1281,14 @@ def _continuous_one_hot_local_neighbor_candidates(
             )
         )
     if switch.second is not None:
+        for operator in _continuous_one_hot_operator_neighbors(switch.operator):
+            switches.append(
+                DirectOptContinuousOneHotSwitch(
+                    switch.first,
+                    switch.second,
+                    operator=operator,
+                )
+            )
         for second_weights in _continuous_one_hot_weight_neighbors(switch.second.feature_weights, cfg):
             switches.append(
                 DirectOptContinuousOneHotSwitch(
@@ -1331,6 +1339,10 @@ def _continuous_one_hot_local_neighbor_candidates(
             (local_switch, left_force, right_force, source),
         )
     return _evaluate_continuous_one_hot_candidates(list(unique.values()), train_states, cfg, deadline)
+
+
+def _continuous_one_hot_operator_neighbors(operator: str) -> List[str]:
+    return [candidate for candidate in DIRECT_OPT_TREE_OPERATORS if candidate != operator]
 
 
 def _continuous_one_hot_alpha_s_neighbors(

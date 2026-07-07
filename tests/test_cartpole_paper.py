@@ -99,6 +99,7 @@ from cartpole_synthesis import (
     _switch_distribution_std_candidates,
     _switch_distribution_timing_loss,
     _switch_parameter_gradient_improves,
+    _switch_parameter_gradient_converged,
     _switch_parameter_gradient_loss,
     _switch_parameter_loss_gradient,
     _gradient_switch_parameter_candidate_distributions,
@@ -1521,6 +1522,10 @@ class CartpolePaperTest(unittest.TestCase):
                 best_timing_loss=3.5,
             )
         )
+
+    def test_cartpole_switch_parameter_gradient_converges_on_tiny_relative_improvement(self):
+        self.assertTrue(_switch_parameter_gradient_converged(100.0, 99.99995))
+        self.assertFalse(_switch_parameter_gradient_converged(100.0, 99.99))
 
     def test_cartpole_switch_parameter_gradient_includes_label_loss(self):
         switch = Depth2Switch(1.0, 0.0, 0.0)

@@ -130,10 +130,12 @@
         0.25,
         0.125
       ],
+      "finite_difference_gradient_convergence": "stop_after_bounded_backtracked_steps_or_tiny_combined_loss_improvement",
       "finite_difference_gradient_epsilon_fraction": 0.25,
       "finite_difference_gradient_label_loss_weight": 1.0,
       "finite_difference_gradient_log_std_step": 0.25,
       "finite_difference_gradient_mean_step_fraction": 0.5,
+      "finite_difference_gradient_min_relative_improvement": 1e-06,
       "finite_difference_gradient_objective": "weighted_sum_of_responsibility_label_loss_and_eq12_timing_loss",
       "finite_difference_gradient_refinement_steps": 2,
       "finite_difference_gradient_timing_loss_weight": 1.0,
@@ -259,7 +261,7 @@
       "transition_specific_switch_conditions": true,
       "two_mode_constant_action_psm": true,
       "uses_paper_reward_scale": true,
-      "uses_paper_student_parallel_worker_limit": false,
+      "uses_paper_student_parallel_threads": false,
       "uses_paper_teacher_parallel_threads": false
     },
     "boolean_tree_depth": 2,
@@ -286,7 +288,7 @@
     "missing_adaptive_teaching_protocol_requirements": [
       "teacher_elite_distribution_resamples_cover_top_rho",
       "uses_paper_teacher_parallel_threads",
-      "uses_paper_student_parallel_worker_limit",
+      "uses_paper_student_parallel_threads",
       "full_continuous_switch_m_step",
       "full_cem_teacher_optimizer",
       "five_seed_selection",
@@ -295,7 +297,7 @@
     "missing_probabilistic_adaptive_teaching_requirements": [
       "teacher_elite_distribution_resamples_cover_top_rho",
       "uses_paper_teacher_parallel_threads",
-      "uses_paper_student_parallel_worker_limit",
+      "uses_paper_student_parallel_threads",
       "full_continuous_switch_m_step",
       "full_cem_teacher_optimizer"
     ],
@@ -318,7 +320,7 @@
       "transition_specific_switch_conditions": true,
       "two_mode_constant_action_psm": true,
       "uses_paper_reward_scale": true,
-      "uses_paper_student_parallel_worker_limit": false,
+      "uses_paper_student_parallel_threads": false,
       "uses_paper_teacher_parallel_threads": false
     },
     "quick_diagnostic": false,
@@ -780,9 +782,9 @@
           -10.0,
           10.0
         ],
-        "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, bounded continuous one-hot random restarts, optional sampled train-distribution reranking, and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
+        "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, bounded continuous one-hot random restarts, optional sampled train-distribution reranking, and bounded one-hot operator/alpha_s/weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
         "local_parallel_threads": "configurable_via_parallel_threads",
-        "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_continuous_one_hot_alpha_s_weight_threshold_force_neighbors",
+        "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_continuous_one_hot_operator_alpha_s_weight_threshold_force_neighbors",
         "local_time_limit_seconds": "configurable_via_time_limit_seconds",
         "not_paper_scale": true,
         "omega_weight_grid": [
@@ -1627,10 +1629,12 @@
             0.25,
             0.125
           ],
+          "finite_difference_gradient_convergence": "stop_after_bounded_backtracked_steps_or_tiny_combined_loss_improvement",
           "finite_difference_gradient_epsilon_fraction": 0.25,
           "finite_difference_gradient_label_loss_weight": 1.0,
           "finite_difference_gradient_log_std_step": 0.25,
           "finite_difference_gradient_mean_step_fraction": 0.5,
+          "finite_difference_gradient_min_relative_improvement": 1e-06,
           "finite_difference_gradient_objective": "weighted_sum_of_responsibility_label_loss_and_eq12_timing_loss",
           "finite_difference_gradient_refinement_steps": 2,
           "finite_difference_gradient_timing_loss_weight": 1.0,
@@ -1787,7 +1791,7 @@
           "transition_specific_switch_conditions": true,
           "two_mode_constant_action_psm": true,
           "uses_paper_reward_scale": true,
-          "uses_paper_student_parallel_worker_limit": false,
+          "uses_paper_student_parallel_threads": false,
           "uses_paper_teacher_parallel_threads": false
         },
         "boolean_tree_depth": 2,
@@ -1814,7 +1818,7 @@
         "missing_adaptive_teaching_protocol_requirements": [
           "teacher_elite_distribution_resamples_cover_top_rho",
           "uses_paper_teacher_parallel_threads",
-          "uses_paper_student_parallel_worker_limit",
+          "uses_paper_student_parallel_threads",
           "full_continuous_switch_m_step",
           "full_cem_teacher_optimizer",
           "five_seed_selection",
@@ -1823,7 +1827,7 @@
         "missing_probabilistic_adaptive_teaching_requirements": [
           "teacher_elite_distribution_resamples_cover_top_rho",
           "uses_paper_teacher_parallel_threads",
-          "uses_paper_student_parallel_worker_limit",
+          "uses_paper_student_parallel_threads",
           "full_continuous_switch_m_step",
           "full_cem_teacher_optimizer"
         ],
@@ -1846,7 +1850,7 @@
           "transition_specific_switch_conditions": true,
           "two_mode_constant_action_psm": true,
           "uses_paper_reward_scale": true,
-          "uses_paper_student_parallel_worker_limit": false,
+          "uses_paper_student_parallel_threads": false,
           "uses_paper_teacher_parallel_threads": false
         },
         "quick_diagnostic": false,

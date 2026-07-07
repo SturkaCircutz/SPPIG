@@ -302,6 +302,11 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_mean_step_fraction"], 0.5)
         self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_log_std_step"], 0.25)
         self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_epsilon_fraction"], 0.25)
+        self.assertEqual(provenance["switch_timing"]["finite_difference_gradient_min_relative_improvement"], 1e-6)
+        self.assertEqual(
+            provenance["switch_timing"]["finite_difference_gradient_convergence"],
+            "stop_after_bounded_backtracked_steps_or_tiny_combined_loss_improvement",
+        )
         self.assertEqual(
             provenance["switch_timing"]["finite_difference_gradient_backtracking_factors"],
             [1.0, 0.5, 0.25, 0.125],

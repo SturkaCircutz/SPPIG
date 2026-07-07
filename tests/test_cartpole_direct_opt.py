@@ -24,6 +24,7 @@ from cartpole_direct_opt import (  # noqa: E402
     _continuous_one_hot_alpha_s_neighbors,
     _continuous_one_hot_candidates,
     _continuous_one_hot_local_neighbor_candidates,
+    _continuous_one_hot_operator_neighbors,
     _continuous_one_hot_random_restart_candidates,
     _continuous_one_hot_weight_neighbors,
     _direct_opt_candidates,
@@ -765,6 +766,55 @@ class CartpoleDirectOptTest(unittest.TestCase):
                 for neighbor in neighbors
             )
         )
+
+    def test_direct_opt_continuous_one_hot_local_refinement_moves_depth2_operator(self):
+        candidate = DirectOptCandidate(
+            theta_weight=0.0,
+            omega_weight=0.0,
+            threshold=0.0,
+            left_force=-10.0,
+            right_force=10.0,
+            train_reward_mean=1.0,
+            train_success_rate=0.0,
+            switch_kind="continuous_one_hot",
+            continuous_one_hot_alpha_s=1.0,
+            continuous_one_hot_feature_weights=(0.0, 0.0, 0.5, 0.5),
+            continuous_one_hot_alpha_0=0.0,
+            continuous_one_hot_operator="and",
+            second_appendix_b3_alpha_s=-1.0,
+            second_appendix_b3_feature_weights=(0.0, 0.0, 0.25, 0.75),
+            second_appendix_b3_alpha_0=0.1,
+        )
+
+        neighbors = _continuous_one_hot_local_neighbor_candidates(
+            candidate,
+            [[0.0, 0.0, 0.0, 0.0]],
+            DirectOptConfig(local_step_fraction=0.0),
+        )
+
+        operators = {neighbor.continuous_one_hot_operator for neighbor in neighbors}
+        self.assertIn("leaf", operators)
+        self.assertIn("or", operators)
+        self.assertTrue(
+            any(
+                neighbor.second_appendix_b3_feature_weights == candidate.second_appendix_b3_feature_weights
+                and neighbor.operator_one_hot == (1, 0, 0)
+                for neighbor in neighbors
+                if neighbor.continuous_one_hot_operator == "leaf"
+            )
+        )
+        self.assertTrue(
+            any(
+                neighbor.second_appendix_b3_feature_weights == candidate.second_appendix_b3_feature_weights
+                and neighbor.operator_one_hot == (0, 0, 1)
+                for neighbor in neighbors
+                if neighbor.continuous_one_hot_operator == "or"
+            )
+        )
+
+    def test_direct_opt_continuous_one_hot_operator_neighbors_cover_one_hot_choices(self):
+        self.assertEqual(_continuous_one_hot_operator_neighbors("and"), ["leaf", "or"])
+        self.assertEqual(_continuous_one_hot_operator_neighbors("leaf"), ["and", "or"])
 
     def test_direct_opt_continuous_one_hot_leaf_solution_skips_depth2_expansion(self):
         evaluated_sources: list[str] = []

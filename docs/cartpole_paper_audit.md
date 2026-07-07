@@ -62,8 +62,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
   tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
-  candidates, bounded continuous one-hot random restarts, and a local batch/restart refinement over forces, thresholds, and continuous one-hot
-  `alpha_s`/feature weights seeded from the best candidate so far.
+  candidates, bounded continuous one-hot random restarts, and a local batch/restart refinement over forces, thresholds, continuous one-hot
+  operator choices, and continuous one-hot `alpha_s`/feature weights seeded from the best candidate so far.
   Candidate selection optimizes mean train-horizon reward over the selected initial states, then
   success as a tie-breaker. This records exact selected training initial states, search grids,
   search diagnostics, the phase where a training solution was first found,
@@ -172,7 +172,11 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   supports an explicit Cartesian-grid diagnostic mode and writes both a single-best-job summary and a
   per-hyperparameter summary aggregating completed seeds for each sampled config, including
   survived-step, survival-second, and evaluation-rollout
-  provenance for executed rows. Its paper-scale plan/execution flags require the generated
+  provenance for executed rows. It writes the sweep manifest after each completed, skipped, or failed
+  job, and `--refresh-manifest` can rebuild the manifest and summaries from existing CSV artifacts
+  without launching training after validating each completed row against its checkpoint, metrics
+  command, device, protocol-status, config, and selected-result provenance, so interrupted
+  paper-scale sweeps still carry accurate partial-run evidence. Its paper-scale plan/execution flags require the generated
   sampled configs themselves to satisfy the paper's reported exact discrete hyperparameter ranges,
   learning-rate interval, and PPO-LSTM `nminibatches = 1` rule, plus the paper's
   `1000` evaluation rollouts. Its manifest records the standard CartPole reward spec, embeds the
@@ -283,7 +287,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   implementation optimizes mean reward over all selected finite initial states, evaluates bounded
   Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
   candidates and bounded continuous one-hot random restarts when those phases are reached before a training solution is found, and records bounded
-  `alpha_s`/feature-weight/threshold/force local-refinement diagnostics to
+  one-hot-operator/`alpha_s`/feature-weight/threshold/force local-refinement diagnostics to
   mirror part of the paper baseline's grammar and batch seeding structure. Metrics now also persist
   the selected training initial states and compact per-batch seed/local/restart/full-train
   reevaluation trace used by the bounded batch refinement, plus optional sampled train-distribution
@@ -518,7 +522,11 @@ PPO/PPO-LSTM protocol.
   per-hyperparameter summary that marks the best completed sampled
   config per policy after preferring complete selected-seed coverage, records selected-seed coverage
   and missing seeds for each sampled hyperparameter config, records survived-step/survival-second
-  columns for executed rows and summaries, and can optionally record failed jobs while continuing a long sweep.
+  columns for executed rows and summaries, writes the embedded manifest after every job, can refresh
+  manifest evidence from existing sweep CSVs without running jobs while rejecting result rows whose
+  checkpoint or metrics provenance does not match and failure rows whose plan fields do not match the
+  current sweep, and records failure artifacts before stopping by default or continuing when
+  `--continue-on-error` is set. This keeps partial `10^7`-timestep sweeps auditable if interrupted.
 - `scripts/run_cartpole_reproduction.py` can now attach a PPO sweep manifest to the bundle-level
   `paper_protocol_status` block. Dry-run or incomplete paper-scale sweep plans remain provenance only;
   the runner's PPO hyperparameter-search flag requires a typed sweep manifest with completed sweep
@@ -677,7 +685,10 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_ppo_sweep.py::test_continue_on_error_records_failed_jobs` verifies that
   opt-in sweep continuation records failed jobs to a failure artifact and manifest counters.
 - `tests/test_cartpole_ppo_sweep.py::test_default_job_failure_stops_sweep` verifies that job failures
-  still stop the sweep by default.
+  still stop the sweep by default while preserving the failure CSV and manifest counters.
+- `tests/test_cartpole_ppo_sweep.py::test_refresh_manifest_rejects_failure_rows_outside_current_plan`
+  verifies that manifest refresh does not import stale failure rows whose plan fields do not match
+  the current sweep.
 - `tests/test_cartpole_ppo_cli.py` verifies PPO CLI defaults and help output without importing
   PyTorch. When PyTorch is installed, it also verifies the CLI's dependency-light paper timestep
   constant against the PPO runtime and runs a tiny runtime metrics smoke test; those two checks are
@@ -718,6 +729,10 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_local_refinement_preserves_metadata`
   verifies that local Direct-Opt refinement preserves continuous one-hot metadata while varying the
   bounded `alpha_s`, feature-weight, threshold, and force parameters.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_local_refinement_moves_depth2_operator`
+  and `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_operator_neighbors_cover_one_hot_choices`
+  verify that depth-2 continuous one-hot local refinement also tries neighboring leaf/and/or
+  operator choices from the paper's one-hot switch grammar.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_alpha_s_neighbors_stay_bounded`
   verifies that bounded continuous one-hot `alpha_s` neighbors stay in the Appendix B.3 range.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_weight_neighbors_stay_on_simplex`
@@ -1196,7 +1211,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   no-transition-before-duration terms. It now performs candidate switch-structure rescoring using
   forward-backward adjacent pair posteriors, bounded local mean/std grid, coordinate refinement, and
   finite-difference gradient polishing of the combined responsibility-weighted label/timing loss with
-  backtracking line search, but does not yet solve the full
+  backtracking line search and a bounded relative-improvement convergence stop, but does not yet solve the full
   continuous Eq. (12) optimization for switch-condition means and standard deviations.
   For depth-2 Boolean trees,
   switch-enable probability now uses an

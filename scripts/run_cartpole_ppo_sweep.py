@@ -1027,9 +1027,12 @@ def write_manifest(
     failures: List[Dict[str, Any]],
     completed: int,
     skipped: int,
+    jobs_run_this_invocation: int | None = None,
 ) -> None:
     summary_rows = summarize_results(results) if results else []
     hyperparameter_summary_rows = summarize_hyperparameter_configs(results, _parse_ints(args.seeds)) if results else []
+    if jobs_run_this_invocation is None:
+        jobs_run_this_invocation = completed - skipped
     manifest = {
         "artifact_kind": "cartpole_ppo_sweep_manifest",
         "command": " ".join(sys.argv),
@@ -1044,7 +1047,7 @@ def write_manifest(
         "jobs_completed": completed,
         "jobs_failed": len(failures),
         "jobs_skipped_existing": skipped,
-        "jobs_run_this_invocation": completed - skipped,
+        "jobs_run_this_invocation": jobs_run_this_invocation,
         "max_configs": args.max_configs,
         "hyperparam_mode": args.hyperparam_mode,
         "hyperparam_samples": args.hyperparam_samples,
@@ -1143,6 +1146,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Record failed jobs to a failures CSV and continue. By default the first job failure stops the sweep.",
     )
+    parser.add_argument(
+        "--refresh-manifest",
+        action="store_true",
+        help="Rebuild plan, summaries, and manifest from existing result/failure CSVs without running jobs.",
+    )
     parser.add_argument("--quick", action="store_true", help="Use tiny local settings; pair with --max-configs.")
     args = parser.parse_args()
     if args.quick:
@@ -1156,6 +1164,75 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+def read_csv_rows(path: Path | str) -> List[Dict[str, str]]:
+    path = Path(path)
+    if not path.exists():
+        return []
+    with path.open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def validated_existing_results_for_jobs(
+    jobs: List[Dict[str, Any]],
+    existing_results: Dict[int, Dict[str, str]],
+) -> tuple[List[Dict[str, str]], int]:
+    results: List[Dict[str, str]] = []
+    rejected = 0
+    for job in jobs:
+        if int(job["job_id"]) not in existing_results:
+            continue
+        result = resumable_result_for_job(job, existing_results)
+        if result is None:
+            rejected += 1
+            continue
+        results.append(result)
+    return results, rejected
+
+
+def failure_row_matches_job(job: Dict[str, Any], row: Dict[str, str]) -> bool:
+    return all(str(row.get(field, "")) == str(job[field]) for field in PLAN_FIELDS)
+
+
+def validated_failure_rows_for_jobs(
+    jobs: List[Dict[str, Any]],
+    failure_rows: List[Dict[str, str]],
+    completed_job_ids: set[int] | None = None,
+) -> tuple[List[Dict[str, str]], int]:
+    completed_job_ids = completed_job_ids or set()
+    jobs_by_id = {int(job["job_id"]): job for job in jobs}
+    failures: List[Dict[str, str]] = []
+    rejected = 0
+    for row in failure_rows:
+        job_id = row.get("job_id", "")
+        if not str(job_id).isdigit():
+            rejected += 1
+            continue
+        numeric_job_id = int(job_id)
+        if numeric_job_id in completed_job_ids:
+            rejected += 1
+            continue
+        job = jobs_by_id.get(numeric_job_id)
+        if job is None or not failure_row_matches_job(job, row):
+            rejected += 1
+            continue
+        failures.append(row)
+    return failures, rejected
+
+
+def write_result_sidecars(args: argparse.Namespace, results: List[Dict[str, Any]]) -> None:
+    write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
+    if results:
+        write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
+        write_csv(
+            args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv",
+            HYPERPARAMETER_SUMMARY_FIELDS,
+            summarize_hyperparameter_configs(results, _parse_ints(args.seeds)),
+        )
+    else:
+        write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, [])
+        write_csv(args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv", HYPERPARAMETER_SUMMARY_FIELDS, [])
+
+
 def main() -> None:
     args = parse_args()
     jobs = build_jobs(args)
@@ -1163,6 +1240,33 @@ def main() -> None:
     results: List[Dict[str, Any]] = []
     failures: List[Dict[str, Any]] = []
     skipped = 0
+    if args.refresh_manifest:
+        results, rejected_results = validated_existing_results_for_jobs(
+            jobs,
+            read_existing_results(args.outdir / "cartpole_ppo_sweep_results.csv"),
+        )
+        failures, rejected_failures = validated_failure_rows_for_jobs(
+            jobs,
+            read_csv_rows(args.outdir / "cartpole_ppo_sweep_failures.csv"),
+            {int(row["job_id"]) for row in results},
+        )
+        write_result_sidecars(args, results)
+        write_manifest(
+            args,
+            jobs,
+            results,
+            failures,
+            len(results),
+            skipped,
+            jobs_run_this_invocation=0,
+        )
+        print(f"wrote {args.outdir / 'cartpole_ppo_sweep_plan.csv'}")
+        print(f"wrote {args.outdir / 'cartpole_ppo_sweep_manifest.json'}")
+        if rejected_results:
+            print(f"ignored {rejected_results} result rows without matching checkpoint/metrics provenance")
+        if rejected_failures:
+            print(f"ignored {rejected_failures} failure rows that do not match the current plan")
+        return
     if not args.dry_run:
         _log_progress(
             f"starting CartPole PPO sweep: jobs_planned={len(jobs)} "
@@ -1191,27 +1295,18 @@ def main() -> None:
                         f"selected_timesteps={result['selected_timesteps']}"
                     )
                 except Exception as exc:
+                    failure = failed_job_row(job, exc)
+                    failures.append(failure)
+                    write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)
+                    write_result_sidecars(args, results)
+                    write_manifest(args, jobs, results, failures, len(results), skipped)
                     if not args.continue_on_error:
                         raise
                     _log_progress(f"failed {prefix} error={type(exc).__name__}: {exc}")
-                    failures.append(failed_job_row(job, exc))
-                    write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)
                     continue
-            write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
-            if results:
-                write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
-                write_csv(
-                    args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv",
-                    HYPERPARAMETER_SUMMARY_FIELDS,
-                    summarize_hyperparameter_configs(results, _parse_ints(args.seeds)),
-                )
-        write_csv(args.outdir / "cartpole_ppo_sweep_results.csv", RESULT_FIELDS, results)
-        write_csv(args.outdir / "cartpole_ppo_sweep_summary.csv", SUMMARY_FIELDS, summarize_results(results))
-        write_csv(
-            args.outdir / "cartpole_ppo_sweep_hyperparam_summary.csv",
-            HYPERPARAMETER_SUMMARY_FIELDS,
-            summarize_hyperparameter_configs(results, _parse_ints(args.seeds)),
-        )
+            write_result_sidecars(args, results)
+            write_manifest(args, jobs, results, failures, len(results), skipped)
+        write_result_sidecars(args, results)
     if failures:
         write_csv(args.outdir / "cartpole_ppo_sweep_failures.csv", FAILURE_FIELDS, failures)
     write_manifest(args, jobs, results, failures, len(results), skipped)

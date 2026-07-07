@@ -82,9 +82,9 @@
       -10.0,
       10.0
     ],
-    "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, bounded continuous one-hot random restarts, optional sampled train-distribution reranking, and bounded alpha_s/weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
+    "limitations": "Diagnostic direct optimization over a bounded two-mode CartPole PSM. It optimizes mean train-horizon reward over the selected initial states and includes bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 feature-mixture candidate family, bounded continuous one-hot random restarts, optional sampled train-distribution reranking, and bounded one-hot operator/alpha_s/weight/threshold/force local refinement, but is not the paper's two-hour, ten-thread continuous numerical optimization over the full one-hot switching grammar.",
     "local_parallel_threads": "configurable_via_parallel_threads",
-    "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_continuous_one_hot_alpha_s_weight_threshold_force_neighbors",
+    "local_refinement": "linear_weight_threshold_force_neighbors_or_boolean_threshold_force_neighbors_or_continuous_one_hot_operator_alpha_s_weight_threshold_force_neighbors",
     "local_time_limit_seconds": "configurable_via_time_limit_seconds",
     "not_paper_scale": true,
     "omega_weight_grid": [
