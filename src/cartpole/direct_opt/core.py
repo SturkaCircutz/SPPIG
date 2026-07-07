@@ -41,11 +41,17 @@ DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES = (
     (0.0, 1.0, 0.0, 0.0),
     (0.0, 0.0, 1.0, 0.0),
     (0.0, 0.0, 0.0, 1.0),
+    (0.5, 0.5, 0.0, 0.0),
+    (0.5, 0.0, 0.5, 0.0),
+    (0.5, 0.0, 0.0, 0.5),
+    (0.0, 0.5, 0.5, 0.0),
+    (0.0, 0.5, 0.0, 0.5),
     (0.0, 0.0, 0.5, 0.5),
     (0.0, 0.0, 0.75, 0.25),
     (0.0, 0.0, 0.25, 0.75),
     (0.25, 0.25, 0.25, 0.25),
 )
+DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_VALUES = (-1.0, 0.0, 1.0)
 DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS = (-0.5, 0.0, 0.5)
 DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_STEP_SCALE = 1.0
 DIRECT_OPT_CONTINUOUS_ONE_HOT_WEIGHT_STEP_SCALE = 0.25
@@ -214,15 +220,17 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "boolean_tree_threshold_grids": [list(grid) for grid in DIRECT_OPT_BOOLEAN_THRESHOLD_GRIDS],
         "boolean_tree_expansion": "evaluate_all_stumps_then_depth2_expansions_from_top_training_reward_stumps",
         "continuous_one_hot_feature_mixes": [list(weights) for weights in DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES],
+        "continuous_one_hot_alpha_s_values": list(DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_VALUES),
         "continuous_one_hot_thresholds": list(DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS),
         "continuous_one_hot_top_leaves_for_depth2": DIRECT_OPT_CONTINUOUS_ONE_HOT_TOP_LEAVES,
         "continuous_one_hot_alpha_s_step_scale": DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_STEP_SCALE,
         "continuous_one_hot_weight_step_scale": DIRECT_OPT_CONTINUOUS_ONE_HOT_WEIGHT_STEP_SCALE,
-        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_simplex_vertex_and_feature_mix_leaf_depth2_predicates",
+        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_simplex_vertex_pairwise_and_feature_mix_leaf_depth2_predicates",
+        "continuous_one_hot_seed_family": "simplex_vertices_pairwise_equal_mixtures_theta_omega_ratio_mixtures_uniform",
         "continuous_one_hot_expansion": "evaluate_all_leaf_mixtures_then_depth2_expansions_from_top_training_reward_leaves",
         "random_restart_encoding": "bounded_appendix_b3_continuous_one_hot_alpha_s_simplex_feature_weights_threshold_force",
         "one_hot_switch_encoding": (
-            "evaluates a bounded Appendix B.3 continuous leaf/depth2 simplex-vertex and feature-mixture "
+            "evaluates a bounded Appendix B.3 continuous leaf/depth2 simplex-vertex, pairwise, and feature-mixture "
             "candidate family, samples "
             "bounded continuous one-hot random restarts, and records continuous one-hot vertex fields plus "
             "bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not "
@@ -242,7 +250,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
             "It optimizes mean train-horizon reward over the selected initial states and includes "
             "bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 "
-            "simplex-vertex and feature-mixture candidate family, bounded continuous one-hot random restarts, optional "
+            "simplex-vertex, pairwise, and feature-mixture candidate family, bounded continuous one-hot random restarts, optional "
             "sampled train-distribution reranking, and bounded one-hot operator/alpha_s/weight/"
             "threshold/force local refinement, but is not the paper's "
             "two-hour, ten-thread continuous numerical optimization over the full one-hot "
@@ -306,6 +314,10 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "bounded_one_hot_switch_metadata": True,
         "bounded_continuous_one_hot_switch_relaxation": True,
         "appendix_b3_one_hot_vertex_metadata": True,
+        "bounded_continuous_one_hot_alpha_s_values": list(DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_VALUES),
+        "bounded_continuous_one_hot_feature_seed_count": len(DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES),
+        "bounded_continuous_one_hot_includes_pairwise_feature_seeds": True,
+        "bounded_continuous_one_hot_includes_zero_alpha_s": 0.0 in DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_VALUES,
         "linear_switch_encoding": True,
         "batch_optimization_seeded_from_best_so_far": batch_refinement_rounds_enabled,
         "batch_local_refinement_enabled": batch_local_refinement_enabled,
@@ -336,7 +348,7 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "paper_scale_direct_opt_protocol": paper_scale_direct_opt_protocol,
         "limitation": (
             "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates "
-            "a bounded continuous one-hot leaf/depth2 simplex-vertex and feature-mixture candidate family with local "
+            "a bounded continuous one-hot leaf/depth2 simplex-vertex, pairwise, and feature-mixture candidate family with local "
             "alpha_s and feature-weight neighbors, but does not run the "
             "paper's ten-thread, two-hour continuous optimization over the full one-hot "
             "switching grammar."
@@ -736,7 +748,7 @@ def _continuous_one_hot_candidates(
     predicates = [
         DirectOptContinuousOneHotPredicate(alpha_s, tuple(feature_weights), alpha_0)
         for feature_weights in DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES
-        for alpha_s in (-1.0, 1.0)
+        for alpha_s in DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_VALUES
         for alpha_0 in DIRECT_OPT_CONTINUOUS_ONE_HOT_THRESHOLDS
     ]
     leaf_candidates = _evaluate_continuous_one_hot_candidates(

@@ -240,6 +240,8 @@
     },
     "switch_search": {
       "boolean_tree_depth": 2,
+      "constant_leaf_baselines": "always_switch_and_never_switch",
+      "constant_leaf_baselines_preserved_after_prefilter": true,
       "default_threshold_candidate": 0.0,
       "distribution_rescore_top_k": 32,
       "greedy_second_predicate_expands_switch_and_no_switch_leaves": true,

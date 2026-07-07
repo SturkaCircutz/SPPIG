@@ -61,8 +61,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   (`src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py` wrappers): bounded diagnostic Direct-Opt
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
-  tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 simplex-vertex and feature-mixture
-  candidates, bounded continuous one-hot random restarts, and a local batch/restart refinement over forces, thresholds, continuous one-hot
+  tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 simplex-vertex, pairwise, and feature-mixture
+  candidates with `alpha_s` seeds `{-1, 0, 1}`, bounded continuous one-hot random restarts, and a local batch/restart refinement over forces, thresholds, continuous one-hot
   operator choices, and continuous one-hot `alpha_s`/feature weights seeded from the best candidate so far.
   Candidate selection optimizes mean train-horizon reward over the selected initial states, then
   success as a tie-breaker. This records exact selected training initial states, search grids,
@@ -309,8 +309,9 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
   implementation optimizes mean reward over all selected finite initial states, evaluates bounded
-  Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 simplex-vertex and feature-mixture
-  candidates and bounded continuous one-hot random restarts when those phases are reached before a training solution is found, and records bounded
+  Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 simplex-vertex, pairwise, and feature-mixture
+  candidates with `alpha_s` seeds `{-1, 0, 1}`, plus bounded continuous one-hot random restarts
+  when those phases are reached before a training solution is found, and records bounded
   one-hot-operator/`alpha_s`/feature-weight/threshold/force local-refinement diagnostics to
   mirror part of the paper baseline's grammar and batch seeding structure. Metrics now also persist
   the selected training initial states and compact per-batch seed/local/restart/full-train
@@ -750,6 +751,11 @@ paper-scale PPO2 runs.
   verifies that a near-paper Direct-Opt configuration records the remaining blockers, including the
   full continuous one-hot switch grammar and full initial-state distribution requirements, instead of
   relying on a hard-coded false paper-scale flag.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_returns_policy_and_provenance` and
+  `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_lists_remaining_full_protocol_blockers`
+  verify that Direct-Opt provenance and protocol status record the bounded continuous one-hot seed
+  coverage, including pairwise feature seeds and `alpha_s = 0`, while keeping the full one-hot
+  grammar requirement false for local diagnostics.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_train_distribution_rerank_records_distribution_evidence`
   verifies that optional sampled train-distribution reranking records candidate-level distribution
   rewards, success rates, policy descriptions, and rollout accounting without treating it as the
@@ -764,9 +770,10 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_candidates_use_appendix_b3_mixture`
   verifies that the Direct-Opt diagnostic evaluates bounded Appendix B.3-style continuous one-hot
   leaf/depth-2 feature-mixture candidates and serializes their vertex fields.
-- `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_candidates_include_pure_feature_vertices`
-  verifies that the bounded continuous one-hot grid includes pure simplex feature vertices, matching
-  the original `o[i]` predicate choices represented by the paper's Appendix B.3 encoding.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_candidates_include_vertices_pairwise_weights_and_zero_alpha_s`
+  verifies that the bounded continuous one-hot grid includes pure simplex feature vertices, pairwise
+  equal-weight feature mixtures, and `alpha_s = 0`, matching the Appendix B.3 simplex constraints and
+  `-1 <= alpha_s <= 1` interval more closely than endpoint-only seeds.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_depth2_candidates_preserve_second_predicate`
   verifies that depth-2 continuous one-hot Direct-Opt candidates preserve their second predicate
   through candidate serialization and reconstruction.
