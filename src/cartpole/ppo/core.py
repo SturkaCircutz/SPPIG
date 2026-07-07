@@ -146,6 +146,10 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
     paper_test_horizon = cfg.eval_test_max_steps == test_env.cfg.max_steps
     paper_eval_rollouts = cfg.eval_rollouts == PAPER_EVAL_ROLLOUTS
     lstm_minibatches_ok = cfg.policy_type != "lstm" or cfg.minibatches == 1
+    action_scale_matches_env = (
+        cfg.action_scale == train_env.cfg.force_limit
+        and train_env.cfg.force_limit == test_env.cfg.force_limit
+    )
     no_local_supervised_warm_start = cfg.pretrain_steps == 0
     pretrain_teacher_policy_matches = _pretrain_teacher_policy_matches_impl(cfg)
     pretrain_teacher_mode_order_matches = _pretrain_teacher_mode_order_matches_impl(cfg)
@@ -154,6 +158,7 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
         and paper_test_horizon
         and paper_eval_rollouts
         and lstm_minibatches_ok
+        and action_scale_matches_env
         and no_local_supervised_warm_start
         and pretrain_teacher_policy_matches
         and pretrain_teacher_mode_order_matches
@@ -172,6 +177,9 @@ def ppo_paper_protocol_status(cfg: PPOConfig) -> Dict[str, object]:
         "paper_eval_rollouts": PAPER_EVAL_ROLLOUTS,
         "selected_eval_rollouts": cfg.eval_rollouts,
         "uses_paper_eval_rollouts": paper_eval_rollouts,
+        "environment_force_limit": train_env.cfg.force_limit,
+        "policy_action_scale": cfg.action_scale,
+        "policy_action_scale_matches_env_force_limit": action_scale_matches_env,
         "pretrain_steps": cfg.pretrain_steps,
         "pretrain_teacher_policy": cfg.pretrain_teacher_policy if cfg.pretrain_steps > 0 else None,
         "pretrain_teacher_mode_update_order": cfg.pretrain_teacher_mode_update_order if cfg.pretrain_steps > 0 else None,
@@ -649,7 +657,7 @@ def _collect_rollout(
         step_horizon_truncations: List[float] = []
         step_failure_terminations: List[float] = []
         for env_idx, env in enumerate(envs):
-            clipped_action = torch.clamp(action[env_idx], -10.0, 10.0)
+            clipped_action = torch.clamp(action[env_idx], -env.cfg.force_limit, env.cfg.force_limit)
             next_obs, reward, done = env.step(float(clipped_action.item()))
             next_episode_steps[env_idx] += 1
             truncated = next_episode_steps[env_idx].item() >= env.cfg.max_steps

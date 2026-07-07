@@ -199,6 +199,8 @@ def cartpole_synthesis_algorithm_provenance() -> Dict[str, object]:
         },
         "switch_search": {
             "boolean_tree_depth": 2,
+            "constant_leaf_baselines": "always_switch_and_never_switch",
+            "constant_leaf_baselines_preserved_after_prefilter": True,
             "greedy_second_predicate_expands_switch_and_no_switch_leaves": True,
             "greedy_second_predicate_prefilter_top_k": SWITCH_STRUCTURE_RESCORING_TOP_K,
             "structure_label_objective": (
@@ -4048,11 +4050,7 @@ def _constant_directed_switch(
     examples: List[_WeightedSwitchExample],
     fire: bool,
 ) -> Tuple[SwitchProgram, List[GaussianScalar]]:
-    scores = [example.observation[2] for example in examples if example.weight > 0.0]
-    if fire:
-        threshold = (min(scores) - 1.0) if scores else -1e9
-    else:
-        threshold = (max(scores) + 1.0) if scores else 1e9
+    threshold = -1e9 if fire else 1e9
     switch = Depth2Switch(1.0, 0.0, threshold)
     return switch, [GaussianScalar(threshold, MIN_GAUSSIAN_STD)]
 
@@ -4131,7 +4129,15 @@ def _learn_switch_from_examples(
 
     example_cache = _switch_example_cache(examples)
     boolean_switches = _directed_boolean_tree_candidates(weighted_examples, example_cache)
+    constant_leaf_switches = [
+        _constant_directed_switch(weighted_examples, fire=False)[0],
+        _constant_directed_switch(weighted_examples, fire=True)[0],
+    ]
     candidates_with_mistakes: List[Tuple[SwitchProgram, int]] = [
+        *[
+            (switch, _switch_label_mistakes(switch, examples, example_cache))
+            for switch in constant_leaf_switches
+        ],
         *_depth2_switch_candidates_with_mistakes(example_cache),
         *[
             (switch, _switch_label_mistakes(switch, examples, example_cache))
@@ -4141,6 +4147,7 @@ def _learn_switch_from_examples(
     candidate_switches = _prefilter_switches_by_weighted_label_loss(
         [switch for switch, _ in candidates_with_mistakes],
         weighted_examples,
+        required_switches=constant_leaf_switches,
     )
 
     return _best_directed_switch(
@@ -4155,6 +4162,7 @@ def _learn_switch_from_examples(
 def _prefilter_switches_by_weighted_label_loss(
     switches: List[SwitchProgram],
     weighted_examples: List[_WeightedSwitchExample],
+    required_switches: List[SwitchProgram] | None = None,
 ) -> List[SwitchProgram]:
     ranked = sorted(
         switches,
@@ -4164,7 +4172,39 @@ def _prefilter_switches_by_weighted_label_loss(
             switch.describe(),
         ),
     )
-    return ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]
+    return _with_required_switches(ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K], required_switches)
+
+
+def _with_required_switches(
+    selected: List[SwitchProgram],
+    required_switches: List[SwitchProgram] | None,
+) -> List[SwitchProgram]:
+    if not required_switches:
+        return selected
+    result = list(selected)
+    selected_key_counts: Dict[str, int] = {}
+    for switch in result:
+        key = _switch_cache_key(switch)
+        selected_key_counts[key] = selected_key_counts.get(key, 0) + 1
+    required_keys = {_switch_cache_key(switch) for switch in required_switches}
+    for switch in required_switches:
+        key = _switch_cache_key(switch)
+        if selected_key_counts.get(key, 0) > 0:
+            continue
+        while len(result) >= SWITCH_STRUCTURE_RESCORING_TOP_K:
+            for index in range(len(result) - 1, -1, -1):
+                candidate_key = _switch_cache_key(result[index])
+                if candidate_key not in required_keys:
+                    result.pop(index)
+                    selected_key_counts[candidate_key] -= 1
+                    if selected_key_counts[candidate_key] <= 0:
+                        del selected_key_counts[candidate_key]
+                    break
+            else:
+                return result
+        result.append(switch)
+        selected_key_counts[key] = selected_key_counts.get(key, 0) + 1
+    return result
 
 
 def _directed_boolean_tree_candidates(
@@ -5679,14 +5719,29 @@ def _learn_depth2_switch(
         example_cache=example_cache,
         parallel_workers=parallel_workers,
     )
+    weighted_examples = [
+        _WeightedSwitchExample(observation, label, 1.0)
+        for observation, label in examples
+    ]
+    constant_leaf_switches = [
+        _constant_directed_switch(weighted_examples, fire=False)[0],
+        _constant_directed_switch(weighted_examples, fire=True)[0],
+    ]
     candidates_with_mistakes: List[Tuple[SwitchProgram, int]] = [
+        *[
+            (switch, _switch_label_mistakes(switch, examples, example_cache))
+            for switch in constant_leaf_switches
+        ],
         *_depth2_switch_candidates_with_mistakes(example_cache),
         *[
             (switch, _switch_label_mistakes(switch, examples, example_cache))
             for switch in boolean_switches
         ],
     ]
-    candidate_switches = _prefilter_switches_by_label_mistakes(candidates_with_mistakes)
+    candidate_switches = _prefilter_switches_by_label_mistakes(
+        candidates_with_mistakes,
+        required_switches=constant_leaf_switches,
+    )
 
     rescored_switches = _switch_structure_rescore_candidates(
         candidate_switches,
@@ -5753,6 +5808,7 @@ def _threshold_label_mistakes(
 
 def _prefilter_switches_by_label_mistakes(
     candidates: List[Tuple[SwitchProgram, int]],
+    required_switches: List[SwitchProgram] | None = None,
 ) -> List[SwitchProgram]:
     ranked = sorted(
         candidates,
@@ -5762,7 +5818,8 @@ def _prefilter_switches_by_label_mistakes(
             item[0].describe(),
         ),
     )
-    return [switch for switch, _ in ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]]
+    selected = [switch for switch, _ in ranked[:SWITCH_STRUCTURE_RESCORING_TOP_K]]
+    return _with_required_switches(selected, required_switches)
 
 
 def _greedy_boolean_tree_candidates(

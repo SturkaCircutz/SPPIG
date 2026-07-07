@@ -61,7 +61,7 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   (`src/cartpole_direct_opt.py` and `src/train_cartpole_direct_opt.py` wrappers): bounded diagnostic Direct-Opt
   baseline over a two-mode constant-action Cartpole PSM, with a linear-switch grid plus explicit
   bounded depth-1/depth-2 Boolean-tree switch candidates that record one-hot feature, relation, and
-  tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
+  tree-operator metadata, plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 simplex-vertex and feature-mixture
   candidates, bounded continuous one-hot random restarts, and a local batch/restart refinement over forces, thresholds, continuous one-hot
   operator choices, and continuous one-hot `alpha_s`/feature weights seeded from the best candidate so far.
   Candidate selection optimizes mean train-horizon reward over the selected initial states, then
@@ -239,7 +239,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   forward-backward pass for transition/stay timing weights, including during candidate switch-structure
   rescoring, instead of only products of independent segment marginals, but the learner still
   approximates switch timing and does not implement the full probabilistic adaptive-teaching objective
-  from the paper. The switch grammar now includes decision
+  from the paper. The selector and directed-transition switch searches now keep the paper tree-search
+  leaf baselines (`Switch` and `Don't switch`) as constant candidates, then include decision
   stumps plus depth-2 conjunction and disjunction candidates over observation inequalities via a
   bounded greedy leaf-expansion step. Switch threshold Gaussian means and standard deviations are locally refined
   against an elapsed-time-normalized Eq. (12)-style timing likelihood with a bounded grid initializer plus coordinate
@@ -308,7 +309,7 @@ These are implementation diagnostics, not paper-scale reproduced results.
   `m0 action=-10.000; m1 action=10.000; mode=1 if 1.000*theta + 0.250*omega >= 0.000, else mode=0`.
   This is an executable local baseline artifact, not the paper's full Direct-Opt protocol. The local
   implementation optimizes mean reward over all selected finite initial states, evaluates bounded
-  Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 feature-mixture
+  Boolean-tree switch candidates plus bounded Appendix B.3-style continuous one-hot leaf/depth-2 simplex-vertex and feature-mixture
   candidates and bounded continuous one-hot random restarts when those phases are reached before a training solution is found, and records bounded
   one-hot-operator/`alpha_s`/feature-weight/threshold/force local-refinement diagnostics to
   mirror part of the paper baseline's grammar and batch seeding structure. Metrics now also persist
@@ -349,7 +350,8 @@ PPO/PPO-LSTM protocol.
 - PPO rollout collection originally reset only on pole/cart failure. It now truncates and resets at
   `env.cfg.max_steps = 250` for the paper's 5-second training horizon.
 - PPO now stores raw sampled continuous actions for log-probability calculations and clips only the
-  action sent to the environment.
+  action sent to the environment, using each CartPole environment's configured force limit rather
+  than a hidden PPO-side constant.
 - Vectorized rollouts were added so short local runs get more PPO updates with stable batch shapes.
 - PPO now caps the final vectorized rollout so a configured timestep budget is not exceeded when
   `total_timesteps` is not divisible by `rollout_steps * num_envs`.
@@ -578,6 +580,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_ppo_stores_raw_continuous_actions_for_log_probs` verifies that
   PPO stores the raw sampled Gaussian action for log-probability replay while clipping only the force
   applied to the continuous Cartpole environment.
+- `tests/test_cartpole_paper.py::test_ppo_rollout_clips_actions_to_environment_force_limit` verifies
+  that PPO rollout execution follows the active CartPole environment force limit instead of a hidden
+  PPO-side constant.
 - `tests/test_cartpole_paper.py::test_lstm_update_replays_rollout_initial_state` verifies that the
   PPO-LSTM update replays the rollout's stored initial recurrent state instead of silently starting
   updates from zeros.
@@ -602,6 +607,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_ppo_protocol_status_distinguishes_single_run_from_full_baseline`
   verifies that PPO metrics can mark a single configured run as matching the paper timestep/test
   horizon budget while still marking the full five-seed paper baseline protocol as incomplete.
+- `tests/test_cartpole_paper.py::test_ppo_protocol_status_excludes_action_scale_mismatch_from_paper_budget_match`
+  verifies that the single-run PPO budget flag is not set when the policy action scale disagrees
+  with the CartPole environment force limit.
 - `tests/test_evaluate_cartpole_checkpoint.py::test_checkpoint_reevaluation_protocol_status_distinguishes_checkpoint_from_reeval`
   verifies that checkpoint reevaluation metrics do not conflate the checkpoint's original diagnostic
   eval horizon with a later full-horizon reevaluation.
@@ -756,6 +764,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_candidates_use_appendix_b3_mixture`
   verifies that the Direct-Opt diagnostic evaluates bounded Appendix B.3-style continuous one-hot
   leaf/depth-2 feature-mixture candidates and serializes their vertex fields.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_candidates_include_pure_feature_vertices`
+  verifies that the bounded continuous one-hot grid includes pure simplex feature vertices, matching
+  the original `o[i]` predicate choices represented by the paper's Appendix B.3 encoding.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_continuous_one_hot_depth2_candidates_preserve_second_predicate`
   verifies that depth-2 continuous one-hot Direct-Opt candidates preserve their second predicate
   through candidate serialization and reconstruction.
@@ -1017,6 +1028,12 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_parameter_gradient_accepts_combined_loss_improvement`
   verifies that the switch-parameter gradient line search accepts weighted combined-loss
   improvements instead of requiring both components to improve separately.
+- `tests/test_cartpole_paper.py::test_cartpole_directed_switch_search_keeps_constant_leaf_candidates`
+  verifies that the directed transition switch M-step retains the paper tree-search leaf baselines
+  (`Switch` and `Don't switch`) instead of forcing every mixed transition fit through a threshold split.
+- `tests/test_cartpole_paper.py::test_cartpole_selector_switch_search_keeps_constant_leaf_candidates`
+  verifies the same leaf-baseline retention for the legacy selector switch fit retained as a fallback
+  and provenance comparator.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_refinement_uses_refreshed_distribution_elites`
   verifies that local refinement uses the refreshed top-rho elite set produced by the bounded
   distribution rounds.
@@ -1127,6 +1144,12 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_switch_prefilter_caps_tied_candidates_deterministically`
   verifies that tied switch-structure candidates are capped to a deterministic top-32 subset before
   bounded distribution rescoring.
+- `tests/test_cartpole_paper.py::test_cartpole_switch_prefilter_preserves_required_leaf_baselines`
+  verifies that required constant `Switch`/`Don't switch` leaf baselines remain in that bounded
+  top-32 selector prefilter even when cheaper hard-label candidates would otherwise crowd them out.
+- `tests/test_cartpole_paper.py::test_cartpole_weighted_switch_prefilter_preserves_required_leaf_baselines`
+  verifies the same bounded-prefilter retention for the responsibility-weighted directed-transition
+  switch M-step.
 - `tests/test_cartpole_paper.py::test_cartpole_switch_structure_rescore_candidates_caps_distribution_scoring`
   verifies that final switch-structure rescoring caps expensive distribution-objective fits to the
   bounded top-32 subset.

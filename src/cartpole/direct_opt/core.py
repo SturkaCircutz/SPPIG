@@ -37,6 +37,10 @@ DIRECT_OPT_RELATIONS = (">=", "<=")
 DIRECT_OPT_TREE_OPERATORS = ("leaf", "and", "or")
 DIRECT_OPT_CONTINUOUS_ONE_HOT_TOP_LEAVES = 4
 DIRECT_OPT_CONTINUOUS_ONE_HOT_FEATURE_MIXES = (
+    (1.0, 0.0, 0.0, 0.0),
+    (0.0, 1.0, 0.0, 0.0),
+    (0.0, 0.0, 1.0, 0.0),
+    (0.0, 0.0, 0.0, 1.0),
     (0.0, 0.0, 0.5, 0.5),
     (0.0, 0.0, 0.75, 0.25),
     (0.0, 0.0, 0.25, 0.75),
@@ -214,11 +218,12 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
         "continuous_one_hot_top_leaves_for_depth2": DIRECT_OPT_CONTINUOUS_ONE_HOT_TOP_LEAVES,
         "continuous_one_hot_alpha_s_step_scale": DIRECT_OPT_CONTINUOUS_ONE_HOT_ALPHA_S_STEP_SCALE,
         "continuous_one_hot_weight_step_scale": DIRECT_OPT_CONTINUOUS_ONE_HOT_WEIGHT_STEP_SCALE,
-        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
+        "continuous_one_hot_candidate_family": "bounded_appendix_b3_alpha_s_simplex_vertex_and_feature_mix_leaf_depth2_predicates",
         "continuous_one_hot_expansion": "evaluate_all_leaf_mixtures_then_depth2_expansions_from_top_training_reward_leaves",
         "random_restart_encoding": "bounded_appendix_b3_continuous_one_hot_alpha_s_simplex_feature_weights_threshold_force",
         "one_hot_switch_encoding": (
-            "evaluates a bounded Appendix B.3 continuous leaf/depth2 feature-mixture candidate family, samples "
+            "evaluates a bounded Appendix B.3 continuous leaf/depth2 simplex-vertex and feature-mixture "
+            "candidate family, samples "
             "bounded continuous one-hot random restarts, and records continuous one-hot vertex fields plus "
             "bounded discrete metadata for feature, relation, and depth-2 tree operator choices; does not "
             "optimize the paper's full continuous one-hot relaxation"
@@ -237,7 +242,7 @@ def cartpole_direct_opt_algorithm_provenance() -> Dict[str, object]:
             "Diagnostic direct optimization over a bounded two-mode CartPole PSM. "
             "It optimizes mean train-horizon reward over the selected initial states and includes "
             "bounded Boolean-tree switch candidates, a bounded continuous one-hot leaf/depth2 "
-            "feature-mixture candidate family, bounded continuous one-hot random restarts, optional "
+            "simplex-vertex and feature-mixture candidate family, bounded continuous one-hot random restarts, optional "
             "sampled train-distribution reranking, and bounded one-hot operator/alpha_s/weight/"
             "threshold/force local refinement, but is not the paper's "
             "two-hour, ten-thread continuous numerical optimization over the full one-hot "
@@ -331,7 +336,7 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "paper_scale_direct_opt_protocol": paper_scale_direct_opt_protocol,
         "limitation": (
             "Bounded local Direct-Opt diagnostic: records batch/restart structure and evaluates "
-            "a bounded continuous one-hot leaf/depth2 feature-mixture candidate family with local "
+            "a bounded continuous one-hot leaf/depth2 simplex-vertex and feature-mixture candidate family with local "
             "alpha_s and feature-weight neighbors, but does not run the "
             "paper's ten-thread, two-hour continuous optimization over the full one-hot "
             "switching grammar."

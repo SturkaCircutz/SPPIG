@@ -137,7 +137,11 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(metrics["algorithm_provenance"]["boolean_tree_operator_choices"], ["leaf", "and", "or"])
         self.assertEqual(
             metrics["algorithm_provenance"]["continuous_one_hot_candidate_family"],
-            "bounded_appendix_b3_alpha_s_feature_mix_leaf_and_depth2_predicates",
+            "bounded_appendix_b3_alpha_s_simplex_vertex_and_feature_mix_leaf_depth2_predicates",
+        )
+        self.assertIn(
+            [0.0, 0.0, 1.0, 0.0],
+            metrics["algorithm_provenance"]["continuous_one_hot_feature_mixes"],
         )
         self.assertEqual(metrics["algorithm_provenance"]["continuous_one_hot_top_leaves_for_depth2"], 4)
         self.assertEqual(metrics["algorithm_provenance"]["continuous_one_hot_alpha_s_step_scale"], 1.0)
@@ -555,11 +559,11 @@ class CartpoleDirectOptTest(unittest.TestCase):
         switch = _candidate_switch(candidate)
         policy = _candidate_policy(candidate)
 
-        self.assertEqual(diagnostics["continuous_one_hot_leaf_candidates"], 24)
-        self.assertEqual(diagnostics["continuous_one_hot_depth2_candidates"], 192)
+        self.assertEqual(diagnostics["continuous_one_hot_leaf_candidates"], 48)
+        self.assertEqual(diagnostics["continuous_one_hot_depth2_candidates"], 384)
         self.assertEqual(diagnostics["continuous_one_hot_top_leaves_for_depth2"], 4)
-        self.assertEqual(diagnostics["continuous_one_hot_candidates"], 216)
-        self.assertEqual(diagnostics["continuous_one_hot_candidates_with_appendix_b3_metadata"], 216)
+        self.assertEqual(diagnostics["continuous_one_hot_candidates"], 432)
+        self.assertEqual(diagnostics["continuous_one_hot_candidates_with_appendix_b3_metadata"], 432)
         self.assertEqual(candidate.switch_kind, "continuous_one_hot")
         self.assertEqual(sum(candidate.continuous_one_hot_feature_weights), 1.0)
         self.assertEqual(
@@ -573,6 +577,24 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertEqual(switch.decide([0.0, 0.0, -0.2, 0.1]), 1)
         self.assertEqual(switch.decide([0.0, 0.0, 0.2, -0.1]), 0)
         self.assertIn("0.500*o[2] + 0.500*o[3]", policy.describe())
+
+    def test_direct_opt_continuous_one_hot_candidates_include_pure_feature_vertices(self):
+        env = CartpoleEnv.train_env(seed=0)
+        train_states = [env.reset() for _ in range(2)]
+
+        candidates, diagnostics = _continuous_one_hot_candidates(train_states, DirectOptConfig())
+        leaf_weights = {
+            candidate.continuous_one_hot_feature_weights
+            for candidate in candidates
+            if candidate.source == "continuous_one_hot"
+        }
+
+        self.assertEqual(diagnostics["continuous_one_hot_leaf_candidates"], 48)
+        for feature_index in range(4):
+            self.assertIn(
+                tuple(1.0 if index == feature_index else 0.0 for index in range(4)),
+                leaf_weights,
+            )
 
     def test_direct_opt_continuous_one_hot_depth2_candidates_preserve_second_predicate(self):
         env = CartpoleEnv.train_env(seed=0)

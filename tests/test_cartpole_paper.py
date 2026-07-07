@@ -30,6 +30,7 @@ from cartpole_env import (
     CARTPOLE_RESET_HIGH,
     CARTPOLE_RESET_LOW,
     STANDARD_CARTPOLE_REWARD_PER_ALIVE_STEP,
+    cartpole_next_state,
     cartpole_paper_figure19_policy_spec,
     cartpole_reward_spec,
     cartpole_space_spec,
@@ -60,6 +61,7 @@ from cartpole_synthesis import (
     _fit_switch_parameter_distributions,
     _gaussian_threshold_pass_probability,
     _greedy_boolean_tree_candidates,
+    _learn_depth2_switch,
     _condition_initial_mode_responsibilities,
     _duration_refinement_candidates,
     _action_gradient_refinement_candidate,
@@ -75,6 +77,7 @@ from cartpole_synthesis import (
     _fit_student_switch,
     _fit_directed_transition_switches,
     _fit_transition_switches,
+    _learn_switch_from_examples,
     _directed_transition_examples,
     _directed_switch_pair_responsibilities,
     _elite_loop_free_schedules,
@@ -91,6 +94,7 @@ from cartpole_synthesis import (
     _optimize_loop_free_traces_for_initial_states,
     _loop_free_trace_distance,
     _prefilter_switches_by_label_mistakes,
+    _prefilter_switches_by_weighted_label_loss,
     _refine_responsibilities_and_switch_pairs_with_timing,
     _refine_responsibilities_with_switch_timing,
     _refine_loop_free_trace,
@@ -122,7 +126,10 @@ from cartpole_synthesis import (
     _switch_transition_probability_at_duration,
     _switch_no_transition_probability_before_duration,
     _switch_example_cache,
+    _WeightedSwitchExample,
+    _weighted_switch_label_loss,
     _depth2_switch_candidates_with_mistakes,
+    _directed_boolean_tree_candidates,
     _teacher_candidate_traces,
     _top_teacher_elites,
     _switch_timing_loss,
@@ -2378,6 +2385,45 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertTrue(all(_switch.node_count == 1 for _switch in selected))
         self.assertNotIn(worse[0][0], selected)
 
+    def test_cartpole_switch_prefilter_preserves_required_leaf_baselines(self):
+        always_off = Depth2Switch(1.0, 0.0, 1e9)
+        always_on = Depth2Switch(1.0, 0.0, -1e9)
+        better_candidates = [
+            (BooleanTreeSwitch(ObservationPredicate(2, ">=", threshold / 100.0)), 0)
+            for threshold in range(80)
+        ]
+
+        selected = _prefilter_switches_by_label_mistakes(
+            [*better_candidates, (always_off, 99), (always_on, 99)],
+            required_switches=[always_off, always_on],
+        )
+
+        self.assertEqual(len(selected), 32)
+        self.assertIn(always_off, selected)
+        self.assertIn(always_on, selected)
+
+    def test_cartpole_weighted_switch_prefilter_preserves_required_leaf_baselines(self):
+        always_off = Depth2Switch(1.0, 0.0, 1e9)
+        always_on = Depth2Switch(1.0, 0.0, -1e9)
+        weighted_examples = [
+            _WeightedSwitchExample([0.0, 0.0, 0.0, 0.0], 0, 1.0),
+            _WeightedSwitchExample([0.0, 0.0, 1.0, 0.0], 1, 1.0),
+        ]
+        better_candidates = [
+            BooleanTreeSwitch(ObservationPredicate(2, ">=", threshold / 100.0))
+            for threshold in range(80)
+        ]
+
+        selected = _prefilter_switches_by_weighted_label_loss(
+            [*better_candidates, always_off, always_on],
+            weighted_examples,
+            required_switches=[always_off, always_on],
+        )
+
+        self.assertEqual(len(selected), 32)
+        self.assertIn(always_off, selected)
+        self.assertIn(always_on, selected)
+
     def test_cartpole_depth2_prefilter_mistakes_match_switch_cost(self):
         examples = [
             ([0.0, 0.0, -0.2, -0.1], 0),
@@ -2389,6 +2435,53 @@ class CartpolePaperTest(unittest.TestCase):
 
         for switch, mistakes in _depth2_switch_candidates_with_mistakes(cache)[:25]:
             self.assertEqual(mistakes, _switch_cost(switch, examples)[0])
+
+    def test_cartpole_directed_switch_search_keeps_constant_leaf_candidates(self):
+        weighted_examples = [
+            _WeightedSwitchExample([0.0, 0.0, 1.0, 0.0], 1, 10.0),
+            _WeightedSwitchExample([0.0, 0.0, -1.0, 0.0], 1, 10.0),
+            _WeightedSwitchExample([0.0, 0.0, 0.0, 1.0], 1, 10.0),
+            _WeightedSwitchExample([0.0, 0.0, 0.0, -1.0], 1, 10.0),
+            _WeightedSwitchExample([0.0, 0.0, 0.0, 0.0], 0, 1.0),
+        ]
+        examples = [(example.observation, example.label) for example in weighted_examples]
+        example_cache = _switch_example_cache(examples)
+        old_candidate_pool = [
+            switch
+            for switch, _ in _depth2_switch_candidates_with_mistakes(example_cache)
+        ] + _directed_boolean_tree_candidates(weighted_examples, example_cache)
+        old_best_loss = min(
+            _weighted_switch_label_loss(candidate, weighted_examples)
+            for candidate in old_candidate_pool
+        )
+
+        switch = _learn_switch_from_examples(weighted_examples)
+
+        self.assertEqual(_weighted_switch_label_loss(switch, weighted_examples), 1.0)
+        self.assertEqual(_weighted_switch_label_loss(switch, weighted_examples), old_best_loss)
+        self.assertEqual(getattr(switch, "node_count", 1), 1)
+        self.assertEqual(switch.decide([0.0, 0.0, -10.0, 0.0]), 1)
+        self.assertEqual(switch.decide([0.0, 0.0, 10.0, 0.0]), 1)
+
+    def test_cartpole_selector_switch_search_keeps_constant_leaf_candidates(self):
+        trace = CartpoleTrace(
+            observations=[
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, -1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, -1.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ],
+            actions=[10.0, 10.0, 10.0, 10.0, -10.0],
+            mode_labels=[1, 1, 1, 1, 0],
+            reward=5.0,
+        )
+
+        switch = _learn_depth2_switch([trace])
+
+        self.assertEqual(getattr(switch, "node_count", 1), 1)
+        self.assertEqual(switch.decide([0.0, 0.0, -10.0, 0.0]), 1)
+        self.assertEqual(switch.decide([0.0, 0.0, 10.0, 0.0]), 1)
 
     def test_cartpole_boolean_tree_switch_supports_depth_two_conjunction(self):
         switch = BooleanTreeSwitch(
@@ -6446,6 +6539,9 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(status["paper_eval_rollouts"], 1000)
         self.assertEqual(status["selected_eval_rollouts"], 1000)
         self.assertTrue(status["uses_paper_eval_rollouts"])
+        self.assertEqual(status["environment_force_limit"], 10.0)
+        self.assertEqual(status["policy_action_scale"], 10.0)
+        self.assertTrue(status["policy_action_scale_matches_env_force_limit"])
         self.assertEqual(status["pretrain_steps"], 0)
         self.assertIsNone(status["pretrain_teacher_policy"])
         self.assertTrue(status["pretrain_teacher_mode_order_recorded"])
@@ -6517,6 +6613,26 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertTrue(status["uses_paper_eval_rollouts"])
         self.assertTrue(status["local_supervised_warm_start"])
         self.assertFalse(status["no_local_supervised_warm_start"])
+        self.assertFalse(status["single_run_matches_paper_budget"])
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_protocol_status_excludes_action_scale_mismatch_from_paper_budget_match(self):
+        status = ppo_paper_protocol_status(
+            PPOConfig(
+                policy_type="mlp",
+                total_timesteps=PAPER_PPO_TIMESTEPS,
+                eval_test_max_steps=CartpoleEnv.test_env().cfg.max_steps,
+                eval_rollouts=PAPER_EVAL_ROLLOUTS,
+                action_scale=2.0,
+            )
+        )
+
+        self.assertTrue(status["paper_timestep_budget"])
+        self.assertTrue(status["paper_test_horizon"])
+        self.assertTrue(status["uses_paper_eval_rollouts"])
+        self.assertEqual(status["environment_force_limit"], 10.0)
+        self.assertEqual(status["policy_action_scale"], 2.0)
+        self.assertFalse(status["policy_action_scale_matches_env_force_limit"])
         self.assertFalse(status["single_run_matches_paper_budget"])
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
@@ -6764,6 +6880,30 @@ class CartpolePaperTest(unittest.TestCase):
         )
 
         self.assertTrue(torch.any(rollout.actions.abs() > env.cfg.force_limit))
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_ppo_rollout_clips_actions_to_environment_force_limit(self):
+        env = CartpoleEnv(CartpoleConfig(pole_length=0.5, horizon_seconds=5.0, force_limit=2.0), seed=0)
+        model = MLPActorCritic(hidden_size=8, initial_log_std=-20.0, action_scale=10.0)
+        with torch.no_grad():
+            for parameter in model.actor.parameters():
+                parameter.zero_()
+            model.actor[-1].bias.fill_(20.0)
+        obs = torch.tensor([env.reset([0.0, 0.0, 0.0, 0.0])], dtype=torch.float32)
+        cfg = PPOConfig(rollout_steps=1, num_envs=1, action_scale=10.0)
+
+        rollout = _collect_rollout(
+            [env],
+            model,
+            obs,
+            torch.zeros(1, dtype=torch.long),
+            None,
+            cfg,
+        )
+
+        expected_next_state = cartpole_next_state([0.0, 0.0, 0.0, 0.0], env.cfg.force_limit, env.cfg)
+        self.assertGreater(rollout.actions[0, 0].item(), env.cfg.force_limit)
+        self.assertEqual(env.observe(), expected_next_state)
 
     @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
     def test_ppo_optimizer_skips_nonfinite_loss_without_poisoning_parameters(self):
