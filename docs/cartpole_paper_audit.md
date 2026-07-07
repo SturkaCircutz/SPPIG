@@ -149,7 +149,8 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   mistaken for the full five-seed paper baseline protocol. The runner can also attach a
   `scripts/run_cartpole_ppo_sweep.py` manifest through `--ppo-sweep-manifest`; it records that
   sweep as PPO hyperparameter-search evidence only when the typed sweep manifest reports
-  `paper_scale_execution = true`, with or without rerunning fixed PPO rows in the same bundle,
+  `paper_scale_execution = true`, the supplied artifact is explicitly a
+  `cartpole_ppo_sweep_manifest`, with or without rerunning fixed PPO rows in the same bundle,
   and carries the sweep manifest's dependency-light runtime preflight block as launch
   provenance rather than execution evidence.
   Direct-Opt manifest evidence is likewise derived from the Direct-Opt rows and their
@@ -159,7 +160,9 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
   top-level logic.
   Result rows, summaries, and metrics JSON
   explicitly record mean survived steps and survival seconds so long-horizon plots do not rely on
-  reward as an implicit survival-time proxy.
+  reward as an implicit survival-time proxy. Summary generation rejects mixed rollout-count or
+  test-horizon provenance within a policy group, so a grouped row cannot silently combine local
+  diagnostic and paper-scale evaluation budgets under one label.
 - `scripts/evaluate_cartpole_checkpoint.py`: reevaluates existing PPO/PPO-LSTM checkpoints and writes
   a `paper_protocol_status` block that separates the checkpoint's original training/evaluation budget
   from the later full-horizon reevaluation budget, keeping paper-scale checkpoint-result claims false
@@ -189,12 +192,17 @@ Source: `/home/jiawen/Downloads/1321_synthesizing_programmatic_poli.pdf`.
 - `scripts/make_paper_figures.py`: figure/table generator that prefers grouped summary rows when
   available and falls back to raw per-seed result rows for older artifacts. It also writes the
   generated abstract-result, LaTeX table, PSM policy, and Figure 19 reference fragments consumed by `essay/project.tex`,
-  plots the PSM switch-boundary figure from a linear-switch PSM metrics artifact when available, and
-  plots PPO training curves when metrics JSON artifacts with `eval_history` are present. Its
+  requiring Figure 19 reference metrics to carry both manual-transcription status and command provenance,
+  plots the PSM switch-boundary figure from a linear-switch PSM metrics artifact with command and
+  paper-protocol provenance when available, and
+  plots PPO training curves only from metrics JSON artifacts with non-empty `eval_history`, command
+  provenance, and a paper-protocol status block. Its
   survival plot uses explicit survived-step fields when available and falls back to reward only for
   older artifacts. The artifact gate identifies synthesized PSM artifacts from metrics provenance,
   not just the display policy name, and rejects synthesized PSM metrics whose full recorded
-  synthesis algorithm provenance is stale relative to the current synthesis code.
+  synthesis algorithm provenance is stale relative to the current synthesis code. When the result
+  manifest is present, figure generation also checks that the selected result CSV path, row count,
+  policy set, and embedded manifest rows match the CSV before writing paper-facing fragments.
 - `artifacts/results/cartpole_summary.csv` and `artifacts/results/cartpole_manifest.json`: checked-in
   local diagnostic provenance for the current result bundle. The manifest records the command behind
   each metrics artifact and explicitly keeps `paper_scale_result` false. Its bundle-level
@@ -330,8 +338,9 @@ PPO/PPO-LSTM protocol.
 - Vectorized rollouts were added so short local runs get more PPO updates with stable batch shapes.
 - PPO now caps the final vectorized rollout so a configured timestep budget is not exceeded when
   `total_timesteps` is not divisible by `rollout_steps * num_envs`.
-- LSTM PPO now preserves recurrent state across rollout chunks and replays the same initial state
-  during the update.
+- LSTM PPO now preserves recurrent state across rollout chunks, masks recurrent memory after
+  terminal/truncated transitions, and replays the same initial state and done-aligned resets during
+  the update.
 - PPO-LSTM training now rejects `minibatches != 1` at runtime because the implemented recurrent
   update replays full time-major rollout sequences rather than splitting hidden-state trajectories.
 - PPO warm-start training now rejects pretraining teacher-policy or mode-update-order config values
@@ -497,8 +506,10 @@ PPO/PPO-LSTM protocol.
   boundary. It also writes `essay/cartpole_figure19_reference_fragment.tex` only from a metrics
   artifact whose protocol status marks `policy_source = paper_figure19_manual_transcription`, keeping
   the paper reference policy separate from synthesized local diagnostics. Generated result fragments now carry an explicit local-diagnostic limitation note and
-  refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon, and require
-  each metrics artifact to carry the command that produced it. Synthesized PSM rows are also rejected
+  refuse rows whose explicit `test_horizon_steps` is not the paper 300-second horizon, require
+  each metrics artifact to carry the command that produced it, and reject result rows whose
+  recorded rollout count or test horizon disagrees with the metrics JSON artifact that produced the
+  row. Synthesized PSM rows are also rejected
   unless their metrics include adaptive-teacher objective-component summaries and their full-trace
   sidecar contains per-iteration trace history whose iteration sequence matches the configured
   teacher/student loop count, whose recorded trace counts match the serialized trace lists, and whose
@@ -555,6 +566,10 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_paper.py::test_lstm_update_replays_rollout_initial_state` verifies that the
   PPO-LSTM update replays the rollout's stored initial recurrent state instead of silently starting
   updates from zeros.
+- `tests/test_cartpole_paper.py::test_lstm_rollout_masks_recurrent_state_after_terminal_step` and
+  `tests/test_cartpole_paper.py::test_lstm_sequence_replay_masks_state_from_previous_done` verify
+  that terminal/truncated rollout transitions clear recurrent memory before reset observations are
+  reused, and that update replay applies the same done-aligned reset convention.
 - `tests/test_cartpole_paper.py::test_ppo_lstm_training_rejects_unimplemented_minibatch_split`
   verifies that direct PPO-LSTM training configs cannot request a recurrent minibatch split that the
   implementation does not perform.
@@ -705,6 +720,9 @@ paper-scale PPO2 runs.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_marks_quick_diagnostic_limits`
   verifies that quick Direct-Opt diagnostics do not claim the paper batch size, full test horizon,
   `1000`-rollout metric, restart/batch optimization, or paper-scale Direct-Opt protocol.
+- `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_requires_local_refinement_steps`
+  verifies that Direct-Opt protocol status does not mark the batch/refinement requirement satisfied
+  unless the configured paper-sized batch phase also enables local refinement steps.
 - `tests/test_cartpole_direct_opt.py::test_direct_opt_protocol_status_lists_remaining_full_protocol_blockers`
   verifies that a near-paper Direct-Opt configuration records the remaining blockers, including the
   full continuous one-hot switch grammar and full initial-state distribution requirements, instead of
@@ -960,8 +978,9 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_resample_count_is_configurable`
   verifies that the bounded elite distribution sample count is configured rather than hard-coded.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_cem_status_records_distribution_batch_below_top_rho`
-  verifies that protocol status records whether the bounded elite-distribution resample batch is large
-  enough to cover the selected top-rho set.
+  and `test_cartpole_teacher_cem_status_requires_distribution_refit_round` verify that protocol
+  status records whether the bounded elite-distribution phase both runs at least one refit round and
+  samples a batch large enough to cover the selected top-rho set.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refresh_elites`
   verifies that bounded elite distribution rounds refresh the top-rho set between sampling rounds.
 - `tests/test_cartpole_paper.py::test_cartpole_teacher_elite_distribution_rounds_refit_distribution`
@@ -1154,6 +1173,7 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   sweep runtime preflight provenance is preserved in the reproduction status.
 - `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_complete_row_protocol_evidence`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_metrics_artifact_protocol_match`,
+  `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_metrics_command_to_match_row`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_metrics_config_to_match_row`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_rejects_fractional_metrics_config_values`,
   `tests/test_cartpole_reproduction_runner.py::test_direct_opt_evidence_status_requires_existing_metrics_artifact`,

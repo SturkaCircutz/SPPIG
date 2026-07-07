@@ -559,6 +559,7 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
         return {
             "manifest_path": None,
             "manifest_loaded": False,
+            "artifact_kind_matches": False,
             "paper_scale_plan": False,
             "paper_scale_execution": False,
             "paper_random_hyperparameter_search": False,
@@ -569,7 +570,24 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
             "runtime_preflight": None,
             "limitation": "No PPO sweep manifest was supplied to the reproduction runner.",
         }
-    status = manifest["paper_protocol_status"]
+    artifact_kind_matches = manifest.get("artifact_kind") == "cartpole_ppo_sweep_manifest"
+    status = manifest.get("paper_protocol_status")
+    if not isinstance(status, dict):
+        return {
+            "manifest_path": manifest.get("manifest_path"),
+            "manifest_loaded": False,
+            "artifact_kind_matches": artifact_kind_matches,
+            "paper_scale_plan": False,
+            "raw_paper_scale_execution": False,
+            "paper_scale_execution": False,
+            "paper_random_hyperparameter_search": False,
+            "all_planned_jobs_completed": False,
+            "jobs_planned": 0,
+            "jobs_completed": 0,
+            "jobs_failed": 0,
+            "runtime_preflight": None,
+            "limitation": "Supplied PPO sweep manifest lacks a paper_protocol_status block.",
+        }
     jobs_planned = int(manifest.get("jobs_planned", 0))
     jobs_completed = int(manifest.get("jobs_completed", 0))
     jobs_failed = int(manifest.get("jobs_failed", 0))
@@ -616,7 +634,8 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
         and jobs_failed == 0
     )
     acceptable_paper_scale_execution = (
-        raw_paper_scale_execution
+        artifact_kind_matches
+        and raw_paper_scale_execution
         and paper_scale_plan
         and all_planned_jobs_completed
         and planned_job_count_matches_selected_space
@@ -638,6 +657,7 @@ def ppo_sweep_evidence_status(manifest: Dict[str, Any] | None) -> Dict[str, Any]
     return {
         "manifest_path": manifest.get("manifest_path"),
         "manifest_loaded": True,
+        "artifact_kind_matches": artifact_kind_matches,
         "command": manifest.get("command", ""),
         "policies": policies,
         "seeds": seeds,
@@ -731,6 +751,7 @@ def direct_opt_evidence_status(
     metrics_artifacts_checked = 0
     metrics_artifacts_existing = 0
     metrics_artifacts_with_command = 0
+    metrics_artifacts_matching_row_command = 0
     metrics_artifacts_with_config = 0
     metrics_artifacts_matching_row_config = 0
     metrics_artifacts_with_direct_opt_provenance = 0
@@ -746,6 +767,8 @@ def direct_opt_evidence_status(
         metrics_artifacts_existing += 1
         if isinstance(metrics.get("command"), str) and metrics["command"]:
             metrics_artifacts_with_command += 1
+            if row.get("command") == metrics["command"]:
+                metrics_artifacts_matching_row_command += 1
         if isinstance(metrics.get("config"), dict):
             metrics_artifacts_with_config += 1
         if _direct_opt_metrics_config_matches_row(metrics, row):
@@ -758,6 +781,9 @@ def direct_opt_evidence_status(
     all_rows_have_metrics_output = len(direct_rows) > 0 and metrics_artifacts_checked == len(direct_rows)
     all_metrics_artifacts_exist = len(direct_rows) > 0 and metrics_artifacts_existing == len(direct_rows)
     all_metrics_have_command = len(direct_rows) > 0 and metrics_artifacts_with_command == len(direct_rows)
+    all_metrics_match_row_command = (
+        len(direct_rows) > 0 and metrics_artifacts_matching_row_command == len(direct_rows)
+    )
     all_metrics_have_config = len(direct_rows) > 0 and metrics_artifacts_with_config == len(direct_rows)
     all_metrics_match_row_config = len(direct_rows) > 0 and metrics_artifacts_matching_row_config == len(direct_rows)
     all_metrics_have_direct_opt_provenance = (
@@ -775,6 +801,7 @@ def direct_opt_evidence_status(
         "direct_opt_metrics_output_per_row": all_rows_have_metrics_output,
         "direct_opt_metrics_artifact_exists_per_row": all_metrics_artifacts_exist,
         "direct_opt_metrics_command_per_row": all_metrics_have_command,
+        "direct_opt_metrics_command_matches_row_per_row": all_metrics_match_row_command,
         "direct_opt_metrics_config_per_row": all_metrics_have_config,
         "direct_opt_metrics_config_matches_row_per_row": all_metrics_match_row_config,
         "direct_opt_metrics_provenance_per_row": all_metrics_have_direct_opt_provenance,
@@ -804,6 +831,7 @@ def direct_opt_evidence_status(
         "metrics_artifacts_checked": metrics_artifacts_checked,
         "metrics_artifacts_existing": metrics_artifacts_existing,
         "metrics_artifacts_with_command": metrics_artifacts_with_command,
+        "metrics_artifacts_matching_row_command": metrics_artifacts_matching_row_command,
         "metrics_artifacts_with_config": metrics_artifacts_with_config,
         "metrics_artifacts_matching_row_config": metrics_artifacts_matching_row_config,
         "metrics_artifacts_with_direct_opt_provenance": metrics_artifacts_with_direct_opt_provenance,
@@ -813,6 +841,7 @@ def direct_opt_evidence_status(
         "all_rows_have_metrics_output": all_rows_have_metrics_output,
         "all_metrics_artifacts_exist": all_metrics_artifacts_exist,
         "all_metrics_have_command": all_metrics_have_command,
+        "all_metrics_match_row_command": all_metrics_match_row_command,
         "all_metrics_have_config": all_metrics_have_config,
         "all_metrics_match_row_config": all_metrics_match_row_config,
         "all_metrics_have_direct_opt_provenance": all_metrics_have_direct_opt_provenance,
@@ -842,6 +871,13 @@ def _sample_std(values: List[float]) -> float:
     return variance ** 0.5
 
 
+def _single_int_field_value(group: List[Dict[str, Any]], policy: str, field: str) -> int:
+    values = {_strict_int_value(row.get(field)) for row in group}
+    if None in values or len(values) != 1:
+        raise ValueError(f"cannot summarize mixed or missing {field} provenance for policy {policy}")
+    return next(iter(values))
+
+
 def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     groups: Dict[str, List[Dict[str, Any]]] = {}
     policy_order: List[str] = []
@@ -855,6 +891,8 @@ def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     summary: List[Dict[str, Any]] = []
     for policy in policy_order:
         group = groups[policy]
+        eval_rollouts = _single_int_field_value(group, policy, "eval_rollouts")
+        test_horizon_steps = _single_int_field_value(group, policy, "test_horizon_steps")
         best = max(
             group,
             key=lambda row: (
@@ -900,8 +938,8 @@ def summarize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "best_test_steps": float(best["test_steps"]),
                 "best_train_survival_seconds": float(best["train_survival_seconds"]),
                 "best_test_survival_seconds": float(best["test_survival_seconds"]),
-                "eval_rollouts": int(best["eval_rollouts"]),
-                "test_horizon_steps": int(best["test_horizon_steps"]),
+                "eval_rollouts": eval_rollouts,
+                "test_horizon_steps": test_horizon_steps,
                 "best_timesteps": int(best["timesteps"]),
                 "best_checkpoint": best.get("checkpoint", ""),
                 "best_metrics_output": best.get("metrics_output", ""),

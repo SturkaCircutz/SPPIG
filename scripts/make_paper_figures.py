@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+from decimal import Decimal, InvalidOperation
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,6 +22,7 @@ from cartpole_synthesis import cartpole_synthesis_algorithm_provenance  # noqa: 
 
 RESULTS_CSV = os.path.join(ROOT, "artifacts", "results", "cartpole_results.csv")
 SUMMARY_CSV = os.path.join(ROOT, "artifacts", "results", "cartpole_summary.csv")
+MANIFEST_JSON = os.path.join(ROOT, "artifacts", "results", "cartpole_manifest.json")
 OUT_DIR = os.path.join(ROOT, "essay", "figures")
 TABLE_TEX = os.path.join(ROOT, "essay", "cartpole_results_table.tex")
 POLICY_TEX = os.path.join(ROOT, "essay", "cartpole_policy_fragment.tex")
@@ -45,6 +47,7 @@ LINEAR_SWITCH_RE = re.compile(
     r"(?P<threshold>[-+]?\d+(?:\.\d+)?)"
 )
 PAPER_TEST_HORIZON_STEPS = 15_000
+INVALID_INT_PROVENANCE = object()
 LOCAL_DIAGNOSTIC_NOTE = (
     "Local diagnostic artifacts only; not a paper-scale reproduction of the "
     "10^7-timestep, five-seed, 1000-rollout PPO/PPO-LSTM protocol."
@@ -56,6 +59,70 @@ def read_results() -> list[dict[str, str]]:
     path = SUMMARY_CSV if os.path.exists(SUMMARY_CSV) else RESULTS_CSV
     with open(path, newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def selected_results_csv_path() -> str:
+    return SUMMARY_CSV if os.path.exists(SUMMARY_CSV) else RESULTS_CSV
+
+
+def repo_relative_path(path: str) -> str:
+    return os.path.relpath(path, ROOT).replace(os.sep, "/")
+
+
+def csv_manifest_values_match(csv_value: object, manifest_value: object) -> bool:
+    csv_text = str(csv_value or "")
+    if isinstance(manifest_value, (int, float)) and not isinstance(manifest_value, bool):
+        try:
+            return abs(float(csv_text) - float(manifest_value)) <= 1e-9
+        except ValueError:
+            return False
+    return csv_text == str(manifest_value or "")
+
+
+def manifest_summary_rows_match_csv(manifest_rows: object, csv_rows: list[dict[str, str]]) -> bool:
+    if not isinstance(manifest_rows, list) or len(manifest_rows) != len(csv_rows):
+        return False
+    unmatched_rows = list(manifest_rows)
+    for csv_row in csv_rows:
+        matched_index = None
+        for index, row in enumerate(unmatched_rows):
+            if not isinstance(row, dict) or not isinstance(row.get("policy"), str):
+                return False
+            if all(key in row and csv_manifest_values_match(value, row[key]) for key, value in csv_row.items()):
+                matched_index = index
+                break
+        if matched_index is None:
+            return False
+        unmatched_rows.pop(matched_index)
+    for row in unmatched_rows:
+        if not isinstance(row, dict) or not isinstance(row.get("policy"), str):
+            return False
+    return True
+
+
+def require_result_manifest_consistency(rows: list[dict[str, str]]) -> None:
+    if not os.path.exists(MANIFEST_JSON):
+        return
+    with open(MANIFEST_JSON, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if not isinstance(manifest, dict):
+        raise ValueError("result manifest must be a JSON object")
+    selected_path = repo_relative_path(selected_results_csv_path())
+    manifest_summary = manifest.get("summary_csv")
+    manifest_results = manifest.get("source_results_csv")
+    if os.path.exists(SUMMARY_CSV) and manifest_summary != selected_path:
+        raise ValueError("result manifest summary_csv does not match selected results CSV")
+    if not os.path.exists(SUMMARY_CSV) and manifest_results != selected_path:
+        raise ValueError("result manifest source_results_csv does not match selected results CSV")
+    if int_like(manifest.get("row_count")) != len(rows):
+        raise ValueError("result manifest row_count does not match selected results CSV")
+    policies = {row["policy"] for row in rows}
+    manifest_policies = manifest.get("policies")
+    if not isinstance(manifest_policies, list) or set(manifest_policies) != policies:
+        raise ValueError("result manifest policies do not match selected results CSV")
+    manifest_rows_key = "summary" if os.path.exists(SUMMARY_CSV) else "rows"
+    if not manifest_summary_rows_match_csv(manifest.get(manifest_rows_key), rows):
+        raise ValueError(f"result manifest {manifest_rows_key} rows do not match selected results CSV")
 
 
 def metric(row: dict[str, str], name: str) -> float:
@@ -90,6 +157,73 @@ def row_command(row: dict[str, str]) -> str:
 def row_has_result_artifact(row: dict[str, str]) -> bool:
     path = row_metrics_path(row) or row.get("checkpoint")
     return bool(path and os.path.exists(artifact_path(path)))
+
+
+def int_like(value: object) -> int | None:
+    if value in (None, "") or isinstance(value, bool):
+        return None
+    try:
+        numeric = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError):
+        return None
+    if numeric != numeric.to_integral_value():
+        return None
+    return int(numeric)
+
+
+def dict_payload(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def first_integral_provenance(values: tuple[object, ...]) -> int | object | None:
+    for value in values:
+        if value in (None, ""):
+            continue
+        parsed = int_like(value)
+        if parsed is not None:
+            return parsed
+        return INVALID_INT_PROVENANCE
+    return None
+
+
+def metrics_eval_rollouts(metrics: object) -> int | object | None:
+    if not isinstance(metrics, dict):
+        return None
+    status = dict_payload(metrics.get("paper_protocol_status"))
+    config = dict_payload(metrics.get("config"))
+    selected_result = dict_payload(metrics.get("selected_result"))
+    return first_integral_provenance(
+        (
+            metrics.get("eval_rollouts"),
+            metrics.get("selected_eval_rollouts"),
+            status.get("selected_eval_rollouts"),
+            status.get("eval_rollouts"),
+            config.get("eval_rollouts"),
+            selected_result.get("eval_rollouts"),
+        )
+    )
+
+
+def metrics_test_horizon_steps(metrics: object) -> int | object | None:
+    if not isinstance(metrics, dict):
+        return None
+    status = dict_payload(metrics.get("paper_protocol_status"))
+    config = dict_payload(metrics.get("config"))
+    selected_result = dict_payload(metrics.get("selected_result"))
+    return first_integral_provenance(
+        (
+            metrics.get("test_horizon_steps"),
+            metrics.get("test_max_steps"),
+            metrics.get("selected_test_max_steps"),
+            status.get("selected_test_max_steps"),
+            status.get("test_horizon_steps"),
+            status.get("test_max_steps"),
+            config.get("eval_test_max_steps"),
+            config.get("test_max_steps"),
+            selected_result.get("test_horizon_steps"),
+            selected_result.get("test_max_steps"),
+        )
+    )
 
 
 def psm_trace_payload_is_complete(trace_payload: object) -> bool:
@@ -366,6 +500,8 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
     missing_command_provenance: list[str] = []
     missing_row_command_provenance: list[str] = []
     mismatched_row_commands: list[str] = []
+    mismatched_eval_rollouts: list[str] = []
+    mismatched_test_horizons: list[str] = []
     for row in rows:
         metrics_path = row_metrics_path(row)
         if not metrics_path:
@@ -383,6 +519,14 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
             missing_row_command_provenance.append(row["policy"])
         elif isinstance(metrics.get("command"), str) and metrics["command"].strip() and command != metrics["command"]:
             mismatched_row_commands.append(row["policy"])
+        row_eval_rollouts = int_like(row.get("eval_rollouts"))
+        metrics_rollouts = metrics_eval_rollouts(metrics)
+        if metrics_rollouts is not None and row_eval_rollouts != metrics_rollouts:
+            mismatched_eval_rollouts.append(row["policy"])
+        row_test_horizon = int_like(row.get("test_horizon_steps"))
+        metrics_horizon = metrics_test_horizon_steps(metrics)
+        if metrics_horizon is not None and row_test_horizon != metrics_horizon:
+            mismatched_test_horizons.append(row["policy"])
     if missing_protocol_status:
         raise ValueError(
             "result metrics lack paper-protocol status: "
@@ -402,6 +546,16 @@ def require_result_artifacts(rows: list[dict[str, str]]) -> None:
         raise ValueError(
             "result row commands disagree with metrics command provenance: "
             + ", ".join(mismatched_row_commands)
+        )
+    if mismatched_eval_rollouts:
+        raise ValueError(
+            "result row evaluation-rollout provenance disagrees with metrics artifact: "
+            + ", ".join(mismatched_eval_rollouts)
+        )
+    if mismatched_test_horizons:
+        raise ValueError(
+            "result row test-horizon provenance disagrees with metrics artifact: "
+            + ", ".join(mismatched_test_horizons)
         )
     missing_psm_trace_artifacts: list[str] = []
     incomplete_psm_trace_artifacts: list[str] = []
@@ -606,7 +760,12 @@ def read_psm_metric_files(patterns: list[str] | None = None) -> list[dict[str, o
         for path in sorted(glob.glob(pattern)):
             with open(path, encoding="utf-8") as handle:
                 payload = json.load(handle)
-            if payload.get("policy_description"):
+            if (
+                payload.get("policy_description")
+                and isinstance(payload.get("command"), str)
+                and payload["command"].strip()
+                and isinstance(payload.get("paper_protocol_status"), dict)
+            ):
                 metric_files.append({"path": path, "payload": payload})
     return sorted(metric_files, key=psm_metric_priority)
 
@@ -633,7 +792,9 @@ def read_figure19_metric_files(patterns: list[str] | None = None) -> list[dict[s
             status = payload.get("paper_protocol_status", {})
             parameters = payload.get("program_parameters", {})
             if (
-                status.get("policy_source") == "paper_figure19_manual_transcription"
+                isinstance(payload.get("command"), str)
+                and payload["command"].strip()
+                and status.get("policy_source") == "paper_figure19_manual_transcription"
                 and parameters.get("figure") == "SPPIG paper Figure 19"
             ):
                 metric_files.append({"path": path, "payload": payload})
@@ -799,7 +960,12 @@ def read_ppo_metric_files(patterns: list[str] | None = None) -> list[dict[str, o
             with open(path, encoding="utf-8") as handle:
                 payload = json.load(handle)
             history = payload.get("eval_history", [])
-            if history:
+            if (
+                history
+                and isinstance(payload.get("command"), str)
+                and payload["command"].strip()
+                and isinstance(payload.get("paper_protocol_status"), dict)
+            ):
                 metric_files.append({"path": path, "payload": payload})
     return metric_files
 
@@ -839,6 +1005,7 @@ def plot_ppo_training_curves(metric_files: list[dict[str, object]], outpath: str
 def main() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
     rows = read_results()
+    require_result_manifest_consistency(rows)
     require_result_artifacts(rows)
     psm_metric_files = read_psm_metric_files()
     figure19_metric_files = read_figure19_metric_files()

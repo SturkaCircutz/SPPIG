@@ -373,6 +373,216 @@ class MakePaperFiguresTest(unittest.TestCase):
         self.assertEqual(rows[0]["policy"], "raw")
         self.assertEqual(make_paper_figures.metric(rows[0], "train_success"), 0.25)
 
+    def test_require_result_manifest_consistency_accepts_matching_summary(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary_path = os.path.join(tmpdir, "cartpole_summary.csv")
+            manifest_path = os.path.join(tmpdir, "cartpole_manifest.json")
+            with open(summary_path, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["policy"])
+                writer.writeheader()
+                writer.writerow({"policy": "PPO MLP"})
+            with open(manifest_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "summary_csv": os.path.relpath(summary_path, ROOT).replace(os.sep, "/"),
+                        "source_results_csv": "unused.csv",
+                        "row_count": 1,
+                        "policies": ["PPO MLP"],
+                        "summary": [{"policy": "PPO MLP"}],
+                    },
+                    handle,
+                )
+
+            original_summary = make_paper_figures.SUMMARY_CSV
+            original_results = make_paper_figures.RESULTS_CSV
+            original_manifest = make_paper_figures.MANIFEST_JSON
+            try:
+                make_paper_figures.SUMMARY_CSV = summary_path
+                make_paper_figures.RESULTS_CSV = os.path.join(tmpdir, "cartpole_results.csv")
+                make_paper_figures.MANIFEST_JSON = manifest_path
+                rows = make_paper_figures.read_results()
+                make_paper_figures.require_result_manifest_consistency(rows)
+            finally:
+                make_paper_figures.SUMMARY_CSV = original_summary
+                make_paper_figures.RESULTS_CSV = original_results
+                make_paper_figures.MANIFEST_JSON = original_manifest
+
+    def test_require_result_manifest_consistency_accepts_raw_rows_with_duplicate_policies(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            results_path = os.path.join(tmpdir, "cartpole_results.csv")
+            manifest_path = os.path.join(tmpdir, "cartpole_manifest.json")
+            rows = [
+                {"policy": "PPO MLP", "seed": "0", "test_success": "0.25"},
+                {"policy": "PPO MLP", "seed": "1", "test_success": "0.50"},
+            ]
+            with open(results_path, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["policy", "seed", "test_success"])
+                writer.writeheader()
+                writer.writerows(rows)
+            with open(manifest_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "source_results_csv": os.path.relpath(results_path, ROOT).replace(os.sep, "/"),
+                        "row_count": 2,
+                        "policies": ["PPO MLP"],
+                        "rows": [
+                            {"policy": "PPO MLP", "seed": 1, "test_success": 0.50},
+                            {"policy": "PPO MLP", "seed": 0, "test_success": 0.25},
+                        ],
+                    },
+                    handle,
+                )
+
+            original_summary = make_paper_figures.SUMMARY_CSV
+            original_results = make_paper_figures.RESULTS_CSV
+            original_manifest = make_paper_figures.MANIFEST_JSON
+            try:
+                make_paper_figures.SUMMARY_CSV = os.path.join(tmpdir, "missing_summary.csv")
+                make_paper_figures.RESULTS_CSV = results_path
+                make_paper_figures.MANIFEST_JSON = manifest_path
+                loaded_rows = make_paper_figures.read_results()
+                make_paper_figures.require_result_manifest_consistency(loaded_rows)
+            finally:
+                make_paper_figures.SUMMARY_CSV = original_summary
+                make_paper_figures.RESULTS_CSV = original_results
+                make_paper_figures.MANIFEST_JSON = original_manifest
+
+    def test_require_result_manifest_consistency_rejects_row_count_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary_path = os.path.join(tmpdir, "cartpole_summary.csv")
+            manifest_path = os.path.join(tmpdir, "cartpole_manifest.json")
+            with open(summary_path, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["policy"])
+                writer.writeheader()
+                writer.writerow({"policy": "PPO MLP"})
+            with open(manifest_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "summary_csv": os.path.relpath(summary_path, ROOT).replace(os.sep, "/"),
+                        "row_count": 2,
+                        "policies": ["PPO MLP"],
+                        "summary": [{"policy": "PPO MLP"}],
+                    },
+                    handle,
+                )
+
+            original_summary = make_paper_figures.SUMMARY_CSV
+            original_results = make_paper_figures.RESULTS_CSV
+            original_manifest = make_paper_figures.MANIFEST_JSON
+            try:
+                make_paper_figures.SUMMARY_CSV = summary_path
+                make_paper_figures.RESULTS_CSV = os.path.join(tmpdir, "cartpole_results.csv")
+                make_paper_figures.MANIFEST_JSON = manifest_path
+                rows = make_paper_figures.read_results()
+                with self.assertRaisesRegex(ValueError, "row_count"):
+                    make_paper_figures.require_result_manifest_consistency(rows)
+            finally:
+                make_paper_figures.SUMMARY_CSV = original_summary
+                make_paper_figures.RESULTS_CSV = original_results
+                make_paper_figures.MANIFEST_JSON = original_manifest
+
+    def test_require_result_manifest_consistency_rejects_fractional_row_count(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary_path = os.path.join(tmpdir, "cartpole_summary.csv")
+            manifest_path = os.path.join(tmpdir, "cartpole_manifest.json")
+            with open(summary_path, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["policy"])
+                writer.writeheader()
+                writer.writerow({"policy": "PPO MLP"})
+            with open(manifest_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "summary_csv": os.path.relpath(summary_path, ROOT).replace(os.sep, "/"),
+                        "row_count": 1.9,
+                        "policies": ["PPO MLP"],
+                        "summary": [{"policy": "PPO MLP"}],
+                    },
+                    handle,
+                )
+
+            original_summary = make_paper_figures.SUMMARY_CSV
+            original_results = make_paper_figures.RESULTS_CSV
+            original_manifest = make_paper_figures.MANIFEST_JSON
+            try:
+                make_paper_figures.SUMMARY_CSV = summary_path
+                make_paper_figures.RESULTS_CSV = os.path.join(tmpdir, "cartpole_results.csv")
+                make_paper_figures.MANIFEST_JSON = manifest_path
+                rows = make_paper_figures.read_results()
+                with self.assertRaisesRegex(ValueError, "row_count"):
+                    make_paper_figures.require_result_manifest_consistency(rows)
+            finally:
+                make_paper_figures.SUMMARY_CSV = original_summary
+                make_paper_figures.RESULTS_CSV = original_results
+                make_paper_figures.MANIFEST_JSON = original_manifest
+
+    def test_require_result_manifest_consistency_rejects_policy_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary_path = os.path.join(tmpdir, "cartpole_summary.csv")
+            manifest_path = os.path.join(tmpdir, "cartpole_manifest.json")
+            with open(summary_path, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["policy"])
+                writer.writeheader()
+                writer.writerow({"policy": "PPO MLP"})
+            with open(manifest_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "summary_csv": os.path.relpath(summary_path, ROOT).replace(os.sep, "/"),
+                        "row_count": 1,
+                        "policies": ["Programmatic state machine"],
+                        "summary": [{"policy": "Programmatic state machine"}],
+                    },
+                    handle,
+                )
+
+            original_summary = make_paper_figures.SUMMARY_CSV
+            original_results = make_paper_figures.RESULTS_CSV
+            original_manifest = make_paper_figures.MANIFEST_JSON
+            try:
+                make_paper_figures.SUMMARY_CSV = summary_path
+                make_paper_figures.RESULTS_CSV = os.path.join(tmpdir, "cartpole_results.csv")
+                make_paper_figures.MANIFEST_JSON = manifest_path
+                rows = make_paper_figures.read_results()
+                with self.assertRaisesRegex(ValueError, "policies"):
+                    make_paper_figures.require_result_manifest_consistency(rows)
+            finally:
+                make_paper_figures.SUMMARY_CSV = original_summary
+                make_paper_figures.RESULTS_CSV = original_results
+                make_paper_figures.MANIFEST_JSON = original_manifest
+
+    def test_require_result_manifest_consistency_rejects_stale_summary_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary_path = os.path.join(tmpdir, "cartpole_summary.csv")
+            manifest_path = os.path.join(tmpdir, "cartpole_manifest.json")
+            with open(summary_path, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["policy", "test_success_mean"])
+                writer.writeheader()
+                writer.writerow({"policy": "PPO MLP", "test_success_mean": "0.25"})
+            with open(manifest_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "summary_csv": os.path.relpath(summary_path, ROOT).replace(os.sep, "/"),
+                        "row_count": 1,
+                        "policies": ["PPO MLP"],
+                        "summary": [{"policy": "PPO MLP", "test_success_mean": 0.5}],
+                    },
+                    handle,
+                )
+
+            original_summary = make_paper_figures.SUMMARY_CSV
+            original_results = make_paper_figures.RESULTS_CSV
+            original_manifest = make_paper_figures.MANIFEST_JSON
+            try:
+                make_paper_figures.SUMMARY_CSV = summary_path
+                make_paper_figures.RESULTS_CSV = os.path.join(tmpdir, "cartpole_results.csv")
+                make_paper_figures.MANIFEST_JSON = manifest_path
+                rows = make_paper_figures.read_results()
+                with self.assertRaisesRegex(ValueError, "summary rows"):
+                    make_paper_figures.require_result_manifest_consistency(rows)
+            finally:
+                make_paper_figures.SUMMARY_CSV = original_summary
+                make_paper_figures.RESULTS_CSV = original_results
+                make_paper_figures.MANIFEST_JSON = original_manifest
+
     def test_require_result_artifacts_accepts_metrics_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
@@ -1145,6 +1355,62 @@ class MakePaperFiguresTest(unittest.TestCase):
                     [{"policy": "PPO MLP", "metrics_output": metrics_path, "test_horizon_steps": "15000"}]
                 )
 
+    def test_require_result_artifacts_rejects_eval_rollout_metrics_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            command = "python train.py"
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": command,
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "eval_rollouts": 20,
+                        "test_max_steps": 15000,
+                    },
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "evaluation-rollout provenance disagrees"):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "command": command,
+                            "eval_rollouts": "1000",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_fractional_eval_rollout_provenance(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            command = "python train.py"
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": command,
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "eval_rollouts": 20.9,
+                        "test_max_steps": 15000,
+                    },
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "evaluation-rollout provenance disagrees"):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "command": command,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
+                        }
+                    ]
+                )
+
     def test_require_result_artifacts_rejects_paper_scale_rows_without_1000_rollouts(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             metrics_path = os.path.join(tmpdir, "metrics.json")
@@ -1189,6 +1455,34 @@ class MakePaperFiguresTest(unittest.TestCase):
                             "metrics_output": metrics_path,
                             "eval_rollouts": "20",
                             "test_horizon_steps": "100",
+                        }
+                    ]
+                )
+
+    def test_require_result_artifacts_rejects_test_horizon_metrics_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metrics_path = os.path.join(tmpdir, "metrics.json")
+            command = "python train.py"
+            with open(metrics_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": command,
+                        "paper_protocol_status": {"paper_scale_result": False},
+                        "eval_rollouts": 20,
+                        "test_max_steps": 100,
+                    },
+                    handle,
+                )
+
+            with self.assertRaisesRegex(ValueError, "test-horizon provenance disagrees"):
+                make_paper_figures.require_result_artifacts(
+                    [
+                        {
+                            "policy": "PPO MLP",
+                            "metrics_output": metrics_path,
+                            "command": command,
+                            "eval_rollouts": "20",
+                            "test_horizon_steps": "15000",
                         }
                     ]
                 )
@@ -1306,6 +1600,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(good_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train.py --metrics-output good_metrics.json",
                         "config": {"policy_type": "mlp", "seed": 0},
                         "eval_history": [
                             {
@@ -1314,16 +1609,59 @@ class MakePaperFiguresTest(unittest.TestCase):
                                 "test_success_rate": 0.25,
                             }
                         ],
+                        "paper_protocol_status": {"paper_scale_baseline_protocol": False},
                     },
                     handle,
                 )
             with open(empty_path, "w", encoding="utf-8") as handle:
-                json.dump({"config": {"policy_type": "mlp"}, "eval_history": []}, handle)
+                json.dump(
+                    {
+                        "command": "python train.py --metrics-output empty_metrics.json",
+                        "config": {"policy_type": "mlp"},
+                        "eval_history": [],
+                        "paper_protocol_status": {"paper_scale_baseline_protocol": False},
+                    },
+                    handle,
+                )
 
             metric_files = make_paper_figures.read_ppo_metric_files([os.path.join(tmpdir, "*_metrics.json")])
 
         self.assertEqual(len(metric_files), 1)
         self.assertEqual(make_paper_figures.metric_label(metric_files[0]), "MLP seed 0")
+
+    def test_read_ppo_metric_files_requires_command_and_protocol_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_command_path = os.path.join(tmpdir, "missing_command_metrics.json")
+            missing_status_path = os.path.join(tmpdir, "missing_status_metrics.json")
+            history = [
+                {
+                    "timesteps": 32,
+                    "train_success_rate": 0.5,
+                    "test_success_rate": 0.25,
+                }
+            ]
+            with open(missing_command_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "config": {"policy_type": "mlp", "seed": 0},
+                        "eval_history": history,
+                        "paper_protocol_status": {"paper_scale_baseline_protocol": False},
+                    },
+                    handle,
+                )
+            with open(missing_status_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python train.py --metrics-output missing_status_metrics.json",
+                        "config": {"policy_type": "mlp", "seed": 0},
+                        "eval_history": history,
+                    },
+                    handle,
+                )
+
+            metric_files = make_paper_figures.read_ppo_metric_files([os.path.join(tmpdir, "*_metrics.json")])
+
+        self.assertEqual(metric_files, [])
 
     def test_default_ppo_metric_globs_include_runner_metrics_dir(self):
         runner_metrics_pattern = os.path.join("artifacts", "results", "metrics", "*.json")
@@ -1357,6 +1695,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(good_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python evaluate_cartpole_program.py --paper-figure19",
                         "paper_protocol_status": {
                             "policy_source": "paper_figure19_manual_transcription",
                             "synthesized_by_current_algorithm": False,
@@ -1368,6 +1707,7 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(synthesized_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python evaluate_cartpole_program.py --theta-weight 10",
                         "paper_protocol_status": {
                             "policy_source": "fixed_two_mode_program_parameters",
                             "synthesized_by_current_algorithm": False,
@@ -1383,6 +1723,27 @@ class MakePaperFiguresTest(unittest.TestCase):
 
         self.assertEqual(len(metric_files), 1)
         self.assertEqual(metric_files[0]["path"], good_path)
+
+    def test_read_figure19_metric_files_requires_command_provenance(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_command_path = os.path.join(tmpdir, "figure19_reference.json")
+            with open(missing_command_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {
+                            "policy_source": "paper_figure19_manual_transcription",
+                            "synthesized_by_current_algorithm": False,
+                        },
+                        "program_parameters": {"figure": "SPPIG paper Figure 19"},
+                    },
+                    handle,
+                )
+
+            metric_files = make_paper_figures.read_figure19_metric_files(
+                [os.path.join(tmpdir, "figure19*.json")]
+            )
+
+        self.assertEqual(metric_files, [])
 
     def test_parse_linear_switch_from_policy_description(self):
         parsed = make_paper_figures.parse_linear_switch(
@@ -1406,14 +1767,53 @@ class MakePaperFiguresTest(unittest.TestCase):
             good_path = os.path.join(tmpdir, "psm_seed0.json")
             empty_path = os.path.join(tmpdir, "psm_seed1.json")
             with open(good_path, "w", encoding="utf-8") as handle:
-                json.dump({"policy_description": "mode=1 if 5.000*theta + 0.500*omega >= 0.000"}, handle)
+                json.dump(
+                    {
+                        "command": "python train_psm.py --metrics-output psm_seed0.json",
+                        "paper_protocol_status": {"synthesized_by_current_algorithm": False},
+                        "policy_description": "mode=1 if 5.000*theta + 0.500*omega >= 0.000",
+                    },
+                    handle,
+                )
             with open(empty_path, "w", encoding="utf-8") as handle:
-                json.dump({"config": {}}, handle)
+                json.dump(
+                    {
+                        "command": "python train_psm.py --metrics-output psm_seed1.json",
+                        "paper_protocol_status": {"synthesized_by_current_algorithm": False},
+                        "config": {},
+                    },
+                    handle,
+                )
 
             metric_files = make_paper_figures.read_psm_metric_files([os.path.join(tmpdir, "psm_seed*.json")])
 
         self.assertEqual(len(metric_files), 1)
         self.assertEqual(metric_files[0]["path"], good_path)
+
+    def test_read_psm_metric_files_requires_command_and_protocol_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_command_path = os.path.join(tmpdir, "psm_seed0.json")
+            missing_status_path = os.path.join(tmpdir, "psm_seed1.json")
+            with open(missing_command_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "paper_protocol_status": {"synthesized_by_current_algorithm": False},
+                        "policy_description": "mode=1 if 5.000*theta + 0.500*omega >= 0.000",
+                    },
+                    handle,
+                )
+            with open(missing_status_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "command": "python train_psm.py --metrics-output psm_seed1.json",
+                        "policy_description": "mode=1 if 5.000*theta + 0.500*omega >= 0.000",
+                    },
+                    handle,
+                )
+
+            metric_files = make_paper_figures.read_psm_metric_files([os.path.join(tmpdir, "psm_seed*.json")])
+
+        self.assertEqual(metric_files, [])
 
     def test_read_psm_metric_files_prefers_fixed_program_result_artifact(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1422,16 +1822,19 @@ class MakePaperFiguresTest(unittest.TestCase):
             with open(smoke_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python train_psm.py --metrics-output cartpole_psm_smoke_metrics.json",
                         "policy_description": (
                             "m0 action=-1.000; m1 action=1.000; "
                             "mode=1 if -1.000*theta + -0.500*omega >= 0.033, else mode=0"
-                        )
+                        ),
+                        "paper_protocol_status": {"synthesized_by_current_algorithm": True},
                     },
                     handle,
                 )
             with open(fixed_path, "w", encoding="utf-8") as handle:
                 json.dump(
                     {
+                        "command": "python evaluate_program.py --metrics-output psm_seed0_fixed_program_full_horizon.json",
                         "policy_description": (
                             "m0 action=-10.000; m1 action=10.000; "
                             "mode=1 if 10.000*theta + 1.000*omega >= 0.000, else mode=0"

@@ -338,6 +338,14 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
         effective_parallel_switch_workers,
         transition_switch_fit_count,
     )
+    effective_teacher_elite_distribution_resamples = max(
+        0,
+        int(cfg.teacher_elite_distribution_resamples),
+    )
+    effective_teacher_elite_distribution_rounds = max(
+        0,
+        int(cfg.teacher_elite_distribution_rounds),
+    )
     return {
         "teacher_candidate_rollouts": cfg.candidate_rollouts,
         "effective_teacher_candidate_rollouts": effective_candidate_rollouts,
@@ -378,17 +386,14 @@ def cartpole_teacher_cem_protocol_status(cfg: CartpoleSynthesisConfig) -> Dict[s
             and effective_candidate_rollouts >= PAPER_TEACHER_TOP_RHO
         ),
         "teacher_elite_distribution_resamples": cfg.teacher_elite_distribution_resamples,
-        "effective_teacher_elite_distribution_resamples": max(
-            0,
-            int(cfg.teacher_elite_distribution_resamples),
-        ),
+        "effective_teacher_elite_distribution_resamples": effective_teacher_elite_distribution_resamples,
         "teacher_elite_distribution_resamples_cover_top_rho": (
-            max(0, int(cfg.teacher_elite_distribution_resamples)) >= effective_top_rho
+            effective_teacher_elite_distribution_resamples >= effective_top_rho
         ),
         "teacher_elite_distribution_rounds": cfg.teacher_elite_distribution_rounds,
-        "effective_teacher_elite_distribution_rounds": max(
-            0,
-            int(cfg.teacher_elite_distribution_rounds),
+        "effective_teacher_elite_distribution_rounds": effective_teacher_elite_distribution_rounds,
+        "teacher_elite_distribution_refit_round_enabled": (
+            effective_teacher_elite_distribution_rounds > 0
         ),
     }
 
@@ -426,6 +431,9 @@ def cartpole_synthesis_protocol_status(
         "teacher_cem_phase_matches_paper_rho": cem_status["teacher_cem_phase_matches_paper_rho"],
         "teacher_elite_distribution_resamples_cover_top_rho": cem_status[
             "teacher_elite_distribution_resamples_cover_top_rho"
+        ],
+        "teacher_elite_distribution_refit_round_enabled": cem_status[
+            "teacher_elite_distribution_refit_round_enabled"
         ],
         "uses_paper_teacher_parallel_threads": cem_status["uses_paper_teacher_parallel_threads"],
         "uses_paper_student_parallel_threads": cem_status["uses_paper_student_parallel_threads"],

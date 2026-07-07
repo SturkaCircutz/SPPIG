@@ -2913,6 +2913,7 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertFalse(local_status["teacher_cem_phase_matches_paper_rho"])
         self.assertEqual(local_status["effective_teacher_elite_distribution_resamples"], 10)
         self.assertTrue(local_status["teacher_elite_distribution_resamples_cover_top_rho"])
+        self.assertTrue(local_status["teacher_elite_distribution_refit_round_enabled"])
         self.assertTrue(paper_rho_status["uses_paper_teacher_top_rho"])
         self.assertEqual(paper_rho_status["effective_teacher_parallel_trace_initial_states"], 32)
         self.assertEqual(paper_rho_status["effective_teacher_parallel_trace_slots"], 10)
@@ -2925,6 +2926,11 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertTrue(
             paper_rho_status["probabilistic_adaptive_teaching_requirements"][
                 "teacher_elite_distribution_resamples_cover_top_rho"
+            ]
+        )
+        self.assertTrue(
+            paper_rho_status["probabilistic_adaptive_teaching_requirements"][
+                "teacher_elite_distribution_refit_round_enabled"
             ]
         )
         self.assertFalse(paper_rho_status["full_probabilistic_adaptive_teaching"])
@@ -2947,6 +2953,30 @@ class CartpolePaperTest(unittest.TestCase):
         )
         self.assertIn(
             "teacher_elite_distribution_resamples_cover_top_rho",
+            full_status["missing_probabilistic_adaptive_teaching_requirements"],
+        )
+
+    def test_cartpole_teacher_cem_status_requires_distribution_refit_round(self):
+        cfg = CartpoleSynthesisConfig(
+            candidate_rollouts=10,
+            teacher_top_rho=10,
+            teacher_elite_distribution_resamples=10,
+            teacher_elite_distribution_rounds=0,
+        )
+
+        status = cartpole_teacher_cem_protocol_status(cfg)
+        full_status = cartpole_synthesis_protocol_status(cfg)
+
+        self.assertEqual(status["effective_teacher_elite_distribution_rounds"], 0)
+        self.assertFalse(status["teacher_elite_distribution_refit_round_enabled"])
+        self.assertTrue(status["teacher_elite_distribution_resamples_cover_top_rho"])
+        self.assertFalse(
+            full_status["probabilistic_adaptive_teaching_requirements"][
+                "teacher_elite_distribution_refit_round_enabled"
+            ]
+        )
+        self.assertIn(
+            "teacher_elite_distribution_refit_round_enabled",
             full_status["missing_probabilistic_adaptive_teaching_requirements"],
         )
 
@@ -6723,6 +6753,60 @@ class CartpolePaperTest(unittest.TestCase):
         self.assertEqual(update_metrics["optimizer_minibatch_updates"], cfg.update_epochs)
         self.assertIsInstance(update_metrics["policy_loss_mean"], float)
         self.assertIsInstance(update_metrics["approx_kl_mean"], float)
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_lstm_rollout_masks_recurrent_state_after_terminal_step(self):
+        env = CartpoleEnv.train_env(seed=0)
+        model = LSTMActorCritic(hidden_size=8, initial_log_std=-2.0)
+        obs = torch.tensor([env.reset([0.0, 0.0, 0.3, 0.0])], dtype=torch.float32)
+        initial_state = model.initial_state(1)
+        initial_state = (
+            initial_state[0] + 0.5,
+            initial_state[1] - 0.25,
+        )
+        cfg = PPOConfig(rollout_steps=1, num_envs=1)
+
+        rollout = _collect_rollout(
+            [env],
+            model,
+            obs,
+            torch.zeros(1, dtype=torch.long),
+            initial_state,
+            cfg,
+        )
+
+        self.assertEqual(rollout.dones[0, 0].item(), 1.0)
+        self.assertEqual(rollout.failure_terminations[0, 0].item(), 1.0)
+        self.assertIsNotNone(rollout.next_lstm_state)
+        self.assertTrue(torch.equal(rollout.next_lstm_state[0], torch.zeros_like(rollout.next_lstm_state[0])))
+        self.assertTrue(torch.equal(rollout.next_lstm_state[1], torch.zeros_like(rollout.next_lstm_state[1])))
+
+    @unittest.skipUnless(HAS_TORCH, "PyTorch is not installed")
+    def test_lstm_sequence_replay_masks_state_from_previous_done(self):
+        model = LSTMActorCritic(hidden_size=8, initial_log_std=-2.0)
+        obs = torch.zeros(2, 1, 4)
+        actions = torch.zeros(2, 1)
+        initial_state = model.initial_state(1)
+        initial_state = (
+            initial_state[0] + 0.5,
+            initial_state[1] - 0.25,
+        )
+
+        _, masked_log_prob, _, masked_value = model.sequence_action_and_value(
+            obs,
+            actions,
+            torch.tensor([[1.0], [0.0]]),
+            initial_state,
+        )
+        _, reset_log_prob, _, reset_value = model.sequence_action_and_value(
+            obs[1:],
+            actions[1:],
+            torch.zeros(1, 1),
+            model.initial_state(1),
+        )
+
+        self.assertTrue(torch.allclose(masked_log_prob[1:], reset_log_prob, atol=1e-6))
+        self.assertTrue(torch.allclose(masked_value[1:], reset_value, atol=1e-6))
 
 
 if __name__ == "__main__":

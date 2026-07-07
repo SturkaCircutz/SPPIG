@@ -258,10 +258,14 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
     selected_rerank_rollouts = max(0, int(cfg.train_distribution_rerank_rollouts))
     uses_train_distribution_reranking = selected_rerank_candidates > 0 and selected_rerank_rollouts > 0
     full_continuous_one_hot_switch_grammar = False
+    batch_refinement_rounds_enabled = cfg.batch_refinement_rounds > 0
+    batch_local_refinement_enabled = cfg.local_refinement_steps > 0
+    restart_candidates_on_stall_enabled = cfg.restart_candidates_on_stall > 0
     full_batch_optimization = (
         uses_paper_batch_size
-        and cfg.batch_refinement_rounds > 0
-        and cfg.restart_candidates_on_stall > 0
+        and batch_refinement_rounds_enabled
+        and batch_local_refinement_enabled
+        and restart_candidates_on_stall_enabled
     )
     uses_paper_parallel_threads = selected_parallel_threads == PAPER_DIRECT_OPT_PARALLEL_THREADS
     uses_paper_time_limit = selected_time_limit_seconds == PAPER_DIRECT_OPT_TIME_LIMIT_SECONDS
@@ -298,8 +302,10 @@ def cartpole_direct_opt_protocol_status(cfg: DirectOptConfig) -> Dict[str, objec
         "bounded_continuous_one_hot_switch_relaxation": True,
         "appendix_b3_one_hot_vertex_metadata": True,
         "linear_switch_encoding": True,
-        "batch_optimization_seeded_from_best_so_far": cfg.batch_refinement_rounds > 0,
-        "random_restart_on_stall": cfg.restart_candidates_on_stall > 0,
+        "batch_optimization_seeded_from_best_so_far": batch_refinement_rounds_enabled,
+        "batch_local_refinement_enabled": batch_local_refinement_enabled,
+        "selected_local_refinement_steps": cfg.local_refinement_steps,
+        "random_restart_on_stall": restart_candidates_on_stall_enabled,
         "full_batch_optimization": full_batch_optimization,
         "stops_when_training_solution_found": True,
         "optimizes_combined_reward_over_selected_initial_states": True,

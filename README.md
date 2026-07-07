@@ -363,8 +363,9 @@ provided explicitly; non-quick reproduction-runner Direct-Opt rows default to
 the paper's 10-thread, 7200-second budget. This is still not the paper's full
 Direct-Opt protocol over the optimized continuous one-hot switching grammar. The metrics JSON also includes
 `paper_protocol_status`, which keeps the full Direct-Opt protocol flag false
-unless the paper batch size, ten-thread/two-hour optimization budget, full
-continuous one-hot grammar, full initial-state distribution, full test horizon,
+unless the paper batch size with batch rounds, local refinement, restart-on-stall,
+ten-thread/two-hour optimization budget, full continuous one-hot grammar,
+full initial-state distribution, full test horizon,
 and `1000`-rollout evaluation are actually satisfied. The optional train-distribution rerank is
 sampled evidence only and does not satisfy the full initial-state distribution requirement. Reproduction manifests require these Direct-Opt
 protocol rows to be backed by matching metrics JSON command/config/provenance artifacts. The status also lists the named Direct-Opt protocol
@@ -551,7 +552,7 @@ Recommended resume bullet:
   not truncated at the paper's 5-second training horizon.
 - Continuous-action PPO needed careful handling of raw sampled actions versus
   clipped environment actions.
-- LSTM PPO needed recurrent state replay during policy updates.
+- LSTM PPO needed recurrent state replay plus done-aligned resets during policy updates.
 - The feed-forward PPO solved the short training split but failed full
   300-second generalization; the programmatic policy survived much longer.
 

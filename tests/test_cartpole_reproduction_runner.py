@@ -84,11 +84,14 @@ def complete_direct_opt_protocol_status():
     }
 
 
+DIRECT_OPT_METRICS_COMMAND = "python src/train_cartpole_direct_opt.py --metrics-output metrics.json"
+
+
 def write_direct_opt_metrics(path, status, *, seed=0, eval_rollouts=1000, test_max_steps=15000):
     Path(path).write_text(
         json.dumps(
             {
-                "command": "python src/train_cartpole_direct_opt.py --metrics-output metrics.json",
+                "command": DIRECT_OPT_METRICS_COMMAND,
                 "config": {
                     "seed": seed,
                     "eval_rollouts": eval_rollouts,
@@ -299,6 +302,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                     "eval_rollouts": 1000,
                     "test_horizon_steps": 15000,
                     "metrics_output": str(metrics_path),
+                    "command": DIRECT_OPT_METRICS_COMMAND,
                     "paper_protocol_status": status_payload,
                 },
                 {
@@ -316,6 +320,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertTrue(status["all_rows_have_metrics_output"])
         self.assertTrue(status["all_metrics_artifacts_exist"])
         self.assertTrue(status["all_metrics_have_command"])
+        self.assertTrue(status["all_metrics_match_row_command"])
         self.assertTrue(status["all_metrics_have_config"])
         self.assertTrue(status["all_metrics_match_row_config"])
         self.assertTrue(status["all_metrics_have_direct_opt_provenance"])
@@ -355,6 +360,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                         "eval_rollouts": 1000,
                         "test_horizon_steps": 15000,
                         "metrics_output": str(metrics_path),
+                        "command": DIRECT_OPT_METRICS_COMMAND,
                         "paper_protocol_status": row_status,
                     },
                 ],
@@ -367,6 +373,35 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertFalse(status["paper_scale_direct_opt_protocol"])
         self.assertIn(
             "direct_opt_metrics_protocol_matches_row_per_row",
+            status["missing_direct_opt_evidence_requirements"],
+        )
+
+    def test_direct_opt_evidence_status_requires_metrics_command_to_match_row(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            row_status = complete_direct_opt_protocol_status()
+            metrics_path = Path(tmpdir) / "direct_opt_metrics.json"
+            write_direct_opt_metrics(metrics_path, row_status)
+            status = direct_opt_evidence_status(
+                [
+                    {
+                        "policy": "Direct-Opt diagnostic",
+                        "seed": 0,
+                        "eval_rollouts": 1000,
+                        "test_horizon_steps": 15000,
+                        "metrics_output": str(metrics_path),
+                        "command": "python stale_direct_opt.py --metrics-output metrics.json",
+                        "paper_protocol_status": row_status,
+                    },
+                ],
+                seeds=[0],
+                include_direct_opt=True,
+            )
+
+        self.assertTrue(status["all_metrics_have_command"])
+        self.assertFalse(status["all_metrics_match_row_command"])
+        self.assertFalse(status["paper_scale_direct_opt_protocol"])
+        self.assertIn(
+            "direct_opt_metrics_command_matches_row_per_row",
             status["missing_direct_opt_evidence_requirements"],
         )
 
@@ -383,6 +418,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                         "eval_rollouts": 1000,
                         "test_horizon_steps": 15000,
                         "metrics_output": str(metrics_path),
+                        "command": DIRECT_OPT_METRICS_COMMAND,
                         "paper_protocol_status": row_status,
                     },
                 ],
@@ -411,6 +447,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                         "eval_rollouts": "1000",
                         "test_horizon_steps": "15000",
                         "metrics_output": str(metrics_path),
+                        "command": DIRECT_OPT_METRICS_COMMAND,
                         "paper_protocol_status": row_status,
                     },
                 ],
@@ -536,6 +573,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
                         "eval_rollouts": 1000,
                         "test_horizon_steps": 15000,
                         "metrics_output": str(metrics_path),
+                        "command": DIRECT_OPT_METRICS_COMMAND,
                         "paper_protocol_status": row_status,
                     }
                 )
@@ -593,6 +631,56 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "artifact_kind"):
                 load_ppo_sweep_manifest(path)
+
+    def test_ppo_sweep_evidence_status_rejects_direct_wrong_artifact_kind(self):
+        manifest = {
+            "artifact_kind": "cartpole_reproduction_runner_manifest",
+            "policies": ["mlp", "lstm"],
+            "seeds": [0, 1, 2, 3, 4],
+            "jobs_planned": 100,
+            "jobs_completed": 100,
+            "jobs_failed": 0,
+            "jobs_uncapped_for_selected_space": 100,
+            "hyperparam_mode": "paper-random",
+            "hyperparam_samples": 10,
+            "hyperparameter_summary": complete_ppo_hyperparameter_summary(),
+            "paper_protocol_status": {
+                "paper_scale_plan": True,
+                "paper_scale_execution": True,
+                "paper_random_hyperparameter_search": True,
+                "paper_random_sample_count": True,
+                "all_planned_jobs_completed": True,
+                "planned_job_count_matches_selected_space": True,
+                "full_baseline_policy_set": True,
+                "paper_seed_count": True,
+                "paper_timestep_budget": True,
+                "uses_paper_eval_rollouts": True,
+                "paper_test_horizon": True,
+                "sampled_hyperparameters_follow_paper_ranges": True,
+                "sampled_hyperparameters_follow_paper_minibatch_rules": True,
+            },
+        }
+
+        status = ppo_sweep_evidence_status(manifest)
+
+        self.assertFalse(status["artifact_kind_matches"])
+        self.assertTrue(status["raw_paper_scale_execution"])
+        self.assertFalse(status["paper_scale_execution"])
+
+    def test_ppo_sweep_evidence_status_handles_missing_protocol_status_directly(self):
+        status = ppo_sweep_evidence_status(
+            {
+                "artifact_kind": "cartpole_ppo_sweep_manifest",
+                "jobs_planned": 100,
+                "jobs_completed": 100,
+                "jobs_failed": 0,
+            }
+        )
+
+        self.assertFalse(status["manifest_loaded"])
+        self.assertTrue(status["artifact_kind_matches"])
+        self.assertFalse(status["paper_scale_execution"])
+        self.assertIn("paper_protocol_status", status["limitation"])
 
     def test_ppo_sweep_evidence_status_records_completed_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1117,6 +1205,52 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
         self.assertEqual(row["test_horizon_steps"], 15000)
         self.assertEqual(row["best_command"], "python runner.py --seed 0")
 
+    def test_summary_rows_reject_mixed_eval_rollout_provenance(self):
+        rows = [
+            {
+                "policy": "Programmatic state machine",
+                "seed": seed,
+                "train_success": 1.0,
+                "test_success": 0.5,
+                "train_reward": 250.0,
+                "test_reward": 900.0,
+                "train_steps": 250.0,
+                "test_steps": 900.0,
+                "train_survival_seconds": 5.0,
+                "test_survival_seconds": 18.0,
+                "eval_rollouts": eval_rollouts,
+                "test_horizon_steps": 15000,
+                "timesteps": 0,
+            }
+            for seed, eval_rollouts in ((0, 20), (1, 1000))
+        ]
+
+        with self.assertRaisesRegex(ValueError, "mixed or missing eval_rollouts"):
+            summarize_rows(rows)
+
+    def test_summary_rows_reject_mixed_test_horizon_provenance(self):
+        rows = [
+            {
+                "policy": "Programmatic state machine",
+                "seed": seed,
+                "train_success": 1.0,
+                "test_success": 0.5,
+                "train_reward": 250.0,
+                "test_reward": 900.0,
+                "train_steps": 250.0,
+                "test_steps": 900.0,
+                "train_survival_seconds": 5.0,
+                "test_survival_seconds": 18.0,
+                "eval_rollouts": 20,
+                "test_horizon_steps": test_horizon_steps,
+                "timesteps": 0,
+            }
+            for seed, test_horizon_steps in ((0, 20), (1, 15000))
+        ]
+
+        with self.assertRaisesRegex(ValueError, "mixed or missing test_horizon_steps"):
+            summarize_rows(rows)
+
     def test_run_ppo_row_records_command_without_reloading_metrics(self):
         original_argv = sys.argv
         try:
@@ -1398,6 +1532,7 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertTrue(psm_status["teacher_elite_distribution_resamples_cover_top_rho"])
             self.assertEqual(psm_status["teacher_elite_distribution_rounds"], 2)
             self.assertEqual(psm_status["effective_teacher_elite_distribution_rounds"], 2)
+            self.assertTrue(psm_status["teacher_elite_distribution_refit_round_enabled"])
             self.assertIn("probabilistic_student", psm_metrics)
             self.assertEqual(len(psm_metrics["adaptive_teacher_summary"]), 1)
             adaptive_summary = psm_metrics["adaptive_teacher_summary"][0]
@@ -2036,6 +2171,8 @@ class CartpoleReproductionRunnerTest(unittest.TestCase):
             self.assertFalse(direct_status["full_continuous_one_hot_switch_grammar"])
             self.assertTrue(direct_status["bounded_continuous_one_hot_switch_relaxation"])
             self.assertTrue(direct_status["stops_when_training_solution_found"])
+            self.assertEqual(direct_status["selected_local_refinement_steps"], 1)
+            self.assertTrue(direct_status["batch_local_refinement_enabled"])
             self.assertTrue(direct_status["optimizes_combined_reward_over_selected_initial_states"])
             self.assertTrue(direct_status["optimizes_combined_reward_over_all_selected_initial_states"])
             self.assertFalse(direct_status["optimizes_full_initial_state_distribution"])

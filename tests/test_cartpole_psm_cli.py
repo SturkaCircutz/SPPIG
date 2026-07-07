@@ -159,6 +159,11 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["loop_free_teacher_spans_training_horizon"])
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_reward_scale"])
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["teacher_cem_phase_matches_paper_rho"])
+        self.assertTrue(
+            status["adaptive_teaching_protocol_requirements"][
+                "teacher_elite_distribution_refit_round_enabled"
+            ]
+        )
         self.assertTrue(status["adaptive_teaching_protocol_requirements"]["uses_paper_teacher_parallel_threads"])
         self.assertTrue(status["uses_paper_student_parallel_worker_limit"])
         self.assertFalse(status["adaptive_teaching_protocol_requirements"]["uses_paper_student_parallel_threads"])
@@ -745,6 +750,12 @@ class CartpolePSMCliTest(unittest.TestCase):
         self.assertTrue(status["teacher_elite_distribution_resamples_cover_top_rho"])
         self.assertEqual(status["teacher_elite_distribution_rounds"], 2)
         self.assertEqual(status["effective_teacher_elite_distribution_rounds"], 2)
+        self.assertTrue(status["teacher_elite_distribution_refit_round_enabled"])
+        self.assertTrue(
+            status["probabilistic_adaptive_teaching_requirements"][
+                "teacher_elite_distribution_refit_round_enabled"
+            ]
+        )
         self.assertTrue(status["synthesized_by_current_algorithm"])
         self.assertFalse(status["probabilistic_adaptive_teaching_requirements"]["teacher_cem_phase_matches_paper_rho"])
         self.assertTrue(

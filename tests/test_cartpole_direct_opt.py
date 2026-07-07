@@ -208,6 +208,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertFalse(status["full_batch_optimization"])
         self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
         self.assertTrue(status["optimizes_combined_reward_over_all_selected_initial_states"])
+        self.assertEqual(status["selected_local_refinement_steps"], 2)
+        self.assertTrue(status["batch_local_refinement_enabled"])
         self.assertFalse(status["optimizes_full_initial_state_distribution"])
         self.assertFalse(status["uses_sampled_train_distribution_reranking"])
         self.assertEqual(status["selected_train_distribution_rerank_candidates"], 0)
@@ -341,6 +343,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertFalse(status["uses_paper_batch_size"])
         self.assertFalse(status["full_batch_optimization"])
         self.assertFalse(status["batch_optimization_seeded_from_best_so_far"])
+        self.assertEqual(status["selected_local_refinement_steps"], 2)
+        self.assertTrue(status["batch_local_refinement_enabled"])
         self.assertFalse(status["random_restart_on_stall"])
         self.assertFalse(status["uses_full_test_horizon"])
         self.assertFalse(status["uses_paper_eval_rollouts"])
@@ -348,6 +352,33 @@ class CartpoleDirectOptTest(unittest.TestCase):
         self.assertTrue(status["optimizes_combined_reward_over_selected_initial_states"])
         self.assertTrue(status["quick_diagnostic"])
         self.assertFalse(status["paper_scale_direct_opt_protocol"])
+
+    def test_direct_opt_protocol_status_requires_local_refinement_steps(self):
+        status = cartpole_direct_opt_protocol_status(
+            DirectOptConfig(
+                num_train_states=10,
+                batch_size=10,
+                batch_refinement_rounds=1,
+                local_refinement_steps=0,
+                restart_candidates_on_stall=1,
+                parallel_threads=10,
+                time_limit_seconds=7200,
+                eval_rollouts=1000,
+                test_max_steps=15000,
+                quick=False,
+            )
+        )
+
+        self.assertTrue(status["uses_paper_batch_size"])
+        self.assertTrue(status["batch_optimization_seeded_from_best_so_far"])
+        self.assertFalse(status["batch_local_refinement_enabled"])
+        self.assertTrue(status["random_restart_on_stall"])
+        self.assertFalse(status["full_batch_optimization"])
+        self.assertFalse(status["direct_opt_protocol_requirements"]["paper_batch_size_and_batch_refinement"])
+        self.assertIn(
+            "paper_batch_size_and_batch_refinement",
+            status["missing_direct_opt_protocol_requirements"],
+        )
 
     def test_direct_opt_protocol_status_lists_remaining_full_protocol_blockers(self):
         status = cartpole_direct_opt_protocol_status(
@@ -367,6 +398,8 @@ class CartpoleDirectOptTest(unittest.TestCase):
         )
 
         self.assertTrue(status["direct_opt_protocol_requirements"]["paper_batch_size_and_batch_refinement"])
+        self.assertTrue(status["batch_local_refinement_enabled"])
+        self.assertEqual(status["selected_local_refinement_steps"], 2)
         self.assertTrue(status["direct_opt_protocol_requirements"]["paper_parallel_threads"])
         self.assertTrue(status["direct_opt_protocol_requirements"]["paper_time_limit"])
         self.assertTrue(status["direct_opt_protocol_requirements"]["full_test_horizon"])
