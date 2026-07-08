@@ -1269,6 +1269,15 @@ These checks cover the partial probabilistic Cartpole student, not the complete 
   of stale synthesized PSM teacher-search provenance even when the row uses the reproduction runner's
   `Programmatic state machine` display label, rejection of explicit non-paper test horizons, and
   rejection of paper-scale result rows that do not use the paper's 1000 evaluation rollouts.
+- `scripts/verify_essay_scale_reproduction.py` and
+  `tests/test_verify_essay_scale_reproduction.py` provide a single essay-scale
+  artifact gate: they verify the checked-in medium PPO/PPO-LSTM sweep has four
+  completed jobs over both policies and seeds 0/1, that every sweep checkpoint
+  and metrics JSON exists and matches the result CSV, that checked-in CartPole
+  result rows and commands match their metrics artifacts, and that generated
+  essay fragments/figures carry local-diagnostic caveats and no stale
+  synthesized-PSM result-table values. This gate intentionally keeps
+  paper-scale flags false.
 
 ## Completion Criteria Still Required For Full Paper Claim
 

@@ -45,6 +45,11 @@
       "filename": "figures/programmatic_switch_boundary.png",
       "generated_by": "scripts/make_paper_figures.py",
       "usage": "generated programmatic switch-boundary figure"
+    },
+    {
+      "filename": "figures/cartpole_ppo_training_curves.png",
+      "generated_by": "scripts/make_paper_figures.py",
+      "usage": "generated local-diagnostic PPO training-curve figure"
     }
   ],
   "process": {

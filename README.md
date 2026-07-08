@@ -577,6 +577,11 @@ sampled search.
   survival-reward plots prefer explicit survived-step fields when present;
   generated result fragments carry a local-diagnostic limitation note and reject
   rows whose explicit `test_horizon_steps` is not the paper 300-second horizon)
+- Essay-scale verifier: `scripts/verify_essay_scale_reproduction.py`, which
+  checks the checked-in medium PPO/PPO-LSTM sweep, checkpoint/metrics files,
+  CartPole result bundle, generated essay fragments/figures, local-diagnostic
+  caveats, and stale synthesized-PSM table values without requiring a TeX
+  installation.
 - Paper fidelity audit: `docs/cartpole_paper_audit.md`
 - Result table: `artifacts/results/cartpole_results.csv`
 - Result metrics: `artifacts/results/metrics/`
