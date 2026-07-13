@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-import matplotlib.pyplot as plt
 import numpy as np
+
+try:
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:  # pragma: no cover - exercised in minimal environments.
+    plt = None
 
 from parking_env import ParkingTask, Trajectory, collision_or_bounds, is_success, make_tasks, observe, step_dynamics
 from programmatic_policy import (
@@ -429,12 +434,46 @@ def compact_trace(trace: Trajectory) -> Dict[str, object]:
     }
 
 
+def serialize_task(task: ParkingTask) -> Dict[str, object]:
+    return {
+        "task_id": task.task_id,
+        "slot_length": task.slot_length,
+        "car_length": task.car_length,
+        "front_x": task.front_x,
+        "back_x": task.back_x,
+        "start": task.start.astype(float).tolist(),
+        "goal": task.goal.astype(float).tolist(),
+        "max_steps": task.max_steps,
+    }
+
+
+def serialize_trajectory(trace: Trajectory) -> Dict[str, object]:
+    return {
+        "task_id": trace.task_id,
+        "states": [[float(value) for value in state] for state in trace.states],
+        "observations": [[float(value) for value in obs] for obs in trace.observations],
+        "actions": [[float(value) for value in action] for action in trace.actions],
+        "modes": list(trace.modes),
+        "success": trace.success,
+        "collision": trace.collision,
+        "score": trace.score,
+        "loop_count": trace.loop_count,
+        "params": trace.params,
+    }
+
+
+def serialize_trajectories(traces: List[Trajectory]) -> List[Dict[str, object]]:
+    return [serialize_trajectory(trace) for trace in traces]
+
+
 def save_json(path: Path, data: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def plot_trajectories(outpath: Path, train_eval: List[Trajectory], test_eval: List[Trajectory], train_tasks: List[ParkingTask], test_tasks: List[ParkingTask]) -> None:
+    if plt is None:
+        return
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
     for ax, title, traces, tasks in [(axes[0], "Train distribution", train_eval[:6], train_tasks[:6]), (axes[1], "Test distribution", test_eval[:6], test_tasks[:6])]:
         for trace, task in zip(traces, tasks):
@@ -456,6 +495,8 @@ def plot_trajectories(outpath: Path, train_eval: List[Trajectory], test_eval: Li
 
 
 def plot_success_rates(outpath: Path, metrics: Dict[str, object]) -> None:
+    if plt is None:
+        return
     labels = ["Baseline train", "Baseline test", "Teacher train", "Student train", "Student test"]
     values = [metrics[key]["success_rate"] for key in ("baseline_train", "baseline_test", "teacher_train", "student_train", "student_test")]
     fig, ax = plt.subplots(figsize=(9, 4.8))
@@ -476,6 +517,8 @@ def run_experiment(args: argparse.Namespace) -> Dict[str, object]:
     outdir = args.outdir.resolve()
     outdir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(args.seed)
+    metrics_path = Path(getattr(args, "metrics_output", None) or outdir / "metrics.json").resolve()
+    traces_path = Path(getattr(args, "traces_output", None) or outdir / "traces.json").resolve()
 
     manifest = scan_repo(repo_root)
     reuse = try_reuse_state_machine(repo_root, manifest)
@@ -501,10 +544,25 @@ def run_experiment(args: argparse.Namespace) -> Dict[str, object]:
     train_eval = evaluate(train_tasks, student_params, reuse)
     test_eval = evaluate(test_tasks, student_params, reuse)
 
+    config = {
+        "repo_root": str(repo_root),
+        "outdir": str(outdir),
+        "train_n": args.train_n,
+        "test_n": args.test_n,
+        "teacher_iters": args.teacher_iters,
+        "outer_iters": args.outer_iters,
+        "seed": args.seed,
+    }
+    command = " ".join(sys.argv)
     metrics = {
+        "artifact_kind": "parking_psm_training_metrics",
+        "command": command,
+        "config": config,
         "seed": args.seed,
         "teacher_iters": args.teacher_iters,
         "outer_iters": args.outer_iters,
+        "metrics_output": str(metrics_path),
+        "traces_output": str(traces_path),
         "student_fit": {"method": "em_style_segment_assignment", "em_iters": 4, "modes": list(STUDENT_MODES)},
         "repo_reuse": manifest["reuse"],
         "learned_thresholds": student_params.__dict__,
@@ -518,7 +576,18 @@ def run_experiment(args: argparse.Namespace) -> Dict[str, object]:
         "student_train_examples": [compact_trace(trace) for trace in train_eval[:5]],
         "student_test_examples": [compact_trace(trace) for trace in test_eval[:5]],
     }
-    save_json(outdir / "metrics.json", metrics)
+    trace_payload = {
+        "artifact_kind": "parking_psm_training_traces",
+        "command": command,
+        "config": config,
+        "train_tasks": [serialize_task(task) for task in train_tasks],
+        "test_tasks": [serialize_task(task) for task in test_tasks],
+        "teacher_traces": serialize_trajectories(teacher_traces),
+        "student_train_traces": serialize_trajectories(train_eval),
+        "student_test_traces": serialize_trajectories(test_eval),
+    }
+    save_json(metrics_path, metrics)
+    save_json(traces_path, trace_payload)
     plot_trajectories(outdir / "trajectories.png", train_eval, test_eval, train_tasks, test_tasks)
     plot_success_rates(outdir / "success_rates.png", metrics)
     return metrics
@@ -567,6 +636,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--teacher-iters", default=3, type=int)
     parser.add_argument("--outer-iters", default=2, type=int)
     parser.add_argument("--seed", default=0, type=int)
+    parser.add_argument("--metrics-output", default=None, type=Path)
+    parser.add_argument("--traces-output", default=None, type=Path)
     parser.add_argument("--verify", action="store_true", help="fail if the synthesized policy does not satisfy basic paper-level checks")
     return parser.parse_args()
 
@@ -585,7 +656,9 @@ def main() -> int:
         f"student_train={metrics['student_train']['success_rate']:.2f}, "
         f"student_test={metrics['student_test']['success_rate']:.2f}"
     )
-    print(f"artifacts written to {args.outdir.resolve()}")
+    print(f"metrics written to {metrics['metrics_output']}")
+    print(f"traces written to {metrics['traces_output']}")
+    print(f"plots written to {args.outdir.resolve()}")
     return 0
 
 

@@ -1,5 +1,0 @@
-job_id,policy,seed,hyperparam_mode,hyperparam_sample,total_timesteps,rollout_steps,num_envs,hidden_size,update_epochs,minibatches,learning_rate,entropy_coef,clip_range,eval_rollouts,test_max_steps,eval_interval,device,output,metrics_output
-0,mlp,0,paper-random,0,1000000,128,8,64,5,64,0.002275073436806206,0.1,0.2,200,15000,0,cuda,artifacts/ppo_sweep_cuda_medium_core/checkpoints/00000_mlp_seed0.pt,artifacts/ppo_sweep_cuda_medium_core/metrics/00000_mlp_seed0.json
-1,mlp,1,paper-random,0,1000000,128,8,64,5,64,0.002275073436806206,0.1,0.2,200,15000,0,cuda,artifacts/ppo_sweep_cuda_medium_core/checkpoints/00001_mlp_seed1.pt,artifacts/ppo_sweep_cuda_medium_core/metrics/00001_mlp_seed1.json
-2,lstm,0,paper-random,0,1000000,128,8,64,36,1,0.0015500577915270816,0.05,0.1,200,15000,0,cuda,artifacts/ppo_sweep_cuda_medium_core/checkpoints/00002_lstm_seed0.pt,artifacts/ppo_sweep_cuda_medium_core/metrics/00002_lstm_seed0.json
-3,lstm,1,paper-random,0,1000000,128,8,64,36,1,0.0015500577915270816,0.05,0.1,200,15000,0,cuda,artifacts/ppo_sweep_cuda_medium_core/checkpoints/00003_lstm_seed1.pt,artifacts/ppo_sweep_cuda_medium_core/metrics/00003_lstm_seed1.json
