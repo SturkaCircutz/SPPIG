@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -474,24 +475,53 @@ def save_json(path: Path, data: object) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def plot_trajectories(outpath: Path, train_eval: List[Trajectory], test_eval: List[Trajectory], train_tasks: List[ParkingTask], test_tasks: List[ParkingTask]) -> None:
+def _draw_heading_samples(ax, states: np.ndarray, color: str) -> None:
+    if states.size == 0:
+        return
+    for idx in sorted({0, len(states) // 2, len(states) - 1}):
+        x, y, theta = states[idx]
+        ax.arrow(
+            float(x),
+            float(y),
+            0.75 * math.cos(float(theta)),
+            0.75 * math.sin(float(theta)),
+            color=color,
+            alpha=0.45,
+            width=0.018,
+            head_width=0.10,
+            head_length=0.18,
+            length_includes_head=True,
+        )
+
+
+def plot_trajectories(
+    outpath: Path,
+    train_eval: List[Trajectory],
+    test_eval: List[Trajectory],
+    train_tasks: List[ParkingTask],
+    test_tasks: List[ParkingTask],
+    figure_title: str = "Student state-machine trajectories",
+) -> None:
     if plt is None:
         return
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
-    for ax, title, traces, tasks in [(axes[0], "Train distribution", train_eval[:6], train_tasks[:6]), (axes[1], "Test distribution", test_eval[:6], test_tasks[:6])]:
+    for ax, panel_title, traces, tasks in [(axes[0], "Train distribution", train_eval[:6], train_tasks[:6]), (axes[1], "Test distribution", test_eval[:6], test_tasks[:6])]:
         for trace, task in zip(traces, tasks):
             states = np.array(trace.states)
-            ax.plot(states[:, 0], states[:, 1], color="tab:green" if trace.success else "tab:red", alpha=0.75, linewidth=1.8)
+            color = "tab:green" if trace.success else "tab:red"
+            ax.plot(states[:, 0], states[:, 1], color=color, alpha=0.75, linewidth=1.8)
+            _draw_heading_samples(ax, states, color)
             ax.scatter(states[0, 0], states[0, 1], color="black", s=18)
             ax.scatter(task.goal[0], task.goal[1], color="tab:blue", s=28, marker="x")
             ax.add_patch(plt.Rectangle((task.back_x - task.car_length / 2.0, 0.20), task.car_length, 0.85, color="gray", alpha=0.20))
             ax.add_patch(plt.Rectangle((task.front_x - task.car_length / 2.0, 0.20), task.car_length, 0.85, color="gray", alpha=0.20))
         ax.axhline(0.20, color="saddlebrown", linewidth=1.0, linestyle="--", alpha=0.7)
-        ax.set_title(title)
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_title(panel_title)
         ax.set_xlabel("longitudinal position x")
         ax.grid(True, alpha=0.25)
     axes[0].set_ylabel("lateral distance from curb y")
-    fig.suptitle("Student state-machine trajectories")
+    fig.suptitle(figure_title)
     fig.tight_layout()
     fig.savefig(outpath, dpi=150)
     plt.close(fig)

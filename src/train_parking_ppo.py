@@ -434,7 +434,14 @@ def run_experiment(args: argparse.Namespace) -> Dict[str, object]:
     }
     save_json(metrics_path, metrics)
     save_json(traces_path, trace_payload)
-    plot_trajectories(outdir / "ppo_trajectories.png", train_eval, test_eval, train_tasks, test_tasks)
+    plot_trajectories(
+        outdir / "ppo_trajectories.png",
+        train_eval,
+        test_eval,
+        train_tasks,
+        test_tasks,
+        figure_title="PPO baseline trajectories",
+    )
     return metrics
 
 
