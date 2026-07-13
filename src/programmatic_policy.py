@@ -62,17 +62,14 @@ class PolicyParams:
     approach_speed: float
     approach_heading_gain: float
     approach_lane_y: float
-    approach_lateral_gain: float
+    approach_lane_gain: float
     arc_speed: float
     arc_steer: float
-    arc_lateral: float
     counter_speed: float
     counter_steer: float
-    counter_lateral: float
     center_speed_gain: float
     center_theta_gain: float
     center_goal_y_gain: float
-    center_lateral_gain: float
 
 
 def clip(value: float, low: float, high: float) -> float:
@@ -90,17 +87,14 @@ def default_policy_params() -> PolicyParams:
         approach_speed=1.25,
         approach_heading_gain=-1.10,
         approach_lane_y=3.00,
-        approach_lateral_gain=0.65,
+        approach_lane_gain=0.65,
         arc_speed=-0.92,
         arc_steer=-0.58,
-        arc_lateral=-0.18,
         counter_speed=-0.70,
         counter_steer=0.60,
-        counter_lateral=-0.07,
         center_speed_gain=0.72,
         center_theta_gain=-1.35,
         center_goal_y_gain=0.55,
-        center_lateral_gain=0.85,
     )
 
 
@@ -110,38 +104,36 @@ def mode_action_params(params: PolicyParams, mode_name: str) -> List[float]:
             params.approach_speed,
             params.approach_heading_gain,
             params.approach_lane_y,
-            params.approach_lateral_gain,
+            params.approach_lane_gain,
         ]
     if mode_name == "arc_back":
-        return [params.arc_speed, params.arc_steer, params.arc_lateral]
+        return [params.arc_speed, params.arc_steer]
     if mode_name == "counter":
-        return [params.counter_speed, params.counter_steer, params.counter_lateral]
+        return [params.counter_speed, params.counter_steer]
     if mode_name == "center":
         return [
             params.center_speed_gain,
             params.center_theta_gain,
             params.center_goal_y_gain,
-            params.center_lateral_gain,
         ]
-    return [0.0, 0.0, 0.0]
+    return [0.0, 0.0]
 
 
 def action_from_mode_params(mode_name: str, action_params: List[float], obs: Observation) -> Action:
     if mode_name == "approach":
-        speed, heading_gain, lane_y, lateral_gain = action_params
-        lane_correction = clip(lateral_gain * (lane_y - obs[1]), -0.35, 0.35)
-        return [speed, clip(heading_gain * obs[2], -0.35, 0.35), lane_correction]
+        speed, heading_gain, lane_y, lane_gain = action_params
+        steer = clip(heading_gain * obs[2] + lane_gain * (lane_y - obs[1]), -0.58, 0.58)
+        return [speed, steer]
     if mode_name in {"arc_back", "counter"}:
-        return [action_params[0], action_params[1], action_params[2]]
+        return [action_params[0], action_params[1]]
     if mode_name == "center":
-        speed_gain, theta_gain, goal_y_gain, lateral_gain = action_params
+        speed_gain, theta_gain, goal_y_gain = action_params
         speed = clip(speed_gain * obs[5], -0.65, 0.65)
         if abs(obs[5]) < 0.18 and abs(obs[6]) > 0.12:
             speed = 0.38 if obs[6] < 0.0 else -0.34
         steer = clip(theta_gain * obs[2] + goal_y_gain * obs[6], -0.58, 0.58)
-        lateral_rate = clip(lateral_gain * obs[6], -0.42, 0.42)
-        return [speed, steer, lateral_rate]
-    return [0.0, 0.0, 0.0]
+        return [speed, steer]
+    return [0.0, 0.0]
 
 
 def try_reuse_state_machine(repo_root: Path, manifest: dict) -> ReuseResult:
@@ -230,7 +222,7 @@ def build_policy(params: PolicyParams, reuse: ReuseResult) -> object:
             center_action,
             {"done": lambda obs: min(params.done_radius - obs[7], 0.22 - abs(obs[2]))},
         ),
-        "done": ModeCls("done", lambda obs: [0.0, 0.0, 0.0], {}),
+        "done": ModeCls("done", lambda obs: [0.0, 0.0], {}),
     }
     return PsmCls(modes=modes, start_mode="approach", end_mode="done")
 

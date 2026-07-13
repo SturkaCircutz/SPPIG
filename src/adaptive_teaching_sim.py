@@ -35,15 +35,21 @@ MODE_SEQUENCE = ("approach", "arc_back", "approach", "arc_back", "counter", "cen
 STUDENT_MODES = ("approach", "arc_back", "counter", "center")
 ACTION_SLICES = {
     "approach": slice(0, 4),
-    "arc_back": slice(4, 7),
-    "counter": slice(7, 10),
-    "center": slice(10, 14),
+    "arc_back": slice(4, 6),
+    "counter": slice(6, 8),
+    "center": slice(8, 11),
 }
-ACTION_LOW = np.array([0.70, -2.00, 2.30, 0.20, -1.35, -0.78, -0.34, -1.05, 0.28, -0.20, 0.35, -2.20, 0.00, 0.35], dtype=float)
-ACTION_HIGH = np.array([1.55, -0.15, 3.55, 1.10, -0.45, -0.22, 0.02, -0.35, 0.85, 0.08, 1.20, -0.55, 1.15, 1.20], dtype=float)
+ACTION_LOW = np.array([0.70, -2.00, 2.30, 0.20, -1.35, -0.78, -1.05, 0.28, 0.35, -2.20, 0.00], dtype=float)
+ACTION_HIGH = np.array([1.55, -0.15, 3.55, 1.10, -0.45, -0.22, -0.35, 0.85, 1.20, -0.55, 1.15], dtype=float)
 DEFAULT_SEGMENT_DURATIONS = np.array([105, 28, 20, 20, 16, 14], dtype=float)
 DURATION_LOW = np.array([55, 14, 8, 0, 0, 5], dtype=float)
 DURATION_HIGH = np.array([135, 44, 36, 38, 30, 30], dtype=float)
+ACTION_SPEC = {
+    "type": "continuous",
+    "dimension": 2,
+    "components": ["velocity", "steering"],
+    "dynamics": "low_speed_bicycle",
+}
 
 
 @dataclass
@@ -211,7 +217,7 @@ def teacher_optimize_task(task: ParkingTask, reuse: ReuseResult, rng: np.random.
     mean = np.concatenate([action_mean, duration_mean])
     std = np.concatenate(
         [
-            np.array([0.18, 0.35, 0.22, 0.20, 0.18, 0.14, 0.08, 0.16, 0.12, 0.06, 0.14, 0.28, 0.20, 0.18], dtype=float),
+            np.array([0.18, 0.35, 0.22, 0.20, 0.18, 0.14, 0.16, 0.12, 0.14, 0.28, 0.20], dtype=float),
             np.array([18, 8, 7, 10, 8, 6], dtype=float),
         ]
     )
@@ -365,17 +371,14 @@ def _params_from_components(
         approach_speed=approach[0],
         approach_heading_gain=approach[1],
         approach_lane_y=approach[2],
-        approach_lateral_gain=approach[3],
+        approach_lane_gain=approach[3],
         arc_speed=arc_back[0],
         arc_steer=arc_back[1],
-        arc_lateral=arc_back[2],
         counter_speed=counter[0],
         counter_steer=counter[1],
-        counter_lateral=counter[2],
         center_speed_gain=center[0],
         center_theta_gain=center[1],
         center_goal_y_gain=center[2],
-        center_lateral_gain=center[3],
     )
 
 
@@ -563,6 +566,7 @@ def run_experiment(args: argparse.Namespace) -> Dict[str, object]:
         "outer_iters": args.outer_iters,
         "metrics_output": str(metrics_path),
         "traces_output": str(traces_path),
+        "action_spec": ACTION_SPEC,
         "student_fit": {"method": "em_style_segment_assignment", "em_iters": 4, "modes": list(STUDENT_MODES)},
         "repo_reuse": manifest["reuse"],
         "learned_thresholds": student_params.__dict__,
@@ -580,6 +584,7 @@ def run_experiment(args: argparse.Namespace) -> Dict[str, object]:
         "artifact_kind": "parking_psm_training_traces",
         "command": command,
         "config": config,
+        "action_spec": ACTION_SPEC,
         "train_tasks": [serialize_task(task) for task in train_tasks],
         "test_tasks": [serialize_task(task) for task in test_tasks],
         "teacher_traces": serialize_trajectories(teacher_traces),

@@ -51,9 +51,12 @@ class ParkingTrainingCliTest(unittest.TestCase):
         self.assertEqual(traces["artifact_kind"], "parking_psm_training_traces")
         self.assertEqual(metrics["config"]["train_n"], 2)
         self.assertEqual(metrics["config"]["test_n"], 2)
+        self.assertEqual(metrics["action_spec"]["components"], ["velocity", "steering"])
+        self.assertEqual(traces["action_spec"]["dimension"], 2)
         self.assertEqual(metrics["student_fit"]["method"], "em_style_segment_assignment")
         self.assertIn("front_threshold", metrics["learned_thresholds"])
-        self.assertIn("center_lateral_gain", metrics["learned_thresholds"])
+        self.assertIn("center_goal_y_gain", metrics["learned_thresholds"])
+        self.assertNotIn("center_lateral_gain", metrics["learned_thresholds"])
         self.assertGreater(metrics["student_train"]["success_rate"], 0.0)
         self.assertGreater(
             metrics["student_test"]["success_rate"],
@@ -65,10 +68,23 @@ class ParkingTrainingCliTest(unittest.TestCase):
         self.assertTrue(traces["student_test_traces"])
         self.assertIn("slot_length", traces["train_tasks"][0])
         self.assertIn("actions", traces["teacher_traces"][0])
+        teacher_action_lengths = {
+            len(action)
+            for trace in traces["teacher_traces"]
+            for action in trace["actions"]
+        }
+        student_action_lengths = {
+            len(action)
+            for trace in traces["student_test_traces"]
+            for action in trace["actions"]
+        }
+        self.assertEqual(teacher_action_lengths, {2})
+        self.assertEqual(student_action_lengths, {2})
 
         metrics_text = json.dumps(metrics).lower()
         self.assertNotIn("pole_length", metrics_text)
         self.assertNotIn("classic_control", metrics_text)
+        self.assertNotIn("lateral_rate", metrics_text)
 
     def test_parking_training_module_exports_runner_helpers(self):
         import train_parking_psm

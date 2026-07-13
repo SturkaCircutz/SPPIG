@@ -5,6 +5,9 @@ parking code trains a compact programmatic state machine from loop-free teacher
 traces, evaluates it on train and test parking-task distributions, and writes
 auditable metrics plus full trajectory sidecars.
 
+The parking environment uses the paper-style continuous action interface:
+`[velocity, steering]`. There is no direct lateral-rate action channel.
+
 ## Main Command
 
 Install dependencies:

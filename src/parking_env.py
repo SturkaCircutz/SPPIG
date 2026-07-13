@@ -1,8 +1,7 @@
-"""Simplified continuous-control parking benchmark.
+"""Continuous-control parking benchmark for programmatic policies.
 
-The benchmark is inspired by the tight-parking example in Inala et al.  It is a
-small deterministic approximation, not a reproduction of the paper's full
-physics or experiments.
+The benchmark follows the tight-parking control interface used by Inala et al.:
+each action is longitudinal velocity plus steering angle.
 """
 
 from __future__ import annotations
@@ -27,7 +26,7 @@ class ParkingTask:
     back_x: float
     start: np.ndarray
     goal: np.ndarray
-    max_steps: int = 180
+    max_steps: int = 260
 
 
 @dataclass
@@ -96,21 +95,17 @@ def observe(state: np.ndarray, task: ParkingTask) -> Observation:
 
 
 def step_dynamics(state: np.ndarray, action: Sequence[float], dt: float = 0.10) -> np.ndarray:
-    """Low-speed bicycle dynamics with a small lateral correction actuator.
+    """Low-speed bicycle dynamics controlled by velocity and steering."""
 
-    The first two action dimensions are velocity and steering angle, matching
-    the paper's parking example.  The optional third term is a simplified
-    lateral-rate channel that keeps this toy benchmark numerically stable.
-    """
-
+    if len(action) != 2:
+        raise ValueError(f"parking action must be [velocity, steering], got {len(action)} values")
     speed, steer = float(action[0]), float(action[1])
-    lateral_rate = float(action[2]) if len(action) > 2 else 0.0
     wheelbase = 2.70
     x, y, theta = state
     theta = theta + (speed / wheelbase) * math.tan(steer) * dt
     theta = ((theta + math.pi) % (2.0 * math.pi)) - math.pi
     x = x + speed * math.cos(theta) * dt
-    y = y + speed * math.sin(theta) * dt + lateral_rate * dt
+    y = y + speed * math.sin(theta) * dt
     return np.array([x, y, theta], dtype=float)
 
 
