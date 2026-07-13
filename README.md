@@ -37,6 +37,20 @@ Equivalent script entry point:
 .venv/bin/python scripts/run_parking_reproduction.py --verify
 ```
 
+Run the PPO baseline on the same parking action interface:
+
+```bash
+.venv/bin/python scripts/run_parking_ppo.py \
+  --train-n 8 \
+  --test-n 8 \
+  --updates 4 \
+  --rollouts-per-update 8 \
+  --outdir artifacts/parking_ppo \
+  --metrics-output artifacts/parking_ppo/metrics.json \
+  --traces-output artifacts/parking_ppo/traces.json \
+  --verify
+```
+
 ## Outputs
 
 The trainer writes:
@@ -47,6 +61,9 @@ artifacts/parking_policy/traces.json        teacher and student trajectories
 artifacts/parking_policy/repo_manifest.json reusable state-machine scan
 artifacts/parking_policy/trajectories.png   train/test rollout plot, when matplotlib is installed
 artifacts/parking_policy/success_rates.png  success-rate summary, when matplotlib is installed
+artifacts/parking_ppo/metrics.json          PPO baseline metrics
+artifacts/parking_ppo/traces.json           PPO baseline trajectories
+artifacts/parking_ppo/ppo_trajectories.png  PPO rollout plot, when matplotlib is installed
 ```
 
 `metrics.json` includes baseline, teacher, student-train, and student-test
@@ -61,13 +78,15 @@ src/programmatic_policy.py      parking state-machine policy and parameters
 src/adaptive_teaching_sim.py    parking teacher/student training loop
 src/train_parking_psm.py        parking training CLI
 scripts/run_parking_reproduction.py
+scripts/run_parking_ppo.py
 tests/test_parking_training_cli.py
+tests/test_parking_ppo_cli.py
 ```
 
 ## Tests
 
-Run the focused parking training tests:
+Run all tests:
 
 ```bash
-.venv/bin/python -m unittest tests/test_parking_training_cli.py
+.venv/bin/python -m unittest discover -s tests
 ```
