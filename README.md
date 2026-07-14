@@ -1,82 +1,82 @@
 # SPPIG Parking Programmatic Policy
 
-This repository now uses the parking benchmark as the active training path. The
-parking code trains a compact programmatic state machine from loop-free teacher
-traces, evaluates it on train and test parking-task distributions, and writes
-auditable metrics plus full trajectory sidecars.
+This repository contains a local implementation study inspired by
+**Synthesizing Programmatic Policies that Inductively Generalize**.  The active
+benchmark is a **10 m** parking task where loop-free teacher traces are distilled
+into a compact programmatic state machine.
 
-The parking environment uses the paper-style continuous action interface:
-`[velocity, steering]`. There is no direct lateral-rate action channel.
+The parking action is:
 
-## Main Command
+```text
+[velocity, steering]
+```
 
-Install dependencies:
+> [!IMPORTANT]
+> There is no direct lateral-rate action channel.  The parking
+> controller uses the paper-style velocity/steering interface.
+
+## Setup
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Run a small verified parking training job:
+## Quick Smoke Run
+
+Use this first to confirm the code works on your machine:
 
 ```bash
-.venv/bin/python src/train_parking_psm.py \
-  --train-n 24 \
-  --test-n 24 \
-  --teacher-iters 3 \
-  --outer-iters 2 \
-  --outdir artifacts/parking_policy \
-  --metrics-output artifacts/parking_policy/metrics.json \
-  --traces-output artifacts/parking_policy/traces.json \
+.venv/bin/python scripts/run_parking_reproduction.py \
+  --train-n 24 --test-n 24 \
+  --teacher-iters 2 --outer-iters 2 \
+  --outdir artifacts/parking_policy_smoke \
   --verify
 ```
 
-Equivalent script entry point:
+## Final Report Run
+
+This is the main scale used for the polished local report:
 
 ```bash
-.venv/bin/python scripts/run_parking_reproduction.py --verify
+.venv/bin/python scripts/run_parking_reproduction.py \
+  --train-n 2000 --test-n 100 \
+  --teacher-iters 2 --outer-iters 2 --seed 0 \
+  --outdir artifacts/parking_policy_2000x100 \
+  --verify
 ```
 
-Run the PPO baseline on the same parking action interface:
+> [!IMPORTANT]
+> The final reported parking run uses **2000** training tasks and **100**
+> held-out test tasks.  Keep `--verify` enabled so the CLI fails if the learned
+> student does not satisfy the basic result checks.
+
+Run the small PPO diagnostic on the same task scale:
 
 ```bash
 .venv/bin/python scripts/run_parking_ppo.py \
-  --train-n 8 \
-  --test-n 8 \
-  --updates 4 \
-  --rollouts-per-update 8 \
-  --outdir artifacts/parking_ppo \
-  --metrics-output artifacts/parking_ppo/metrics.json \
-  --traces-output artifacts/parking_ppo/traces.json \
+  --train-n 2000 --test-n 100 --seed 0 \
+  --outdir artifacts/parking_ppo_2000x100 \
   --verify
 ```
 
+> [!IMPORTANT]
+> The PPO command is a local diagnostic baseline.  It is not a paper-scale PPO
+> training run.
+
 ## Outputs
 
-The trainer writes:
+Each run writes metrics, trajectories, a repository manifest, and summary plots
+under the selected `artifacts/` directory.  These files are ignored by Git
+because the full traces can be large.
 
-```text
-artifacts/parking_policy/metrics.json       training, evaluation, learned thresholds
-artifacts/parking_policy/traces.json        teacher and student trajectories
-artifacts/parking_policy/repo_manifest.json reusable state-machine scan
-artifacts/parking_policy/trajectories.png   train/test rollout plot, when matplotlib is installed
-artifacts/parking_policy/success_rates.png  success-rate summary, when matplotlib is installed
-artifacts/parking_ppo/metrics.json          PPO baseline metrics
-artifacts/parking_ppo/traces.json           PPO baseline trajectories
-artifacts/parking_ppo/ppo_trajectories.png  PPO rollout plot, when matplotlib is installed
-```
-
-`metrics.json` includes baseline, teacher, student-train, and student-test
-summaries. `traces.json` includes parking task geometry, teacher trajectories,
-student train trajectories, and student test trajectories.
-
-## Important Files
+## Main Files
 
 ```text
 src/parking_env.py              parking task generation and dynamics
 src/programmatic_policy.py      parking state-machine policy and parameters
-src/adaptive_teaching_sim.py    parking teacher/student training loop
-src/train_parking_psm.py        parking training CLI
+src/adaptive_teaching_sim.py    teacher search and student distillation
+src/train_parking_psm.py        parking PSM training CLI
 scripts/run_parking_reproduction.py
 scripts/run_parking_ppo.py
 tests/test_parking_training_cli.py
@@ -85,8 +85,13 @@ tests/test_parking_ppo_cli.py
 
 ## Tests
 
-Run all tests:
-
 ```bash
 .venv/bin/python -m unittest discover -s tests
 ```
+
+## Scope
+
+This is a local implementation and artifact bundle.  It is reinforcement
+learning related because it studies programmatic policies for continuous-control
+tasks and includes a PPO diagnostic, but it does not claim a new RL algorithm or
+a full paper-scale reproduction.

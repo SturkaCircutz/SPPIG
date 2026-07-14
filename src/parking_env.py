@@ -15,6 +15,7 @@ import numpy as np
 
 Observation = List[float]
 Action = List[float]
+START_GOAL_X_DISTANCE = 10.0
 
 
 @dataclass
@@ -26,6 +27,7 @@ class ParkingTask:
     back_x: float
     start: np.ndarray
     goal: np.ndarray
+    start_goal_x_distance: float = START_GOAL_X_DISTANCE
     max_steps: int = 260
 
 
@@ -48,19 +50,17 @@ def make_tasks(n: int, split: str, rng: np.random.Generator) -> List[ParkingTask
     for task_id in range(n):
         if split == "train":
             slot_length = float(rng.uniform(6.7, 7.7))
-            start_x_offset = float(rng.uniform(3.5, 5.5))
             start_y = float(rng.uniform(2.75, 3.25))
             heading_noise = float(rng.normal(0.0, 0.03))
         else:
             slot_length = float(rng.uniform(6.0, 8.8))
-            start_x_offset = float(rng.uniform(2.8, 7.2))
             start_y = float(rng.uniform(2.35, 3.65))
             heading_noise = float(rng.normal(0.0, 0.07))
         car_length = 4.5
         front_x = slot_length / 2.0 + car_length / 2.0
         back_x = -slot_length / 2.0 - car_length / 2.0
-        start = np.array([back_x - start_x_offset, start_y, heading_noise], dtype=float)
         goal = np.array([0.0, 0.58, 0.0], dtype=float)
+        start = np.array([goal[0] - START_GOAL_X_DISTANCE, start_y, heading_noise], dtype=float)
         tasks.append(
             ParkingTask(
                 task_id=task_id,
@@ -70,6 +70,7 @@ def make_tasks(n: int, split: str, rng: np.random.Generator) -> List[ParkingTask
                 back_x=back_x,
                 start=start,
                 goal=goal,
+                start_goal_x_distance=START_GOAL_X_DISTANCE,
             )
         )
     return tasks
