@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 artifacts/
 .venv/
+zenodo_upload/
+zenodo_*.zip
